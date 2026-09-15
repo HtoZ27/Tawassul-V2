@@ -23,6 +23,17 @@ in both trees. Anchors are validated by `scripts/check-shared-anchors.mjs`
 (`npm run check:shared`). Add an `S-###` entry whenever a problem recurs across
 versions; do not duplicate the fix in both codebases.
 
+## Ownership boundary (minimal overlap between the two projects)
+
+1. **v1 side transfers, never edits here.** Problems and proven fix shapes from
+   the v1 tree arrive only as `SHARED.md` entries (`S-###`) with valid v1/v2
+   anchors. No direct code edits from outside this tree.
+2. **v2 agents own this tree.** Only agents working in this folder implement,
+   verify (`npm run verify`), and commit code changes derived from `SHARED.md`
+   entries. Mark the entry implemented; do not edit v1.
+3. **One channel.** `SHARED.md` is the single transfer channel between the
+   projects. No side edits, no duplicated fixes, no cross-tree commits.
+
 ## Porting from v1
 
 - Never copy Arabic code or comments.
