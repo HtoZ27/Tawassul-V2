@@ -29,7 +29,6 @@ interface TaskItem {
   dependencies: string[];
   status: Status;
   blockedReason?: string;
-  sessionId?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -206,7 +205,7 @@ export class MissionBoard {
     this.persistAndLog(board);
   }
 
-  updateStatus(boardId: string, taskId: string, status: Status, reason?: string, opts?: { sessionId?: string }): void {
+  updateStatus(boardId: string, taskId: string, status: Status, reason?: string): void {
     const board = this.boards.get(boardId);
     if (!board) return;
     
@@ -230,7 +229,6 @@ export class MissionBoard {
     task.status = status;
     task.updatedAt = Date.now();
     task.blockedReason = status === "blocked" ? reason : undefined;
-    if (opts?.sessionId) task.sessionId = opts.sessionId;
     board.columns[status].push(task);
     
     board._taskIndex!.delete(taskId);
@@ -240,10 +238,7 @@ export class MissionBoard {
       board._taskIndex!.set(t.id, { column: from, idx: i });
     }
     this.persistAndLog(board);
-    // Keep the on-disk index in sync with the status change so readers of
-    // index.json never see a finished board as still active (loop guard).
-    this.scheduleIndexWrite();
-    this.eventHub?.emit({ type: "TASK_STATUS_CHANGED", boardId, taskId, from, to: status, ...(opts?.sessionId ? { sessionId: opts.sessionId } : {}) });
+    this.eventHub?.emit({ type: "TASK_STATUS_CHANGED", boardId, taskId, from, to: status });
     if (status === "blocked") {
       this.eventHub?.emit({ type: "TASK_BLOCKED", boardId, taskId, reason: reason ?? "unspecified" });
     }

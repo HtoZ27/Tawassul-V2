@@ -74,7 +74,7 @@ export type TawassulEvent =
   | { type: "CHECKPOINT_CREATED"; taskId: string; snapshotId: string }
   | { type: "CHECKPOINT_RESTORED"; snapshotId: string }
   | { type: "BOARD_CREATED"; boardId: string; name: string }
-  | { type: "TASK_STATUS_CHANGED"; boardId: string; taskId: string; from: string; to: string; sessionId?: string }
+  | { type: "TASK_STATUS_CHANGED"; boardId: string; taskId: string; from: string; to: string }
   | { type: "TASK_BLOCKED"; boardId: string; taskId: string; reason: string }
   // P0.6 — frame-only events (payloads filled in by their P1-P3 consumers)
   | {

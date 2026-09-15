@@ -133,13 +133,13 @@ Resolution in v1 is a git operation, not a code edit: take the HEAD ("Updated up
 - `updateStatus` (سطر 212): استقبِلْ `sessionId` ومرّرْه
 - `getBoard` (سطر 244): اعرضْهُ كي يرى النموذجُ «منجَزٌ في جلسةٍ أخرى»
 
-## S-011 Status-change index sync + session provenance (loop guard)
+## S-011 Status-change index sync + session provenance (loop guard) — TRANSFERRED, for v2 agents to implement
 
-`updateStatus` persisted the board but never refreshed `index.json`, so a finished board kept showing as `active` there and the model re-queued done work in a loop. Separately, `TaskItem` carried no session identity, so the model could not tell work done by another session apart from its own.
+`updateStatus` persists the board but never refreshes `index.json`, so a finished board can keep showing as `active` there and the model re-queues done work in a loop. Separately, `TaskItem` carries no session identity, so the model cannot tell work done by another session apart from its own. Ownership: v1 side states the problem and the proven fix shape; v2 agents implement in this tree.
 
 | | Anchor |
 | --- | --- |
 | v1 problem | `v1/services/mission-board.ts:224` — `persistAndLog` without `scheduleIndexWrite` inside the status-change path; no `sessionId` anywhere in the file |
-| v1 fix | `v1/services/mission-board.ts:232` — stale-index rebuild + retry (un-stick) covers the write path only, not the index or provenance |
-| v2 problem | `src/services/mission-board.ts:245` — same gap after the port: persist without index sync; `src/services/mission-board.ts:24` — `TaskItem` without session identity |
-| v2 fix | `src/services/mission-board.ts:245` — `scheduleIndexWrite()` after `persistAndLog`; `src/services/mission-board.ts:32` — `sessionId?: string` on `TaskItem`; `src/services/mission-board.ts:209` — `opts?: { sessionId?: string }` param stored at `src/services/mission-board.ts:233` and emitted at `src/services/mission-board.ts:246`; `src/services/event-hub.ts:77` — optional `sessionId` on the event; `src/tools/tawa/show-board.ts:45` — session suffix shown when present |
+| v1 fix shape | `v1/services/mission-board.ts:232` — stale-index rebuild + retry (un-stick) covers the write path only, not the index or provenance |
+| v2 problem | `src/services/mission-board.ts:240` — persist without index sync in `updateStatus`; `src/services/mission-board.ts:24` — `TaskItem` without session identity |
+| proposed v2 fix | in `src/services/mission-board.ts:240` call `scheduleIndexWrite()` after `persistAndLog`; add `sessionId?: string` to `TaskItem` at `src/services/mission-board.ts:24`, accept it via `updateStatus` at `src/services/mission-board.ts:208`, store and emit it, carry it on the event at `src/services/event-hub.ts:77`, and render it in `src/tools/tawa/show-board.ts:45` |
