@@ -1,0 +1,120 @@
+
+
+import { copyFile, unlink, readdir, readFile, stat, chmod, open } from "node:fs/promises";
+import { dirname, basename, join } from "node:path";
+import { randomBytes } from "node:crypto";
+import { atomicWriteFile as atomicWriteFs } from "../infra/disk-utils.ts";
+import { logger } from "./logger.ts";
+
+const MAX_BACKUPS = 5;
+
+export interface AtomicWriteResult {
+  path: string;
+  bytes: number;
+  backupPath: string | null;
+  replaced: boolean;
+}
+
+async function pruneOldBackups(filePath: string): Promise<void> {
+  try {
+    const dir = dirname(filePath);
+    const base = basename(filePath);
+    const entries = await readdir(dir);
+    const backups = entries
+      .filter((e) => e.startsWith(`${base}.bak.`))
+      .sort()
+      .reverse();
+    for (const stale of backups.slice(MAX_BACKUPS)) {
+      
+      
+      await unlink(join(dir, stale)).catch(() => undefined);
+    }
+  } catch {
+    /* best-effort */
+  }
+}
+
+
+export async function atomicWriteFile(
+  filePath: string,
+  content: string,
+  opts: { backup?: boolean } = {},
+): Promise<AtomicWriteResult> {
+  const { backup = true } = opts;
+  let backupPath: string | null = null;
+  let replaced = false;
+
+  
+  
+  
+  let originalMode: number | null = null;
+  try {
+    originalMode = (await stat(filePath)).mode & 0o777;
+  } catch {
+    /* destination does not exist yet — new files stay at the sensitive 0o600 */
+  }
+
+  if (backup) {
+    try {
+      backupPath = `${filePath}.bak.${Date.now()}.${randomBytes(6).toString("hex")}`;
+      
+      
+      const bfh = await open(backupPath, "w", 0o600);
+      try {
+        await bfh.writeFile(await readFile(filePath));
+      } finally {
+        await bfh.close();
+      }
+      replaced = true;
+    } catch {
+      backupPath = null; 
+    }
+  }
+
+  await atomicWriteFs(filePath, content);
+
+  
+  if (originalMode !== null) {
+    try {
+      await chmod(filePath, originalMode);
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  try {
+    
+    
+    const finalVerify = await readFile(filePath, "utf-8");
+    if (finalVerify !== content) {
+      throw new Error(`atomicWriteFile: verification failed for ${filePath}`);
+    }
+  } catch (err) {
+    if (backupPath) {
+      try {
+        await copyFile(backupPath, filePath);
+        await unlink(backupPath);
+        logger.warn(`atomicWriteFile: rolled back ${filePath} from backup`);
+      } catch (e) {
+        logger.warn(`atomicWriteFile: rollback failed for ${filePath}:`, e);
+      }
+    }
+    throw err;
+  }
+
+  await pruneOldBackups(filePath);
+
+  return { path: filePath, bytes: Buffer.byteLength(content), backupPath, replaced };
+}
+
+
+export async function rollbackFile(filePath: string, backupPath: string): Promise<boolean> {
+  try {
+    await copyFile(backupPath, filePath);
+    await unlink(backupPath);
+    return true;
+  } catch (err) {
+    logger.warn(`rollbackFile: failed to restore ${filePath} from ${backupPath}:`, err);
+    return false;
+  }
+}

@@ -1,0 +1,84 @@
+import type { PluginInput } from "../plugin-types.ts";
+import { logger } from "../utils/logger.ts";
+import type { V2Context } from "./types.ts";
+
+export function resolveV2Directory(ctx: Pick<V2Context, "location">): string {
+  return ctx.location?.directory?.trim() ? ctx.location.directory : process.cwd();
+}
+
+type TranscriptPromptInput = {
+  path?: { id?: string };
+  body?: { parts?: Array<{ type?: string; text?: string }>; noReply?: boolean };
+  sessionID?: string;
+  text?: string;
+};
+
+function readTranscriptId(input: unknown): string | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const rec = input as TranscriptPromptInput;
+  return rec.path?.id ?? rec.sessionID;
+}
+
+function readTranscriptText(input: unknown): string {
+  if (!input || typeof input !== "object") return "";
+  const rec = input as TranscriptPromptInput;
+  if (typeof rec.text === "string") return rec.text;
+  const parts = rec.body?.parts;
+  if (!Array.isArray(parts)) return "";
+  const chunks: string[] = [];
+  for (const part of parts) {
+    if (part && typeof part.text === "string") chunks.push(part.text);
+  }
+  return chunks.join("\n");
+}
+
+function isNoReply(input: unknown): boolean {
+  if (!input || typeof input !== "object") return false;
+  return (input as TranscriptPromptInput).body?.noReply === true;
+}
+
+function buildSessionClient(ctx: V2Context) {
+  return {
+    prompt: async (input: unknown): Promise<unknown> => {
+      const sessionID = readTranscriptId(input);
+      if (!sessionID) return undefined;
+      const text = readTranscriptText(input).trim();
+      if (!text) return undefined;
+      const delivery = isNoReply(input) ? "queue" : "steer";
+      return ctx.session.prompt({ sessionID, text, delivery });
+    },
+    promptAsync: async (input: unknown): Promise<unknown> => {
+      const sessionID = readTranscriptId(input);
+      if (!sessionID) return undefined;
+      const text = readTranscriptText(input).trim();
+      if (!text) return undefined;
+      const delivery = isNoReply(input) ? "queue" : "steer";
+      const pending = ctx.session.prompt({ sessionID, text, delivery });
+      pending.catch(() => undefined);
+      return pending;
+    },
+  };
+}
+
+export function buildPluginInput(ctx: V2Context): PluginInput {
+  const directory = resolveV2Directory(ctx);
+  const client: Record<string, unknown> = {
+    session: buildSessionClient(ctx),
+    tui: {
+      appendPrompt: async (input: { text?: string } | undefined) => {
+        logger.info(`[tawassul] v2 shim: appendPrompt not supported (${input?.text ?? ""})`);
+        return undefined;
+      },
+      showToast: async (input: { message?: string; variant?: string } | undefined) => {
+        logger.info(`[tawassul] v2 shim: showToast ${input?.variant ?? "info"} (${input?.message ?? ""})`);
+        return undefined;
+      },
+    },
+  };
+  return {
+    client,
+    directory,
+    worktree: directory,
+    serverUrl: undefined,
+  };
+}

@@ -1,0 +1,126 @@
+import { betaMean, betaCIExact, ucbTerm } from "./beta-stats.ts";
+import { normalizeName } from "../utils/name-utils.ts";
+
+type AgentCapability = {
+  agent: string;
+  capabilities: string[];
+  
+  successRates: Record<string, number>;
+  
+  attempts: Record<string, number>;
+  successes: Record<string, number>;
+  lastUpdated: string;
+};
+
+export class CapabilityTracker {
+  private agents: Map<string, AgentCapability> = new Map();
+  private static DEFAULT_ALPHA = 0.3;
+
+  updateCapability(
+    agent: string,
+    capability: string,
+    success: boolean,
+    alpha: number = CapabilityTracker.DEFAULT_ALPHA,
+  ): void {
+    const agentKey = normalizeName(agent);
+    let cap = this.agents.get(agentKey);
+    if (!cap) {
+      cap = {
+        agent: agentKey,
+        capabilities: [],
+        successRates: {},
+        attempts: {},
+        successes: {},
+        lastUpdated: new Date().toISOString(),
+      };
+      this.agents.set(agentKey, cap);
+    }
+
+    if (!cap.capabilities.includes(capability)) {
+      cap.capabilities.push(capability);
+    }
+
+    const key = capability;
+    if (!(key in cap.successRates)) {
+      cap.successRates[key] = 0.5;
+    }
+
+    cap.successRates[key]! = cap.successRates[key]! * (1 - alpha) + (success ? 1 : 0) * alpha;
+    cap.attempts[key] = (cap.attempts[key] ?? 0) + 1;
+    cap.successes[key] = (cap.successes[key] ?? 0) + (success ? 1 : 0);
+    cap.lastUpdated = new Date().toISOString();
+  }
+
+  getCapabilities(agent: string): string[] {
+    return this.agents.get(normalizeName(agent))?.capabilities || [];
+  }
+
+  getSuccessRate(agent: string, capability: string): number {
+    return this.agents.get(normalizeName(agent))?.successRates[capability] || 0.5;
+  }
+
+  
+  getBestAgentForCapability(capability: string, excludeAgents: string[] = []): string | undefined {
+    const normalizedExclude = excludeAgents.map(normalizeName);
+    let bestAgent: string | undefined;
+    let bestScore = -Infinity;
+
+    
+    let totalAttempts = 0;
+    for (const cap of this.agents.values()) {
+      if (!cap.capabilities.includes(capability)) continue;
+      totalAttempts += cap.attempts[capability] ?? 0;
+    }
+
+    for (const [agent, cap] of this.agents.entries()) {
+      if (normalizedExclude.includes(agent)) continue;
+      if (!cap.capabilities.includes(capability)) continue;
+
+      const attempts = cap.attempts[capability] ?? 0;
+      const successes = cap.successes[capability] ?? 0;
+      const mean = betaMean(successes + 1, attempts - successes + 1);
+      const score = mean + ucbTerm(attempts, totalAttempts);
+
+      if (score > bestScore || (score === bestScore && (!bestAgent || agent < bestAgent))) {
+        bestScore = score;
+        bestAgent = agent;
+      }
+    }
+
+    return bestAgent;
+  }
+
+  
+  getAgentScore(agent: string): number {
+    const cap = this.agents.get(normalizeName(agent));
+    if (!cap) return 0.5;
+    const rates = Object.values(cap.successRates);
+    if (rates.length === 0) return 0.5;
+    return rates.reduce((a, b) => a + b, 0) / rates.length;
+  }
+
+  
+  getAgentScoreWithCI(agent: string): { mean: number; lower: number; upper: number } {
+    const cap = this.agents.get(normalizeName(agent));
+    if (!cap) return { mean: 0.5, lower: 0.5, upper: 0.5 };
+
+    let totalAttempts = 0;
+    let totalSuccesses = 0;
+    for (const key of Object.keys(cap.successRates)) {
+      totalAttempts += cap.attempts[key] ?? 0;
+      totalSuccesses += cap.successes[key] ?? 0;
+    }
+
+    if (totalAttempts === 0) return { mean: 0.5, lower: 0.5, upper: 0.5 };
+
+    const alpha = totalSuccesses + 1;
+    const beta = totalAttempts - totalSuccesses + 1;
+    const mean = betaMean(alpha, beta);
+    const ci = betaCIExact(alpha, beta, 0.95);
+    return { mean, lower: ci.lower, upper: ci.upper };
+  }
+
+  getAll(): AgentCapability[] {
+    return [...this.agents.values()];
+  }
+}

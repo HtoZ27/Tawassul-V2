@@ -1,0 +1,68 @@
+import type { ToolDefinition } from "./tool.ts";
+
+export type PluginInput = {
+  client: Record<string, unknown>;
+  directory: string;
+  worktree: string;
+  serverUrl?: string;
+};
+
+export interface DynamicAgentModel {
+  providerID: string;
+  modelID: string;
+}
+
+export interface AgentPermissionBlock {
+  [key: string]: unknown;
+}
+
+export interface AgentConfig {
+  model?: string;
+  mode?: string;
+  permission?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface Config {
+  model?: string;
+  agent?: Record<string, AgentConfig>;
+  [key: string]: unknown;
+}
+
+export type TawassulHooks = {
+  dispose?: () => Promise<void>;
+  event?: (input: { event: unknown }) => Promise<void>;
+  config?: (input: Config) => Promise<void>;
+  tool?: { [key: string]: ToolDefinition };
+  "chat.message"?: (
+    input: {
+      sessionID: string;
+      agent?: string;
+      model?: DynamicAgentModel;
+      messageID?: string;
+      variant?: string;
+    },
+    output: {
+      message: { role: string; text?: string; [key: string]: unknown };
+      parts: { type: string; text?: string; [key: string]: unknown }[];
+    },
+  ) => Promise<void>;
+  "experimental.session.compacting"?: (
+    input: { sessionID: string },
+    output: { context: string[]; prompt?: string },
+  ) => Promise<void>;
+  "tool.definition"?: (
+    input: { toolID: string },
+    output: { description: string; parameters: Record<string, unknown>; jsonSchema?: unknown },
+  ) => Promise<void>;
+  "tool.execute.before"?: (
+    input: { tool: string; agent?: string; sessionID: string; callID: string },
+    output: { args: Record<string, unknown>; error?: string },
+  ) => Promise<void>;
+  "tool.execute.after"?: (
+    input: { tool: string; agent?: string; sessionID: string; callID: string; args: Record<string, unknown> },
+    output: { title: string; output: string; metadata: Record<string, unknown> },
+  ) => Promise<void>;
+};
+
+export type Plugin = (input: PluginInput) => TawassulHooks | Promise<TawassulHooks>;

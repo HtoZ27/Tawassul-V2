@@ -1,0 +1,328 @@
+
+
+
+
+
+
+
+
+
+
+
+import type { AgentStatus } from "./agent-health.ts";
+import { resolveRole } from "../utils/agent.ts";
+import { normalizeName } from "../utils/name-utils.ts";
+
+type CapInfo = { agent: string; capabilities: string[]; successRates: Record<string, number>; lastUpdated: string };
+
+
+
+export interface AgentMatchResult {
+  agent: string;
+  score: number; 
+  breakdown: {
+    roleMatch: number;
+    specializationMatch: number;
+    performanceScore: number;
+    availabilityScore: number;
+    errorPenalty: number;
+  };
+  reason: string;
+  
+  confidenceWidth?: number;
+}
+
+export interface MatchRequest {
+  task: string;
+  preferredRole?: string;
+  specializations: string[];
+  excludeAgents?: string[];
+  requireAvailability?: boolean;
+}
+
+
+
+export class AgentMatcher {
+  constructor(
+    private getAgentStatuses: () => AgentStatus[],
+    private getAgentStats: (agent: string) =>
+      | {
+          handoffsCompleted: number;
+          errors: number;
+          avgResponseTime: number;
+        }
+      | undefined,
+    private getAgentCapabilities: (agent: string) => string[],
+    private getAgentSpecializations: (agent: string) => string[],
+    private getCapabilitySuccessRate?: (agent: string, capability: string) => number,
+    private getPredictedSuccess?: (
+      agent: string,
+      taskDescription: string,
+    ) => { successProbability: number; confidenceLevel: string } | null,
+    private getAgentScore?: (agent: string) => number,
+    private getAllCapabilities?: () => CapInfo[],
+    private isAgentUnavailable?: (agent: string) => boolean,
+    private getAgentScoreWithCI?: (agent: string) => { mean: number; lower: number; upper: number } | null,
+  ) {}
+
+  
+  findBestAgents(request: MatchRequest, topN: number = 3): AgentMatchResult[] {
+    const allAgents = this.getAgentStatuses();
+    
+    
+    const capMap = this.getAllCapabilities ? new Map(this.getAllCapabilities().map((c) => [c.agent, c])) : null;
+    const candidates: AgentMatchResult[] = [];
+
+    for (const status of allAgents) {
+      if (request.excludeAgents?.some((ea) => normalizeName(ea) === normalizeName(status.agent))) continue;
+      if (request.requireAvailability && !this.isAgentAvailable(status)) continue;
+      
+      
+      if (this.isAgentUnavailable?.(status.agent)) continue;
+
+      const result = this.scoreAgent(status, request, capMap ?? undefined);
+      candidates.push(result);
+    }
+
+    
+    
+    candidates.sort(
+      (a, b) =>
+        b.score - a.score ||
+        (a.confidenceWidth ?? Infinity) - (b.confidenceWidth ?? Infinity) ||
+        a.agent.localeCompare(b.agent),
+    );
+    return candidates.slice(0, topN);
+  }
+
+  
+  findBestAgent(request: MatchRequest): AgentMatchResult | null {
+    const results = this.findBestAgents(request, 1);
+    return results.length > 0 ? results[0]! : null;
+  }
+
+  
+  private isAgentStuck(status: AgentStatus): boolean {
+    return status.state === "STUCK" || status.state === "AUTO_PAUSED";
+  }
+
+  
+  private isAgentAvailable(status: AgentStatus): boolean {
+    return !this.isAgentStuck(status) && status.pendingCount < 3;
+  }
+
+  
+  private scoreAgent(status: AgentStatus, request: MatchRequest, capMap?: Map<string, CapInfo>): AgentMatchResult {
+    const agent = status.agent;
+    const stats = this.getAgentStats(agent);
+    const capabilities = capMap?.get(agent)?.capabilities ?? this.getAgentCapabilities(agent);
+    const agentSpecs = this.getAgentSpecializations(agent);
+
+    
+    const roleStr = resolveRole(status.agent) ?? normalizeName(status.agent);
+    const roleMatch = request.preferredRole
+      ? roleStr === normalizeName(request.preferredRole)
+        ? 1.0
+        : this.rolesRelated(roleStr, normalizeName(request.preferredRole))
+          ? 0.6
+          : 0.2
+      : 0.5; 
+
+    
+    let specializationMatch = 0.5; 
+    if (request.specializations.length > 0 && agentSpecs.length > 0) {
+      const matchingSpecs = request.specializations.filter((s) => agentSpecs.includes(s) || capabilities.includes(s));
+      specializationMatch =
+        matchingSpecs.length > 0 ? Math.min(1.0, matchingSpecs.length / request.specializations.length) : 0.2;
+    } else if (request.specializations.length > 0) {
+      
+      const matchingCaps = request.specializations.filter((s) => capabilities.includes(s));
+      specializationMatch =
+        matchingCaps.length > 0 ? Math.min(1.0, matchingCaps.length / request.specializations.length) : 0.15;
+    }
+
+    
+    
+    
+    
+    
+    
+    const signals: { value: number; weight: number }[] = [];
+    if (stats && stats.handoffsCompleted + stats.errors > 0) {
+      signals.push({
+        value: stats.handoffsCompleted / (stats.handoffsCompleted + stats.errors),
+        weight: 0.4,
+      });
+    } else {
+      
+      signals.push({ value: 0.4, weight: 0.4 });
+    }
+    if (this.getCapabilitySuccessRate && request.preferredRole) {
+      const capRate = this.getCapabilitySuccessRate(status.agent, request.preferredRole);
+      if (capRate !== 0.5) {
+        
+        signals.push({ value: capRate, weight: 0.3 });
+      }
+    }
+    if (this.getPredictedSuccess && request.task) {
+      const prediction = this.getPredictedSuccess(status.agent, request.task);
+      if (prediction && prediction.confidenceLevel !== "low") {
+        signals.push({ value: prediction.successProbability, weight: 0.2 });
+      }
+    }
+    if (this.getAgentScore) {
+      const agg = this.getAgentScore(agent);
+      if (agg !== 0.5) {
+        
+        signals.push({ value: agg, weight: 0.1 });
+      }
+    }
+    const signalWeightSum = signals.reduce((s, x) => s + x.weight, 0);
+    const performanceScore =
+      signalWeightSum > 0
+        ? Math.max(0, Math.min(1, signals.reduce((s, x) => s + x.value * x.weight, 0) / signalWeightSum))
+        : 0.5;
+
+    
+    const loadScore = 1.0 - status.pendingCount * 0.25; 
+    const healthPenalty = this.isAgentStuck(status) ? 0.5 : 0;
+    const availabilityScore = Math.max(0, Math.min(1.0, loadScore - healthPenalty));
+
+    
+    const errorPenalty = Math.min(0.5, status.failedCount * 0.1);
+
+    
+    const weights = {
+      roleMatch: request.preferredRole ? 0.3 : 0.1,
+      specializationMatch: request.specializations.length > 0 ? 0.3 : 0.15,
+      performanceScore: 0.2,
+      availabilityScore: 0.3,
+      errorPenalty: 0.1,
+    };
+
+    
+    const weightSum =
+      weights.roleMatch + weights.specializationMatch + weights.performanceScore + weights.availabilityScore;
+    const norm = (w: number) => w / weightSum;
+
+    const score =
+      roleMatch * norm(weights.roleMatch) +
+      specializationMatch * norm(weights.specializationMatch) +
+      performanceScore * norm(weights.performanceScore) +
+      availabilityScore * norm(weights.availabilityScore) -
+      errorPenalty * norm(weights.errorPenalty);
+
+    
+    
+    
+    const finalScore = score;
+
+    
+    const parts: string[] = [];
+    if (request.preferredRole) {
+      parts.push(`دور: ${roleMatch >= 0.8 ? "✓" : roleMatch >= 0.5 ? "~" : "✗"} (${(roleMatch * 100).toFixed(0)}%)`);
+    }
+    if (request.specializations.length > 0) {
+      parts.push(
+        `تخصص: ${specializationMatch >= 0.6 ? "✓" : specializationMatch >= 0.3 ? "~" : "✗"} (${(specializationMatch * 100).toFixed(0)}%)`,
+      );
+    }
+    parts.push(`أداء: ${(performanceScore * 100).toFixed(0)}%`);
+    parts.push(`متاح: ${(availabilityScore * 100).toFixed(0)}%`);
+    if (errorPenalty > 0) parts.push(`أخطاء: -${(errorPenalty * 100).toFixed(0)}%`);
+
+    
+    
+    
+    
+    let confidenceWidth: number | undefined;
+    if (this.getAgentScoreWithCI) {
+      const ci = this.getAgentScoreWithCI(agent);
+      const width = ci ? ci.upper - ci.lower : 0;
+      if (width > 0) confidenceWidth = width;
+    }
+
+    return {
+      agent,
+      score: Math.max(0, Math.min(1.0, finalScore)),
+      breakdown: {
+        roleMatch,
+        specializationMatch,
+        performanceScore,
+        availabilityScore,
+        errorPenalty,
+      },
+      reason: parts.join(" | "),
+      ...(confidenceWidth !== undefined ? { confidenceWidth } : {}),
+    };
+  }
+
+  
+  private static RELATED_SET = new Set<string>([
+    "dev|tester",
+    "tester|dev",
+    "dev|architect",
+    "architect|dev",
+    "reviewer|analyst",
+    "analyst|reviewer",
+    "analyst|architect",
+    "architect|analyst",
+    "dev|doc",
+    "doc|dev",
+    "tester|reviewer",
+    "reviewer|tester",
+  ]);
+
+  
+  private rolesRelated(a: string, b: string): boolean {
+    return (this.constructor as typeof AgentMatcher).RELATED_SET.has(`${a}|${b}`);
+  }
+
+  
+  suggestParallelTeam(primaryRole: string, _specializations: string[]): string[] {
+    const allAgents = this.getAgentStatuses();
+
+    
+    const roleMap = new Map<string, { agent: string; score: number }>();
+
+    for (const status of allAgents) {
+      if (this.isAgentStuck(status) || !this.isAgentAvailable(status)) continue;
+      const role = resolveRole(status.agent) ?? normalizeName(status.agent);
+
+      const existing = roleMap.get(role);
+      const availScore = 1.0 - status.pendingCount * 0.25;
+      if (!existing || availScore > existing.score) {
+        roleMap.set(role, { agent: status.agent, score: availScore });
+      }
+    }
+
+    
+    const team: string[] = [];
+    const preferred = roleMap.get(primaryRole);
+    if (preferred) team.push(preferred.agent);
+
+    
+    const complementary = this.getComplementaryRoles(primaryRole);
+    for (const compRole of complementary) {
+      if (team.length >= 4) break;
+      const comp = roleMap.get(compRole);
+      if (comp && !team.some((t) => normalizeName(t) === normalizeName(comp.agent))) {
+        team.push(comp.agent);
+      }
+    }
+
+    return team;
+  }
+
+  private getComplementaryRoles(role: string): string[] {
+    const MAP: Record<string, string[]> = {
+      dev: ["tester", "reviewer", "doc"],
+      tester: ["dev", "reviewer"],
+      reviewer: ["dev", "tester"],
+      analyst: ["architect", "dev"],
+      architect: ["dev", "tester"],
+      doc: ["reviewer", "dev"],
+    };
+    return MAP[role] ?? ["dev", "tester"];
+  }
+}

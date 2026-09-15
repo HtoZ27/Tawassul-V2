@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "description": "Initial training dataset for conflict resolution",
+  "scenarios": [
+    {
+      "input": {
+        "agentBusy": true,
+        "fileConflict": false,
+        "capabilityMatch": true,
+        "agentPriority": 1,
+        "activeHandoffs": 2,
+        "errorCount": 0,
+        "taskComplexity": "simple"
+      },
+      "expectedAction": "block",
+      "rationale": "Busy agent should be blocked"
+    },
+    {
+      "input": {
+        "agentBusy": false,
+        "fileConflict": true,
+        "capabilityMatch": true,
+        "agentPriority": 1,
+        "activeHandoffs": 1,
+        "errorCount": 0,
+        "taskComplexity": "medium"
+      },
+      "expectedAction": "reroute",
+      "rationale": "File conflict requires rerouting"
+    },
+    {
+      "input": {
+        "agentBusy": false,
+        "fileConflict": false,
+        "capabilityMatch": false,
+        "agentPriority": 2,
+        "activeHandoffs": 1,
+        "errorCount": 0,
+        "taskComplexity": "complex"
+      },
+      "expectedAction": "reroute",
+      "rationale": "Capability mismatch needs alternative agent"
+    },
+    {
+      "input": {
+        "agentBusy": false,
+        "fileConflict": false,
+        "capabilityMatch": true,
+        "agentPriority": 1,
+        "activeHandoffs": 0,
+        "errorCount": 4,
+        "taskComplexity": "simple"
+      },
+      "expectedAction": "reroute",
+      "rationale": "Agent with too many errors should not receive tasks"
+    },
+    {
+      "input": {
+        "agentBusy": false,
+        "fileConflict": false,
+        "capabilityMatch": true,
+        "agentPriority": 1,
+        "activeHandoffs": 0,
+        "errorCount": 0,
+        "taskComplexity": "simple"
+      },
+      "expectedAction": "allow",
+      "rationale": "Free agent with matching capability"
+    },
+    {
+      "input": {
+        "agentBusy": false,
+        "fileConflict": false,
+        "capabilityMatch": true,
+        "agentPriority": 1,
+        "activeHandoffs": 4,
+        "errorCount": 0,
+        "taskComplexity": "medium"
+      },
+      "expectedAction": "queue",
+      "rationale": "Agent overloaded, should queue"
+    },
+    {
+      "input": {
+        "agentBusy": true,
+        "fileConflict": true,
+        "capabilityMatch": true,
+        "agentPriority": 1,
+        "activeHandoffs": 3,
+        "errorCount": 0,
+        "taskComplexity": "complex"
+      },
+      "expectedAction": "block",
+      "rationale": "Multiple conflicts — must block"
+    }
+  ]
+}

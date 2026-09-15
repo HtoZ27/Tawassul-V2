@@ -1,0 +1,634 @@
+import type { TawaOrchestratorContext } from "../core/service-context.ts";
+import type { HandoffEntry } from "../context/types.ts";
+import type { CircuitBreaker } from "./circuit-breaker.ts";
+import { SagaCoordinator } from "./saga-coordinator.ts";
+import { effect, type SagaEffect } from "../core/saga-effects.ts";
+import { logRuleAdjustments } from "../core/rule-utils.ts";
+import { normalizeName } from "../utils/name-utils.ts";
+import { logger } from "../utils/logger.ts";
+
+interface HandoffCompletionResult {
+  success: boolean;
+  message: string;
+  handoff: HandoffEntry | null;
+}
+
+type HandoffLookup = HandoffEntry | undefined;
+
+function buildCompletionEffects(
+  healthTracker?: { onHandoffCompleted: (agent: string) => void; onHandoffFailed: (agent: string) => void },
+  circuitBreaker?: CircuitBreaker,
+): SagaEffect<TawaOrchestratorContext>[] {
+  return [
+    effect(
+      "core.handoffStatus",
+      (h) => {
+        h.status = "completed";
+      },
+      (h) => {
+        h.status = "pending";
+      },
+    ),
+    effect(
+      "core.agentErrors",
+      (h, ctx) => {
+        const nf = normalizeName(h.from);
+        ctx.agentErrors[nf] = Math.max(0, (ctx.agentErrors[nf] ?? 0) - 1);
+      },
+      (h, ctx) => {
+        const nf = normalizeName(h.from);
+        ctx.agentErrors[nf] = (ctx.agentErrors[nf] ?? 0) + 1;
+      },
+    ),
+    effect(
+      "core.recordHandoffCompleted",
+      (h, ctx) => {
+        const to = normalizeName(h.to);
+        ctx.ratingOps.recordHandoffCompleted(to);
+      },
+      (h, ctx) => {
+        const to = normalizeName(h.to);
+        ctx.ratingOps.recordHandoffDropped(to);
+      },
+    ),
+    effect(
+      "healthTracker.onHandoffCompleted",
+      (h) => {
+        const to = normalizeName(h.to);
+        if (healthTracker) healthTracker.onHandoffCompleted(to);
+      },
+      (h) => {
+        const to = normalizeName(h.to);
+        if (healthTracker) healthTracker.onHandoffFailed(to);
+      },
+    ),
+    effect(
+      "circuitBreaker.recordSuccess",
+      (h) => {
+        const to = normalizeName(h.to);
+        if (circuitBreaker) circuitBreaker.recordSuccess(to);
+      },
+      (h) => {
+        const to = normalizeName(h.to);
+        if (circuitBreaker) circuitBreaker.recordFailure(to);
+      },
+    ),
+    effect(
+      "trainingEvaluator.markOutcomeByAgent",
+      (h, ctx) => {
+        const to = normalizeName(h.to);
+        if (ctx.trainingEvaluator) ctx.trainingEvaluator.markOutcomeByAgent(to, "success");
+      },
+      (h, ctx) => {
+        const to = normalizeName(h.to);
+        if (ctx.trainingEvaluator) ctx.trainingEvaluator.markOutcomeByAgent(to, "failure");
+      },
+    ),
+    effect(
+      "statsCollector.recordHandoff",
+      (h, ctx) => {
+        const to = normalizeName(h.to);
+        ctx.statsCollector.recordHandoff(to, true, Date.now() - new Date(h.timestamp || Date.now()).getTime());
+      },
+      (h, ctx) => {
+        const to = normalizeName(h.to);
+        ctx.statsCollector.recordHandoff(to, false, 0);
+      },
+    ),
+    effect(
+      "gamification.recordAction",
+      (h, ctx) => {
+        const to = normalizeName(h.to);
+        ctx.gamification.recordAction(to, "completedHandoffs");
+      },
+      (h, ctx) => {
+        const to = normalizeName(h.to);
+        ctx.gamification.recordAction(to, "failedHandoffs");
+      },
+    ),
+    effect(
+      "sharedMemory.addHandoffRecord",
+      (h, ctx) => {
+        ctx.sharedMemory.addHandoffRecord({
+          id: h.id,
+          from: normalizeName(h.from),
+          to: normalizeName(h.to),
+          task: h.task,
+          timestamp: new Date().toISOString(),
+          success: true,
+          duration: 0,
+        });
+      },
+      (h, ctx) => {
+        const memory = ctx.sharedMemory.get();
+        const idx = memory.handoffHistory.findIndex((r) => r.id === h.id);
+        if (idx !== -1) memory.handoffHistory.splice(idx, 1);
+      },
+    ),
+    effect(
+      "taskTracker.logHandoffCompletion",
+      (h, ctx) => {
+        const task = ctx.taskTracker.create(ctx.sessionId || "handoff", normalizeName(h.to), h.task);
+        ctx.taskTracker.updateStatus(task.id, "completed", { summary: `Handoff ${h.id} completed` });
+      },
+      (_h, _ctx) => {},
+    ),
+    effect(
+      "fileLocks.releaseAllForHandoff",
+      (h, ctx) => {
+        ctx.fileLocks.releaseAllForHandoff(h.id);
+      },
+      () => {},
+    ),
+    effect(
+      "taskPriority.removeFromQueue",
+      (h, ctx) => {
+        ctx.taskPriority.removeFromQueue(h.id);
+      },
+      () => {},
+    ),
+    effect(
+      "conflictLearner.recordOutcome",
+      (h, ctx) => {
+        const decision = h.decision ?? { action: "allow", reason: "Handoff completed", confidence: 1 };
+        ctx.conflictLearner.recordOutcome(
+          h.decisionRuleId ?? "COMPLETE",
+          decision,
+          decision.action === "allow",
+          normalizeName(h.to),
+        );
+        logRuleAdjustments(ctx.conflictLearner);
+      },
+      (h, ctx) => {
+        ctx.conflictLearner.recordOutcome(
+          "ROLLBACK",
+          { action: "block", reason: "Handoff saga rollback", confidence: 0.5 },
+          false,
+          normalizeName(h.to),
+        );
+      },
+    ),
+    effect(
+      "capabilityTracker.updateCapability",
+      (h, ctx) => {
+        const to = normalizeName(h.to);
+        const cap = ctx.config.agentModels?.[to]?.capability || ctx.readAgentMd(to)?.capability;
+        if (cap) ctx.capabilityTracker.updateCapability(to, cap, true);
+      },
+      (h, ctx) => {
+        const to = normalizeName(h.to);
+        const cap = ctx.config.agentModels?.[to]?.capability || ctx.readAgentMd(to)?.capability;
+        if (cap) ctx.capabilityTracker.updateCapability(to, cap, false);
+      },
+    ),
+  ];
+}
+
+function buildCancellationEffects(
+  healthTracker?: { onHandoffCompleted: (agent: string) => void; onHandoffFailed: (agent: string) => void },
+  circuitBreaker?: CircuitBreaker,
+): SagaEffect<TawaOrchestratorContext>[] {
+  return [
+    effect(
+      "core.handoffStatus",
+      (h) => {
+        h.status = "cancelled";
+      },
+      (h) => {
+        h.status = "pending";
+      },
+    ),
+    effect(
+      "fileLocks.releaseAllForHandoff",
+      (h, ctx) => {
+        ctx.fileLocks.releaseAllForHandoff(h.id);
+      },
+      () => {},
+    ),
+    effect(
+      "taskPriority.removeFromQueue",
+      (h, ctx) => {
+        ctx.taskPriority.removeFromQueue(h.id);
+      },
+      () => {},
+    ),
+    effect(
+      "core.recordHandoffDropped",
+      (h, ctx) => {
+        ctx.recordHandoffDropped(normalizeName(h.from));
+      },
+      (_h, _ctx) => {},
+    ),
+    effect(
+      "healthTracker.onHandoffFailed",
+      (h) => {
+        const to = normalizeName(h.to);
+        if (healthTracker) healthTracker.onHandoffFailed(to);
+      },
+      (h) => {
+        const to = normalizeName(h.to);
+        if (healthTracker) healthTracker.onHandoffCompleted(to);
+      },
+    ),
+    effect(
+      "circuitBreaker.recordFailure",
+      (h) => {
+        const to = normalizeName(h.to);
+        if (circuitBreaker) circuitBreaker.recordFailure(to);
+      },
+      (h) => {
+        const to = normalizeName(h.to);
+        if (circuitBreaker) circuitBreaker.recordSuccess(to);
+      },
+    ),
+    effect(
+      "capabilityTracker.updateCapability",
+      (h, ctx) => {
+        const to = normalizeName(h.to);
+        const cap = ctx.config.agentModels?.[to]?.capability || ctx.readAgentMd(to)?.capability;
+        if (cap) ctx.capabilityTracker.updateCapability(to, cap, false);
+      },
+      (h, ctx) => {
+        const to = normalizeName(h.to);
+        const cap = ctx.config.agentModels?.[to]?.capability || ctx.readAgentMd(to)?.capability;
+        if (cap) ctx.capabilityTracker.updateCapability(to, cap, true);
+      },
+    ),
+    effect(
+      "trainingEvaluator.markOutcomeByAgent",
+      (h, ctx) => {
+        ctx.trainingEvaluator.markOutcomeByAgent(normalizeName(h.to), "failure");
+      },
+      (h, ctx) => {
+        ctx.trainingEvaluator.markOutcomeByAgent(normalizeName(h.to), "success");
+      },
+    ),
+    effect(
+      "sharedMemory.addHandoffRecord",
+      (h, ctx) => {
+        ctx.sharedMemory.addHandoffRecord({
+          id: h.id,
+          from: normalizeName(h.from),
+          to: normalizeName(h.to),
+          task: h.task,
+          timestamp: new Date().toISOString(),
+          success: false,
+          duration: 0,
+        });
+      },
+      (h, ctx) => {
+        const memory = ctx.sharedMemory.get();
+        const idx = memory.handoffHistory.findIndex((r) => r.id === h.id);
+        if (idx !== -1) memory.handoffHistory.splice(idx, 1);
+      },
+    ),
+    effect(
+      "conflictLearner.recordOutcome",
+      (_h, ctx) => {
+        ctx.conflictLearner.recordOutcome(
+          "CANCEL",
+          { action: "block", reason: "Handoff cancelled by user", confidence: 1 },
+          false,
+          "",
+        );
+        logRuleAdjustments(ctx.conflictLearner);
+      },
+      (_h, ctx) => {
+        ctx.conflictLearner.recordOutcome(
+          "ROLLBACK",
+          { action: "block", reason: "Cancel saga rollback", confidence: 0.5 },
+          false,
+          "",
+        );
+      },
+    ),
+  ];
+}
+
+async function runSideEffects(
+  effects: SagaEffect<TawaOrchestratorContext>[],
+  h: HandoffEntry,
+  ctx: TawaOrchestratorContext,
+  coordinator?: SagaCoordinator<{ handoff: HandoffEntry; ctx: TawaOrchestratorContext }>,
+): Promise<string | null> {
+  const saga = coordinator ?? new SagaCoordinator<{ handoff: HandoffEntry; ctx: TawaOrchestratorContext }>();
+  const tx = saga.createSaga("handoff-completion", effects, h.id);
+  const r = await saga.executeSaga(tx, { handoff: h, ctx });
+  return r.success ? null : r.failedStep;
+}
+
+function findHandoffOrError(
+  handoffs: Map<string, HandoffEntry> | HandoffEntry[],
+  handoffId: string,
+  allowedStatuses?: Set<string>,
+): { handoff: HandoffEntry; error: null } | { handoff: null; error: HandoffCompletionResult } {
+  const h: HandoffLookup =
+    handoffs instanceof Map ? handoffs.get(handoffId) : handoffs.find((entry) => entry.id === handoffId);
+  if (!h) {
+    return {
+      handoff: null,
+      error: { success: false, message: `Handoff ${handoffId} not found`, handoff: null },
+    };
+  }
+  if (allowedStatuses && !allowedStatuses.has(h.status)) {
+    return {
+      handoff: null,
+      error: {
+        success: false,
+        message: `Handoff ${handoffId} has status "${h.status}" — expected one of: ${[...allowedStatuses].join(", ")}`,
+        handoff: h,
+      },
+    };
+  }
+  return { handoff: h, error: null };
+}
+
+export class HandoffService {
+  private _lockChains = new Map<string, Promise<unknown>>();
+  private _lockChainAccess = new Map<string, number>();
+  private _sagaCoordinator: SagaCoordinator<{ handoff: HandoffEntry; ctx: TawaOrchestratorContext }>;
+
+  get sagaCoordinator(): SagaCoordinator<{ handoff: HandoffEntry; ctx: TawaOrchestratorContext }> {
+    return this._sagaCoordinator;
+  }
+
+  shouldDrain(agent: string, threshold = 5): boolean {
+    const normalized = normalizeName(agent);
+    const pendingForAgent = [...this.ctx.handoffs.values()].filter(
+      (h) => normalizeName(h.to) === normalized && h.status === "pending",
+    );
+    return pendingForAgent.length >= threshold;
+  }
+
+  async drainAgent(agent: string, alternateAgent: string): Promise<number> {
+    const drainer = this.ctx.queueDrainer;
+    if (!drainer) return 0;
+    if (!drainer.shouldDrain(agent)) return 0;
+    const allHandoffs = [...this.ctx.handoffs.values()];
+    const effects = drainer.buildDrainEffects(agent, allHandoffs, alternateAgent);
+    if (effects.length === 0) return 0;
+    const representative = allHandoffs.find(
+      (h) => normalizeName(h.to) === normalizeName(agent) && h.status === "pending",
+    );
+    if (!representative) return 0;
+    const failed = await runSideEffects(effects, representative, this.ctx, this._sagaCoordinator);
+    if (failed) logger.warn(`[tawassul] drainAgent effects failed at step: ${failed}`);
+    return effects.length;
+  }
+
+  async resumeInterruptedSagas(): Promise<number> {
+    let resumed = 0;
+    try {
+      const records = await this._sagaCoordinator.listJournalRecords();
+      for (const record of records) {
+        if (record.state === "COMPLETED" || record.state === "COMPENSATED" || record.state === "FAILED") continue;
+        if (!record.taskId || !this.ctx.handoffs.has(record.taskId)) continue;
+        const h = this.ctx.handoffs.get(record.taskId)!;
+        if (h.status === "completed" || h.status === "cancelled") continue;
+        const effects = buildCompletionEffects(this.healthTracker, this.circuitBreaker);
+        const result = await this._sagaCoordinator.resumeSaga(
+          effects,
+          {
+            phase: "handoff-completion",
+            taskId: h.id,
+            remainingTasks: [h.id],
+          },
+          { handoff: h, ctx: this.ctx },
+        );
+        if (result.recovered || result.success) {
+          resumed += 1;
+          logger.info(`[tawassul] P2.3: resumed interrupted saga for handoff ${h.id}`);
+        }
+      }
+      return resumed;
+    } catch (e) {
+      logger.warn("[tawassul] P2.3: resumeInterruptedSagas failed:", e);
+      return resumed;
+    }
+  }
+
+  constructor(
+    private ctx: TawaOrchestratorContext,
+    private healthTracker?: { onHandoffCompleted: (agent: string) => void; onHandoffFailed: (agent: string) => void },
+    private circuitBreaker?: CircuitBreaker,
+  ) {
+    this._sagaCoordinator = new SagaCoordinator<{ handoff: HandoffEntry; ctx: TawaOrchestratorContext }>(ctx.stateDir);
+  }
+
+  private async _withLock<T>(
+    handoffId: string,
+    fn: (signal: AbortSignal) => Promise<T>,
+    timeoutMs = 30000,
+  ): Promise<T> {
+    const prev = this._lockChains.get(handoffId) ?? Promise.resolve();
+    const abortController = new AbortController();
+    const next = prev.then(
+      () => fn(abortController.signal),
+      (err) => {
+        throw err;
+      },
+    );
+    this._lockChains.set(handoffId, next);
+    this._lockChainAccess.set(handoffId, Date.now());
+    if (this._lockChains.size > 200) {
+      const cutoff = Date.now() - 60_000;
+      for (const [id, ts] of this._lockChainAccess) {
+        if (ts < cutoff && this._lockChains.has(id)) {
+          this._lockChains.delete(id);
+        }
+      }
+    }
+    try {
+      return await Promise.race([
+        next,
+        new Promise<never>((_, rej) => {
+          const t = setTimeout(() => {
+            abortController.abort();
+            if (this._lockChains.get(handoffId) === next) {
+              this._lockChains.delete(handoffId);
+              this._lockChainAccess.delete(handoffId);
+            }
+            rej(new Error(`Handoff ${handoffId} operation timed out after ${timeoutMs}ms`));
+          }, timeoutMs);
+          t.unref?.();
+        }),
+      ]);
+    } finally {
+      if (this._lockChains.get(handoffId) === next) {
+        this._lockChains.delete(handoffId);
+        this._lockChainAccess.delete(handoffId);
+      }
+    }
+  }
+
+  async completeHandoff(handoffId: string, completedBy: string): Promise<HandoffCompletionResult> {
+    return this._withLock(handoffId, async (_signal) => {
+      const found = findHandoffOrError(this.ctx.handoffs, handoffId, new Set(["pending", "accepted"]));
+      if (found.error) return found.error;
+      const h = found.handoff;
+
+      const effects = buildCompletionEffects(this.healthTracker, this.circuitBreaker);
+      const failedEffect = await runSideEffects(effects, h, this.ctx, this._sagaCoordinator);
+
+      if (failedEffect) {
+        await this.ctx.flushSaves();
+        return {
+          success: false,
+          message: `Handoff ${handoffId} side effect "${failedEffect}" failed — fully rolled back`,
+          handoff: h,
+        };
+      }
+
+      if (h.task.startsWith("🆘 HELP:")) {
+        this.ctx.recordHelpRequestFulfilled(completedBy);
+      }
+
+      this.ctx.updateLastActive(completedBy);
+      try {
+        await this.ctx.flushSaves();
+      } catch (e) {
+        logger.error("[tawassul] flushSaves failed after completion:", e);
+      }
+
+      return {
+        success: true,
+        message: `Handoff ${handoffId} completed by ${completedBy}`,
+        handoff: h,
+      };
+    });
+  }
+
+  async cancelHandoff(handoffId: string, cancelledBy: string): Promise<HandoffCompletionResult> {
+    return this._withLock(handoffId, async (_signal) => {
+      const found = findHandoffOrError(this.ctx.handoffs, handoffId, new Set(["pending", "accepted"]));
+      if (found.error) {
+        const existing = this.ctx.handoffs.get(handoffId);
+        if (existing?.status === "completed") {
+          return { success: false, message: `Handoff ${handoffId} already completed`, handoff: existing };
+        }
+        if (existing?.status === "cancelled") {
+          return { success: false, message: `Handoff ${handoffId} already cancelled`, handoff: existing };
+        }
+        return found.error;
+      }
+      const h = found.handoff;
+
+      if (
+        normalizeName(cancelledBy) !== normalizeName(h.from) &&
+        normalizeName(cancelledBy) !== normalizeName(h.to) &&
+        normalizeName(cancelledBy) !== "analyst"
+      ) {
+        return {
+          success: false,
+          message: `Handoff ${handoffId} not cancelled — ${cancelledBy} not authorized`,
+          handoff: h,
+        };
+      }
+
+      const effects = buildCancellationEffects(this.healthTracker, this.circuitBreaker);
+      const failedEffect = await runSideEffects(effects, h, this.ctx);
+
+      if (failedEffect) {
+        try {
+          await this.ctx.flushSaves();
+        } catch (e) {
+          logger.error("[tawassul] flushSaves failed after cancellation rollback:", e);
+        }
+        return {
+          success: false,
+          message: `Handoff ${handoffId} cancellation failed at step "${failedEffect}" — fully rolled back`,
+          handoff: h,
+        };
+      }
+
+      this.ctx.updateLastActive(cancelledBy);
+      try {
+        await this.ctx.flushSaves();
+      } catch (e) {
+        logger.error("[tawassul] flushSaves failed after cancellation:", e);
+      }
+
+      return {
+        success: true,
+        message: `Handoff ${handoffId} cancelled`,
+        handoff: h,
+      };
+    });
+  }
+
+  async redirectHandoff(handoffId: string, newTo: string, redirectedBy: string): Promise<HandoffCompletionResult> {
+    return this._withLock(handoffId, async (_signal) => {
+      const targetAgent = normalizeName(newTo);
+      const callerAgent = normalizeName(redirectedBy);
+      if (targetAgent === "tawa" && callerAgent !== "tawa") {
+        return { success: false, message: `Redirecting to @tawa is forbidden.`, handoff: null };
+      }
+      const found = findHandoffOrError(this.ctx.handoffs, handoffId, new Set(["pending"]));
+      if (found.error) {
+        const existing = this.ctx.handoffs.get(handoffId);
+        if (existing?.status === "completed") {
+          return { success: false, message: `Handoff ${handoffId} already completed`, handoff: existing };
+        }
+        return found.error;
+      }
+      const h = found.handoff;
+      const oldTo = h.to;
+
+      const redirectEffects: SagaEffect<TawaOrchestratorContext>[] = [
+        effect(
+          "redirect.state",
+          () => {
+            h.to = targetAgent;
+          },
+          () => {
+            h.to = oldTo;
+          },
+        ),
+        effect(
+          "redirect.conflictLearner",
+          () => {
+            this.ctx.conflictLearner.recordOutcome(
+              "REDIRECT",
+              { action: "reroute", reason: `Handoff redirected: ${oldTo} → ${newTo}`, confidence: 0.7 },
+              true,
+              redirectedBy,
+            );
+            logRuleAdjustments(this.ctx.conflictLearner);
+          },
+          () => {},
+        ),
+        effect(
+          "redirect.lastActive",
+          () => this.ctx.updateLastActive(redirectedBy),
+          () => {},
+        ),
+      ];
+      const failedEffect = await runSideEffects(redirectEffects, h, this.ctx);
+
+      if (failedEffect) {
+        try {
+          await this.ctx.flushSaves();
+        } catch (e) {
+          logger.error("[tawassul] flushSaves failed after redirect rollback:", e);
+        }
+        return {
+          success: false,
+          message: `Handoff ${handoffId} redirect failed at step "${failedEffect}" — fully rolled back`,
+          handoff: h,
+        };
+      }
+
+      try {
+        await this.ctx.flushSaves();
+      } catch (e) {
+        logger.error("[tawassul] flushSaves failed after redirect:", e);
+      }
+
+      return {
+        success: true,
+        message: `Handoff ${handoffId} redirected: ${oldTo} → ${newTo}`,
+        handoff: h,
+      };
+    });
+  }
+}
