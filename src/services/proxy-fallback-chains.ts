@@ -3,21 +3,21 @@ import { normalizeName } from "../utils/name-utils.ts";
 import { resolveRole } from "../utils/agent.ts";
 
 export const FALLBACK_CHAINS: Record<string, string[]> = {
-  tawa: ["opencode/big-pickle", "google/gemini-flash-lite-latest", "opencode/mimo-v2.5-free"],
+  tawa: ["opencode/big-pickle", "google/gemini-flash-lite-latest", "opencode/mimo-v2.6-flash-free"],
   dev: [
     "nvidia-nim/deepseek-ai/deepseek-v4-flash",
-    "opencode/mimo-v2.5-free",
+    "opencode/mimo-v2.6-flash-free",
     "opencode/big-pickle",
     "google/gemini-flash-lite-latest",
   ],
   analyst: [
     "google/gemini-flash-lite-latest",
     "nvidia-nim/deepseek-ai/deepseek-v4-flash",
-    "opencode/mimo-v2.5-free",
+    "opencode/mimo-v2.6-flash-free",
     "opencode/big-pickle",
   ],
   tester: [
-    "opencode/mimo-v2.5-free",
+    "opencode/mimo-v2.6-flash-free",
     "nvidia-nim/deepseek-ai/deepseek-v4-flash",
     "opencode/big-pickle",
     "google/gemini-flash-lite-latest",
@@ -31,10 +31,10 @@ export const FALLBACK_CHAINS: Record<string, string[]> = {
   architect: [
     "nvidia-nim/minimaxai/minimax-m3",
     "opencode/big-pickle",
-    "opencode/mimo-v2.5-free",
+    "opencode/mimo-v2.6-flash-free",
     "google/gemini-flash-lite-latest",
   ],
-  designer: ["opencode/muse-spark-1.2-contributor-free", "opencode/mimo-v2.5-free", "google/gemini-flash-lite-latest"],
+  designer: ["opencode/muse-spark-1.2-contributor-free", "opencode/mimo-v2.6-flash-free", "google/gemini-flash-lite-latest"],
   doc: [
     "opencode/big-pickle",
     "opencode/muse-spark-1.2-contributor-free",

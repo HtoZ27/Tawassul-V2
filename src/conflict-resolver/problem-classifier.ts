@@ -15,14 +15,14 @@ const AGENT_MATRIX: Record<ProblemSize, AgentAssignment> = {
     secondary: [],
     coordination: "none",
     handoffPattern: 1,
-    model: "opencode/mimo-v2.5-free",
+    model: "opencode/mimo-v2.6-flash-free",
   },
   MEDIUM: {
     primary: "@dev",
     secondary: ["@tester"],
     coordination: "sequential",
     handoffPattern: 2,
-    model: "opencode/mimo-v2.5-free",
+    model: "opencode/mimo-v2.6-flash-free",
   },
   COMPLEX: {
     primary: "@analyst",

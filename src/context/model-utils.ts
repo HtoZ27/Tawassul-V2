@@ -138,7 +138,7 @@ async function detectOpenCodePort(serverUrl?: string): Promise<number> {
 export function getDefaultFreeModels(): Array<{ id: string; name: string; provider: string }> {
   return [
     { id: "opencode/big-pickle", name: "Big Pickle", provider: "opencode" },
-    { id: "opencode/mimo-v2.5-free", name: "MiMo V2.5 Free", provider: "opencode" },
+    { id: "opencode/mimo-v2.6-flash-free", name: "MiMo V2.6 Flash Free", provider: "opencode" },
     { id: "nvidia-nim/deepseek-ai/deepseek-v4-flash", name: "DeepSeek V4 Flash (NVIDIA)", provider: "nvidia-nim" },
     { id: "nvidia-nim/nvidia/nemotron-3-ultra-550b-a55b", name: "Nemotron 3 Ultra (NVIDIA)", provider: "nvidia-nim" },
   ];

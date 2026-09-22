@@ -13,10 +13,10 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     display: "DeepSeek V4 Flash (NVIDIA)",
   },
   {
-    id: "opencode/mimo-v2.5-free",
+    id: "opencode/mimo-v2.6-flash-free",
     suffix: "mimo",
     aliases: ["mimo"],
-    display: "Mimo v2.5 (OpenCode)",
+    display: "Mimo v2.6 Flash (OpenCode)",
   },
   {
     id: "opencode/big-pickle",
@@ -72,6 +72,9 @@ export const RETIRED_MODEL_IDS: ReadonlySet<string> = new Set([
   "opencode/ox-alpha-free",
   "opencode/muse-spark-1.2-free",
   "opencode/hy3-free",
+  // 2026-09-22 provider rename: mimo-v2.5-free is now mimo-v2.6-flash-free —
+  // existing pins on the old id are stale artifacts, replaced by the new head.
+  "opencode/mimo-v2.5-free",
 ]);
 
 export const LEGACY_UNIFIED_HEAD = "google/gemini-flash-lite-latest";
