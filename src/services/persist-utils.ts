@@ -53,6 +53,10 @@ export async function flushAllPersists(): Promise<void> {
 }
 
 
+export function countPendingPersists(): number {
+  return debounceEntries.size;
+}
+
 export function resolveConfigPath(path: string): string {
   if (!path.includes("~")) return path;
   const home = process.env.HOME || "~";

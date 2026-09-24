@@ -18,5 +18,5 @@ export const skillGateGuard = guard("skill-gate", (ctx, input) => {
   if (!agent || agent === "tawa") return null;
   const capabilities = ctx.capabilityTracker?.getCapabilities(agent) ?? [];
   if (capabilities.length > 0) return null;
-  return `⏭️ SKIP (تخطّي): الوكيل "${input.agent}" ليس له قدرات مسجّلة في capabilityTracker. بدلاً من تنفيذ ${input.tool} مباشرة، وجِّه المهمة عبر task(desc: '${input.agent}') أو حدّث سجل القدرات قبل الاستمرار.`;
+  return `⏭️ SKIP: agent "${input.agent}" has no registered capabilities in capabilityTracker. Instead of running ${input.tool} directly, route the task via task(desc: '${input.agent}') or update the capability record first.`;
 });

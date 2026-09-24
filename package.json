@@ -11,6 +11,14 @@
     "build": "bun build-v2.mjs",
     "check:rules": "node scripts/check-v2-rules.mjs",
     "check:shared": "node scripts/check-shared-anchors.mjs",
+    "check:config": "bun src/scripts/gen-opencode-config.ts --check",
+    "check:facts": "bun src/scripts/facts.ts check",
+    "prove:gen-lock": "bun scripts/prove-gen-lock-contention.ts",
+    "prove:gen-merge": "bun scripts/prove-gen-merge-guards.ts",
+    "prove:roster-boundary": "bun scripts/prove-roster-boundary.ts",
+    "prove:event-trust": "bun scripts/prove-event-trust-p1.ts",
+    "prove:web-ssrf": "bun scripts/prove-web-ssrf.ts",
+    "ci": "npm run verify && npm run check:config && npm run check:facts && npm run prove:gen-lock && npm run prove:gen-merge && npm run prove:roster-boundary && npm run prove:event-trust && npm run prove:web-ssrf",
     "verify": "npm run check:rules && npm run check:shared && npm run typecheck && npm run build"
   },
   "devDependencies": {

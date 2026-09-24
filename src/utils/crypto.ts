@@ -336,8 +336,12 @@ export function hmacVerify(payload: string, signature: string): boolean {
   const key = loadHmacKeyReadOnly();
   if (!key) return false;
   const expected = createHmac(HMAC_ALGORITHM, key).update(payload, "utf-8").digest("hex");
-  if (expected.length !== signature.length) return false;
-  return timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(signature, "hex"));
+  if (!/^[0-9a-f]{64}$/.test(signature) || expected.length !== signature.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(signature, "hex"));
+  } catch {
+    return false;
+  }
 }
 
 

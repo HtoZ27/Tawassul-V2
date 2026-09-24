@@ -53,7 +53,7 @@ export function guardWithRetry(name: string, fn: GuardFn, retries = 2): Validati
               const t = setTimeout(r, 100 * attempt);
               t.unref?.();
             });
-          else throw new Error(`Guard "${name}" فشل بعد ${retries} محاولات`);
+          else throw new Error(`Guard "${name}" failed after ${retries} attempts`);
         }
       }
       return true;

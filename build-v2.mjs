@@ -1,5 +1,5 @@
 import { build } from "bun";
-import { rmSync, existsSync, readdirSync } from "node:fs";
+import { rmSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const outdir = "./dist";

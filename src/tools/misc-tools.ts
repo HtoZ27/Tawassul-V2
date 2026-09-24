@@ -24,7 +24,7 @@ export function buildReviewTool() {
         return { output: "❌ Review requires an interactive session (no ask() available)." };
       }
       const approved = await cctx.ask(
-        `## 🔍 مراجعة مطلوبة — Review Gate\n### ملخص العمل\n${args.summary}\n\n### الوكلاء المشاركون\n${args.agents.map((a) => `- ${a}`).join("\n")}\n\n---\n**هل توافق على هذا التنفيذ؟**`,
+        `## 🔍 Review Required — Review Gate\n### Work Summary\n${args.summary}\n\n### Participating agents\n${args.agents.map((a) => `- ${a}`).join("\n")}\n\n---\n**Do you approve this implementation?**`,
         { type: "confirm", default: false },
       );
       return {

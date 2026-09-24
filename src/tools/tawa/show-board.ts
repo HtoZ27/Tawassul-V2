@@ -42,7 +42,9 @@ export function buildShowBoardTool(services: ServiceIndex): ToolDefinition {
           for (const [col, tasks] of Object.entries(board.columns)) {
             for (const t of tasks) {
               totalTasks++;
-              boardLines.push(`  - **${t.id}** [${col}] ${t.description} (${t.agent})`);
+boardLines.push(
+                `  - **${t.id}** [${col}] ${t.description} (${t.agent})${t.sessionId ? ` — session: ${t.sessionId}` : ""}`,
+              );
             }
           }
           if (boardLines.length > 0) {

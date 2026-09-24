@@ -1,4 +1,5 @@
 import { guardWithRetry, isRootLikeAgent } from "./shared.ts";
+import type { Input, StageOutput } from "./shared.ts";
 import { logger } from "../../utils/logger.ts";
 import { t } from "../../translations.ts";
 import { TAWASSUL_TOOL_NAMES } from "../../tool-names.ts";
@@ -18,6 +19,19 @@ function extractDeletedNames(raw: string | undefined): Set<string> | null {
     if (!parsed || !Array.isArray(parsed.deleted)) return null;
     return new Set(
       (parsed.deleted as unknown[]).filter((d) => typeof d === "string").map((s) => normalizeName(String(s))),
+    );
+  } catch {
+    return null;
+  }
+}
+
+function extractPinnedNames(raw: string | undefined): Set<string> | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(stripJsoncComments(raw)) as { pinned?: unknown };
+    if (!parsed || !Array.isArray(parsed.pinned)) return null;
+    return new Set(
+      (parsed.pinned as unknown[]).filter((d) => typeof d === "string").map((s) => normalizeName(String(s))),
     );
   } catch {
     return null;
@@ -87,6 +101,165 @@ export const DANGEROUS_PATTERNS = [
   /eval\s+\$\(/,
 ];
 
+export function checkRosterBoundaryDelete(input: Input, output: StageOutput, redirectNote?: string): string | null {
+  const args = output.args ?? {};
+  if (["edit", "write", "delete"].includes(input.tool)) {
+    const filePath = (args.filePath ?? args.path ?? args.file_path ?? "") as string;
+    const normalized = typeof filePath === "string" ? filePath.replace(/\\/g, "/") : "";
+    const isAgentVariantMd = /\.opencode\/agents\/[^/]+\.md$/.test(normalized);
+    const isRosterFile =
+      typeof filePath === "string" &&
+      (filePath.endsWith("opencode.json") ||
+        filePath.endsWith("opencode.jsonc") ||
+        filePath.endsWith("tawassul.json") ||
+        filePath.endsWith("tawassul.jsonc") ||
+        filePath.endsWith("tawassul-state.json") ||
+        filePath.endsWith("tawassul-pins.json") ||
+        isAgentVariantMd ||
+        filePath.endsWith("deleted-agents.json"));
+    if (isRosterFile) {
+      if (isAgentVariantMd) {
+        logger.audit("PERMISSION_BLOCKED", {
+          agent: input.agent,
+          tool: input.tool,
+          reason: "agent-variant-direct-edit",
+          filePath,
+        });
+        return (
+          `🚫 Direct editing of agent files is forbidden — the official path for add/remove is @addagent` +
+          (redirectNote ?? "")
+        );
+      }
+      let currentDisk: string | undefined;
+      try {
+        currentDisk = readFileSync(filePath, "utf8");
+      } catch {
+        try {
+          currentDisk = readFileSync(resolve(process.cwd(), filePath), "utf8");
+        } catch {
+          currentDisk = undefined;
+        }
+      }
+      let newContent: string;
+      let intentUnverifiable = false;
+      if (input.tool === "edit") {
+        const oldString = args.oldString as string | undefined;
+        const newString = args.newString as string | undefined;
+        if (typeof oldString === "string" && typeof newString === "string") {
+          if (currentDisk === undefined) {
+            newContent = newString;
+          } else if (!currentDisk.includes(oldString)) {
+            intentUnverifiable = true;
+            newContent = "";
+          } else {
+            newContent = currentDisk.replace(oldString, newString);
+          }
+        } else {
+          newContent = (args.content ?? args.newString ?? args.text ?? "") as string;
+        }
+      } else {
+        newContent = (args.content ?? args.newString ?? args.text ?? "") as string;
+      }
+      if (intentUnverifiable || newContent.trim().length === 0) {
+        logger.audit("PERMISSION_BLOCKED", {
+          agent: input.agent,
+          tool: input.tool,
+          reason: "unverifiable-roster-write",
+          filePath,
+        });
+        return (
+          `🚫 Writing an empty or unverifiable roster file via ${input.tool} is forbidden — manage agents via addagent/kick` +
+          (redirectNote ?? "")
+        );
+      }
+      {
+        const parseAgentKeys = (raw: string | undefined): Set<string> | null => {
+          if (!raw) return null;
+          try {
+            const parsed = JSON.parse(stripJsoncComments(raw)) as { agent?: unknown };
+            if (!parsed || typeof parsed.agent !== "object" || parsed.agent === null || Array.isArray(parsed.agent)) {
+              return null;
+            }
+            return new Set(Object.keys(parsed.agent as Record<string, unknown>).map((k) => normalizeName(k)));
+          } catch {
+            return null;
+          }
+        };
+        const diskKeys = parseAgentKeys(currentDisk);
+        const newKeys = parseAgentKeys(newContent);
+        if (diskKeys && newKeys) {
+          const removedAny = [...diskKeys].filter((k) => !newKeys.has(k));
+          if (removedAny.length > 0) {
+            logger.audit("PERMISSION_BLOCKED", {
+              agent: input.agent,
+              tool: input.tool,
+              reason: "direct-agent-delete",
+              removedAny,
+            });
+            return `🚫 Removing agents via ${input.tool} outside kick is forbidden — use kick: ${removedAny.join(", ")}${redirectNote ?? ""}`;
+          }
+          const addedAny = [...newKeys].filter((k) => !diskKeys.has(k));
+          if (addedAny.length > 0) {
+            logger.audit("PERMISSION_BLOCKED", {
+              agent: input.agent,
+              tool: input.tool,
+              reason: "direct-agent-add",
+              addedAny,
+            });
+            return `🚫 Adding agents via ${input.tool} outside addagent is forbidden — use addagent: ${addedAny.join(", ")}${redirectNote ?? ""}`;
+          }
+        }
+        const protectedNames = [...AGENTS_DEFAULT.map((n) => normalizeName(n)), normalizeName("addagent")];
+        const deleted = detectDeletedProtectedAgents(newContent, filePath, protectedNames);
+        if (deleted.length > 0) {
+          logger.audit("PERMISSION_BLOCKED", {
+            agent: input.agent,
+            tool: input.tool,
+            reason: "protected-agent-delete",
+            deleted,
+          });
+          return `🚫 Deleting protected agents via ${input.tool} is forbidden — use kick: ${deleted.join(", ")}`;
+        }
+        const oldDeletedSet = extractDeletedNames(currentDisk);
+        const newDeletedSet = extractDeletedNames(newContent);
+        if (oldDeletedSet && newDeletedSet) {
+          const removedDeletions = [...oldDeletedSet].filter((n) => !newDeletedSet.has(n));
+          if (removedDeletions.length > 0) {
+            logger.audit("PERMISSION_BLOCKED", {
+              agent: input.agent,
+              tool: input.tool,
+              reason: "deleted-list-shrink",
+              removedDeletions,
+            });
+            return `🚫 Removing names from the deleted list via ${input.tool} is forbidden — re-add the agent via addagent: ${removedDeletions.join(", ")}`;
+          }
+        }
+        if (typeof filePath === "string" && filePath.endsWith("tawassul-pins.json")) {
+          const oldPins = extractPinnedNames(currentDisk);
+          const newPins = extractPinnedNames(newContent);
+          if (oldPins && newPins) {
+            const removedPins = [...oldPins].filter((n) => !newPins.has(n));
+            if (removedPins.length > 0) {
+              logger.audit("PERMISSION_BLOCKED", {
+                agent: input.agent,
+                tool: input.tool,
+                reason: "pins-shrink",
+                removedPins,
+              });
+              return `🚫 Removing pins via ${input.tool} is forbidden — manage overrides via addagent: ${removedPins.join(", ")}`;
+            }
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+export const rosterBoundaryDeleteGuard = guardWithRetry("roster-boundary-delete", (_ctx, input, output) =>
+  checkRosterBoundaryDelete(input, output),
+);
+
 export const permissionGuard = guardWithRetry("3-tier-permissions", (_ctx, input, output) => {
   const agentTier = getTier(input.agent ?? "");
   const toolTier = TOOL_TIERS[input.tool] ?? "admin";
@@ -128,71 +301,8 @@ export const permissionGuard = guardWithRetry("3-tier-permissions", (_ctx, input
   }
 
   if (["edit", "write", "delete"].includes(input.tool)) {
-    const filePath = (args.filePath ?? args.path ?? args.file_path ?? "") as string;
-    const isRosterFile =
-      typeof filePath === "string" &&
-      (filePath.endsWith("opencode.json") ||
-        filePath.endsWith("opencode.jsonc") ||
-        filePath.endsWith("tawassul.json") ||
-        filePath.endsWith("tawassul.jsonc") ||
-        filePath.endsWith("tawassul-state.json") ||
-        filePath.endsWith("deleted-agents.json"));
-    if (isRosterFile) {
-      let currentDisk: string | undefined;
-      try {
-        currentDisk = readFileSync(filePath, "utf8");
-      } catch {
-        try {
-          currentDisk = readFileSync(resolve(process.cwd(), filePath), "utf8");
-        } catch {
-          currentDisk = undefined;
-        }
-      }
-      let newContent: string;
-      if (input.tool === "edit") {
-        const oldString = args.oldString as string | undefined;
-        const newString = args.newString as string | undefined;
-        if (typeof oldString === "string" && typeof newString === "string") {
-          newContent =
-            currentDisk !== undefined
-              ? currentDisk.includes(oldString)
-                ? currentDisk.replace(oldString, newString)
-                : currentDisk
-              : newString;
-        } else {
-          newContent = (args.content ?? args.newString ?? args.text ?? "") as string;
-        }
-      } else {
-        newContent = (args.content ?? args.newString ?? args.text ?? "") as string;
-      }
-      if (typeof newContent === "string" && newContent.trim().length > 0) {
-        const protectedNames = AGENTS_DEFAULT.map((n) => normalizeName(n));
-        const deleted = detectDeletedProtectedAgents(newContent, filePath, protectedNames);
-        if (deleted.length > 0) {
-          logger.audit("PERMISSION_BLOCKED", {
-            agent: input.agent,
-            tool: input.tool,
-            reason: "protected-agent-delete",
-            deleted,
-          });
-          return `🚫 Deleting protected agents via ${input.tool} is blocked — use kick: ${deleted.join(", ")}`;
-        }
-        const oldDeletedSet = extractDeletedNames(currentDisk);
-        const newDeletedSet = extractDeletedNames(newContent);
-        if (oldDeletedSet && newDeletedSet) {
-          const removedDeletions = [...oldDeletedSet].filter((n) => !newDeletedSet.has(n));
-          if (removedDeletions.length > 0) {
-            logger.audit("PERMISSION_BLOCKED", {
-              agent: input.agent,
-              tool: input.tool,
-              reason: "deleted-list-shrink",
-              removedDeletions,
-            });
-            return `🚫 Removing names from the deleted list via ${input.tool} is blocked — re-add the agent via addagent: ${removedDeletions.join(", ")}`;
-          }
-        }
-      }
-    }
+    const rosterMsg = checkRosterBoundaryDelete(input, output);
+    if (rosterMsg) return rosterMsg;
   }
 
   return null;

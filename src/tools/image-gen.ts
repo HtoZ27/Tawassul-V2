@@ -12,6 +12,8 @@ const DEFAULT_IMAGE_MODEL = "gpt-image-2";
 const CODEX_REQUEST_TIMEOUT_MS = 60_000;
 const TOKEN_REFRESH_BUFFER_MS = 60_000;
 
+let cachedAccessToken: string | null = null;
+
 function codexResponsesUrl(baseUrl: string | undefined): string {
   const raw = (baseUrl || DEFAULT_CODEX_BASE_URL).trim().replace(/\/+$/, "");
   if (raw.endsWith("/codex/responses")) return raw;
@@ -67,12 +69,12 @@ async function refreshAndUpdateToken(): Promise<string> {
   if (!accessToken) {
     throw new Error("OPENAI_CODEX_ACCESS_TOKEN expired and refresh returned no token — renew it");
   }
-  process.env.OPENAI_CODEX_ACCESS_TOKEN = accessToken;
+  cachedAccessToken = accessToken;
   return accessToken;
 }
 
 async function currentAccessToken(): Promise<string> {
-  const token = process.env.OPENAI_CODEX_ACCESS_TOKEN || process.env.PI_OPENAI_CODEX_ACCESS_TOKEN;
+  const token = cachedAccessToken || process.env.OPENAI_CODEX_ACCESS_TOKEN || process.env.PI_OPENAI_CODEX_ACCESS_TOKEN;
   if (!token) throw new Error("Missing OPENAI_CODEX_ACCESS_TOKEN (or PI_OPENAI_CODEX_ACCESS_TOKEN).");
   const exp = decodeJwtPayload(token)?.exp as number | undefined;
   if (typeof exp === "number" && shouldRefreshToken(exp)) {

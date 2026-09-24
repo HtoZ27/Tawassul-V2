@@ -42,21 +42,26 @@ function isSecretKey(key: string): boolean {
   return false;
 }
 
-function redact(data: LogData, depth = 0): LogData {
+function redact(data: LogData, depth = 0, seen: WeakSet<object> = new WeakSet()): LogData {
   if (_secrets.size === 0 || !data) return data;
-  if (depth > 5) return data;
+  if (depth > 5) return _REDACTED as unknown as LogData;
+  if (seen.has(data)) return "[Circular]" as unknown as LogData;
+  seen.add(data);
   const out: LogData = {};
   for (const [k, v] of Object.entries(data)) {
     if (isSecretKey(k)) {
       out[k] = _REDACTED;
     } else if (v !== null && typeof v === "object" && !Array.isArray(v)) {
-      out[k] = redact(v as LogData, depth + 1);
+      out[k] = redact(v as LogData, depth + 1, seen);
     } else if (Array.isArray(v)) {
-      out[k] = v.map((item) => (item !== null && typeof item === "object" ? redact(item as LogData, depth + 1) : item));
+      out[k] = v.map((item) =>
+        item !== null && typeof item === "object" ? redact(item as LogData, depth + 1, seen) : item,
+      );
     } else {
       out[k] = v;
     }
   }
+  seen.delete(data);
   return out;
 }
 
@@ -68,10 +73,17 @@ function shouldLog(level: LogLevel): boolean {
 
 function formatEntry(level: string, msg: string, data?: LogData): string {
   const safe = data ? redact(data) : undefined;
+  const stringify = (v: unknown): string => {
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return '"[Unserializable]"';
+    }
+  };
   if (JSON_LOG) {
-    return JSON.stringify({ ts: new Date().toISOString(), level, msg, ...safe });
+    return stringify({ ts: new Date().toISOString(), level, msg, ...safe });
   }
-  const suffix = safe && Object.keys(safe).length > 0 ? " " + JSON.stringify(safe) : "";
+  const suffix = safe && Object.keys(safe).length > 0 ? " " + stringify(safe) : "";
   return `[tawassul] ${msg}${suffix}`;
 }
 
@@ -114,7 +126,7 @@ function writeToSink(line: string): void {
       if (_sinkConsecutiveFails >= 3) {
         _sinkDead = true;
         try {
-          console.warn(
+          console.error(
             `[tawassul] log file sink disabled after 3 consecutive failures (${LOG_FILE_PATH}):`,
             e instanceof Error ? e.message : e,
           );
@@ -137,12 +149,9 @@ export type LoggerInstance = {
 };
 
 const _console = {
-  
-  
-  debug: (msg: string) => console.debug(msg),
-  
-  info: (msg: string) => console.info(msg),
-  warn: (msg: string) => console.warn(msg),
+  debug: (msg: string) => console.error(msg),
+  info: (msg: string) => console.error(msg),
+  warn: (msg: string) => console.error(msg),
   error: (msg: string) => console.error(msg),
 };
 

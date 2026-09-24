@@ -449,7 +449,7 @@ export class SecurityPolicy {
     const bareTool = normalizeToolName(tool);
     
     if (!permission) {
-      const knownRoles = Object.keys(TAWASSUL_TOOL_ROLES).join("، ");
+      const knownRoles = Object.keys(TAWASSUL_TOOL_ROLES).join(", ");
       return {
         allowed: false,
         error: t("spUnknownRole", { role: baseRole, tool: bareTool, roles: knownRoles }),
@@ -464,7 +464,7 @@ export class SecurityPolicy {
       error: t("spToolNotAllowed", {
         tool: bareTool,
         role: baseRole,
-        allowed: allowedTools.join("، ") || t("spNoTools"),
+        allowed: allowedTools.join(", ") || t("spNoTools"),
       }),
       reason: `Blocked tool ${bareTool} for role ${baseRole}`,
     };

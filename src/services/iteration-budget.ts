@@ -83,9 +83,9 @@ export function getCap(agent: string): CapRule {
 
 export function checkCap(agent: string, depth: number, subagentCount: number, tokens: number): string | null {
   const rule = getCap(agent);
-  if (depth > rule.maxDepth) return `تجاوز العمق الأقصى (${rule.maxDepth})`;
-  if (subagentCount > rule.maxSubagents) return `تجاوز عدد الوكلاء الأقصى (${rule.maxSubagents})`;
-  if (tokens > rule.maxTokens) return `تجاوز حد التوكنز (${rule.maxTokens})`;
+  if (depth > rule.maxDepth) return `Exceeded max depth (${rule.maxDepth})`;
+  if (subagentCount > rule.maxSubagents) return `Exceeded max subagents (${rule.maxSubagents})`;
+  if (tokens > rule.maxTokens) return `Exceeded token limit (${rule.maxTokens})`;
   return null;
 }
 

@@ -27,7 +27,7 @@ export function escapeYamlValue(val: string): string {
 export function buildAllowedToolsSection(role: string): string {
   const allowed = getAllowedToolsForRole(role);
   if (allowed.length === 0) return "";
-  return `### الأدوات المسموحة (tawassul)\n✅ ${allowed.join("، ")}\n\n`;
+  return `### Allowed tools (tawassul)\nOK ${allowed.join(", ")}\n\n`;
 }
 
 export function generateAgentMd(template: AgentTemplate, model?: string): string {
@@ -84,7 +84,7 @@ export function generateAgentMd(template: AgentTemplate, model?: string): string
     : "";
 
   const responsibilitiesSection = template.responsibilities?.length
-    ? `\n### المسؤوليات\n${template.responsibilities.map((r) => `- ${r}`).join("\n")}\n`
+    ? `\n### Responsibilities\n${template.responsibilities.map((r) => `- ${r}`).join("\n")}\n`
     : "";
 
   const allowedToolsSection = buildAllowedToolsSection(resolveRole(template.name) ?? template.name);

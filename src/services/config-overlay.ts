@@ -60,7 +60,7 @@ export function applyOverlay(options: ConfigOverlayOptions): ConfigLayer {
   if (requiredFields) {
     for (const field of requiredFields) {
       if (merged[field] === undefined || merged[field] === null) {
-        throw new ConfigError(`الحقل المطلوب "${field}" غير موجود في أي طبقة`);
+        throw new ConfigError(`Required field "${field}" not found in any layer`);
       }
     }
   }

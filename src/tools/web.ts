@@ -4,7 +4,7 @@ import { mkdir, writeFile, readFile, readdir, unlink, stat, rename, rmdir } from
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { unlinkSync } from "node:fs";
 import { withTimeout } from "../utils/with-timeout.ts";
 import { CircuitBreaker } from "../services/circuit-breaker.ts";
@@ -225,10 +225,17 @@ export function isBlockedUrl(url: string): string | null {
 
     if (host.startsWith("::ffff:")) {
       const suffix = host.slice(7);
-      const segments = suffix.split(":");
-      if (segments.length > 0) {
-        const converted = ipv4FromHexSegments(segments);
-        if (converted) host = converted;
+      if (suffix.includes(".")) {
+        const v = ipv4ToInt(suffix);
+        if (v !== null) {
+          host = [(v >>> 24) & 0xff, (v >>> 16) & 0xff, (v >>> 8) & 0xff, v & 0xff].join(".");
+        }
+      } else {
+        const segments = suffix.split(":");
+        if (segments.length > 0) {
+          const converted = ipv4FromHexSegments(segments);
+          if (converted) host = converted;
+        }
       }
     }
 
@@ -245,10 +252,67 @@ export function isBlockedUrl(url: string): string | null {
     for (const suffix of SSRF_BLOCKED_SUFFIXES) {
       if (host.endsWith(suffix)) return `SSRF: internal hostname ${host} blocked`;
     }
+
+    const v4 = ipv4ToInt(host);
+    if (v4 !== null) {
+      if (
+        inCidr(v4, 0x7f000000, 8) ||
+        inCidr(v4, 0x0a000000, 8) ||
+        inCidr(v4, 0xac100000, 12) ||
+        inCidr(v4, 0xc0a80000, 16) ||
+        inCidr(v4, 0xa9fe0000, 16) ||
+        inCidr(v4, 0x64400000, 10) ||
+        v4 === 0x00000000
+      ) {
+        return `SSRF: private IP ${host} blocked`;
+      }
+    } else if (host.includes(":")) {
+      const h = host.toLowerCase();
+      if (h === "::1") return `SSRF: ${host} blocked`;
+      if (h.startsWith("fc") || h.startsWith("fd")) return `SSRF: private IP ${host} blocked`;
+      if (/^fe[89ab]/i.test(h.split(":")[0] ?? "")) return `SSRF: private IP ${host} blocked`;
+    }
+
     return null;
   } catch {
     return `SSRF: invalid URL`;
   }
+}
+
+function ipv4ToInt(host: string): number | null {
+  const parts = host.split(".");
+  if (parts.length < 1 || parts.length > 4) return null;
+  const nums: number[] = [];
+  for (const p of parts) {
+    if (!/^(0x[0-9a-f]+|0[0-7]+|\d+)$/i.test(p)) return null;
+    const n =
+      p.startsWith("0x") || p.startsWith("0X")
+        ? parseInt(p, 16)
+        : p.length > 1 && p[0] === "0" && /^[0-7]+$/.test(p)
+          ? parseInt(p, 8)
+          : parseInt(p, 10);
+    if (!Number.isSafeInteger(n) || n < 0 || n > 0xffffffff) return null;
+    nums.push(n);
+  }
+  let val = 0;
+  if (nums.length === 1) {
+    val = nums[0]!;
+  } else {
+    for (let i = 0; i < nums.length - 1; i++) {
+      if (nums[i]! > 0xff) return null;
+      val = (val << 8) | nums[i]!;
+    }
+    const last = nums[nums.length - 1]!;
+    const maxLast = 2 ** (8 * (5 - nums.length)) - 1;
+    if (last > maxLast) return null;
+    val = (val << (8 * (4 - (nums.length - 1)))) | last;
+  }
+  return val >>> 0;
+}
+
+function inCidr(ip: number, net: number, bits: number): boolean {
+  const mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0;
+  return (ip & mask) === (net & mask);
 }
 
 export function cacheKey(action: string, params: Record<string, unknown>): string {
@@ -463,7 +527,7 @@ async function firecrawlGet(path: string, signal?: AbortSignal, maxRetries = 2):
 async function writeTempOutput(prefix: string, output: string): Promise<string> {
   const tempDir = join(tmpdir(), prefix);
   await mkdir(tempDir, { recursive: true });
-  const tempFile = join(tempDir, "output.txt");
+  const tempFile = join(tempDir, `output-${Date.now()}-${randomBytes(4).toString("hex")}.txt`);
   await writeFile(tempFile, output, "utf8");
   
   

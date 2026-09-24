@@ -80,6 +80,17 @@ export class TrustScoreCalculator extends BaseInnovationService<TrustConfig, nev
 
   
   evaluate(agentId: string, agentName: string, components: TrustComponents): TrustReport {
+    const agentHistory = this.history.get(normalizeName(agentId)) || [];
+    return this.buildReport(agentId, agentName, components, agentHistory, true);
+  }
+
+  private buildReport(
+    agentId: string,
+    agentName: string,
+    components: TrustComponents,
+    agentHistory: TrustScoreHistory[],
+    record: boolean,
+  ): TrustReport {
     const now = new Date().toISOString();
 
     
@@ -94,25 +105,24 @@ export class TrustScoreCalculator extends BaseInnovationService<TrustConfig, nev
 
     
     const key = normalizeName(agentId);
-    const agentHistory = this.history.get(key) || [];
 
-    
-    const historyEntry: TrustScoreHistory = {
-      agentId,
-      timestamp: now,
-      score: overallScore,
-      components,
-      taskCount: components.completedTasks,
-    };
+    if (record) {
+      const historyEntry: TrustScoreHistory = {
+        agentId,
+        timestamp: now,
+        score: overallScore,
+        components,
+        taskCount: components.completedTasks,
+      };
 
-    agentHistory.push(historyEntry);
+      agentHistory.push(historyEntry);
 
-    
-    if (agentHistory.length > this.config.calculation.historyLimit) {
-      agentHistory.splice(0, agentHistory.length - this.config.calculation.historyLimit);
+      if (agentHistory.length > this.config.calculation.historyLimit) {
+        agentHistory.splice(0, agentHistory.length - this.config.calculation.historyLimit);
+      }
+
+      this.history.set(key, agentHistory);
     }
-
-    this.history.set(key, agentHistory);
 
     
     const trend = calculateTrend(agentHistory);
@@ -230,10 +240,12 @@ export class TrustScoreCalculator extends BaseInnovationService<TrustConfig, nev
     }
 
     const latest = agentHistory[agentHistory.length - 1]!;
-    return this.evaluate(
+    return this.buildReport(
       agentId,
       agentId, // We don't store agent name in history
       latest.components,
+      agentHistory,
+      false,
     );
   }
 
@@ -270,6 +282,7 @@ export class TrustScoreCalculator extends BaseInnovationService<TrustConfig, nev
   async persist(): Promise<void> {
     this.persistToDisk("trust-score", () => ({
       history: Object.fromEntries(this.history),
+      priors: Object.fromEntries(this.thompsonPriors),
     }));
   }
 
@@ -279,6 +292,7 @@ export class TrustScoreCalculator extends BaseInnovationService<TrustConfig, nev
       version: string;
       persistedAt: string;
       history: Record<string, TrustScoreHistory[]>;
+      priors?: Record<string, Record<string, TrustOutcomePriors>>;
     }>();
 
     if (!data) return;
@@ -297,6 +311,26 @@ export class TrustScoreCalculator extends BaseInnovationService<TrustConfig, nev
             .filter((e): e is TrustScoreHistory => e !== null);
 
           this.history.set(normalizeName(agentId), validated);
+        }
+      }
+    }
+
+    if (data.priors && typeof data.priors === "object") {
+      for (const [agentId, rec] of Object.entries(data.priors)) {
+        if (!rec || typeof rec !== "object") continue;
+        const clean: Record<string, TrustOutcomePriors> = {};
+        let ok = true;
+        for (const [k, v] of Object.entries(rec)) {
+          const s = (v as TrustOutcomePriors)?.successes;
+          const f = (v as TrustOutcomePriors)?.failures;
+          if (typeof s !== "number" || typeof f !== "number" || s < 0 || f < 0) {
+            ok = false;
+            break;
+          }
+          clean[k] = { successes: s, failures: f };
+        }
+        if (ok) {
+          this.thompsonPriors.set(normalizeName(agentId), clean as Record<TrustWeightComponent, TrustOutcomePriors>);
         }
       }
     }

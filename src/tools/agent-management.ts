@@ -96,7 +96,10 @@ function withConfigWriteLock<T>(
   const run = chain.then(executeWithFsLock, executeWithFsLock);
   configWriteChains.set(
     key,
-    run.catch(() => undefined),
+    run.catch((e) => {
+      logger.error(`[tawassul] config write failed for ${key} (chain continues):`, e);
+      return undefined;
+    }),
   );
   return run;
 }

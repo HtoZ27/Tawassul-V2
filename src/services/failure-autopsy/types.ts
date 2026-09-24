@@ -6,17 +6,17 @@ import { z } from 'zod';
 
 
 export const FailureCategorySchema = z.enum([
-  'tool_error',           // خطأ في أداة
-  'validation_error',     // خطأ في التحقق
-  'timeout',              // انتهت المهلة
-  'resource_exhaustion',  // نفاذ الموارد
-  'logic_error',          // خطأ منطقي
-  'integration_error',    // خطأ في التكامل
-  'user_error',           // خطأ المستخدم
-  'agent_error',          // خطأ الوكيل
-  'rate_limited',         // تجاوز حد الطلبات
-  'auth_error',           // خطأ مصادقة
-  'unknown',              // غير معروف
+  'tool_error',
+  'validation_error',
+  'timeout',
+  'resource_exhaustion',
+  'logic_error',
+  'integration_error',
+  'user_error',
+  'agent_error',
+  'rate_limited',
+  'auth_error',
+  'unknown',
 ]);
 
 export type FailureCategory = z.infer<typeof FailureCategorySchema>;
@@ -83,10 +83,10 @@ export const LessonSchema = z.object({
   
   
   type: z.enum([
-    'prevention',      // كيف نمنع هذا الخطأ
-    'recovery',        // كيف نتعافى من هذا الخطأ
-    'detection',       // كيف نكتشف هذا الخطأ مبكراً
-    'mitigation',      // كيف نخفف الأثر
+    'prevention',
+    'recovery',
+    'detection',
+    'mitigation',
   ]),
   
   

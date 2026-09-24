@@ -73,19 +73,19 @@ export class EvaluationSessionManager {
 
   getSessionSummary(featureId: string): string {
     const sessions = [...this.sessions.values()].filter((s) => s.featureId === featureId);
-    if (sessions.length === 0) return `لا توجد جلسات تقييم للميزة ${featureId}`;
+    if (sessions.length === 0) return `No evaluation sessions for feature ${featureId}`;
 
     const totalRounds = sessions.reduce((sum, s) => sum + s.totalRounds, 0);
     const totalIssues = sessions.reduce((sum, s) => sum + s.totalIssues, 0);
     const resolvedIssues = sessions.reduce((sum, s) => sum + s.resolvedIssues, 0);
 
     return [
-      `## جلسات تقييم: ${featureId}`,
-      `- الجلسات: ${sessions.length}`,
-      `- إجمالي الجولات: ${totalRounds}`,
-      `- إجمالي المشكلات: ${totalIssues}`,
-      `- محلولة: ${resolvedIssues}`,
-      `- متبقية: ${totalIssues - resolvedIssues}`,
+      `## Evaluation Sessions: ${featureId}`,
+      `- Sessions: ${sessions.length}`,
+      `- Total rounds: ${totalRounds}`,
+      `- Total issues: ${totalIssues}`,
+      `- Resolved: ${resolvedIssues}`,
+      `- Remaining: ${totalIssues - resolvedIssues}`,
     ].join("\n");
   }
 

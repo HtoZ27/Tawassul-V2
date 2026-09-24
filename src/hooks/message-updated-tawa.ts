@@ -36,8 +36,8 @@ export async function injectTawaGuidance(
         const sampleSize = (top as { sampleSize?: number }).sampleSize ?? 0;
         const text =
           sampleSize < 6
-            ? `\n\n💡 **توجيه مقترح:** الوكيل الأنسب لهذه المهمة هو **${top.agent}** — وكيل مرشّح (بيانات قليلة، ${sampleSize} عينة).`
-            : `\n\n💡 **توجيه مقترح:** الوكيل الأنسب لهذه المهمة هو **${top.agent}** (احتمال النجاح ≈ ${Math.round((top.successProbability ?? 0) * 100)}%).`;
+            ? `\n\n💡 **Suggested routing:** the best agent for this task is **${top.agent}** — candidate agent (few samples, ${sampleSize} seen).`
+            : `\n\n💡 **Suggested routing:** the best agent for this task is **${top.agent}** (success probability ≈ ${Math.round((top.successProbability ?? 0) * 100)}%).`;
         output.parts.push({
           type: "text" as const,
           text,

@@ -74,7 +74,7 @@ export type TawassulEvent =
   | { type: "CHECKPOINT_CREATED"; taskId: string; snapshotId: string }
   | { type: "CHECKPOINT_RESTORED"; snapshotId: string }
   | { type: "BOARD_CREATED"; boardId: string; name: string }
-  | { type: "TASK_STATUS_CHANGED"; boardId: string; taskId: string; from: string; to: string }
+  | { type: "TASK_STATUS_CHANGED"; boardId: string; taskId: string; from: string; to: string; sessionId?: string }
   | { type: "TASK_BLOCKED"; boardId: string; taskId: string; reason: string }
   // P0.6 — frame-only events (payloads filled in by their P1-P3 consumers)
   | {
@@ -366,16 +366,28 @@ export class EventHub<T extends Record<string, unknown> = DefaultEventMap> {
     }
 
     if (results.length > 0) {
-      
-      
+      const slotDeadline = Date.now() + (timeoutMs ?? EMIT_AND_WAIT_TIMEOUT_MS);
       while (this._pendingEmits >= MAX_PENDING_MICROTASKS) {
+        if (Date.now() >= slotDeadline) {
+          logger.warn("[tawassul] emitAndWait slot wait timed out — dropping emit (stuck listener?)");
+          this._metrics?.increment("eventhub.slotwait.timeout");
+          return;
+        }
         await new Promise<void>((resolve) => {
           this._slotWaiters.push(resolve);
-          
+          const timer = setTimeout(
+            () => {
+              const idx = this._slotWaiters.indexOf(resolve);
+              if (idx !== -1) this._slotWaiters.splice(idx, 1);
+              resolve();
+            },
+            Math.max(0, slotDeadline - Date.now()),
+          );
           queueMicrotask(() => {
             if (this._pendingEmits < MAX_PENDING_MICROTASKS) {
               const idx = this._slotWaiters.indexOf(resolve);
               if (idx !== -1) this._slotWaiters.splice(idx, 1);
+              clearTimeout(timer);
               resolve();
             }
           });

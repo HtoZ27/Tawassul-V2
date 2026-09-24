@@ -123,7 +123,7 @@ export function handleConflict(
   if (available.length === 0)
     return {
       strategy: "wait",
-      message: `جميع الوكلاء (${agents.join(", ")}) تجاوزوا حد الفشل — انتظر`,
+      message: `All agents (${agents.join(", ")}) exceeded the failure threshold — wait`,
       estimatedWaitMs: 60000,
     };
   const busy = activeHandoffs.filter(
@@ -135,22 +135,22 @@ export function handleConflict(
     if (alt.length > 0)
       return {
         strategy: "reroute",
-        message: `الملفات ${files.join(", ")} محجوزة بواسطة ${busyNames.join(", ")}. إعادة توجيه إلى ${alt[0]}`,
+        message: `Files ${files.join(", ")} are locked by ${busyNames.join(", ")}. Rerouting to ${alt[0]}`,
         suggestedAgent: alt[0],
       };
     const h = busy[0]!;
     const elapsed = h.timestamp ? Date.now() - new Date(h.timestamp).getTime() : 0;
     return {
       strategy: "queue",
-      message: `انتظار حتى يكمل ${busyNames.join(", ")} العمل على ${files.join(", ")}`,
+      message: `Waiting for ${busyNames.join(", ")} to finish work on ${files.join(", ")}`,
       estimatedWaitMs: Math.max(30000 - elapsed, 5000),
     };
   }
   if (files.length > 1 && agents.length >= files.length)
-    return { strategy: "split", message: `تقسيم الملفات ${files.join(", ")} بين الوكلاء ${agents.join(", ")}` };
+    return { strategy: "split", message: `Splitting files ${files.join(", ")} between agents ${agents.join(", ")}` };
   return {
     strategy: "queue",
-    message: `تعارض على الملفات ${files.join(", ")} — إضافة إلى قائمة الانتظار`,
+    message: `Conflict on files ${files.join(", ")} — adding to queue`,
     estimatedWaitMs: 30000,
   };
 }

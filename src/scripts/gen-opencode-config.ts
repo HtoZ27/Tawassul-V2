@@ -678,20 +678,41 @@ export function checkGeneratedConfig(raw?: string, opts?: GenOptions): { ok: boo
   }
   const actualAgents = agentValue as Record<string, unknown>;
   const expectedAgents = buildMergedAgents(actualRaw, opts);
+  const pureAgents = buildAgents([], opts);
+  const pinned = loadPinnedAgents(opts?.deletedPath ?? paths.deletedPath, opts?.pinsPath);
   const missing: string[] = [];
   const mismatched: string[] = [];
+  const canon = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(canon);
+    if (v && typeof v === "object") {
+      const out: Record<string, unknown> = {};
+      for (const k of Object.keys(v as Record<string, unknown>).sort()) {
+        out[k] = canon((v as Record<string, unknown>)[k]);
+      }
+      return out;
+    }
+    return v;
+  };
   for (const [name, expected] of Object.entries(expectedAgents)) {
-    const actual = actualAgents[name] as { model?: string; mode?: string } | undefined;
+    const actual = actualAgents[name] as { model?: string; mode?: string; permission?: unknown } | undefined;
     if (!actual || typeof actual !== "object") {
       missing.push(name);
       continue;
     }
-    if (actual.model !== expected.model) {
-      mismatched.push(`${name}: expected model "${expected.model}" vs actual "${String(actual.model ?? "undefined")}"`);
+    const pureModel = (pureAgents[name] as { model?: string } | undefined)?.model;
+    if (actual.model !== pureModel && !pinned.has(normalizeName(name))) {
+      mismatched.push(
+        `${name}: model "${String(actual.model ?? "undefined")}" matches neither template ("${String(pureModel ?? "undefined")}") nor pins sidecar`,
+      );
       continue;
     }
     if (actual.mode !== undefined && actual.mode !== expected.mode) {
       mismatched.push(`${name}: expected mode "${expected.mode}" vs actual "${String(actual.mode)}"`);
+    }
+    const expPerm = JSON.stringify(canon(expected.permission));
+    const actPerm = JSON.stringify(canon(actual.permission));
+    if (expPerm !== actPerm) {
+      mismatched.push(`${name}: permission drift vs generated template`);
     }
   }
   let deletedList: readonly string[] = opts?.deleted ?? [];
@@ -765,28 +786,29 @@ async function main(): Promise<void> {
       process.exitCode = 1;
       return;
     }
-    const roster = buildGlobalRoster();
-    const expected = derivedExpectedCount(roster.deleted);
-    if (Object.keys(roster.agents).length < expected) {
-      logger.error(
-        `[gen-opencode-config] FATAL: global roster agent count ${Object.keys(roster.agents).length} ` +
-          `< derived expectation ${expected} (deleted=${roster.deleted.length})`,
-      );
-      process.exitCode = 1;
-      return;
-    }
     const locked = await withCliConfigLock(resolveTawassulConfigPath(process.cwd(), "global"), async () => {
-      await writeTawassulRoster(paths.configPath, roster);
-      checkGlobalRoster();
+      const rosterIn = buildGlobalRoster();
+      const expectedIn = derivedExpectedCount(rosterIn.deleted);
+      if (Object.keys(rosterIn.agents).length < expectedIn) {
+        throw new Error(
+          `[gen-opencode-config] FATAL (in-lock): global roster agent count ${Object.keys(rosterIn.agents).length} ` +
+            `< derived expectation ${expectedIn}`,
+        );
+      }
+      await writeTawassulRoster(paths.configPath, rosterIn);
+      const verify = checkGlobalRoster();
+      if (!verify.ok) {
+        throw new Error(`[gen-opencode-config] post-write global verify FAILED — ${verify.diff ?? ""}`);
+      }
+      logger.warn(
+        `[gen-opencode-config] global roster regenerated at ${paths.configPath} with ` +
+          `${Object.keys(rosterIn.agents).length} agents (${rosterIn.deleted.length} deleted variant(s) skipped)`,
+      );
     });
     if (!locked) {
       process.exitCode = 1;
       return;
     }
-    logger.warn(
-      `[gen-opencode-config] global roster regenerated at ${paths.configPath} with ` +
-        `${Object.keys(roster.agents).length} agents (${roster.deleted.length} deleted variant(s) skipped)`,
-    );
     return;
   }
   const paths = opts.projectRoot ? resolveGenPaths(opts.projectRoot) : getDefaultPaths();
@@ -812,19 +834,31 @@ async function main(): Promise<void> {
     return;
   }
 
-  const expectedText = buildExpectedConfig(undefined, opts);
   const locked = await withCliConfigLock(dirname(paths.configPath), async () => {
-    await atomicWriteFile(paths.configPath, expectedText);
-    checkGeneratedConfig(undefined, opts);
+    const deletedIn = readDeletedAgents(paths.deletedPath);
+    const agentsIn = buildAgents(deletedIn, opts);
+    const countIn = Object.keys(agentsIn).length;
+    const expectedIn = derivedExpectedCount(deletedIn);
+    if (countIn !== expectedIn) {
+      throw new Error(
+        `[gen-opencode-config] FATAL (in-lock): agent count ${countIn} != derived expectation ${expectedIn}`,
+      );
+    }
+    const expectedTextIn = buildExpectedConfig(undefined, opts);
+    await atomicWriteFile(paths.configPath, expectedTextIn);
+    const verify = checkGeneratedConfig(undefined, opts);
+    if (!verify.ok) {
+      throw new Error(`[gen-opencode-config] post-write verify FAILED — ${verify.diff ?? ""}`);
+    }
+    logger.warn(
+      `[gen-opencode-config] opencode.json regenerated with ${countIn} agents ` +
+        `(${deletedIn.length} deleted variant(s) skipped)`,
+    );
   });
   if (!locked) {
     process.exitCode = 1;
     return;
   }
-  logger.warn(
-    `[gen-opencode-config] opencode.json regenerated with ${count} agents ` +
-      `(${deleted.length} deleted variant(s) skipped)`,
-  );
 }
 
 function runCheck(): void {

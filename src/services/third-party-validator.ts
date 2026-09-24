@@ -28,10 +28,6 @@ export class AgentValidator implements ThirdPartyValidator {
   ) {}
 
   async validate(request: ValidationRequest): Promise<ValidationResult> {
-    if (!request.task || request.task.length < 5) {
-      return { approved: true, reason: "Task too short — skipped" };
-    }
-
     if (normalizeName(request.to) === "tawa") {
       return { approved: false, reason: "Handoffs to @tawa are not allowed" };
     }

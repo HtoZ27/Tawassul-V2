@@ -495,10 +495,9 @@ export class GoalStore {
     if (!goal) return { ok: false, reason: "not-found" };
     return this.mutate(id, async (): Promise<GoalWriteResult> => {
       const now = new Date().toISOString();
-      
-      
-      
-      const next = structuredClone(goal);
+      const fresh = this.goals.get(id);
+      if (!fresh) return { ok: false, reason: "not-found" };
+      const next = structuredClone(fresh);
       if (patch.title !== undefined) {
         if (!patch.title.trim()) return { ok: false, reason: "required" };
         next.title = patch.title.trim();
@@ -636,12 +635,14 @@ export class GoalStore {
     
     
     return this.mutate(id, async (): Promise<GoalWriteResult> => {
-      if (!ALLOWED_TRANSITIONS[goal.status].includes(target)) {
-        return { ok: false, reason: "transition", missing: [`${goal.status}→${target}`] };
+      const fresh = this.goals.get(id);
+      if (!fresh) return { ok: false, reason: "not-found" };
+      if (!ALLOWED_TRANSITIONS[fresh.status].includes(target)) {
+        return { ok: false, reason: "transition", missing: [`${fresh.status}→${target}`] };
       }
-      const check = checkCloseInvariant(goal);
+      const check = checkCloseInvariant(fresh);
       if (!check.ok) return { ok: false, reason: "invariant", missing: check.missing };
-      if (verify && goal.evidence.length === 0) {
+      if (verify && fresh.evidence.length === 0) {
         
         
         return {
@@ -651,7 +652,7 @@ export class GoalStore {
         };
       }
       const now = new Date().toISOString();
-      const next = structuredClone(goal);
+      const next = structuredClone(fresh);
       
       
       for (let i = next.items.length - 1; i >= 0; i--) {
@@ -689,7 +690,9 @@ export class GoalStore {
     if (!goal) return { ok: false, reason: "not-found" };
     return this.mutate(id, async (): Promise<GoalWriteResult> => {
       const now = new Date().toISOString();
-      const tomb = structuredClone(goal);
+      const fresh = this.goals.get(id);
+      if (!fresh) return { ok: false, reason: "not-found" };
+      const tomb = structuredClone(fresh);
       tomb.status = "dropped";
       tomb.updatedAt = now;
       
@@ -711,15 +714,17 @@ export class GoalStore {
     
     
     return this.mutate(id, async (): Promise<EvidenceResult> => {
+      const fresh = this.goals.get(id);
+      if (!fresh) return { ok: false, reason: "not-found" };
       const hash = sha1(clean);
-      if (goal.evidenceHashes.includes(hash)) return { ok: false, reason: "dup" };
-      if (goal.evidence.length >= MAX_EVIDENCE_PER_GOAL) return { ok: false, reason: "cap" };
-      if (goal.lastEvidenceAt) {
-        const gap = Date.now() - new Date(goal.lastEvidenceAt).getTime();
+      if (fresh.evidenceHashes.includes(hash)) return { ok: false, reason: "dup" };
+      if (fresh.evidence.length >= MAX_EVIDENCE_PER_GOAL) return { ok: false, reason: "cap" };
+      if (fresh.lastEvidenceAt) {
+        const gap = Date.now() - new Date(fresh.lastEvidenceAt).getTime();
         if (gap < this.minEvidenceIntervalMs) return { ok: false, reason: "rate" };
       }
       const now = new Date().toISOString();
-      const next = structuredClone(goal);
+      const next = structuredClone(fresh);
       next.evidence.push(clean);
       next.evidenceHashes.push(hash);
       next.lastEvidenceAt = now;

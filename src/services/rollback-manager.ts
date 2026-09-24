@@ -19,7 +19,7 @@ export class RollbackManager {
 
   checkpoint(phase: string, data: Record<string, unknown>): void {
     if (this.processedPhases.has(phase)) {
-      throw new Error(`المرحلة "${phase}" تم تسجيلها مسبقاً — عملية غير ذرية`);
+      throw new Error(`Phase "${phase}" was already recorded — non-atomic operation`);
     }
     this.checkpoints.push({ phase, data: JSON.parse(JSON.stringify(data)), timestamp: Date.now() });
     this.processedPhases.add(phase);

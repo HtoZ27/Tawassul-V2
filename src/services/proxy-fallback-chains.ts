@@ -24,20 +24,20 @@ export const FALLBACK_CHAINS: Record<string, string[]> = {
   ],
   reviewer: [
     "opencode/big-pickle",
-    "opencode/muse-spark-1.2-contributor-free",
+    "opencode/muse-spark-1.3-contributor-free",
     "nvidia-nim/deepseek-ai/deepseek-v4-flash",
     "google/gemini-flash-lite-latest",
   ],
   architect: [
-    "nvidia-nim/minimaxai/minimax-m3",
+    "opencode/muse-spark-1.3-contributor-free",
     "opencode/big-pickle",
     "opencode/mimo-v2.6-flash-free",
     "google/gemini-flash-lite-latest",
   ],
-  designer: ["opencode/muse-spark-1.2-contributor-free", "opencode/mimo-v2.6-flash-free", "google/gemini-flash-lite-latest"],
+  designer: ["opencode/muse-spark-1.3-contributor-free", "opencode/mimo-v2.6-flash-free", "google/gemini-flash-lite-latest"],
   doc: [
     "opencode/big-pickle",
-    "opencode/muse-spark-1.2-contributor-free",
+    "opencode/muse-spark-1.3-contributor-free",
     "nvidia-nim/deepseek-ai/deepseek-v4-flash",
     "google/gemini-flash-lite-latest",
   ],
@@ -71,6 +71,27 @@ export const DYNAMIC_MODEL_SENTINEL = "dynamic";
 
 export function defaultAgentModelForRole(role: string): string {
   return getFallbackChain(role)[0] ?? getFallbackChain("dev")[0] ?? "google/gemini-flash-lite-latest";
+}
+
+export interface RetiredPinReassignment {
+  name: string;
+  oldModel: string;
+  newModel: string;
+}
+
+export function sweepRetiredModelPins(agentModelMap: Record<string, string>): RetiredPinReassignment[] {
+  const reassigned: RetiredPinReassignment[] = [];
+  for (const [name, model] of Object.entries(agentModelMap)) {
+    if (typeof model !== "string" || !RETIRED_MODEL_IDS.has(model)) continue;
+    const role = resolveRole(name) ?? name;
+    const chain = getFallbackChain(role);
+    const healthy = chain.find((m) => !RETIRED_MODEL_IDS.has(m)) ?? defaultAgentModelForRole(role);
+    if (healthy && healthy !== model) {
+      agentModelMap[name] = healthy;
+      reassigned.push({ name, oldModel: model, newModel: healthy });
+    }
+  }
+  return reassigned;
 }
 
 export function buildDynamicFallbackChain(available: Array<{ id: string; source: string }>, _role: string): string[] {

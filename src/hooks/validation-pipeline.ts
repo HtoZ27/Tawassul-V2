@@ -20,7 +20,7 @@ import { isManagedAgent } from "../utils/agent.ts";
 import { normalizeToolName } from "../utils/name-utils.ts";
 import { escapeGoalText } from "../services/prompt-sanitizer.ts";
 import { scanText } from "./guards/threat_patterns.ts";
-import { DANGEROUS_PATTERNS, permissionGuard } from "./guards/permission-guard.ts";
+import { DANGEROUS_PATTERNS, permissionGuard, rosterBoundaryDeleteGuard, checkRosterBoundaryDelete } from "./guards/permission-guard.ts";
 
 import {
   firstResponseGuard,
@@ -203,7 +203,7 @@ const ESSENTIAL_STAGES = [
   taskToolAuthorizationGuard,
   tawaRedirectGuard,
   combinedStage("limit-checks", [tawassulToolPermissionsGuard]),
-  combinedStage("enforcement-checks", [securityPolicyGuard, tawaRoutingEnforcementGuard, speculativeDispatchGuard]),
+  combinedStage("enforcement-checks", [securityPolicyGuard, tawaRoutingEnforcementGuard, speculativeDispatchGuard, rosterBoundaryDeleteGuard]),
   combinedStage("agent-guards", [deletedAgentGuard, circuitBreakerGuard]),
   consentGateGuard,
   skillGateGuard,
@@ -242,7 +242,18 @@ export async function runPipeline(ctx: Ctx, input: Input, output: StageOutput): 
         return false;
       }
     }
-    
+    if (input.tool === "edit" || input.tool === "write" || input.tool === "delete") {
+      const rosterMsg = checkRosterBoundaryDelete(
+        input,
+        output,
+        `\n➡️ Official path: @addagent for add/remove — easier than hand-editing, no extra approval needed for add`,
+      );
+      if (rosterMsg) {
+        logger.warn(`[tawassul] Unmanaged actor "${input.agent}" blocked from direct roster edit`);
+        (output as Record<string, unknown>).blockingGuard = "roster-boundary-delete";
+        return false;
+      }
+    }
     if (requiresConsent(input.tool, output.args ?? {})) {
       return await consentGateGuard.check(ctx, input, output);
     }

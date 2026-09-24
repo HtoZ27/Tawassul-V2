@@ -107,7 +107,7 @@ export class ResultEngine {
     const allFindings = reports.flatMap((r) => r.findings);
     const allRecommendations = reports.flatMap((r) => r.recommendations);
     const result: MergedReport = {
-      summary: `دمج ${reports.length} تقرير`,
+      summary: `Merged ${reports.length} reports`,
       findings: allFindings,
       recommendations: allRecommendations,
       qualityScore,

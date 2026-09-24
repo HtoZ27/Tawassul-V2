@@ -20,7 +20,7 @@ export function getPipeline(effort: ThinkingEffort): PipelineDefinition {
       phases: ["analysis", "execution", "testing"],
       closurePhases: ["completed", "closed"],
       effort,
-      description: `جهد غير معروف "${effort}" — استخدام moderate كافتراضي`,
+      description: `Unknown effort "${effort}" — defaulting to moderate`,
     };
   }
   return { ...pipeline };

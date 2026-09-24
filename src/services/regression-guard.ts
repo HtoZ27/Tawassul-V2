@@ -94,7 +94,7 @@ export class RegressionGuard {
       return {
         required: true,
         hasTest: false,
-        reason: `الميزة "${params.featureId}" غير مسجلة — يجب إنشاء اختبار تراجعي`,
+        reason: `Feature "${params.featureId}" is not registered — a regression test must be created`,
       };
     }
 
@@ -111,7 +111,7 @@ export class RegressionGuard {
         hasTest: false,
         suggestedTestFile: similarFix.testFile,
         suggestedTestName: similarFix.testName,
-        reason: `إصلاح سابق للخوارزمية ${params.algId} لم ينتج اختباراً تراجعياً`,
+        reason: `Previous fix for algorithm ${params.algId} produced no regression test`,
       };
     }
 
@@ -124,7 +124,7 @@ export class RegressionGuard {
         hasTest: false,
         suggestedTestFile,
         suggestedTestName,
-        reason: `هذا أول إصلاح للخوارزمية ${params.algId} — يجب إنشاء اختبار تراجعي`,
+        reason: `This is the first fix for algorithm ${params.algId} — a regression test must be created`,
       };
     }
 
@@ -133,7 +133,7 @@ export class RegressionGuard {
       hasTest: true,
       suggestedTestFile,
       suggestedTestName,
-      reason: `توجد ${existingRegression.length} اختبارات تراجعية سابقة`,
+      reason: `${existingRegression.length} previous regression tests exist`,
     };
   }
 

@@ -120,9 +120,13 @@ export function buildRecordTool(ctx: TawassulContext): ToolDefinition {
       };
       ctx.records.push(entry);
       ctx.recordRecordCreated(cctx.agent);
-      ctx.saveState();
+      await ctx.saveState();
+      const health = ctx.getSaveHealth();
       const emoji = recordEmoji(args.type as string);
       const severityLine = args.severity ? `${severityEmoji(args.severity as string)} ${args.severity}` : "";
+      const persistenceNote = health.stale
+        ? `\n\n⚠️ Persistence warning: on-disk save failed (${String(health.failureCount)} failure(s)) — this record is in memory but may not survive a restart.`
+        : "";
       return {
         title: `${emoji} ${entry.id}: ${entry.title}`,
         output: [
@@ -131,6 +135,7 @@ export function buildRecordTool(ctx: TawassulContext): ToolDefinition {
           `${entry.detail}`,
           severityLine,
           `— ${cctx.agent}`,
+          persistenceNote,
         ]
           .filter(Boolean)
           .join("\n"),

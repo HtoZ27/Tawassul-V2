@@ -48,7 +48,7 @@ export function injectPerformanceAlerts(
   if (alertParts.length > 0 && Array.isArray(output.parts)) {
     output.parts.push({
       type: "text" as const,
-      text: `\n> 🚨 **تنبيهات الأداء:**\n${alertParts.map(a => `> ${a}`).join("\n")}\n`,
+      text: `\n> 🚨 **Performance alerts:**\n${alertParts.map(a => `> ${a}`).join("\n")}\n`,
     });
   }
 }

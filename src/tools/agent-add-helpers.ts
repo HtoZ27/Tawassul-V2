@@ -1,7 +1,7 @@
 import { ALL_AGENTS } from "../agent-templates.ts";
 import { ROLE_NAMES } from "../core/agent-data.ts";
 import { normalizeName } from "../utils/name-utils.ts";
-import { resolveModelAlias, MODEL_ALIASES, MODEL_CATALOG } from "../services/proxy-models.ts";
+import { resolveModelAlias, MODEL_ALIASES, MODEL_CATALOG, KNOWN_MODEL_SUFFIXES } from "../services/proxy-models.ts";
 import { buildCapabilitySummary } from "../core/capability-summary.ts";
 import { isGeneratedVariant } from "../core/variant-names.ts";
 import { levenshtein } from "../core/nlp.ts";
@@ -151,7 +151,16 @@ export function validateAddInput(specs: string[], model: string): string | null 
       return t("addagentDeletedAgent", { spec });
     }
     const compound = parseCompoundSpec(spec);
-    if (compound) continue;
+    if (compound) {
+      if (!KNOWN_MODEL_SUFFIXES.has(compound.suffix.toLowerCase())) {
+        return t("addagentCompoundInvalidSuffix", {
+          spec,
+          suffix: compound.suffix,
+          available: [...KNOWN_MODEL_SUFFIXES].sort().join(", "),
+        });
+      }
+      continue;
+    }
     const dashIdx = spec.indexOf("-");
     if (dashIdx > 0 && dashIdx < spec.length - 1) {
       const base = spec.slice(0, dashIdx);

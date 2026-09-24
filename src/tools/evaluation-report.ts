@@ -172,6 +172,12 @@ export function buildEvaluationReportTool(ctx: TawassulContext) {
         return { title: "Report Limit Reached", output: t("evalLimitReached", { max: "50" }) };
       }
 
+      await ctx.saveState();
+      const health = ctx.getSaveHealth();
+      const persistenceNote = health.stale
+        ? `\n\n⚠️ Persistence warning: on-disk save failed (${String(health.failureCount)} failure(s)) — this report is in memory but may not survive a restart.`
+        : "";
+
       const allReports = featureIndex.getEvaluationReports(feature.id);
       const mergedReport = allReports.length > 1 ? mergeEvaluationReports(allReports) : report;
 
@@ -205,6 +211,7 @@ export function buildEvaluationReportTool(ctx: TawassulContext) {
           : "",
         coverageGaps.length > 0 ? `\n**Coverage Gaps:**\n${coverageGaps.map((g) => `- ${g}`).join("\n")}` : "",
         fallbackNote,
+        persistenceNote,
       ].join("\n");
 
       return sanitizeReportTextForConsumption(rawOutput);

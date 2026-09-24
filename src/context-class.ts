@@ -2,7 +2,7 @@
 import { resolve } from "node:path";
 import { mark, measure } from "./utils/perf.ts";
 import { logger } from "./utils/logger.ts";
-import type { TawaOrchestratorContext } from "./core/service-context.ts";
+import type { TawaOrchestratorContext, SaveHealth } from "./core/service-context.ts";
 import { ConflictLearner } from "./conflict-resolver/learner.ts";
 import { FileLockManager } from "./infra/file-lock.ts";
 import { RateLimiter } from "./context/rate-limit.ts";
@@ -481,6 +481,9 @@ export class TawassulContext implements TawaOrchestratorContext {
   
   async saveState(): Promise<void> {
     await StateFacade.stateSaveState(this);
+  }
+  getSaveHealth(): SaveHealth {
+    return StateFacade.stateSaveHealth(this);
   }
   async flushSaves(): Promise<void> {
     await StateFacade.stateFlushSaves(this);

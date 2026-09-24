@@ -89,11 +89,11 @@ export class CheckpointManager {
 
   async restore(snapshotId: SnapshotId): Promise<void> {
     const entry = this.snapshots.get(snapshotId);
-    if (!entry) throw new Error(`Checkpoint غير موجود: ${snapshotId}`);
-    if (!entry.codeStateId) throw new Error(`Checkpoint ${snapshotId} ليس لديه codeStateId`);
+    if (!entry) throw new Error(`Checkpoint not found: ${snapshotId}`);
+    if (!entry.codeStateId) throw new Error(`Checkpoint ${snapshotId} has no codeStateId`);
     const result = await this.codeState.restoreById(entry.codeStateId);
     if (!result.ok) {
-      throw new Error(`فشل استعادة checkpoint ${snapshotId}: ${result.error}`);
+      throw new Error(`Checkpoint restore failed for ${snapshotId}: ${result.error}`);
     }
     this.eventHub?.emit({ type: "CHECKPOINT_RESTORED", snapshotId });
   }
@@ -105,7 +105,7 @@ export class CheckpointManager {
 
   async diff(fromId: SnapshotId, toId?: SnapshotId): Promise<DiffResult> {
     const from = this.snapshots.get(fromId);
-    if (!from) throw new Error(`Checkpoint غير موجود: ${fromId}`);
+    if (!from) throw new Error(`Checkpoint not found: ${fromId}`);
     const to = toId ? this.snapshots.get(toId) : undefined;
     const diff = await this.codeState.diffBetween(from.beforeTree, to?.afterTree ?? "HEAD");
     return {

@@ -521,8 +521,11 @@ export function detectDeletedProtectedAgents(
       const oldParsed = readJsoncObject(oldRaw);
       const oldAgents = (oldParsed.agent ?? oldParsed.agents ?? {}) as Record<string, unknown>;
       oldKeys = new Set(Object.keys(oldAgents));
-    } catch {
-      return [];
+    } catch (e) {
+      throw new Error(
+        `[tawassul] cannot-verify protected-agent deletions (current config unreadable: ${(e as Error)?.message ?? e})`,
+        { cause: e },
+      );
     }
     const protectedSet = new Set(protectedNames.map((n) => n.toLowerCase()));
     const deleted: string[] = [];
@@ -530,7 +533,10 @@ export function detectDeletedProtectedAgents(
       if (protectedSet.has(k.toLowerCase()) && !newKeys.has(k)) deleted.push(k);
     }
     return deleted;
-  } catch {
-    return [];
+  } catch (e) {
+    throw new Error(
+      `[tawassul] cannot-verify protected-agent deletions (new content unparsable: ${(e as Error)?.message ?? e})`,
+      { cause: e },
+    );
   }
 }

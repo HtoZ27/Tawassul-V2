@@ -71,10 +71,10 @@ export const RETIRED_MODEL_IDS: ReadonlySet<string> = new Set([
   "opencode/nemotron-3-ultra-free",
   "opencode/ox-alpha-free",
   "opencode/muse-spark-1.2-free",
+  "opencode/muse-spark-1.2-contributor-free",
   "opencode/hy3-free",
-  // 2026-09-22 provider rename: mimo-v2.5-free is now mimo-v2.6-flash-free —
-  // existing pins on the old id are stale artifacts, replaced by the new head.
   "opencode/mimo-v2.5-free",
+  "cloudflare-workers-ai/@cf/moonshotai/kimi-k2.7-code",
 ]);
 
 export const LEGACY_UNIFIED_HEAD = "google/gemini-flash-lite-latest";

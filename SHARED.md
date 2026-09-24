@@ -120,20 +120,18 @@ Resolution in v1 is a git operation, not a code edit: take the HEAD ("Updated up
 | v2 problem | `scripts/port-from-v1.mjs:82` — `readFileSync` reads whatever v1 has, markers included |
 | v2 fix | `scripts/port-from-v1.mjs:9` — conflict-marker regex; `scripts/port-from-v1.mjs:83` — SKIP guard runs before the write |
 
-## إصلاحاتُ 2.0.0 المشتركة (مصدرُ الحقيقة: Tawassul V2/src)
+## P0.7 Shared 2.0.0 runtime fixes — DONE on v2 (baseline for S-011/S-012)
 
-| # | الإصلاحُ | الملفُ في v2 | الأسطرُ المتأثرةُ | النمطُ المُستبدَلُ |
-|---|---|---|---|---|
-| P1 | **un-stick البنودِ العالقة** | `src/services/mission-board.ts` | `updateStatus` (المقطع 212-214) | أُضيفَ مسارُ rebuild+retry عند غيابِ الفهرسِ العكسي — بندٌ حقيقيٌّ يظلُّ قابلاً للوصول دائماً |
-| P2 | **unref نافذةِ الحفظِ 3s** | `src/services/state-persistence.ts` | نافذةُ السحبِ 3s | `setTimeout(...)` + `unref()` — لا تُبقى العمليةُ حيَّةً بسببِ النافذة |
+Two runtime fixes from the 2.0.0 shared work are already implemented and verified in v2:
 
-### النقطةُ الخلافيةُ الباقية: sessionId (بانتظارِ قرارِ توقيعِك)
-تُكسرُ الحلقةُ جذرياً بأن يحملَ كلُّ بندٍ معرفَ الجلسةِ المنتِجةِ فلا يُعيدُ النموذجُ بنودَ جلسةٍ أخرى. المواضعُ الثلاثةُ في v2:
-- `TaskItem` في `src/services/mission-board.ts` (سطر 24): أضِفْ `sessionId?: string;`
-- `updateStatus` (سطر 212): استقبِلْ `sessionId` ومرّرْه
-- `getBoard` (سطر 244): اعرضْهُ كي يرى النموذجُ «منجَزٌ في جلسةٍ أخرى»
+| # | Fix | Where |
+|---|-----|-------|
+| P1 | Un-stick stuck tasks: `updateStatus` rebuilds a stale reverse index once and retries before giving up, so a real task is always reachable | `src/services/mission-board.ts` — `updateStatus` rebuild + retry path |
+| P2 | 3-second save-window handle is unref'd (`setTimeout(...) + unref()`) so the window never keeps the process alive | `src/services/state-persistence.ts` — save-window timer |
 
-## S-011 Status-change index sync + session provenance (loop guard) — TRANSFERRED, for v2 agents to implement
+The remaining contested batch (session provenance for board tasks) is fully covered by S-011.
+
+## S-011 Status-change index sync + session provenance (loop guard) — IMPLEMENTED on v2
 
 `updateStatus` persists the board but never refreshes `index.json`, so a finished board can keep showing as `active` there and the model re-queues done work in a loop. Separately, `TaskItem` carries no session identity, so the model cannot tell work done by another session apart from its own. Ownership: v1 side states the problem and the proven fix shape; v2 agents implement in this tree.
 
@@ -143,3 +141,161 @@ Resolution in v1 is a git operation, not a code edit: take the HEAD ("Updated up
 | v1 fix shape | `v1/services/mission-board.ts:232` — stale-index rebuild + retry (un-stick) covers the write path only, not the index or provenance |
 | v2 problem | `src/services/mission-board.ts:240` — persist without index sync in `updateStatus`; `src/services/mission-board.ts:24` — `TaskItem` without session identity |
 | proposed v2 fix | in `src/services/mission-board.ts:240` call `scheduleIndexWrite()` after `persistAndLog`; add `sessionId?: string` to `TaskItem` at `src/services/mission-board.ts:24`, accept it via `updateStatus` at `src/services/mission-board.ts:208`, store and emit it, carry it on the event at `src/services/event-hub.ts:77`, and render it in `src/tools/tawa/show-board.ts:45` |
+
+## S-012 Completion invariant — close-only + droppable closed goals + true CAS (loop guard, proven CAS shape) — IMPLEMENTED on v2
+
+`updateStatus` in v2 can flip a `completed` board back to `active` with no close-only guard and no real compare-and-set, so done work gets re-queued in a loop the same way the stale index caused (S-011). v1 solves this in the goal store itself: `completed` is final + physically droppable, and the invariant is enforced by a true CAS gate — never by prompts.
+
+| | Anchor |
+| --- | --- |
+| v1 problem | `v1/services/goal-store.ts:115` — `completed` invariant enforced HERE (not in prompts); `v1/services/goal-store.ts:117` — completed goals physically dropped from `list("completed")` |
+| v1 fix | `v1/services/goal-store.ts:8` — CAS-grade mutual exclusion (HMAC never suffices); `v1/services/goal-store.ts:131-135` — `completed` is close-only and droppable (`in_progress`→`blocked`→`completed` are allowed, `completed` re-open never) |
+| v2 problem | `src/services/mission-board.ts:240` — `updateStatus` without a CAS gate; `src/services/mission-board.ts:24` — `TaskItem` with no completion invariant |
+| proposed v2 fix | in `src/services/mission-board.ts:240` enforce close-only: a `completed` task cannot be reopened; use a true CAS (compare-and-set on the persisted status) before applying the transition; represent droppable-closed goals so closed work is physically removable from the board |
+
+## S-013 Role-scoped permissions + record/eval read-back + MCP boundary (security hardening) — IMPLEMENTED on v2
+
+v1 ships a role-scoped security policy (role→tool matrix, role-scoped plugin permissions, record/eval read-back guard, and an MCP boundary guard); v2 implements all three surfaces: the role→tool matrix (`getAllowedToolsForRole`) in `security-policy.ts`, read-back on the record/eval tools plus a persistence-read-back guard that discloses stale on-disk saves, and the MCP boundary guard as the once-per-session `SYSTEM_CONCORDANCE_TEXT` injection ("Never search plugin files or the MCP server").
+
+| | Anchor |
+| --- | --- |
+| v1 problem | `v1/security-policy.ts:146` — role-scoped permission matrix (role→tool) |
+| v1 fix | `v1/security-policy.ts:641` — `getAllowedToolsForRole` single source of truth |
+| v2 problem | `src/security-policy.ts:532` — `TAWASSUL_TOOL_ROLES` role→tool matrix already present; `src/tools/record.ts:50` and `src/tools/evaluation-report.ts:106` — read-back via `record(get/list)` and `evaluationreport(get: true)` already present; `src/hooks/message-updated.ts:487` — `SYSTEM_CONCORDANCE_TEXT` already deflects plugin-file/MCP hunting |
+| proposed v2 fix | `src/security-policy.ts:554` — `getAllowedToolsForRole` present as the single source of truth; persistence read-back guard added: `getSaveHealth()` wired through `src/services/state-persistence.ts:593`, `src/services/lifecycle-manager.ts:35`, `src/context/facades/state-facade.ts` → `src/context-class.ts:490`; write paths now `await ctx.saveState()` and append a `⚠️ Persistence warning: on-disk save failed (N)` disclosure when stale (`src/tools/record.ts` write path, `src/tools/evaluation-report.ts:173`) |
+
+## S-014 Standalone health tool — IMPLEMENTED on v2
+
+v1 ships a standalone health tool (`agent-health.ts` + test) as its own tool; v2 ports it as `src/tools/tawa/health.ts` registered under the `health` tool name.
+
+| | Anchor |
+| --- | --- |
+| v1 problem | `v1/services/agent-health.ts:20` — standalone health tool |
+| v1 fix | `v1/services/agent-health.ts` — health tool as a distinct tool file + `v1/tests/health-tool.test.ts` |
+| v2 problem | `src/tools/` — no health tool file |
+| proposed v2 fix | add `src/tools/tawa/health.ts` exposing a standalone health tool mirroring `v1/services/agent-health.ts` |
+
+## S-015 Old `kanban-board` naming removed from v1 — DONE on v1 (baseline, do NOT re-implement in v2)
+
+The legacy twin `kanban-board` (old name for `mission-board`) has been deleted from v1. v2 must keep its own `mission-board` (already the live name) as-is; nothing called `kanban-board` remains to port.
+
+| | Anchor |
+| --- | --- |
+| v1 problem | `v1/services/kanban-board.ts` — GitHub-stash twin sitting next to the live `v1/services/mission-board.ts`; dead duplicate, and git status listed both files as `UU` |
+| v1 fix (applied) | commit `b935531c` — `git rm v1/services/kanban-board.ts` + `v1/services/kanban-board.test.ts`; live twin `v1/services/mission-board.ts` + `v1/services/mission-board.test.ts` carries all behavior; grep for `kanban-board` is empty across the whole v1 tree |
+| proof on v1 | `npx vitest run services/mission-board.test.ts` — 19/19 green |
+| note for v2 | treat `mission-board` as the single source of truth; do not recreate a `kanban-board` name anywhere in `src/` |
+
+## S-016 Conflict-marker pollutants resolved on v1 — DONE on v1 (baseline, do NOT propagate in v2)
+
+v1's `git stash` cycle left `<<<<<<< Updated upstream` / `=======` / `>>>>>>> Stashed changes` markers in tracked files; those markers break typecheck with `TS1185` and would otherwise be ported verbatim by the port tool.
+
+| | Anchor |
+| --- | --- |
+| v1 problem | whole v1 tree carried conflict markers (reported as `UU`/`UD` in git status); `npx tsc -p . --noEmit` failed with `TS1185` at every marker |
+| v1 fix (applied) | commit `b935531c` — every hunk resolved toward the live side (`normalizeName`/mission-board semantics), markers removed in 23 files / 50 blocks; `dist` rebuilt from the clean source; `npx tsc -p . --noEmit` green (exit 0) |
+| proof on v1 | conflict-marker scan is empty across the whole tree; `scripts/port-from-v1.mjs:82` stays guarded against any future marker |
+| note for v2 | anchor the port guard: `scripts/port-from-v1.mjs:83` SKIP-on-marker must remain; never ship a file to v2 that still contains a `<<<<<<<` line |
+
+## S-017 Three-day v1 hardening batch (2026-09-20 → 23) — IMPLEMENTED on v2
+
+18 v1 commits (`62d31cba` → `ad40a084`): suite 292 files / 4926 tests green (started 287/4861), contract 51 → 44 agents, `dist` LOAD 40. Already applied to V2 by the v1 side: model rename + retired registration + contract regen (`7f9a2b4`, 4 source files). Everything below is for the V2 team to port themselves — v1 will not touch V2 sources again. Standing rules both sides follow: English-only code; no usage-guide docs (unread) / no prompt injection (latency); provider traffic never guarded; end-user installs receive tools only.
+
+### A. Model retirements (user rulings: mimo renamed, minimax/kimi dead, muse-1.3 canonical)
+
+| | Anchor |
+| --- | --- |
+| v1 rename | `v1/core/model-registry.ts:37` id → `mimo-v2.6-flash-free`, display `v1/context/model-utils.ts:158` |
+| v1 retired set | `v1/core/model-registry.ts:114` (mimo-v2.5, kimi, muse-1.2 exact id, deepseek, nemotron, ox, hy3) |
+| v1 guards keep old id | `v1/scripts/gen-opencode-config.ts:263` + `v1/scripts/gen-opencode-config.ts:912` (retired-id migration detection, intentional — do NOT "clean" these) |
+| v1 pins sidecar | 5 base overrides recorded; architect/designer are template-clean and need none (template emits 1.3 for those two, diversified heads for the rest) |
+| v1 quarantine | `v1/tests/root-generator-quarantine.test.ts:12` mirrors registry set (single source — add future retired ids ONLY to the registry, the test follows) |
+| v1 root emitter hygiene | retired-pin defs stripped (deep/hy3/kimi/minimax), per-role concrete heads replace `dynamic`, localhost-curl + `plugin` key deleted (root `scripts/generate-opencode-config.mjs` — outside anchor scope, referenced by name only) |
+| v2 done | `src/core/model-registry.ts:16`, `src/core/model-registry.ts:75` + `src/context/model-utils.ts:141` (renamed + retired, commit `7f9a2b4`) |
+| v2 todo | chain heads to 1.3 where still 1.2: mirror `v1/services/proxy-fallback-chains.ts:42`; your chains already carry mimo-v2.6 (`src/services/proxy-fallback-chains.ts:6` — verify rest incl. architect head: v1 found architect pinned to dead minimax and repinned to 1.3) |
+| v2 todo | state residue: `.opencode/tawassul-state.json:1` envelope still pins `analyst-mimo → mimo-v2.5-free` (HMAC-signed: re-sign via your key code, NEVER hand-edit); your registry already retires it (`src/core/model-registry.ts:77`), so boot sweep should clear it — verify, do not rebuild state by hand |
+
+### B. Generator hardening
+
+| | Anchor |
+| --- | --- |
+| v1 in-lock build + honored verify | `v1/scripts/gen-opencode-config.ts:1193` (project+global twins; build INSIDE lock, verify failures throw — the old code built outside and discarded results) |
+| v1 silent-exit kill | `v1/utils/opencode-config.ts:313` (ref'd backoff; unref'd timer exited 0 SILENTLY under contention — exposed by the proof test below, not by inspection) |
+| v1 lock proof test | `v1/tests/gen-lock-contention.test.ts:1` (real child: refuse-while-held, run-after; lesson: async test fns must await inside try — a `finally` deleting tmpdir fires before a returned promise settles) |
+| v1 A5 permission compare + hybrid pins | `v1/scripts/gen-opencode-config.ts:1040` (canonicalized deep compare) + pin-aware model check (template OR pins sidecar; unpinned drift fails with message) |
+| v1 facts assert-first + retired param + ci scripts | `v1/tests/facts-guard.test.ts:23` (heal only behind flag), A3 parametrized test, `check:config`/`ci` in package.json |
+| v2 todo | mirror in `src/scripts/gen-opencode-config.ts:145` (your guard sites) + `src/utils/opencode-config.ts:362` + write the lock-contention proof test FIRST (it is what exposed our silent-exit bug) |
+
+### C. Governance (the chaos-vector closure)
+
+| | Anchor |
+| --- | --- |
+| v1 unmanaged boundary | `v1/hooks/validation-pipeline.ts:277` (redirect + roster + consent; main session exempt by root boundary — owner hand-edits untouched by construction, locked by test) |
+| v1 roster split (tier-free) | `v1/hooks/guards/permission-guard.ts:133` + stage wiring; variant `.md` via scoped regex (never bare `.md` — README/docs must not match); pins shrink mirrored; state.json EXCLUDED by design (flow audit first) |
+| v1 add-detect + empty/miss + protected+disk keys | key-diff block (adds AND deletes, base AND variant — tool-internal fs + main session never reach the hook); empty payload = wipe = block; oldString-miss = unverifiable = block |
+| v1 F4 allowlist | `v1/tools/agent-add-helpers.ts:239` gate on registry-derived `v1/core/model-registry.ts:168` — NOTE the placement trap: the FIRST attempt gated in `validateAddInput` post-compound block, which is UNREACHABLE (compound `continue`s earlier); the live gate sits on the compound path itself. Port the live placement, not the obvious one. |
+| v1 init fail-closed | `v1/bootstrap/plugin-init.ts:915` (consent-requiring tools only — full closure would deadlock boot) |
+| v1 tests | `v1/hooks/guards/roster-boundary.test.ts:1` (11 tests incl. main-session-ease lock + blockingGuard attribution) |
+| v1 tier verdict (DO NOT re-litigate blindly) | full permissionGuard stays VALIDATION-scoped: blunt wiring broke 7 dev-bash tests, narrowing broke 20 tier-denial tests — BOTH pinned sets legitimate; roster stage covers ESSENTIAL. Any tier redesign must satisfy all four suites together. |
+| v2 todo | port to `src/hooks/validation-pipeline.ts:199` + `src/hooks/guards/permission-guard.ts:31`; keep your tier gate VALIDATION-scoped |
+
+### D. Runtime hardening (one line each — port mechanically; all English-only)
+
+| Fix | v1 anchor | v2 pointer |
+| --- | --- | --- |
+| ledger swap-pre-await + requeue | `v1/services/handoff-ledger.ts:70` | `src/services/handoff-ledger.ts:65` (different shape — adapt: swap before await, requeue at front on failure) |
+| goal re-read in lock (3 sites) | `v1/services/goal-store.ts:553` | mirror in your goal-store |
+| session registry under file lock | `v1/context/session-manager.ts:60` (best-effort fallback preserved) | mirror |
+| deferred wakeup timer | `v1/services/state-persistence.ts:535` + lenient-complete budget comment (max(), never min() — min would persist secrets unsanitized) | mirror both halves |
+| Thompson priors persist + pure getReport | `v1/services/trust-score/calculator.ts:98` | mirror (repeated reads diluted trend + evicted genuine history at limit) |
+| elicitation fallback audited | `v1/hooks/message-updated.ts:777` (behavior unchanged, warn added) | mirror |
+| deletion sentinel throws | `v1/utils/opencode-config.ts:719` (+outer twin; eslint `preserve-caught-error` demands `{cause}`) | mirror |
+| dirname-realpath fallback | `v1/utils/path.ts:99` (sibling function already did it right — mirror, don't invent) | `src/utils/path.ts:97` |
+| stored-chain audit (mutex kept) | `v1/tools/agent-management.ts:118` (fail-fast would poison the key forever — audit, don't gate; kick flows already await each step) | mirror + read this note twice |
+| logger redact + cycle + stringify | `v1/utils/logger.ts:51` (over-depth→REDACTED; path-based WeakSet with delete-on-exit so DAG-shared refs still render; stringify fallback marker) | `src/utils/logger.ts:45` |
+| HMAC fail-clean | `v1/utils/crypto.ts:410` (hex-regex + try/catch; non-hex 64-char threw inside timingSafeEqual) | `src/utils/crypto.ts:335` (same unguarded shape — port directly) |
+| token out of env | `v1/tools/image-gen.ts:83` (module memory; env still read as fallback) | `src/tools/image-gen.ts:51` |
+| image fallback grounded | `v1/services/image-router/index.ts:150` (next-preferred, not first-available) | `src/services/image-router/index.ts:32` |
+| short-task validation order | `v1/services/third-party-validator.ts:31` (identity+breaker before length shortcut; test rewritten, no-skip proof) | `src/services/third-party-validator.ts:32` |
+| handoff rule-error blocks | `v1/tools/handoff.ts:647` (strict blocks hard, non-strict warns+continues — check your strict semantics match) | `src/tools/handoff.ts:599` |
+| npm/pnpm/yarn + git allowlists | `v1/utils/secure-exec.ts:17` (lifecycle scripts; pnpm/yarn bare-script forms; git diff display-only — CAUTION: your git_diff tool equivalent needs `--stat/--unified/--no-color/-p`, our suite caught the break pre-commit) | `src/utils/secure-exec.ts:14` |
+| unique web temp files | `v1/tools/web.ts:478` (Date.now+randomBytes — fixed-name race) | `src/tools/web.ts:215` area |
+| slot-wait deadline | `v1/services/event-hub.ts:429` (timer deliberately ref'd — B1b lesson; first attempt deadlocked: awaiting capacity-only never re-runs the date check, needs the race) | mirror + read this note twice |
+| trust/event P1 proof tests | `v1/services/event-hub.test.ts:830` (saturate 1000 slots), trust read-stability test | mirror patterns |
+
+### E. Tests/CI patterns (port the patterns, not verbatim)
+
+`v1/tests/lifecycle-import-lint.test.ts:55` (comment-strip census, 172 sites/55 files across 12 dirs — build YOUR OWN inventory; our first over-broad attempt exploded to 55 files of noise and was reverted on the spot: detector stays at comment-only emptiness); `v1/tools/web-ssrf.test.ts:1` (28 evil/benign; CIDR `v1/tools/web.ts:299` octal-aware short-form parser; legacy messages preserved first — new checks are backstop-only); logger poll (`v1/utils/logger.test.ts:8`, 5s/25ms — replaces fixed 60ms flake); jitter left deliberately (boot timing, no observed exit); F3 documented as availability-vs-grant (missing tool fails loudly by host — no code change); A6 `check:config`/`ci` scripts.
+
+### F. S7-redirect closure (agreed residual — own your Firecrawl deployment)
+
+Zero direct fetch exists in `v1/tools/web.ts` (all via Firecrawl `baseUrl()`); per-redirect DNS revalidation is structurally impossible in-plugin. v1 closed it with initial-URL CIDR only. If your Firecrawl is self-hosted on your network, the residual risk is YOURS at the network layer, not the plugin.
+
+### G. Product decisions v2 must make itself (not code)
+
+1. **`general` grants without a `general` agent**: 98 grants in your `opencode.json:72` (v1 identical — root file, see `v1/security-policy.ts:99` helper list + `v1/AGENTS.md:121` documenting @general for reports). Options: (a) implement a real @general report agent (matches existing docs on both sides), (b) strip the grants (change your TASK_PERMISSIONS equivalent + regen contracts), (c) document-and-leave (safe today: grants to nonexistent = no-op; latent only if the name is ever created — and creation would then silently inherit broad task rights).
+2. **F1-tier end-state**: leave VALIDATION-scoped (v1 verdict after refuted narrowing). Do not re-litigate without redesigning getTier + all suites together.
+3. **Root emitter**: v1 keeps `.mjs` quarantined-by-test (4-1 vote over deletion: deleting loses the guard target for zero security gain). Your call for any v2-side emitter.
+
+### H. Process notes (saves you days — learned the hard way)
+
+1. **d.ts emit is stricter than `tsc --noEmit`**: broke our build on `as LogData` casts (fix: `as unknown as`). Run the real build in CI, not just typecheck.
+2. **The suite rebuilds `dist/` as a side effect** (chunk-hash rotation): always `git checkout -- dist/index.d.ts` formatting churn before committing, and expect `D`+new-chunk pairs in every build commit.
+3. **Pre-commit hook (husky lint-staged: prettier + eslint)** rejected us twice (`preserve-caught-error` on throws, `no-useless-assignment` on lock patterns) — fix, don't bypass; a failed hook leaves half-staged trees (verify with `git status` before retrying).
+4. **Proving tests catch real breaks**: our git-diff allowlist broke the legit `git_diff` tool flags pre-commit (suite saved us); our tier narrowing broke 20 pinned tests (reverted); an over-broad census detector exploded 15→55 files (reverted on the spot). Trust red suites over analyst prose — including ours.
+5. **Flake family (parallel load)**: logger 60ms (fixed via poll), E2E count overflow (cross-test interference), benchmark timing margins — all green in isolation; rerun full suite once before blaming code. Memory rule that saved the machine: keep 1.5GB free before heavy runs (`free -g` first).
+6. **vitest transform runs TS directly** (`node scripts/*.ts` works on node 24 — no tsx needed); child-process tests must `await` inside try (a `finally` deleting tmpdir fires before a returned promise settles).
+7. **Test bugs we wrote ourselves** (included so you laugh once, not twice): write-vs-edit reconstruction misuse, wrong-sibling assertions, stale line numbers after file growth, async-cleanup races. Every one was caught by running the test, never by review.
+8. **`/tmp/opencode` residue**: test sandboxes (`tawassul-test-*`, 244 dirs / 15MB once) accumulate from killed runs — clean periodically; ours now clean themselves via `finally` + `rmSync`.
+
+### V2 implementation report (2026-09-24, all verified via `npm run ci`)
+
+A: `src/services/proxy-fallback-chains.ts:5` heads repinned (reviewer/designer/doc 1.2→1.3, architect minimax→1.3); `src/core/model-registry.ts:75` retired set completed with `opencode/muse-spark-1.2-contributor-free` + kimi id (8 ids); new `sweepRetiredModelPins` (`src/services/proxy-fallback-chains.ts:76`) called at boot (`src/bootstrap/plugin-init.ts:484`, proven: analyst-mimo stale pin → gemini head); local contract 44 agents, roster names identical to v1, `architect` repinned to 1.3, `--check` green.
+B: in-lock build + honored verify in both twins (`src/scripts/gen-opencode-config.ts:778`, `:817`); silent-exit verified already-correct (ref'd waits; heartbeat unref mirrors v1); proof-first `scripts/prove-gen-lock-contention.ts`; A5 canonical permission compare + pure-template/pins hybrid (`src/scripts/gen-opencode-config.ts:682`); facts `check` mode + tracked `src/FACTS.md` (agentsTotal=44) + A3/A5 proofs (`scripts/prove-gen-merge-guards.ts`); `check:config`/`check:facts`/`ci` scripts in package.json.
+C: tier-free `checkRosterBoundaryDelete` + `rosterBoundaryDeleteGuard` (`src/hooks/guards/permission-guard.ts:88`, `:215`) wired into ESSENTIAL enforcement-checks (`src/hooks/validation-pipeline.ts:208`) with scoped variant-.md regex, pins-shrink, key-diff add/delete, empty/miss blocks; unmanaged edit/write/delete branch with `blockingGuard` attribution (`src/hooks/validation-pipeline.ts:246`); F4 allowlist on the compound path (`src/tools/agent-add-helpers.ts:153` + `addagentCompoundInvalidSuffix` key, proven: unknown rejected, analyst-ling valid); init fail-closed for consent tools (`src/bootstrap/plugin-init.ts:873`); `scripts/prove-roster-boundary.ts`; tier gate stays VALIDATION-scoped (G2 decided: leave).
+D: all 19 rows mirrored (ledger swap+requeue; goal re-read ×4 sites; session-registry file lock; deferred wakeup + max-budget sanitize; Thompson priors persist + pure getReport; elicitation warn; deletion-sentinel throws with cause; dirname-realpath; chain audit; logger redact/cycle/stringify; HMAC hex-guard; token in module memory; next-preferred image fallback; validator order; handoff fail-closed; pkg/git allowlists with `--cached`/`--staged` adapted for v2 gitdiff; unique web temps; slot deadline with ref'd timer; P1 proofs in `scripts/prove-event-trust-p1.ts`).
+E: SSRF CIDR backstop ported (`src/tools/web.ts:236`, proven `scripts/prove-web-ssrf.ts` incl. hex/octal/decimal evasions); comment census = `check:rules` (326 files enforced); logger-poll/jitter/F3 need no action per brief.
+F: agreed residual, no plugin action.
+G decisions: G1 document-and-leave — `task`/`handoff` `general` grants target opencode-native subagents by design (`targetsAreExploreOrGeneral` read/report paths); latent creation risk closed by `OPCODE_BUILTIN_AGENTS` reservation in addagent plus the key-diff guard blocking hand-adds. G2 leave VALIDATION-scoped. G3 keep `build-v2.mjs` (build entry, not a runtime emitter).
+
+— End S-017. v1 side will not modify V2 sources; V2 side owns all rows marked v2 todo. Disputes: reply in this file with anchor-backed evidence (checker enforces every `path:line`; v1 `path:` lines may drift ± as files grow — re-verify with grep, never trust numbers blindly).

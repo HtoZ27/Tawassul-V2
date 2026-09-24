@@ -596,7 +596,7 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
         ruleDecision = evaluateRules(crInput, ctx.capabilityTracker, classifierParams);
       } catch (err) {
         logger.warn(`evaluateRules failed:`, err);
-        ruleDecision = { action: "allow", reason: "Evaluation error, defaulting to allow", confidence: 0 };
+        ruleDecision = { action: "block", reason: "Evaluation error — failing closed", confidence: 0 };
       }
       if (s === "strict" && ruleDecision.action === "block") {
         ctx.incrementError(cctx.agent);

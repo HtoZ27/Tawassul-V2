@@ -118,10 +118,18 @@ export class ImageRouter {
       }
     }
 
-    for (const agent of availableAgents) {
-      if (agent !== suggestedAgent) {
+    for (const agent of preferredAgents) {
+      if (agent !== suggestedAgent && availableAgents.includes(agent)) {
         fallbackAgent = agent;
         break;
+      }
+    }
+    if (!fallbackAgent) {
+      for (const agent of availableAgents) {
+        if (agent !== suggestedAgent) {
+          fallbackAgent = agent;
+          break;
+        }
       }
     }
 

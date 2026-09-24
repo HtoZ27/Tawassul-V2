@@ -1,4 +1,4 @@
-import type { TawaOrchestratorContext } from "../core/service-context.ts";
+import type { TawaOrchestratorContext, SaveHealth } from "../core/service-context.ts";
 import { logger } from "../utils/logger.ts";
 import { mkdir } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
@@ -521,7 +521,7 @@ function sanitizePersistedStrings(value: unknown, depth = 0, budget = 2000): unk
   if (depth > 6 || budget <= 0) return value;
   if (Array.isArray(value)) {
     const out: unknown[] = [];
-    let remaining = budget;
+    let remaining = Math.max(budget, value.length);
     for (const v of value) {
       const next = sanitizePersistedStrings(v, depth + 1, remaining);
       if (typeof next === "string") remaining--;
@@ -589,6 +589,10 @@ export class StatePersistence {
   isDisposing(): boolean {
     return this.disposing;
   }
+  getSaveHealth(): SaveHealth {
+    const backingOff = this.saveFailureCount > 0 && this.nextRetryAt > Date.now();
+    return { stale: this.saveFailureCount > 0, failureCount: this.saveFailureCount, backingOff };
+  }
   markDisposing(): void {
     this.disposing = true;
   }
@@ -611,7 +615,21 @@ export class StatePersistence {
   private scheduleDeferredSave(): void {
     if (this.disposing || this.saveTimeout || !this.saveDirty) return;
     const now = Date.now();
-    if (now < this.nextRetryAt) return;
+    if (now < this.nextRetryAt) {
+      const wait = Math.max(0, this.nextRetryAt - now);
+      const wake = () => {
+        this.saveTimeout = null;
+        this.scheduleDeferredSave();
+      };
+      this.saveTimeout = this.timers
+        ? this.timers.setTimeout(wake, wait)
+        : (() => {
+            const t = setTimeout(wake, wait);
+            if (t?.unref) t.unref();
+            return t;
+          })();
+      return;
+    }
     if (this.saveFailureCount >= StatePersistence.MAX_SAVE_FAILURES) {
       this.nextRetryAt = now + StatePersistence.MAX_BACKOFF;
       logger.error(

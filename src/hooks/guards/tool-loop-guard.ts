@@ -127,24 +127,24 @@ export function isToolLoopBlocked(agent: string, tool: string): string | null {
     if (Date.now() - killAt >= KILL_TTL_MS) {
       _killSwitched.delete(key);
     } else {
-      return `🚫 [EMERGENCY KILL] الوكيل "${agent}" موقف يدوياً — تجاوز حد kill-switch`;
+      return `🚫 [EMERGENCY KILL] agent "${agent}" manually stopped — kill-switch exceeded`;
     }
   }
   const fm = getFailureMap(agent);
   const exactKey = `${tool}:fail`;
   const exactCount = fm.get(exactKey) ?? 0;
   if (exactCount >= EXACT_FAILURE_BLOCK_AFTER) {
-    return `🚫 أداة "${tool}" فشلت ${exactCount} مرات متتالية لـ "${agent}" — تجاوز الحد ${EXACT_FAILURE_BLOCK_AFTER}`;
+    return `🚫 Tool "${tool}" failed ${exactCount} consecutive times for "${agent}" — exceeded limit ${EXACT_FAILURE_BLOCK_AFTER}`;
   }
 
   const toolCount = fm.get(tool) ?? 0;
   if (toolCount >= SAME_TOOL_FAILURE_HALT_AFTER) {
-    return `🚫 أداة "${tool}" فشلت ${toolCount} مرة لـ "${agent}" — تجاوز الحد ${SAME_TOOL_FAILURE_HALT_AFTER}`;
+    return `🚫 Tool "${tool}" failed ${toolCount} times for "${agent}" — exceeded limit ${SAME_TOOL_FAILURE_HALT_AFTER}`;
   }
 
   const npCount = _noProgressCounts.get(normalizeAgent(agent)) ?? 0;
   if (npCount >= NO_PROGRESS_BLOCK_AFTER) {
-    return `🚫 الوكيل "${agent}" لم يُحرز تقدماً بعد ${npCount} محاولة — تجاوز الحد ${NO_PROGRESS_BLOCK_AFTER}`;
+    return `🚫 Agent "${agent}" made no progress after ${npCount} attempts — exceeded limit ${NO_PROGRESS_BLOCK_AFTER}`;
   }
 
   return null;

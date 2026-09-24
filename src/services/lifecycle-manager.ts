@@ -1,6 +1,6 @@
 
 
-import type { TawaOrchestratorContext } from "../core/service-context.ts";
+import type { TawaOrchestratorContext, SaveHealth } from "../core/service-context.ts";
 import { StatePersistence } from "./state-persistence.ts";
 import { LifecycleController } from "./lifecycle-controller.ts";
 
@@ -29,6 +29,9 @@ export class LifecycleManager {
   }
   async saveState(): Promise<void> {
     return this.persistence.saveState();
+  }
+  getSaveHealth(): SaveHealth {
+    return this.persistence.getSaveHealth();
   }
   flushSaves(): Promise<void> {
     return this.persistence.flushSaves();

@@ -77,11 +77,12 @@ export class HandoffLedger {
     }
     await this.dirReady;
     const batch = this.buffer;
+    this.buffer = [];
     try {
       const lines = batch.map((e) => JSON.stringify(e)).join("\n") + "\n";
       await appendFile(this.ledgerPath, lines, { mode: 0o600 });
-      this.buffer = [];
     } catch (e) {
+      this.buffer = [...batch, ...this.buffer];
       logger.warn("[tawassul] handoff ledger flush failed, keeping buffer for retry:", e);
       this.scheduleFlush();
       throw e;

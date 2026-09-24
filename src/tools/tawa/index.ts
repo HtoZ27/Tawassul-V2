@@ -5,3 +5,4 @@ export { buildMoaTool } from "./moa.ts";
 export { buildTaskOrchestrateTool } from "./task-orchestrate.ts";
 export { buildImageRouteTool } from "./image-route.ts";
 export { buildDashboardTool } from "./dashboard.ts";
+export { buildHealthTool } from "./health.ts";

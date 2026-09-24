@@ -29,6 +29,7 @@ interface TaskItem {
   dependencies: string[];
   status: Status;
   blockedReason?: string;
+  sessionId?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -113,7 +114,7 @@ export class MissionBoard {
     this.dataDir = dataDir ?? (stateDir ? this.resolveStateDataDir() : DATA_DIR);
     this.explicitDataDir = dataDir !== undefined;
     this.lockManager = new FileLockManager(true);
-    this.loadPromise = this.loadAllAsync().catch((err) => logger.warn(`فشل تحميل اللوحات: ${err}`));
+    this.loadPromise = this.loadAllAsync().catch((err) => logger.warn(`MissionBoard: load failed: ${err}`));
   }
 
   
@@ -205,17 +206,11 @@ export class MissionBoard {
     this.persistAndLog(board);
   }
 
-  updateStatus(boardId: string, taskId: string, status: Status, reason?: string): void {
+  updateStatus(boardId: string, taskId: string, status: Status, reason?: string, sessionId?: string): void {
     const board = this.boards.get(boardId);
     if (!board) return;
-    
     if (!board._taskIndex) this._rebuildTaskIndex(board);
     let loc = board._taskIndex!.get(taskId);
-    // S7: a stale reverse index would otherwise make a task that genuinely
-    // sits in a column look "not found", so updateStatus silently no-ops and
-    // the task stays stuck forever even after being fixed. Rebuild once (O(n)
-    // only in this rare miss path) and retry before giving up — a real task is
-    // always reachable; only a truly-absent id still no-ops.
     if (!loc) {
       this._rebuildTaskIndex(board);
       loc = board._taskIndex!.get(taskId);
@@ -226,11 +221,13 @@ export class MissionBoard {
     const removed = col.splice(loc.idx, 1);
     if (!removed.length) return;
     const task = removed[0]!;
+    if (task.status !== from) return;
+    if (task.status === "done" && status !== "done") return;
     task.status = status;
     task.updatedAt = Date.now();
     task.blockedReason = status === "blocked" ? reason : undefined;
+    if (sessionId) task.sessionId = sessionId;
     board.columns[status].push(task);
-    
     board._taskIndex!.delete(taskId);
     board._taskIndex!.set(taskId, { column: status, idx: board.columns[status].length - 1 });
     for (let i = loc.idx; i < col.length; i++) {
@@ -238,7 +235,8 @@ export class MissionBoard {
       board._taskIndex!.set(t.id, { column: from, idx: i });
     }
     this.persistAndLog(board);
-    this.eventHub?.emit({ type: "TASK_STATUS_CHANGED", boardId, taskId, from, to: status });
+    this.scheduleIndexWrite();
+    this.eventHub?.emit({ type: "TASK_STATUS_CHANGED", boardId, taskId, from, to: status, sessionId: task.sessionId });
     if (status === "blocked") {
       this.eventHub?.emit({ type: "TASK_BLOCKED", boardId, taskId, reason: reason ?? "unspecified" });
     }
@@ -310,7 +308,7 @@ export class MissionBoard {
     const lockPath = this.indexPath();
     const lock = await this.lockManager.acquireLock(lockPath, "mission-board", "index");
     if (!lock.acquired) {
-      logger.warn(`تعذر الحصول على قفل الفهرس ${INDEX_FILE} — تخطي الحفظ`);
+      logger.warn(`MissionBoard: index lock not acquired for ${INDEX_FILE} — skipping save`);
       return;
     }
     try {
@@ -350,7 +348,7 @@ export class MissionBoard {
       const lockPath = this.boardPath(board.id);
       const lock = await this.lockManager.acquireLock(lockPath, "mission-board", "persist");
       if (!lock.acquired) {
-        logger.warn(`تعذر الحصول على قفل اللوحة ${board.id} — تخطي الحفظ`);
+        logger.warn(`MissionBoard: board lock not acquired for ${board.id} — skipping save`);
         return;
       }
       try {
@@ -366,7 +364,7 @@ export class MissionBoard {
       const lockPath = this.boardPath(boardId);
       const lock = await this.lockManager.acquireLock(lockPath, "mission-board", "delete");
       if (!lock.acquired) {
-        logger.warn(`تعذر الحصول على قفل اللوحة ${boardId} — تخطي حذف الملف`);
+        logger.warn(`MissionBoard: board lock not acquired for ${boardId} — skipping file delete`);
         return;
       }
       try {

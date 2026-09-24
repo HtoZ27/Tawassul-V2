@@ -13,7 +13,7 @@ export async function sandbox<T>(fn: (signal: AbortSignal) => Promise<T>, option
   const signal = options?.signal;
 
   if (options?.maxMemoryMB) {
-    logger.warn(`تنبيه: maxMemoryMB=${options.maxMemoryMB} غير مفعل — يتطلب vm module`);
+    logger.warn(`Warning: maxMemoryMB=${options.maxMemoryMB} not enforced — requires vm module`);
   }
 
   return new Promise<T>((resolve, reject) => {

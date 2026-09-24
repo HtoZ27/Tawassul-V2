@@ -28,7 +28,7 @@ export function smartTruncate(text: string, maxLines: number): string {
         
         
         const insertIndex = Math.min(headLimit, output.length);
-        output.splice(insertIndex, 0, `... [تم حذف ${skippedCount} سطر] ...`);
+        output.splice(insertIndex, 0, `... [${skippedCount} lines omitted] ...`);
     }
 
     return output.join('\n');

@@ -220,16 +220,16 @@ export class AgentMatcher {
     
     const parts: string[] = [];
     if (request.preferredRole) {
-      parts.push(`دور: ${roleMatch >= 0.8 ? "✓" : roleMatch >= 0.5 ? "~" : "✗"} (${(roleMatch * 100).toFixed(0)}%)`);
+      parts.push(`Role: ${roleMatch >= 0.8 ? "OK" : roleMatch >= 0.5 ? "~" : "X"} (${(roleMatch * 100).toFixed(0)}%)`);
     }
     if (request.specializations.length > 0) {
       parts.push(
-        `تخصص: ${specializationMatch >= 0.6 ? "✓" : specializationMatch >= 0.3 ? "~" : "✗"} (${(specializationMatch * 100).toFixed(0)}%)`,
+        `Specialization: ${specializationMatch >= 0.6 ? "OK" : specializationMatch >= 0.3 ? "~" : "X"} (${(specializationMatch * 100).toFixed(0)}%)`,
       );
     }
-    parts.push(`أداء: ${(performanceScore * 100).toFixed(0)}%`);
-    parts.push(`متاح: ${(availabilityScore * 100).toFixed(0)}%`);
-    if (errorPenalty > 0) parts.push(`أخطاء: -${(errorPenalty * 100).toFixed(0)}%`);
+    parts.push(`Performance: ${(performanceScore * 100).toFixed(0)}%`);
+    parts.push(`Available: ${(availabilityScore * 100).toFixed(0)}%`);
+    if (errorPenalty > 0) parts.push(`Errors: -${(errorPenalty * 100).toFixed(0)}%`);
 
     
     

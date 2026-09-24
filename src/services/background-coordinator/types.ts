@@ -20,10 +20,10 @@ export const BackgroundJobSchema = z.object({
 
   
   type: z.enum([
-    "periodic", // تتكرر دورياً
-    "one_shot", // تنفذ مرة واحدة
-    "on_demand", // عند الطلب
-    "maintenance", // صيانة
+    "periodic",
+    "one_shot",
+    "on_demand",
+    "maintenance",
   ]),
 
   
@@ -46,12 +46,12 @@ export const BackgroundJobSchema = z.object({
   
   status: z
     .enum([
-      "pending", // في الانتظار
-      "running", // قيد التنفيذ
-      "completed", // مكتملة
-      "failed", // فاشلة
-      "cancelled", // ملغاة
-      "paused", // متوقفة مؤقتاً
+      "pending",
+      "running",
+      "completed",
+      "failed",
+      "cancelled",
+      "paused",
     ])
     .default("pending"),
 

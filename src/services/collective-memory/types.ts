@@ -12,12 +12,12 @@ export const UsagePatternSchema = z.object({
 
   
   type: z.enum([
-    "tool_usage", // استخدام أدوات محددة
-    "agent_routing", // توجيه الوكلاء
-    "error_recovery", // التعافي من الأخطاء
-    "workflow_sequence", // تسلسلات العمل
-    "preference", // تفضيلات المستخدم
-    "context_window", // نافذة السياق
+    "tool_usage",
+    "agent_routing",
+    "error_recovery",
+    "workflow_sequence",
+    "preference",
+    "context_window",
   ]),
 
   
@@ -92,9 +92,9 @@ export const MemoryEntrySchema = z.object({
 
   
   classification: z.enum([
-    "public", // متاحة لجميع المستخدمين
-    "private", // خاصة بالمستخدم الحالي
-    "shared", // مشتركة مع مستخدمين محددين
+    "public",
+    "private",
+    "shared",
   ]),
 });
 

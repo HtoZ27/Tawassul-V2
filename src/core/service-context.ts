@@ -40,9 +40,16 @@ export interface ModelContext {
   eventHub: EventHub;
 }
 
+export interface SaveHealth {
+  stale: boolean;
+  failureCount: number;
+  backingOff: boolean;
+}
+
 export interface StateContext {
   stateDir: string;
   saveState(): Promise<void>;
+  getSaveHealth(): SaveHealth;
   flushSaves(): Promise<void>;
   doSave(type?: string): Promise<void>;
   loadStateAsync(): Promise<void>;

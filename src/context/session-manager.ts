@@ -1,8 +1,9 @@
 
 
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { access, readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import { isProcessAlive } from "../utils/process.ts";
+import { acquireFSLock, releaseFSLock } from "../infra/file-lock.ts";
 import { constants } from "node:fs";
 import { resolve } from "node:path";
 import { toSessionInfo as apiToSessionInfo, toHookInput as apiToHookInput } from "../services/opencode-session-api.ts";
@@ -45,6 +46,15 @@ export class SessionManager {
   }
 
   async start(): Promise<void> {
+    const registryFileEarly = resolve(this.sessionRegistryPath, "registry.json");
+    const lockName = `tawassul-session-registry-${createHash("sha1").update(registryFileEarly).digest("hex").slice(0, 16)}`;
+    const lockOwner = `session-manager:${this.sessionId}`;
+    let locked = false;
+    try {
+      locked = await acquireFSLock(lockName, lockOwner, 10000);
+    } catch {
+      locked = false;
+    }
     try {
       try {
         await access(this.sessionRegistryPath, constants.F_OK);
@@ -92,6 +102,10 @@ export class SessionManager {
       await atomicWriteJson(registryFile, { ...registry, _schemaVersion: SCHEMA_VERSION });
     } catch (e) {
       logger.warn("Failed to register session:", e);
+    } finally {
+      if (locked) {
+        await releaseFSLock(lockName, lockOwner).catch(() => undefined);
+      }
     }
   }
 

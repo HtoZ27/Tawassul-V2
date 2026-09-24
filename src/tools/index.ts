@@ -28,4 +28,5 @@ export {
   buildTaskOrchestrateTool,
   buildImageRouteTool,
   buildDashboardTool,
+  buildHealthTool,
 } from "./tawa/index.ts";

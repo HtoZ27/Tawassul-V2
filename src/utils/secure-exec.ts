@@ -11,6 +11,21 @@ const NPX_ALLOWED_PACKAGES = new Set([
 
 const SHELL_META_PATTERN = /[|;&$`(){}<>!\n]/;
 
+const PKG_SAFE_SCRIPTS = new Set(["lint", "typecheck", "test", "build"]);
+
+function validatePkgManager(binary: string, args: string[], bareScript = false): string | null {
+  if (args[0] === "test") return null;
+  if (bareScript && args.length >= 1 && PKG_SAFE_SCRIPTS.has(args[0] ?? "")) {
+    if (args.slice(1).every((a) => a.startsWith("-"))) return null;
+    return `${binary}: only flags may follow <script>`;
+  }
+  if (args[0] === "run" && args.length >= 2 && PKG_SAFE_SCRIPTS.has(args[1] ?? "")) {
+    if (args.slice(2).every((a) => a.startsWith("-"))) return null;
+    return `${binary}: only flags may follow run <script>`;
+  }
+  return `${binary}: only run <lint|typecheck|test|build> and test are allowed`;
+}
+
 function validateArgs(binary: string, args: string[]): string | null {
   switch (binary) {
     case "rg":
@@ -23,25 +38,27 @@ function validateArgs(binary: string, args: string[]): string | null {
       if (args[0] !== "diff") {
         return `git: only diff is allowed`;
       }
+      {
+        const SAFE = new Set(["--stat", "--name-only", "--name-status", "--check", "--shortstat", "--no-color", "-p", "--cached", "--staged"]);
+        for (let i = 1; i < args.length; i++) {
+          const a = args[i] ?? "";
+          if (a === "--") continue;
+          if (/^-U\d*$/.test(a) || /^--unified=\d+$/.test(a)) continue;
+          if (a.startsWith("-") && !SAFE.has(a)) {
+            return `git diff: flag ${a} is forbidden (display flags + paths only)`;
+          }
+        }
+      }
       return null;
 
     case "npm":
-      if (args.includes("install") || args.includes("add") || args.includes("publish") || args.includes("exec")) {
-        return "npm: install/add/publish/exec is forbidden";
-      }
-      return null;
+      return validatePkgManager("npm", args);
 
     case "pnpm":
-      if (args.includes("install") || args.includes("add") || args.includes("publish") || args.includes("exec")) {
-        return "pnpm: install/add/publish/exec is forbidden";
-      }
-      return null;
+      return validatePkgManager("pnpm", args, true);
 
     case "yarn":
-      if (args.includes("install") || args.includes("add") || args.includes("publish") || args.includes("exec")) {
-        return "yarn: install/add/publish/exec is forbidden";
-      }
-      return null;
+      return validatePkgManager("yarn", args, true);
 
     case "npx": {
       if (!args.includes("--no-install")) {

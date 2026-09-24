@@ -94,7 +94,11 @@ export async function resolveSafe(base: string, userPath: string): Promise<{ res
   try {
     realResolved = await realpath(resolved);
   } catch {
-    realResolved = resolved;
+    try {
+      realResolved = join(await realpath(dirname(resolved)), basename(resolved));
+    } catch {
+      realResolved = resolved;
+    }
   }
   let realBase: string;
   try {

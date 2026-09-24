@@ -644,7 +644,8 @@ export function createMessageUpdatedHook(ctx: MessageUpdatedContext) {
                 });
               }
             }
-          } catch {
+          } catch (err) {
+            logger.warn(`[tawassul] elicitation gate failed, proceeding with original content:`, err);
           }
         }
         if (gateDeferred) {

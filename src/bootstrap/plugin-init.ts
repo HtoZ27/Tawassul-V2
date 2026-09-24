@@ -22,11 +22,12 @@ import { runWithContext } from "../context/context-store.ts";
 import { AskChannel, type AskChannelDeps } from "../services/ask-channel.ts";
 import { formatAskPrompt, ASK_MARKER, type AskKind } from "../services/ask-channel-parse.ts";
 import { readAskRenderEnv, resolveAskRenderer } from "../services/ask-render.ts";
-import { defaultAgentModelForRole, DYNAMIC_MODEL_SENTINEL } from "../services/proxy-fallback-chains.ts";
+import { defaultAgentModelForRole, DYNAMIC_MODEL_SENTINEL, sweepRetiredModelPins } from "../services/proxy-fallback-chains.ts";
 import { resolveRole } from "../utils/agent.ts";
 import { acquireOpencodeConfigLock, repairProjectConfigBoot, sleepBootJitter } from "../utils/opencode-config.ts";
 import { releaseFSLock } from "../infra/file-lock.ts";
 import { createHandoffEntry } from "../services/handoff-entry.ts";
+import { requiresConsent } from "../hooks/guards/shared/limits.ts";
 import { detectInstallScope, claimCoexistence, isCoexistenceOwner, releaseCoexistence } from "../core/install-scope.ts";
 import { warnIfUnisolatedDb } from "./db-isolation.ts";
 import { getAutoGrantableTools } from "../utils/permission-rules.ts";
@@ -64,17 +65,14 @@ async function passiveSelfCheck(projectDir: string, pluginDir: string): Promise<
     }
     
     const distJs = resolve(pluginDir, "dist/index.js");
-    if (!existsSync(distJs)) checks.push("dist/index.js missing — run: bun --cwd .opencode/plugins/tawassul build.mjs");
+    const altDistJs = resolve(projectDir, "dist/index.js");
+    if (!existsSync(distJs) && !existsSync(altDistJs)) checks.push("dist/index.js missing — run: bun build-v2.mjs or bun --cwd .opencode/plugins/tawassul build.mjs");
     
     const nm = resolve(projectDir, ".opencode/node_modules");
     if (!existsSync(nm)) checks.push(".opencode/node_modules missing — opencode will run bun install on next start");
-    
-    const expected = resolve(projectDir, ".opencode/plugins/tawassul");
-    if (resolve(pluginDir) !== expected) checks.push(`plugin path mismatch: ${pluginDir} !== ${expected}`);
 
     if (checks.length === 0) return; 
     logger.warn(`[tawassul] self-check: ${checks.join(" | ")}`);
-    // Self-heal where possible: ensureSubagentDepth already handles depth; dist/node_modules require user action but we log clearly
   } catch (e) {
     logger.debug("[tawassul] passiveSelfCheck skipped:", (e as Error)?.message ?? e);
   }
@@ -485,6 +483,17 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
       await tawaCtx.init();
       if (initAbortController.signal.aborted) return;
 
+      try {
+        const reassigned = sweepRetiredModelPins(tawaCtx.modelManager.agentModelMap as Record<string, string>);
+        if (reassigned.length > 0) {
+          logger.warn(
+            `[tawassul] Boot retired-pin sweep: ${reassigned.map((r) => `${r.name} ${r.oldModel} -> ${r.newModel}`).join(", ")}`,
+          );
+        }
+      } catch (e) {
+        logger.debug(`[tawassul] Boot retired-pin sweep skipped: ${e instanceof Error ? e.message : String(e)}`);
+      }
+
       
       
       void (async () => {
@@ -863,7 +872,16 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
     ) => {
       const status = await ensureReady();
       if (!status.ready) {
-        
+        if (
+          requiresConsent(
+            (input as { tool?: string }).tool ?? "",
+            (output as { args?: Record<string, unknown> }).args ?? {},
+          )
+        ) {
+          throw new Error(
+            `[tawassul] Tool blocked: plugin init not ready (${status.error?.message ?? "pending"}). Try again in a moment.`,
+          );
+        }
         logger.warn(`tool.execute.before: init not ready (${status.error?.message ?? "pending"})`);
         return;
       }

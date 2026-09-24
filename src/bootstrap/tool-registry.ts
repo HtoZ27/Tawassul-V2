@@ -47,6 +47,7 @@ import {
   buildTaskOrchestrateTool,
   buildImageRouteTool,
   buildDashboardTool,
+  buildHealthTool,
   buildTimelineTool,
   buildGoalTool,
 } from "../tools/index.ts";
@@ -139,6 +140,7 @@ export function buildToolRegistry(
     ),
     image_route: buildImageRouteTool(services?.imageRouter ?? getImageRouter(), () => tawaCtx.getAgents()),
     dashboard: buildDashboardTool(serviceIndex, tawaCtx),
+    health: buildHealthTool(tawaCtx),
     ...(services?.timelineStore ? { timeline: buildTimelineTool(services.timelineStore) } : {}),
     ...(services?.goalStore ? { goal: buildGoalTool(services.goalStore) } : {}),
     fasttrack: buildFastTrackTool((entry: HandoffEntry) => {
