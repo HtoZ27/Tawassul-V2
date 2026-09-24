@@ -24,7 +24,13 @@ import { formatAskPrompt, ASK_MARKER, type AskKind } from "../services/ask-chann
 import { readAskRenderEnv, resolveAskRenderer } from "../services/ask-render.ts";
 import { defaultAgentModelForRole, DYNAMIC_MODEL_SENTINEL, sweepRetiredModelPins } from "../services/proxy-fallback-chains.ts";
 import { resolveRole } from "../utils/agent.ts";
-import { acquireOpencodeConfigLock, repairProjectConfigBoot, sleepBootJitter } from "../utils/opencode-config.ts";
+import {
+  acquireOpencodeConfigLock,
+  ensureGlobalRosterSeed,
+  ensureMinimalProjectContract,
+  repairProjectConfigBoot,
+  sleepBootJitter,
+} from "../utils/opencode-config.ts";
 import { releaseFSLock } from "../infra/file-lock.ts";
 import { createHandoffEntry } from "../services/handoff-entry.ts";
 import { requiresConsent } from "../hooks/guards/shared/limits.ts";
@@ -456,6 +462,16 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
       );
     }
   });
+
+  if (coexistenceScope === "global") {
+    void ensureGlobalRosterSeed().then((r) => {
+      if (r.created) logger.info(`[tawassul] Boot seed done: global roster at ${r.path}`);
+    });
+  } else {
+    void ensureMinimalProjectContract(ctx.directory, coexistenceScope).then((r) => {
+      if (r.created) logger.info(`[tawassul] Boot seed done: minimal contract at ${r.configPath}`);
+    });
+  }
 
   
   

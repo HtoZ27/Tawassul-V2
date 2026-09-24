@@ -302,3 +302,16 @@ G decisions: G1 document-and-leave — `task`/`handoff` `general` grants target 
 A2 residue cleared headless via project key code (`scripts/sweep-state-retired-pins.ts`: unwrap→sweep→re-sign→re-verify; analyst-mimo + general pins migrated, envelope clean). Live boot verified on host 1.18.30 (`opencode run` in sandbox: self-check + AskChannel + boot repair + healthy INIT_AUDIT + F6 regen + model reply, exit 0; the `v2 setup aborted` line is the expected V1-host branch — `server: initPlugin` drives). Dead `vitest*.ts` stubs removed (no runner, no references; bun proofs in `ci` are the pattern). Orphan `.bak` scheme files + 670 killed-run `/tmp/tawassul-*` sandboxes (7.1M) removed; managed 5-deep backup sets untouched.
 
 — End S-017. v1 side will not modify V2 sources; V2 side owns all rows marked v2 todo. Disputes: reply in this file with anchor-backed evidence (checker enforces every `path:line`; v1 `path:` lines may drift ± as files grow — re-verify with grep, never trust numbers blindly).
+
+## S-018 v1 commit 3af1b224 (R-008/R-009/R-011) — ported on merit, v2-shaped — IMPLEMENTED on v2
+
+v2 differs from v1 (single-file bundle, English-only, bun proofs, no test runner, untracked runtime state) and is heading for independence: each row below was judged on usefulness to v2, not ported blindly. Skipped deliberately: AGENTS.md section (no v2 counterpart; standing rule against unread usage-guide docs), mandatory-dependency packaging (tree-sitter already bundled in `dist/index.js`), `*-muse` `.md` deletions + analyst-ling exception (v2 carries no variant `.md` files at all), F3/logger-poll non-changes.
+
+| | Anchor |
+| --- | --- |
+| R-008 v1 fix | `v1/tools/agent-management.ts:429` — `skipVariantMd` (config-only variants in project scope) |
+| R-008 v2 port | `src/tools/agent-management.ts:342` — same skip shape with `SPECIALIZATIONS`; matches v2 on-disk reality (zero variant `.md` files); rollback bookkeeping untouched |
+| R-009 v1 fix | `v1/utils/opencode-config.ts:568` + `:633` — minimal contract + global roster seed, wired by coexistence scope |
+| R-009 v2 port | `src/utils/opencode-config.ts:467` + `:519` (no comments per v2 rules) wired in `src/bootstrap/plugin-init.ts:467` + `:471`; mcp branch kept guarded (never fires — v2 has no MCP bundle); proven by `scripts/prove-first-boot-seed.ts` (create/idempotent/opt-out/scope/mcp-bundle/global-seed) |
+| R-011 v1 fix | `v1/tests/lifecycle-import-lint.test.ts:44` census + `:154` prompt duty; clause in 9 base `.md` files |
+| R-011 v2 port | single source `src/core/render-agent.ts:33` (`DISCLOSURE_SECTION`, appended at `:113`) covering all future writes; 8 on-disk base `.md` files carry the clause; proven by `scripts/prove-disclosure.ts` (on-disk markers + renderer markers + 21-file reviewed census — background-durability silences accepted, handoff enrichment converted to warn at `src/tools/handoff.ts:117` + `:154`) |

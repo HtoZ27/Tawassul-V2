@@ -114,7 +114,8 @@ function buildAccumulatedContext(
     if (evalSections.length > 0) {
       evalText = `\n## 📋 Evaluations\n${evalSections.join("\n")}`;
     }
-  } catch {
+  } catch (e) {
+    logger.warn(`handoff context: evaluations section dropped:`, e);
   }
 
   const sections: string[] = [];
@@ -151,7 +152,8 @@ function buildAccumulatedContext(
       );
     }
     if (memSections.length > 0) sections.push(...memSections);
-  } catch {
+  } catch (e) {
+    logger.warn(`handoff context: memory sections dropped for ${targetAgent}:`, e);
   }
 
   if (evalText) sections.push(evalText);

@@ -1,11 +1,19 @@
 
 
 import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { atomicWriteFile } from "./atomic.ts";
 import { acquireFSLock, releaseFSLock } from "../infra/file-lock.ts";
 import { resolveRole } from "./agent.ts";
+import {
+  globalConfigDir,
+  TAWASSUL_ROSTER_FILE,
+  TAWASSUL_ROSTER_FILE_LEGACY,
+  type InstallScope,
+} from "./path-resolver.ts";
+import { ALL_AGENTS } from "../agent-templates.ts";
 import {
   defaultAgentModelForRole,
   DYNAMIC_MODEL_SENTINEL,
@@ -448,6 +456,86 @@ export async function repairProjectConfigBoot(projectDir: string): Promise<Repai
   } catch {
     return { configPath: null, changed: false, backupPath: null, fixes: [] };
   }
+}
+
+export interface MinimalContractResult {
+  created: boolean;
+  configPath: string | null;
+  reason: "exists" | "opted-out" | "non-project-scope" | "lock-busy" | null;
+}
+
+export async function ensureMinimalProjectContract(
+  projectDir: string,
+  scope: InstallScope,
+): Promise<MinimalContractResult> {
+  if (scope !== "project") return { created: false, configPath: null, reason: "non-project-scope" };
+  if (process.env.TAWASSUL_NO_AUTOCONFIG === "1") {
+    logger.debug("[tawassul] boot: minimal-contract generation opted out (TAWASSUL_NO_AUTOCONFIG=1)");
+    return { created: false, configPath: null, reason: "opted-out" };
+  }
+  for (const name of ["opencode.jsonc", "opencode.json"]) {
+    const p = resolve(projectDir, name);
+    if (existsSync(p)) return { created: false, configPath: p, reason: "exists" };
+  }
+  await sleepBootJitter();
+  const { acquired, lockName, owner } = await acquireOpencodeConfigLock(resolve(projectDir));
+  if (!acquired) {
+    logger.warn("[tawassul] boot: config write lock busy — skipping minimal-contract generation this boot");
+    return { created: false, configPath: null, reason: "lock-busy" };
+  }
+  try {
+    for (const name of ["opencode.jsonc", "opencode.json"]) {
+      const p = resolve(projectDir, name);
+      if (existsSync(p)) return { created: false, configPath: p, reason: "exists" };
+    }
+    const doc: Record<string, unknown> = {
+      $schema: "https://opencode.ai/config.json",
+      subagent_depth: 3,
+      agent: {},
+    };
+    if (existsSync(resolve(projectDir, ".opencode", "mcp", "tawassul.mjs"))) {
+      doc.mcp = {
+        tawassul: { type: "local", command: ["node", ".opencode/mcp/tawassul.mjs"], enabled: true },
+      };
+    }
+    const configPath = resolve(projectDir, "opencode.json");
+    await atomicWriteFile(configPath, JSON.stringify(doc, null, 2) + "\n");
+    logger.warn(`[tawassul] boot: no opencode.json found — generated minimal contract at ${configPath}`);
+    return { created: true, configPath, reason: null };
+  } finally {
+    try {
+      await releaseFSLock(lockName, owner);
+    } catch {
+      void 0;
+    }
+  }
+}
+
+export interface GlobalRosterSeedResult {
+  created: boolean;
+  path: string | null;
+}
+
+export async function ensureGlobalRosterSeed(): Promise<GlobalRosterSeedResult> {
+  if (process.env.TAWASSUL_NO_AUTOCONFIG === "1") {
+    logger.debug("[tawassul] boot: global-roster seeding opted out (TAWASSUL_NO_AUTOCONFIG=1)");
+    return { created: false, path: null };
+  }
+  const dir = globalConfigDir();
+  const canonical = resolve(dir, TAWASSUL_ROSTER_FILE);
+  const legacy = resolve(dir, TAWASSUL_ROSTER_FILE_LEGACY);
+  if (existsSync(canonical)) return { created: false, path: canonical };
+  if (existsSync(legacy)) return { created: false, path: legacy };
+  const agents: Record<string, unknown> = {};
+  for (const a of ALL_AGENTS) {
+    agents[a.name] = { description: a.description, model: defaultAgentModelForRole(a.name) };
+  }
+  await mkdir(dir, { recursive: true });
+  if (existsSync(canonical)) return { created: false, path: canonical };
+  if (existsSync(legacy)) return { created: false, path: legacy };
+  await atomicWriteFile(legacy, JSON.stringify({ agents, deleted: [] }, null, 2) + "\n");
+  logger.warn(`[tawassul] boot: no global roster — seeded minimal ${legacy}`);
+  return { created: true, path: legacy };
 }
 
 

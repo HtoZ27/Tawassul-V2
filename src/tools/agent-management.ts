@@ -339,16 +339,21 @@ async function addSingleAgent(ctx: TawassulContext, spec: string, fullModel: str
   } catch {
     void 0;
   }
+  const skipVariantMd = SCOPE !== "global" && isGeneratedVariant(tag, SPECIALIZATIONS);
   try {
-    await ctx.agentManager.writeAgentMd(
-      tag,
-      template.role,
-      template.responsibilities,
-      template.capability,
-      template.description,
-      permissions,
-      fullModel,
-    );
+    if (!skipVariantMd) {
+      await ctx.agentManager.writeAgentMd(
+        tag,
+        template.role,
+        template.responsibilities,
+        template.capability,
+        template.description,
+        permissions,
+        fullModel,
+      );
+    } else {
+      logger.debug(`addSingleAgent: skipping .md for generated variant ${tag} (config-only surface)`);
+    }
   } catch (e) {
     logger.warn(`addSingleAgent: writeAgentMd failed for ${tag}:`, e);
     mdBackupBeforeAdd.delete(backupKey);

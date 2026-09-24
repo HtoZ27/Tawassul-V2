@@ -30,6 +30,16 @@ export function buildAllowedToolsSection(role: string): string {
   return `### Allowed tools (tawassul)\nOK ${allowed.join(", ")}\n\n`;
 }
 
+export const DISCLOSURE_SECTION = [
+  "",
+  "### Disclosure Rule (R-011)",
+  "",
+  "- Hide no error from the user: every failure in your tools or analysis must be stated explicitly with its cause.",
+  "- Claim nothing you have not verified on disk: distinguish (disk-proven) from (inference).",
+  "- When sources contradict, present the contradiction itself — never resolve it silently.",
+  "- Disclose without disrupting: state errors and contradictions in your output and keep working — never turn disclosure into repeated questions; ask the user only when genuinely blocked.",
+].join("\n");
+
 export function generateAgentMd(template: AgentTemplate, model?: string): string {
   if (template.raw) return template.instructions;
 
@@ -100,5 +110,5 @@ permission:
 ---
 ${responsibilitiesSection}
 ${allowedToolsSection}
-${template.instructions}`;
+${template.instructions}${DISCLOSURE_SECTION}`;
 }
