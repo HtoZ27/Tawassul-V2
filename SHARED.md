@@ -298,4 +298,7 @@ E: SSRF CIDR backstop ported (`src/tools/web.ts:236`, proven `scripts/prove-web-
 F: agreed residual, no plugin action.
 G decisions: G1 document-and-leave — `task`/`handoff` `general` grants target opencode-native subagents by design (`targetsAreExploreOrGeneral` read/report paths); latent creation risk closed by `OPCODE_BUILTIN_AGENTS` reservation in addagent plus the key-diff guard blocking hand-adds. G2 leave VALIDATION-scoped. G3 keep `build-v2.mjs` (build entry, not a runtime emitter).
 
+### V2 follow-ups (2026-09-24)
+A2 residue cleared headless via project key code (`scripts/sweep-state-retired-pins.ts`: unwrap→sweep→re-sign→re-verify; analyst-mimo + general pins migrated, envelope clean). Live boot verified on host 1.18.30 (`opencode run` in sandbox: self-check + AskChannel + boot repair + healthy INIT_AUDIT + F6 regen + model reply, exit 0; the `v2 setup aborted` line is the expected V1-host branch — `server: initPlugin` drives). Dead `vitest*.ts` stubs removed (no runner, no references; bun proofs in `ci` are the pattern). Orphan `.bak` scheme files + 670 killed-run `/tmp/tawassul-*` sandboxes (7.1M) removed; managed 5-deep backup sets untouched.
+
 — End S-017. v1 side will not modify V2 sources; V2 side owns all rows marked v2 todo. Disputes: reply in this file with anchor-backed evidence (checker enforces every `path:line`; v1 `path:` lines may drift ± as files grow — re-verify with grep, never trust numbers blindly).
