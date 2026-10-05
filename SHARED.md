@@ -315,3 +315,21 @@ v2 differs from v1 (single-file bundle, English-only, bun proofs, no test runner
 | R-009 v2 port | `src/utils/opencode-config.ts:467` + `:519` (no comments per v2 rules) wired in `src/bootstrap/plugin-init.ts:467` + `:471`; mcp branch kept guarded (never fires — v2 has no MCP bundle); proven by `scripts/prove-first-boot-seed.ts` (create/idempotent/opt-out/scope/mcp-bundle/global-seed) |
 | R-011 v1 fix | `v1/tests/lifecycle-import-lint.test.ts:44` census + `:154` prompt duty; clause in 9 base `.md` files |
 | R-011 v2 port | single source `src/core/render-agent.ts:33` (`DISCLOSURE_SECTION`, appended at `:113`) covering all future writes; 8 on-disk base `.md` files carry the clause; proven by `scripts/prove-disclosure.ts` (on-disk markers + renderer markers + 21-file reviewed census — background-durability silences accepted, handoff enrichment converted to warn at `src/tools/handoff.ts:117` + `:154`) |
+
+## S-019 v1 commit 29a4f809 atomic-audit P0 closures (WAL verify, containment, backup env, fail-closed gates) — IMPLEMENTED on v2
+
+v1 commit 29a4f809 closes the external atomic-audit P0s (73 green): WAL-blind source probe, literal-string archive ban, missing backup env, fail-open table probes, unreliable fuser reads, missing cooldown-mark liveness. V2 ports the fail-closed shapes and vendors its own maintenance copy so the V2 launcher no longer depends on the v1 tree at runtime. Rejected with evidence on v1 (not ported): extra V2 markers already live in both working DBs, mkdir owner lock.
+
+| | Anchor |
+| --- | --- |
+| P0-1 v1 fix | `v1/tests/review-fixes.test.ts:1` — WAL regression test, source probe reads WAL-inclusive |
+| P0-1 v2 port | `scripts/opencode-db-maintenance.sh:338` — source session count via plain readonly, backup stays immutable |
+| P0-2/6 v1 fix | `v1/tests/review-fixes.test.ts:1` — containment tests both directions, exit 2 rows untouched |
+| P0-2/6 v2 port | `scripts/opencode-db-maintenance.sh:122` — canonicalize DB path, refuse symlinks, ban backup spellings, refuse DB backup overlap |
+| P0-3 v1 fix | `v1/tests/installer.test.ts:1` — systemd unit carries backup env |
+| P0-3 v2 port | `scripts/opencode-v2-iso.sh:35` — V2 backups stay inside the V2 profile, never in a V1 data dir |
+| P0-4/5 v1 fix | `v1/tests/db-generation-guard.test.ts:1` — corrupt guard, holder and broken-fuser no-escalation |
+| P0-4/5 v2 port | `scripts/guard-db-generation.sh:56` — probe prints PROBE-FAILED, caller refuses fail-closed; `scripts/opencode-db-maintenance.sh:216` — fuser holders distinguishes no-holders from unreliable |
+| mark v1 fix | `v1/tests/launch-cap.test.ts:1` — mark liveness cleared on failure except exit 8 |
+| mark v2 port | `scripts/opencode-db-maintenance.sh:65` — cooldown-mark option with trap clear; `scripts/opencode-v2-iso.sh:58` — launcher stamps and passes the mark |
+| vendoring | `scripts/opencode-db-maintenance.sh:1` — V2 local copy with V2 defaults, V2 launcher prefers it before the v1 fallback |
