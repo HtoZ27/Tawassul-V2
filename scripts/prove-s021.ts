@@ -1,12 +1,16 @@
 import { tawaFallbackPermission } from "../src/tools/agent-management.ts";
 import { generateAgentMd } from "../src/core/render-agent.ts";
 import { ALL_AGENTS } from "../src/core/agent-data.ts";
-import { consume, refund, remaining, setBudget, resetBudgets } from "../src/services/iteration-budget.ts";
+import { consume, refund, remaining, setBudget, resetBudgets, applyIterationBudgets } from "../src/services/iteration-budget.ts";
 import { UNATTRIBUTED_MODEL_ID, DEFAULT_PRICING_MODELS } from "../src/services/cost-transparency/types.ts";
 import { MODEL_PRIORITY } from "../src/services/proxy-models.ts";
 import { TAWA_MENTION_REGEX, EXPLICIT_DISPATCH_REGEX, DISPATCH_QA_IN_ROOT } from "../src/hooks/message-updated.ts";
 import { GoalStore } from "../src/services/goal-store.ts";
 import { TimelineStore } from "../src/services/timeline-store.ts";
+import { PipelineState } from "../src/hooks/PipelineState.ts";
+import { mkdirSync, writeFileSync, readFileSync, rmSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 function fail(msg: string): never {
   console.error(`PROOF FAIL: ${msg}`);
@@ -62,5 +66,45 @@ assert(DISPATCH_QA_IN_ROOT === false, "dispatch qa not in root");
 
 assert(typeof (GoalStore.prototype as unknown as { ensureLoaded?: unknown }).ensureLoaded === "function", "goal ensureLoaded");
 assert(typeof (TimelineStore.prototype as unknown as { ensureLoaded?: unknown }).ensureLoaded === "function", "timeline ensureLoaded");
+
+resetBudgets();
+const bad: Array<[string, unknown]> = [];
+assert(applyIterationBudgets(undefined) === 0, "budgets undefined zero");
+assert(applyIterationBudgets({ "@dev": 80, "@tawa": 0, "@x": Number.NaN }, (a, v) => { bad.push([a, v]); }) === 1, "budgets one valid applied");
+assert(bad.length === 2, "budgets two invalid reported");
+assert(remaining("@dev") === 80, "budgets config ceiling live");
+resetBudgets();
+
+const analyst = ALL_AGENTS.find((a) => a.name === "analyst");
+if (!analyst) fail("analyst template missing");
+assert(generateAgentMd(analyst).includes("ONE summary of findings"), "analyst one-summary wording");
+
+const calls: Array<"set" | "clear"> = [];
+const fakeTimers: import("../src/types/timer-types.ts").TimerManagerLike = {
+  setInterval: (_fn: (...args: unknown[]) => void) => { calls.push("set"); return 42 as unknown as ReturnType<typeof setInterval>; },
+  setTimeout: (_fn: (...args: unknown[]) => void) => 43 as unknown as ReturnType<typeof setTimeout>,
+  clear: (_t: ReturnType<typeof setInterval> | ReturnType<typeof setTimeout>) => { calls.push("clear"); },
+};
+const ps = new PipelineState(fakeTimers);
+ps.initAutoSweep();
+assert(calls.includes("set"), "pipeline sweep centrally registered");
+ps.stopAutoSweep();
+assert(calls.includes("clear"), "pipeline sweep centrally cleared");
+
+const tornDir = mkdtempSync(join(tmpdir(), "s021-torn-"));
+try {
+  const goalsDir = join(tornDir, "goals");
+  mkdirSync(goalsDir, { recursive: true });
+  writeFileSync(join(goalsDir, "goals.jsonl"), '{"torn-fragment-no-newline', "utf-8");
+  const torn = new GoalStore(tornDir);
+  await torn.ensureLoaded();
+  assert(torn.size === 0, "torn tail skipped, no goals");
+  const created = await torn.create({ title: "after torn tail", owner: "@dev" });
+  assert(created.ok === true, "create after torn tail");
+  const raw = readFileSync(join(goalsDir, "goals.jsonl"), "utf-8");
+  assert(raw.includes('{"torn-fragment-no-newline\n{"id"'), "append separated from fragment");
+} finally {
+  rmSync(tornDir, { recursive: true, force: true });
+}
 
 console.log("PROOF PASS: s021 invocation surface, budget, cost, max, priming hooks");

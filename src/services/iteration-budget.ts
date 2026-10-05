@@ -12,6 +12,23 @@ export function setBudget(agent: string, limit: number): void {
   _limit.set(normalizeName(agent), limit);
 }
 
+export function applyIterationBudgets(
+  budgets: Record<string, number> | undefined,
+  onInvalid?: (agent: string, value: unknown) => void,
+): number {
+  if (!budgets) return 0;
+  let applied = 0;
+  for (const [agent, value] of Object.entries(budgets)) {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 1) {
+      onInvalid?.(agent, value);
+      continue;
+    }
+    setBudget(agent, Math.floor(value));
+    applied++;
+  }
+  return applied;
+}
+
 function budgetKey(agent: string, scope?: string): string {
   const name = normalizeName(agent);
   return scope ? `${name}@${scope}` : name;

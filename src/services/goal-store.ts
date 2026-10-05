@@ -1,5 +1,5 @@
 
-import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { resolve, join, dirname } from "node:path";
 import { logger } from "../utils/logger.ts";
@@ -238,11 +238,9 @@ export class GoalStore {
       }
       if (tailIsTorn) {
         logger.warn(
-          `[goal-store] torn ledger tail detected (${raw.length - lastNl - 1} bytes) — truncating to last good line`,
+          `[goal-store] torn ledger tail detected (${raw.length - lastNl - 1} bytes) — skipping fragment, next append separates`,
         );
-        raw = raw.slice(0, lastNl + 1);
-        
-        if (!isIsolationActiveSync()) await writeFile(this.eventsPath, raw, "utf-8");
+        this.tornTailNeedsSep = true;
       }
     }
     
@@ -328,6 +326,7 @@ export class GoalStore {
   
   private lastLines = new Set<string>();
   private static readonly LAST_LINES_CAP = 128;
+  private tornTailNeedsSep = false;
 
   
   private async commit(next: Goal, opts: { remove?: boolean } = {}): Promise<void> {
@@ -338,7 +337,9 @@ export class GoalStore {
 
   private async writeEvent(goal: Goal): Promise<void> {
     await this.dirReady;
-    const line = `${JSON.stringify(goal)}\n`;
+    const sep = this.tornTailNeedsSep ? "\n" : "";
+    this.tornTailNeedsSep = false;
+    const line = `${sep}${JSON.stringify(goal)}\n`;
     
     
     

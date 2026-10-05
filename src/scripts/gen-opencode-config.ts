@@ -625,7 +625,7 @@ export function buildMergedAgents(maybeRaw?: string, opts?: GenOptions): Record<
           (name === TAWA_AGENT || name === "addagent") &&
           merged &&
           merged.permission &&
-          typeof merged.permission.bash === "string"
+          (typeof merged.permission.bash === "string" || merged.permission.bash === undefined)
         ) {
           merged.permission.bash = JSON.parse(JSON.stringify(BASH_READ_ONLY)) as Record<string, string>;
         }

@@ -111,6 +111,7 @@ export interface MessageUpdatedServiceClients {
   analyzeMessage: (text: string) => RoutingResult;
   analyzeEffort: (task: string) => EffortAnalysis;
   isComplexTask: (task: string) => boolean;
+  isComplexEffort: (effort: EffortAnalysis | null, content: string) => boolean;
   runElicitationGate: (
     analysis: EffortAnalysis,
     task: string,

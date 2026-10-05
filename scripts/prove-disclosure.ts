@@ -25,13 +25,11 @@ const SILENT_CATCH_INVENTORY: Record<string, number> = {
   "utils/validation.ts": 1,
   "utils/logger.ts": 1,
   "utils/opencode-config.ts": 4,
-  "bootstrap/plugin-init.ts": 4,
+  "bootstrap/plugin-init.ts": 3,
   "bootstrap/event-integrations.ts": 2,
-  "context/model-utils.ts": 1,
   "context/managers/AgentManager.ts": 3,
   "scripts/gen-opencode-config.ts": 1,
   "hooks/PipelineState.ts": 1,
-  "hooks/validation-pipeline.ts": 2,
   "hooks/guards/shared/factories.ts": 2,
 };
 const SCAN_DIRS = ["tools", "services", "utils", "bootstrap", "context", "core", "scripts", "infra", "hooks"];

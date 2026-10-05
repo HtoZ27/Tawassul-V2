@@ -21,7 +21,6 @@ import { AgentAvailabilityManager } from "../services/agent-availability.ts";
 import crypto from "node:crypto";
 import { join, dirname } from "node:path";
 import { existsSync, readFileSync, copyFileSync, renameSync, rmSync } from "node:fs";
-import { atomicWriteFile } from "../utils/atomic.ts";
 import { getWriteBlockReason } from "../services/isolation.ts";
 import { schedulePersist } from "../services/persist-utils.ts";
 
@@ -191,7 +190,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   const runtimeStateDir = resolveRuntimeStateDir(tawaCtx.stateDir, tawaCtx.scope);
   const healthCfg = tawaCtx.config.health ?? {};
-  const healthTracker = new HealthTracker(healthCfg.stuckTimeoutMs, undefined, tawaCtx.eventHub);
+  const healthTracker = new HealthTracker(healthCfg.stuckTimeoutMs, undefined, tawaCtx.eventHub, tawaCtx.timerManager);
   const circuitBreaker = new CircuitBreaker(
     healthCfg.circuitBreakerThreshold,
     healthCfg.circuitBreakerResetMs,
@@ -273,7 +272,8 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
     try {
       const { mkdir } = await import("node:fs/promises");
       await mkdir(dirname(routerStatePath), { recursive: true });
-      await atomicWriteFile(routerStatePath, predictiveRouter.exportData(), { backup: true });
+      const { writeIfChanged } = await import("../services/persist-utils.ts");
+      await writeIfChanged(routerStatePath, predictiveRouter.exportData(), { backup: true });
     } catch (e) {
       logger.warn(`[tawassul] predictive-router save failed:`, e);
     }
@@ -572,7 +572,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
     timelineStore = new TimelineStore(tawaCtx.stateDir, {
       timers: tawaCtx.timerManager,
     });
-    timelineStore.load().catch((err) => logger.warn("[timeline] load failed:", err));
+    void timelineStore.ensureLoaded();
     const timelineIntegration = registerTimelineIntegration({
       tawaCtx: tawaCtx as never,
       eventHub: tawaCtx.eventHub,
@@ -587,11 +587,9 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   let goalStore: GoalStore | undefined;
   try {
     goalStore = new GoalStore(tawaCtx.stateDir, tawaCtx.scope);
-    
-    
-    goalStore
-      .load({ sweepStaleMs: 14 * 24 * 3600 * 1000 })
-      .catch((err) => logger.warn("[goal-store] load failed:", err));
+
+
+    void goalStore.ensureLoaded({ sweepStaleMs: 14 * 24 * 3600 * 1000 });
   } catch (err) {
     logger.warn("[goal-store] init failed — goals start empty:", err);
     goalStore = undefined;
@@ -786,6 +784,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
     (removedIds) => {
       for (const id of removedIds) tawaCtx.handoffs.delete(id);
     },
+    tawaCtx.timerManager,
   );
   tawaCtx.lifecycleManager.addCleanupCallback(stopCleanup);
 

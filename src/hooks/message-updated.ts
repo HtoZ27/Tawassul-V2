@@ -9,7 +9,7 @@ import { getMessageContent } from "../utils/format.ts";
 import { analyzeMessage as analyzeMessageFallback } from "../services/routing-algorithm.ts";
 import {
   analyzeEffort as analyzeEffortFallback,
-  isComplexEffort,
+  isComplexEffort as isComplexEffortFallback,
   isComplexTask as isComplexTaskFallback,
 } from "../services/effort-analyzer.ts";
 import {
@@ -59,6 +59,7 @@ function resolveServiceClients(clients?: MessageUpdatedServiceClients): Required
     analyzeMessage: clients?.analyzeMessage ?? analyzeMessageFallback,
     analyzeEffort: clients?.analyzeEffort ?? analyzeEffortFallback,
     isComplexTask: clients?.isComplexTask ?? isComplexTaskFallback,
+    isComplexEffort: clients?.isComplexEffort ?? isComplexEffortFallback,
     runElicitationGate: clients?.runElicitationGate ?? runElicitationGateFallback,
     buildOptions: clients?.buildOptions ?? buildOptionsFallback,
     formatAskPrompt: clients?.formatAskPrompt ?? formatAskPromptFallback,
@@ -185,7 +186,8 @@ function injectRoutingGuidance(
 }
 
 function buildDispatchPlan(ctx: MessageUpdatedContext, content: string, effort: EffortAnalysis | null): void {
-  if (!effort || !isComplexEffort(effort, content)) return;
+  const svc = resolveServiceClients(ctx.serviceClients);
+  if (!effort || !svc.isComplexEffort(effort, content)) return;
   const dispatchTasks: DispatchTask[] = [
     {
       id: `TASK-${Date.now()}`,

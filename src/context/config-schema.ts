@@ -11,6 +11,7 @@ export const configSchema = tool.schema.object({
   maxCompactItems: tool.schema.number().min(5).max(200).optional(),
   maxDynamicAgents: tool.schema.number().min(1).max(100).optional(),
   maxCallDepth: tool.schema.number().min(1).max(20).optional(),
+  iterationBudgets: tool.schema.record(tool.schema.string(), tool.schema.number().min(1).max(10000)).optional(),
   maxTotalTasks: tool.schema.number().min(1).max(100).optional(),
   suggestedHandoffs: tool.schema.record(tool.schema.string(), tool.schema.array(tool.schema.string())).optional(),
   stateFile: tool.schema.string().optional(),

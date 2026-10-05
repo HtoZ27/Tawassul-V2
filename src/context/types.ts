@@ -84,6 +84,7 @@ export type TawassulConfig = {
   maxCompactItems?: number;
   maxDynamicAgents?: number;
   maxCallDepth?: number;
+  iterationBudgets?: Record<string, number>;
   maxTotalTasks?: number;
   suggestedHandoffs?: Record<string, string[]>;
   stateFile?: string;

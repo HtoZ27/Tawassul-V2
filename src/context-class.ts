@@ -152,12 +152,12 @@ export class TawassulContext implements TawaOrchestratorContext {
   backgroundNotifier?: import("./services/background-notifier.ts").BackgroundNotifier;
   
   vectorRetrieval?: import("./services/vector-retrieval.ts").VectorStore;
-  
-  pipelineState = new PipelineState();
-  
-  taskTracker = new TaskTracker();
-  
+
   timerManager = new TimerManager();
+
+  pipelineState = new PipelineState(this.timerManager);
+
+  taskTracker = new TaskTracker();
   
   private _eventHubCleanups: Array<() => void> = [];
   private _lifecycleManager!: LifecycleManager;

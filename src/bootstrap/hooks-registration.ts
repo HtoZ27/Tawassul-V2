@@ -19,7 +19,7 @@ import { resolveRole } from "../utils/agent.ts";
 import type { ToolExecuteServiceClients } from "../hooks/tool-execute-types.ts";
 import type { MessageUpdatedServiceClients } from "../hooks/message-updated-types.ts";
 import { analyzeMessage } from "../services/routing-algorithm.ts";
-import { analyzeEffort, isComplexTask } from "../services/effort-analyzer.ts";
+import { analyzeEffort, isComplexTask, isComplexEffort } from "../services/effort-analyzer.ts";
 import { runElicitationGate, buildOptions } from "../services/elicitation-gate.ts";
 import { formatAskPrompt, isAskInjection } from "../services/ask-channel-parse.ts";
 import { getPipeline, describePipeline } from "../services/pipeline-phases.ts";
@@ -72,6 +72,7 @@ export function createHooks(
     analyzeMessage,
     analyzeEffort,
     isComplexTask,
+    isComplexEffort,
     runElicitationGate,
     buildOptions,
     formatAskPrompt,

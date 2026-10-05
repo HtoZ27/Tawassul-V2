@@ -385,7 +385,7 @@ Ownership: v1 side will not modify V2 sources; V2 side owns every row marked v2 
 
 ## S-021 v1 perf doctrine, local-server honesty, tawa/addagent invocation (37-commit sweep remainders) — IMPLEMENTED on v2
 
-Remainders of the 37-commit sweep after S-018/S-019/S-020: the invocation failure after recent opencode updates (gateway 403s shapes without declared allows), per-session budget scope, invented cost attribution, unobserved persist failures, reader races under parallel load, and the MAX effort+model doctrine. MCP mirror denies omitted deliberately (v2 has no MCP bundle — S-018 stance). Proven by `scripts/prove-s021.ts` (24 assertions) plus generator `--check`.
+Remainders of the 37-commit sweep after S-018/S-019/S-020: the invocation failure after recent opencode updates (gateway 403s shapes without declared allows), per-session budget scope, invented cost attribution, unobserved persist failures, reader races under parallel load, and the MAX effort+model doctrine. MCP mirror denies omitted deliberately (v2 has no MCP bundle — S-018 stance). Proven by `scripts/prove-s021.ts` (34 assertions) plus generator `--check`.
 
 | | Anchor |
 | --- | --- |
@@ -401,3 +401,25 @@ Remainders of the 37-commit sweep after S-018/S-019/S-020: the invocation failur
 | prime v2 port | `src/services/goal-store.ts:188` + `src/services/timeline-store.ts:300` — same shape; joined by digest closure, reconcile, and both tool entry points |
 | max v1 fix | `v1/services/proxy-models.ts:15` — every tier resolves to the complex-tier model; effort pinned deep |
 | max v2 port | `src/services/proxy-models.ts:19` — all tiers pickle; `src/services/effort-analyzer.ts:400` — deep pin with English hints, empty-null preserved; single-case doctrine in `src/hooks/message-updated.ts:55` — bare guards, verb boundaries, `DISPATCH_QA_IN_ROOT`, agent-only guidance, null-safe plan |
+
+## S-023 exhaustive 37-commit reconciliation remainders — IMPLEMENTED on v2
+
+File-by-file diff of the full sweep (`ad40a084..HEAD`, ~120 files) after S-018/S-019/S-020/S-021/S-022. Rebuilds, docs, tests, CI shims, and v1-host artifacts need no port. Everything below was missing in V2 and is now ported, proven by `scripts/prove-s021.ts` (34 assertions) plus generator `--check` and the lock proof.
+
+| | Anchor |
+| --- | --- |
+| template v1 fix | `v1/tests/permissions.test.ts:1` — template itself carries the record, not just the merge |
+| template v2 port | `src/scripts/gen-opencode-config.ts:516` — dispatcher flat strings become the record at template build; merge also injects when bash is absent; post-write verify caught the write/verify split via `scripts/prove-gen-lock-contention.ts:1` |
+| budgets v1 fix | `v1/services/iteration-budget.ts:71` — `applyIterationBudgets` escape hatch with invalid-entry reporting |
+| budgets v2 port | `src/services/iteration-budget.ts:15` — same shape; `iterationBudgets` schema at `src/context/config-schema.ts:14`, type at `src/context/types.ts:87`, applied at boot in `src/bootstrap/plugin-init.ts:595` |
+| timers v1 fix | B-micro central registration at all three sites plus ordered field init |
+| timers v2 port | `src/bootstrap/service-factory.ts:194` — HealthTracker, cleanup schedule, and router diff-gate via `src/services/persist-utils.ts:66`; `src/hooks/PipelineState.ts:195` — centrally registered auto-sweep; `src/context-class.ts:156` — timerManager declared first and passed in; boot priming via `ensureLoaded` at `src/bootstrap/service-factory.ts:575` + `:592` |
+| torn v1 fix | `v1/services/goal-store.ts:272` — pure read path, separator flag consumed on append |
+| torn v2 port | `src/services/goal-store.ts:239` — fragment skipped without rewrite; `src/services/goal-store.ts:329` — flag; separator consumed at `:340` |
+| abort v1 fix | abort-loser signal threaded into the fetch with quiet caller-abort path |
+| abort v2 port | `src/context/model-utils.ts:192` — `externalSignal` aborts the loser early; caller aborts serve defaults quietly with the port cache kept |
+| wording v1 fix | one completion summary only across all agent prompts |
+| wording v2 port | `src/core/agent-data.ts:184` — ONCE-PER-TASK record calls; transparency line rewritten to one completion summary; `t("rateLimitRetryExhausted")` toast at `src/bootstrap/plugin-init.ts:216` with key in `src/i18n/en.json:519`; dead `spRoleBlocked` key removed |
+| clients v1 fix | `v1/hooks/message-updated-types.ts:121` — `isComplexEffort` on the injectable clients |
+| clients v2 port | `src/hooks/message-updated-types.ts:113` — same field, resolved with fallback, consumed via `svc` in `src/hooks/message-updated.ts:62` + `:190`, registered in `src/bootstrap/hooks-registration.ts:22` + `:75` |
+| verified N/A | dispatch-guards comment delta (no-comments rule covers it); validation NOTE (same rule); budget sweep rename (behavior identical); ar.json (Arabic catalog, never ported); SDK adapt paths (deferred, S-020); MCP mirror keys (no bundle, S-018 stance) |

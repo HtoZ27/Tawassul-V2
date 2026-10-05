@@ -186,10 +186,18 @@ export interface FetchResult {
   serverReachable: boolean;
 }
 
-export async function fetchAllAvailableModels(sources: ModelSources, serverUrl?: string): Promise<FetchResult> {
+export async function fetchAllAvailableModels(
+  sources: ModelSources,
+  serverUrl?: string,
+  externalSignal?: AbortSignal,
+): Promise<FetchResult> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
+    if (externalSignal) {
+      if (externalSignal.aborted) controller.abort();
+      else externalSignal.addEventListener("abort", () => controller.abort(), { once: true });
+    }
     let response: Response;
     try {
       const port = await detectOpenCodePort(serverUrl);
@@ -256,8 +264,13 @@ export async function fetchAllAvailableModels(sources: ModelSources, serverUrl?:
 
     return { available, needsSetup, failed, defaults: data.default ?? {}, serverReachable: true };
   } catch (e) {
-    logger.warn("Could not reach local server — using default models only:", e);
-    invalidatePortCache();
+    const externallyAborted = externalSignal?.aborted === true;
+    if (externallyAborted) {
+      logger.debug("[tawassul] model fetch aborted by caller timeout — defaults served, port cache kept");
+    } else {
+      logger.warn("Could not reach local server — using default models only:", e);
+      invalidatePortCache();
+    }
     const available = getDefaultFreeModels().map((m) => ({ ...m, source: "free" }));
     addFromRecord(sources.agentModelMap, "previously succeeded", available);
     addFromRecord(sources.modelChoices, "user preference", available);

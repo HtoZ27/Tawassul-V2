@@ -449,7 +449,6 @@
   "spArgsObj": "⛔ Tool args must be an object",
   "spDeletedAgent": "⛔ Agent \"{agent}\" has been removed from the system. Cannot assign tasks.",
   "spNoTools": "none",
-  "spRoleBlocked": "⛔ @{role} is not allowed to use \"{tool}\". This tool is unavailable for this role.",
   "spRoleMismatch": "⛔ Role mismatch: task is of type \"{type}\" but agent \"{agent}\" does not fit this role. Allowed agents: {allowed}",
   "spSensitiveContent": "⛔ Content contains sensitive data (keys/passwords/tokens). Saving is forbidden.",
   "spSensitivePath": "⛔ File \"{path}\" is classified as sensitive. Writing is forbidden.",
@@ -517,5 +516,6 @@
   "vmChecksum": "Checksum mismatch — data may be corrupted",
   "vmVersionOrder": "Version order is wrong: version {a} must be less than {b}",
   "rateLimitRetrying": "Rate limit hit — retrying in {delay}s (attempt {attempt}/5)",
+  "rateLimitRetryExhausted": "Rate limit: automatic retry stopped after {attempts} attempts. Nothing is lost — resend your last message when the provider recovers.",
   "rateLimitRetryPrompt": "Continue after rate limit backoff — retry the last operation"
 }

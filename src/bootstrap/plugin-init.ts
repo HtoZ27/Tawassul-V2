@@ -9,6 +9,7 @@ import { mark, measure, report, reset as perfReset } from "../utils/perf.ts";
 import type { TawassulHooks as Hooks, PluginInput, Config } from "../plugin-types.ts";
 import type { ToolDefinition, ToolContext } from "../tool.ts";
 import { setLanguage, t } from "../translations.ts";
+import { applyIterationBudgets } from "../services/iteration-budget.ts";
 import { TawassulContext } from "../context.ts";
 import { createServices } from "./service-factory.ts";
 import { createHooks } from "./hooks-registration.ts";
@@ -215,6 +216,16 @@ async function handleRateLimitError(
   if (attempt >= apiRetryMax) {
     retryingSessions.delete(sessionId);
     logger.warn(`[tawassul] rate-limit retry exhausted for session ${sessionId}`);
+    const exhaustedTui = (ctx.client as { tui?: { showToast?: (m: { message: string; variant?: string }) => void } } | undefined)
+      ?.tui;
+    try {
+      exhaustedTui?.showToast?.({
+        message: t("rateLimitRetryExhausted", { attempts: String(apiRetryMax) }),
+        variant: "error",
+      });
+    } catch (err) {
+      logger.debug("[tawassul] rate-limit exhaustion toast failed:", err);
+    }
     return false;
   }
   const delayMs = getRetryDelayMs(attempt, apiRetryBaseMs);
@@ -579,6 +590,16 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
       
       if (tawaCtx.configManager.config.language) {
         setLanguage(tawaCtx.configManager.config.language);
+      }
+
+      const budgetOverrides = tawaCtx.configManager.config.iterationBudgets;
+      if (budgetOverrides) {
+        const applied = applyIterationBudgets(budgetOverrides, (agent, value) => {
+          logger.warn(`[tawassul] iterationBudgets: ignoring ${agent} (invalid limit: ${String(value)})`);
+        });
+        if (applied > 0) {
+          logger.info(`[tawassul] iteration budgets overridden for ${applied} agent(s) from config`);
+        }
       }
 
       if (initAbortController.signal.aborted) return;
