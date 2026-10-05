@@ -47,10 +47,12 @@ import { isValidMessageId } from "../lib/tool-schema-injection.ts";
 import { DEFAULT_PRICING_MODELS } from "../services/cost-transparency/types.ts";
 import type { ScoredContextEntry } from "../context/priority-types.ts";
 
-const TAWA_MENTION_REGEX = /(?:^|\s|[\W])@tawa\b|يا tawa|tawa:/i;
+export const TAWA_MENTION_REGEX = /(?:^|\s|[\W])@tawa\b|يا tawa|(?<![\p{L}])tawa(?![\p{L}])|(?<![\p{L}])تاوا(?![\p{L}])/iu;
 
-const EXPLICIT_DISPATCH_REGEX =
-  /وزّع|أوزع(?![\p{L}])|(?:(?<![\p{L}])|[وفبلس])وزع(?![\p{L}])|أرسل[\s\S]{0,25}الوكلاء|إرسال[\s\S]{0,25}الوكلاء|سلّم[\s\S]{0,15}الوكيل|سلِّم[\s\S]{0,15}الوكيل|كِل[\s\S]{0,25}الوكلاء|كلف[\s\S]{0,25}الوكلاء|حوّل[\s\S]{0,25}الوكلاء|فوّض[\s\S]{0,25}الوكلاء|فوض[\s\S]{0,25}الوكلاء|توزيع[\s\S]{0,20}وكلاء|توزيع[\s\S]{0,20}مهام|تقسيم[\s\S]{0,20}وكلاء|dispatch|distribute|delegate|hand[ -]?off|send[\s\S]{0,25}to agents|assign[\s\S]{0,25}to agents|route[\s\S]{0,25}to agents/iu;
+export const EXPLICIT_DISPATCH_REGEX =
+  /وزّع|أوزع(?![\p{L}])|(?:(?<![\p{L}])|[وفبلس])وزع(?![\p{L}])|أرسل[\s\S]{0,25}الوكلاء|إرسال[\s\S]{0,25}الوكلاء|سلّم[\s\S]{0,15}الوكيل|سلِّم[\s\S]{0,15}الوكيل|كِل[\s\S]{0,25}الوكلاء|كلف[\s\S]{0,25}الوكلاء|حوّل[\s\S]{0,25}الوكلاء|فوّض[\s\S]{0,25}الوكلاء|فوض[\s\S]{0,25}الوكلاء|توزيع[\s\S]{0,20}وكلاء|توزيع[\s\S]{0,20}مهام|تقسيم[\s\S]{0,20}وكلاء|\bdispatch\b|\bdistribute\b|\bdelegate\b|\bhand[ -]?off\b|send[\s\S]{0,25}to agents|assign[\s\S]{0,25}to agents|route[\s\S]{0,25}to agents/iu;
+
+export const DISPATCH_QA_IN_ROOT = false;
 
 function resolveServiceClients(clients?: MessageUpdatedServiceClients): Required<MessageUpdatedServiceClients> {
   return {
@@ -162,6 +164,7 @@ function detectDirectRouting(ctx: MessageUpdatedContext, content: string): void 
 function injectRoutingGuidance(
   ctx: MessageUpdatedContext,
   output: { parts: { type: string; text?: string; [key: string]: unknown }[] },
+  agent?: string,
 ): void {
   const routing = (ctx as unknown as { _lastRouting?: ReturnType<MessageUpdatedServiceClients["analyzeMessage"]> })
     ._lastRouting;
@@ -173,7 +176,7 @@ function injectRoutingGuidance(
     });
   }
   const explicitIntent = ctx.userMentionedTawa || ctx.directRoutingAgent !== null || ctx.userExplicitDispatch === true;
-  if (routing.guidance && explicitIntent) {
+  if (routing.guidance && explicitIntent && agent) {
     output.parts.push({
       type: "text" as const,
       text: `\n\n💡 ${routing.guidance}`,
@@ -195,8 +198,9 @@ function buildDispatchPlan(ctx: MessageUpdatedContext, content: string, effort: 
       estimatedComplexity: effort.thinking_effort === "deep" ? "complex" : "medium",
     },
   ];
-  const plan = ctx.parallelDispatcher.buildPlan(dispatchTasks);
-  if (plan.batches.length > 0) {
+  const plan = ctx.parallelDispatcher?.buildPlan(dispatchTasks);
+  if (!plan || plan.batches.length === 0) return;
+  {
     logger.debug(
       `Parallel Dispatcher: plan built with ${plan.totalTasks} tasks, ${plan.estimatedParallelGroups} parallel groups`,
     );
@@ -607,7 +611,14 @@ export function createMessageUpdatedHook(ctx: MessageUpdatedContext) {
         };
         const explicitDispatchIntent =
           ctx.userMentionedTawa || ctx.directRoutingAgent !== null || ctx.userExplicitDispatch === true;
-        if (elicitationAsk && !alreadyAnswered && isRootUserMessage && explicitDispatchIntent && content.trim()) {
+        if (
+          elicitationAsk &&
+          !alreadyAnswered &&
+          isRootUserMessage &&
+          explicitDispatchIntent &&
+          content.trim() &&
+          DISPATCH_QA_IN_ROOT
+        ) {
           try {
             const gateResult = await svc.runElicitationGate(effort, content, {
               ask: elicitationAsk,
@@ -652,6 +663,7 @@ export function createMessageUpdatedHook(ctx: MessageUpdatedContext) {
           injectRoutingGuidance(
             ctx,
             output as unknown as { parts: { type: string; text?: string; [key: string]: unknown }[] },
+            input.agent,
           );
           logger.debug(`[message-updated] deferred — parked user message in session=${input.sessionID}`);
           return;
@@ -661,6 +673,7 @@ export function createMessageUpdatedHook(ctx: MessageUpdatedContext) {
         injectRoutingGuidance(
           ctx,
           output as unknown as { parts: { type: string; text?: string; [key: string]: unknown }[] },
+          input.agent,
         );
       }
 

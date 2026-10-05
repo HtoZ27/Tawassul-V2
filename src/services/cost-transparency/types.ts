@@ -6,8 +6,8 @@ import { z } from 'zod';
 
 
 export const PricingModelSchema = z.object({
-  
-  id: z.string().uuid(),
+
+  id: z.string().min(1),
   
   
   name: z.string(),
@@ -45,7 +45,7 @@ export const OperationCostSchema = z.object({
   id: z.string().uuid(),
   
   
-  modelId: z.string().uuid(),
+  modelId: z.string().min(1),
   
   
   inputTokens: z.number().int().min(0),
@@ -70,9 +70,12 @@ export const OperationCostSchema = z.object({
   
   
   durationMs: z.number().int().min(0),
-  
-  
+
+
   timestamp: z.string().datetime(),
+
+
+  estimated: z.boolean().optional(),
 });
 
 export type OperationCost = z.infer<typeof OperationCostSchema>;
@@ -314,7 +317,20 @@ export function formatTokens(tokens: number): string {
 
 
 
+export const UNATTRIBUTED_MODEL_ID = "unattributed";
+
 export const DEFAULT_PRICING_MODELS: PricingModel[] = [
+  {
+    id: UNATTRIBUTED_MODEL_ID,
+    name: 'Unattributed (no host usage data)',
+    provider: 'unknown',
+    model: UNATTRIBUTED_MODEL_ID,
+    inputCostPer1MTokens: 0,
+    outputCostPer1MTokens: 0,
+    maxContextTokens: 128000,
+    maxOutputTokens: 16384,
+    supported: true,
+  },
   {
     id: 'gpt-4o',
     name: 'GPT-4o',

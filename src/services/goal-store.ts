@@ -183,8 +183,20 @@ export class GoalStore {
     return this.goals.size;
   }
 
-  
-  
+  private loadPromise: Promise<void> | null = null;
+
+  ensureLoaded(opts: { sweepStaleMs?: number } = {}): Promise<void> {
+    if (!this.loadPromise) {
+      this.loadPromise = this.load(opts).then(
+        () => undefined,
+        (err) => {
+          logger.warn("[goal-store] ensureLoaded: load failed, serving empty state:", err);
+        },
+      );
+    }
+    return this.loadPromise;
+  }
+
   async load(opts: { sweepStaleMs?: number } = {}): Promise<void> {
     await this.dirReady;
     const meta = await hmacReadFile<GoalMeta>(this.metaPath);
@@ -870,6 +882,7 @@ export class GoalStore {
     sessionId: string;
     todos: Array<{ title: string; status: string }>;
   }): Promise<GoalWriteResult> {
+    await this.ensureLoaded();
     const blocked = this.writeGuarded();
     if (blocked) return blocked;
     const owner = normalizeName(input.owner) || "main";

@@ -17,8 +17,8 @@ const idForSuffix = (suffix: string): string => MODEL_CATALOG.find((m) => m.suff
 
 
 export const MODEL_PRIORITY: Record<string, string> = {
-  simple: idForSuffix("mimo"),
-  medium: idForSuffix("mimo"),
+  simple: idForSuffix("pickle"),
+  medium: idForSuffix("pickle"),
   complex: idForSuffix("pickle"),
 };
 

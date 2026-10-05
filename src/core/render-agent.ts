@@ -63,7 +63,7 @@ export function generateAgentMd(template: AgentTemplate, model?: string): string
   }
   if (typeof template.permissions.bash === "string") {
     permissionLines.push(`bash: ${quoteIfNeeded(template.permissions.bash)}`);
-  } else if (template.permissions.bash && Object.keys(template.permissions.bash).length <= 2) {
+  } else if (template.permissions.bash && typeof template.permissions.bash === "object") {
     const bashLines = Object.entries(template.permissions.bash)
       .map(([k, v]) => `    ${JSON.stringify(k)}: ${v}`)
       .join("\n");

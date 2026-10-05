@@ -12,9 +12,19 @@ export function setBudget(agent: string, limit: number): void {
   _limit.set(normalizeName(agent), limit);
 }
 
-export function consume(agent: string): boolean {
+function budgetKey(agent: string, scope?: string): string {
+  const name = normalizeName(agent);
+  return scope ? `${name}@${scope}` : name;
+}
+
+function limitFor(agent: string): number {
   const key = normalizeName(agent);
-  const limit = _limit.get(key) ?? (key === TAWA_AGENT ? DEFAULT_PARENT_LIMIT : DEFAULT_SUBAGENT_LIMIT);
+  return _limit.get(key) ?? (key === TAWA_AGENT ? DEFAULT_PARENT_LIMIT : DEFAULT_SUBAGENT_LIMIT);
+}
+
+export function consume(agent: string, scope?: string): boolean {
+  const key = budgetKey(agent, scope);
+  const limit = limitFor(agent);
   const used = _used.get(key) ?? 0;
   if (used >= limit) {
     logger.warn(`iteration budget exhausted for ${key} (${used}/${limit})`);
@@ -24,15 +34,15 @@ export function consume(agent: string): boolean {
   return true;
 }
 
-export function refund(agent: string): void {
-  const key = normalizeName(agent);
+export function refund(agent: string, scope?: string): void {
+  const key = budgetKey(agent, scope);
   const used = _used.get(key) ?? 0;
   if (used > 0) _used.set(key, used - 1);
 }
 
-export function remaining(agent: string): number {
-  const key = normalizeName(agent);
-  const limit = _limit.get(key) ?? (key === TAWA_AGENT ? DEFAULT_PARENT_LIMIT : DEFAULT_SUBAGENT_LIMIT);
+export function remaining(agent: string, scope?: string): number {
+  const key = budgetKey(agent, scope);
+  const limit = limitFor(agent);
   const used = _used.get(key) ?? 0;
   return Math.max(0, limit - used);
 }

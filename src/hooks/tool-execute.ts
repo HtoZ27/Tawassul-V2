@@ -246,7 +246,7 @@ export function createToolExecuteBeforeHook(ctx: ToolExecuteBeforeContext) {
       if (normalizedAgent) {
         const agentKey = normalizeName(normalizedAgent);
         try {
-          if (!consume(agentKey)) {
+          if (!consume(agentKey, input.sessionID)) {
             blockTool(t("budgetExhausted", { agent: normalizedAgent }));
           }
         } catch (consumeErr) {
@@ -259,7 +259,7 @@ export function createToolExecuteBeforeHook(ctx: ToolExecuteBeforeContext) {
         } catch (hbErr) {
           logger.warn("[tawassul] heartbeat start error, refunding budget:", hbErr);
           try {
-            refund(agentKey);
+            refund(agentKey, input.sessionID);
           } catch {
             /* ignore */
           }
@@ -548,7 +548,7 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
           recordToolSuccess(normalizedAgent, input.tool);
         } else {
           recordToolFailure(normalizedAgent, input.tool);
-          refund(normalizedAgent);
+          refund(normalizedAgent, input.sessionID);
           recordNoProgress(normalizedAgent);
         }
         const hbResult = hbCheck(normalizedAgent, input.tool);

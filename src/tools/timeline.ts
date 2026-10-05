@@ -54,6 +54,7 @@ export function buildTimelineTool(store: TimelineStore): ToolDefinition {
       limit: tool.schema.number().optional().describe("Max events to return (default: 20)"),
     },
     async execute(args) {
+      await store.ensureLoaded();
       const view = (args.view as string) || "recent";
       const limit = Math.min(Math.max(Number(args.limit) || 20, 1), 100);
 

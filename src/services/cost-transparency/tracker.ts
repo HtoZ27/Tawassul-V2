@@ -63,6 +63,7 @@ export class CostTransparencyTracker extends BaseInnovationService<CostTranspare
       agentId?: string;
       success?: boolean;
       durationMs?: number;
+      estimated?: boolean;
     },
   ): OperationCost {
     const model = this.pricingModels.get(modelId);
@@ -84,6 +85,7 @@ export class CostTransparencyTracker extends BaseInnovationService<CostTranspare
       success: options?.success ?? true,
       durationMs: options?.durationMs ?? 0,
       timestamp: new Date().toISOString(),
+      estimated: options?.estimated === true ? true : undefined,
     };
 
     this.operations.set(operation.id, operation);

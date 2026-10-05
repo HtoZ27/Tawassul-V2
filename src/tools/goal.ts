@@ -104,6 +104,7 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
       pinned: tool.schema.boolean().optional().describe("Pin goal (update)"),
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
+      await store.ensureLoaded();
       const agent = normalizeName(cctx.agent);
       const str = (v: unknown): string => String(v);
 

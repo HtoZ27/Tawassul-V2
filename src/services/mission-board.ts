@@ -175,9 +175,13 @@ export class MissionBoard {
     
     
     try {
-      await this.persist(board);
+      const persisted = await this.persist(board);
+      if (!persisted) {
+        this.boards.delete(id);
+        throw new Error(`MissionBoard: persist failed for board ${id} (not on disk)`);
+      }
     } catch (e) {
-      
+
       this.boards.delete(id);
       throw e;
     }
@@ -312,13 +316,16 @@ export class MissionBoard {
       return;
     }
     try {
-      const boardsJson = JSON.stringify(this.buildIndex().boards);
+      const index = this.buildIndex();
+      const stateJson = JSON.stringify({ schemaVersion: index.schemaVersion, boards: index.boards });
       let unchanged = false;
       try {
         const { readFile } = await import("node:fs/promises");
         const raw = await readFile(lockPath, "utf8");
-        const parsed = JSON.parse(raw) as { boards?: unknown };
-        unchanged = Array.isArray(parsed.boards) && JSON.stringify(parsed.boards) === boardsJson;
+        const parsed = JSON.parse(raw) as { schemaVersion?: unknown; boards?: unknown };
+        unchanged =
+          Array.isArray(parsed.boards) &&
+          JSON.stringify({ schemaVersion: parsed.schemaVersion, boards: parsed.boards }) === stateJson;
       } catch {
         unchanged = false;
       }
@@ -392,7 +399,10 @@ export class MissionBoard {
     const board = this.boards.get(boardId);
     if (!board) return;
     try {
-      await this.persist(board);
+      const persisted = await this.persist(board);
+      if (!persisted) {
+        logger.warn(`MissionBoard: unload persist failed for board ${boardId} (not on disk)`);
+      }
     } catch (err) {
       logger.warn(`MissionBoard: unload persist failed for board ${boardId}:`, err);
     }
@@ -423,7 +433,11 @@ export class MissionBoard {
       
       
       try {
-        await this.persist(board);
+        const persisted = await this.persist(board);
+        if (!persisted) {
+          logger.warn(`MissionBoard: failed to persist board "${id}" before eviction (not on disk)`);
+          return;
+        }
       } catch (err) {
         logger.warn(`MissionBoard: failed to persist board "${id}" before eviction:`, err);
         return; 

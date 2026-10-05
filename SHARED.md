@@ -355,3 +355,49 @@ Seventeen v1 commits in the window; four are bundle rebuilds and three are v1-on
 | burn v1 fix | `v1/services/effort-analyzer.ts:595` — predicate on already-computed analysis; `v1/services/persist-utils.ts:93` — no-write gate |
 | burn v2 port | `src/services/effort-analyzer.ts:464` — `isComplexEffort` reused by `src/hooks/message-updated.ts:183`; `src/services/persist-utils.ts:66` — `writeIfChanged`; `src/services/mission-board.ts:306` — index diff-gate; ONCE-PER-TASK wording in `src/core/agent-data.ts:184`; big-pickle worker/dispatcher rule in tawa instructions |
 | deferred | SDK-first providers: no SDK client exists on the V2 hook context, nothing to prefer — self-fetch stays until a client surface appears |
+
+## S-021 v1 37-commit backlog ad40a084..HEAD — triage for V2 (v1 side provides, V2 implements)
+
+Scope: 37 v1 commits after S-017's end (`ad40a084..HEAD` on v1 master, verified count 37). This entry exists so the in-flight port work does not re-triage or duplicate. Already covered — no action: S-018 (3af1b224), S-019 (29a4f809), S-020's seventeen (bash/cache/throttle/roster/consent/wiring/burn/deferred), and the in-flight `scripts/prove-s021.ts:1` (tawa fallback record, scoped budgets, unattributed-zero cost, MAX tiers, mention/dispatch regexes, goal/timeline ensureLoaded). Deliberate skips — no action: ten rebuild-only bundle commits (dist artifacts, source batches covered separately), two docs-only commits (fecce8cb, 58896e4b), vitest/dist harness commits (4fa50311, 60fa2b95 — v2 runs bun proofs, shapes differ), scheduler rotation + single-owner installer (c15473e1, 29662006-owner — v2 has no timer and no installer; S-020 agrees), SDK-first (deferred, S-020). Rejected with evidence — do NOT port: extra V2 markers (proven live in both working DBs, would brick them) and mkdir owner lock (wedge risk exceeds race risk); see S-019.
+
+What is genuinely behind, all V2-compatible (v1 states fix shape, v2 owns implementation):
+
+| | Anchor |
+| --- | --- |
+| resurrection v1 fix | `v1/tests/integration/goal-resurrection.test.ts:1` — both loser outcomes (not-found/locked) accepted, no-ghost-write stays strict |
+| resurrection v2 todo | `src/services/mission-board.ts:1` — no resurrection handling today; port the invariant (accept both losers, never write a ghost) and prove it bun-style |
+| early-exit v1 fix | `v1/tests/integration/pipeline-early-exit.test.ts:1` — pipeline early-exit proof + plan ledger (Phase 6 proven-by-design) |
+| early-exit v2 todo | `src/hooks/validation-pipeline.ts:1` — S-020 roster touched this pipeline but not the proof; port the early-exit proof pattern |
+| priming v1 fix | `v1/tests/integration/store-ensure-loaded.test.ts:1` — reader-correctness: stores primed before first read (hooks-registration, service-factory, session hook) |
+| priming v2 todo | `src/bootstrap/service-factory.ts:1` — ensureLoaded existence already proven; verify the boot path primes every store before first read and extend the proof to the remaining stores |
+| G8-remainder v1 fix | `v1/services/timeline-store.ts:1` + `v1/services/tool-run-log.ts:1` + `v1/services/ask-channel.ts:1` + `v1/services/event-hub.ts:1` + `v1/services/persist-utils.ts:1` (commit 64bf081f minus the S-020-consent part: close/flush semantics, run log, transcript question, turn handling, no-write gate) |
+| G8-remainder v2 todo | `src/services/timeline-store.ts:1` + `src/services/tool-run-log.ts:1` + `src/services/ask-channel.ts:1` + `src/services/event-hub.ts:1` + `src/services/persist-utils.ts:1` — all present; diff each pair against 64bf081f and port on merit |
+| pipeline-tweak v1 fix | `v1/hooks/validation-pipeline.ts:1` + `v1/hooks/guards/shared/proxy-effects.ts:1` (64bf081f validation touch) |
+| pipeline-tweak v2 todo | `src/hooks/validation-pipeline.ts:1` — confirm the same tweak or record why v2 differs |
+| sqlite-lessons v1 fix | commit ed96a537 D1/D13 findings (app-path busy_timeout effectively zero, retry-with-backoff discipline, WAL-blind reads abort live runs — the exact bug class S-019 just closed in the vendored script) |
+| sqlite-lessons v2 todo | `src/services/state-persistence.ts:1` — no busy handling today (verified: no busy_timeout/retry); add busy_timeout + retry discipline to v2 sqlite paths before the first 4GB-scale live DB |
+| cost-remainder v1 fix | commit cc04987f honest-cost-records part (prove-s021.ts already covers unattributed-zero; attribution paths remain) |
+| cost-remainder v2 todo | `src/services/cost-transparency/tracker.ts:1` — verify attribution matches the honest-cost shape, extend the proof |
+| static-gates v1 fix | `v1/tests/installer.test.ts:1` — bash -n gate over every shipped script (e329c612 practice) |
+| static-gates v2 todo | `package.json:1` — add a shell-syntax gate over scripts/*.sh to the v2 verify/ci path (cheap, catches the exact class that once shipped a broken launcher) |
+
+Ownership: v1 side will not modify V2 sources; V2 side owns every row marked v2 todo. Prove each row bun-style (extend `scripts/prove-s021.ts:1` or add a focused proof script); a row is done when its proof runs in `ci`, not when the code merely exists.
+
+## S-021 v1 perf doctrine, local-server honesty, tawa/addagent invocation (37-commit sweep remainders) — IMPLEMENTED on v2
+
+Remainders of the 37-commit sweep after S-018/S-019/S-020: the invocation failure after recent opencode updates (gateway 403s shapes without declared allows), per-session budget scope, invented cost attribution, unobserved persist failures, reader races under parallel load, and the MAX effort+model doctrine. MCP mirror denies omitted deliberately (v2 has no MCP bundle — S-018 stance). Proven by `scripts/prove-s021.ts` (24 assertions) plus generator `--check`.
+
+| | Anchor |
+| --- | --- |
+| invoke v1 fix | `v1/tests/permissions.test.ts:1` — fallback parity pinned: runtime-written tawa carries the record |
+| invoke v2 port | `src/tools/agent-management.ts:62` — `tawaFallbackPermission` with the bash record, all four write sites converted; `src/core/render-agent.ts:66` — record-size cap removed so generated `tawa.md` declares allows; flat-string re-assertion already in S-020 |
+| budget v1 fix | `v1/services/iteration-budget.ts:37` — `consume(agent, scope)` with `budgetKey`, limits stay per agent |
+| budget v2 port | `src/services/iteration-budget.ts:15` — scoped key, per-agent limits, scoped refund/remaining; all four call sites pass `sessionID` |
+| cost v1 fix | `v1/services/cost-transparency/types.ts:364` — `UNATTRIBUTED_MODEL_ID` priced zero, `estimated` flag |
+| cost v2 port | `src/services/cost-transparency/types.ts:320` — placeholder plus real-id schema acceptance; tracker threads `estimated`; producer records unattributed with rate-limited warn instead of silent skip |
+| persist v1 fix | `v1/services/mission-board.ts:193` — create refuses ghosts, unload warns, eviction keeps on failure |
+| persist v2 port | `src/services/mission-board.ts:153` — create throws on false; unload warns; eviction keeps; diff-gate compares schemaVersion plus boards; both absorption handlers audit `STAGE_REJECTED_AFTER_TIMEOUT` in `src/hooks/validation-pipeline.ts:1` |
+| prime v1 fix | `v1/services/goal-store.ts:228` — shared never-rejecting `ensureLoaded` joined by readers and writers |
+| prime v2 port | `src/services/goal-store.ts:188` + `src/services/timeline-store.ts:300` — same shape; joined by digest closure, reconcile, and both tool entry points |
+| max v1 fix | `v1/services/proxy-models.ts:15` — every tier resolves to the complex-tier model; effort pinned deep |
+| max v2 port | `src/services/proxy-models.ts:19` — all tiers pickle; `src/services/effort-analyzer.ts:400` — deep pin with English hints, empty-null preserved; single-case doctrine in `src/hooks/message-updated.ts:55` — bare guards, verb boundaries, `DISPATCH_QA_IN_ROOT`, agent-only guidance, null-safe plan |

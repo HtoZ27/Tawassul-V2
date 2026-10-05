@@ -12,11 +12,21 @@ import { resolveFallbackAgent } from "../services/proxy-fallback-chains.ts";
 import type { TrustScoreCalculator } from "../services/trust-score/calculator.ts";
 import { estimateTokensByFactor, TOKENS_PER_CHAR_COMPRESS } from "../services/token-estimation.ts";
 import type { CostTransparencyTracker } from "../services/cost-transparency/tracker.ts";
+import { UNATTRIBUTED_MODEL_ID } from "../services/cost-transparency/types.ts";
 import type { CollectiveMemoryRouterIntegration } from "../services/collective-memory/router-integration.ts";
 import type { CollectiveMemoryStoreImpl } from "../services/collective-memory/store.ts";
 import { extractFacts, factToLearning } from "../services/reflection-pass.ts";
 import type { SelfHealEngine } from "../services/self-heal-engine.ts";
 import { withTimeout } from "../utils/with-timeout.ts";
+
+const lastCostWarn = { message: "", at: 0 };
+function warnCostOnce(message: string): void {
+  const now = Date.now();
+  if (lastCostWarn.message === message && now - lastCostWarn.at < 5 * 60_000) return;
+  lastCostWarn.message = message;
+  lastCostWarn.at = now;
+  logger.warn(`[tawassul] cost-transparency: ${message}`);
+}
 
 export interface CoreEventIntegrationDeps {
   tawaCtx: TawassulContext;
@@ -218,14 +228,15 @@ export function registerCoreEventIntegrations(deps: CoreEventIntegrationDeps): {
             ? Math.max(1, estimateTokensByFactor(e.outputLength, TOKENS_PER_CHAR_COMPRESS))
             : 200;
         const inputTokens = Math.max(1, Math.round(outputTokens * 1.5));
-        costTransparency.recordOperation("gpt-4o", inputTokens, outputTokens, {
+        costTransparency.recordOperation(UNATTRIBUTED_MODEL_ID, inputTokens, outputTokens, {
           task: `agent:${e.agent}`,
           agentId: e.agent,
           success: true,
+          estimated: true,
           ...(e.durationMs !== undefined ? { durationMs: e.durationMs } : {}),
         });
       } catch {
-        // pricing model may not exist — silently skip
+        warnCostOnce("pricing catalog miss on cost record - numbers are output-length heuristics");
       }
     }
     

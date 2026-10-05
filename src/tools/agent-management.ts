@@ -57,6 +57,15 @@ import {
   type KickResult,
 } from "./agent-kick-helpers.ts";
 import { dropAgentState, removeAgentMd, removeAgentsFromConfig, formatKickResult } from "./agent-kick-runtime.ts";
+import { BASH_READ_ONLY } from "../permissions.ts";
+
+export function tawaFallbackPermission(): Record<string, unknown> {
+  return {
+    task: { "*": "allow", "*tawa*": "deny" },
+    handoff: { "*": "allow", "*tawa*": "deny" },
+    bash: JSON.parse(JSON.stringify(BASH_READ_ONLY)) as Record<string, string>,
+  };
+}
 
 export function configLockName(ctx: TawassulContext): string {
   const anchor = SCOPE === "global" ? resolveTawassulConfigPath(ctx.stateDir, "global") : resolve(ctx.stateDir);
@@ -578,10 +587,7 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
                             description: tawaTemplate.description,
                             model: fullModel,
                             mode: tawaTemplate.mode,
-                            permission: {
-                              task: { "*": "allow", "*tawa*": "deny" },
-                              handoff: { "*": "allow", "*tawa*": "deny" },
-                            },
+                            permission: tawaFallbackPermission(),
                           } as unknown as (typeof roster.agents)[string];
                         } else if (roster.agents[spec] && typeof roster.agents[spec] === "object") {
                           (roster.agents[spec] as { model?: unknown }).model = fullModel;
@@ -590,10 +596,7 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
                             description: "Experts' intermediary — routing only on explicit @tawa invocation",
                             model: fullModel,
                             mode: "all",
-                            permission: {
-                              task: { "*": "allow", "*tawa*": "deny" },
-                              handoff: { "*": "allow", "*tawa*": "deny" },
-                            },
+                            permission: tawaFallbackPermission(),
                           } as unknown as (typeof roster.agents)[string];
                         }
                       }
@@ -708,10 +711,7 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
                                     description: tawaTemplate.description,
                                     model: fullModel,
                                     mode: tawaTemplate.mode,
-                                    permission: {
-                                      task: { "*": "allow", "*tawa*": "deny" },
-                                      handoff: { "*": "allow", "*tawa*": "deny" },
-                                    },
+                                    permission: tawaFallbackPermission(),
                                   } as unknown as (typeof conf.agent)[string];
                                 } else if (conf.agent[spec] && typeof conf.agent[spec] === "object") {
                                   (conf.agent[spec] as { model?: unknown }).model = fullModel;
@@ -720,10 +720,7 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
                                     description: "Experts' intermediary — routing only on explicit @tawa invocation",
                                     model: fullModel,
                                     mode: "all",
-                                    permission: {
-                                      task: { "*": "allow", "*tawa*": "deny" },
-                                      handoff: { "*": "allow", "*tawa*": "deny" },
-                                    },
+                                    permission: tawaFallbackPermission(),
                                   } as unknown as (typeof conf.agent)[string];
                                 }
                               }

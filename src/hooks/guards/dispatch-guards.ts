@@ -202,7 +202,7 @@ export const circuitBreakerGuard = guard("circuit-breaker", (ctx, input, output)
 export const budgetGuard = guard("iteration-budget", (_ctx, input, output) => {
   if (!TASK_TOOL_NAMES.includes(input.tool) || !input.agent) return null;
   for (const agent of getDispatchTargets(input, output)) {
-    if (remaining(agent) <= 0) {
+    if (remaining(agent, input.sessionID) <= 0) {
       return `🚫 Agent "${agent}" is out of budget. Try again later or use another agent.`;
     }
   }

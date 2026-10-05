@@ -295,7 +295,20 @@ export class TimelineStore {
     };
   }
 
-  
+  private loadPromise: Promise<void> | null = null;
+
+  ensureLoaded(): Promise<void> {
+    if (!this.loadPromise) {
+      this.loadPromise = this.load().then(
+        () => undefined,
+        (err) => {
+          logger.warn("[timeline] ensureLoaded: load failed, serving empty state:", err);
+        },
+      );
+    }
+    return this.loadPromise;
+  }
+
   async load(): Promise<void> {
     await this.dirReady;
     try {

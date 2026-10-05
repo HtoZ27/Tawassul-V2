@@ -261,7 +261,12 @@ export function createHooks(
     priorityIndex,
     
     
-    getGoalDigest: services?.goalStore ? () => services.goalStore!.compactDigest() : undefined,
+    getGoalDigest: services?.goalStore
+      ? async () => {
+          await services.goalStore!.ensureLoaded();
+          return services.goalStore!.compactDigest();
+        }
+      : undefined,
   });
 
   const toolExecuteBeforeHook = createToolExecuteBeforeHook({

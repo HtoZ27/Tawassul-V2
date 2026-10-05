@@ -198,7 +198,7 @@ export interface SessionCompactedContext {
   
   priorityIndex?: PriorityIndex;
   
-  getGoalDigest?: () => string;
+  getGoalDigest?: () => string | Promise<string>;
 }
 
 function buildPriorityIndex(ctx: SessionCompactedContext): ScoredContextEntry[] {

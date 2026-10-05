@@ -303,6 +303,14 @@ export async function runPipeline(ctx: Ctx, input: Input, output: StageOutput): 
         `[tawassul] simple pipeline rejected after the timeout decided - recorded, absorbed:`,
         e instanceof Error ? e.message : String(e),
       );
+      try {
+        logger.audit("STAGE_REJECTED_AFTER_TIMEOUT", {
+          stage: "simple-pipeline",
+          error: e instanceof Error ? e.message : String(e),
+        });
+      } catch {
+        void 0;
+      }
     });
     return await Promise.race([
       stagesRun,
@@ -355,6 +363,14 @@ async function checkStageWithTimeout(
         `[tawassul] pipeline stage "${stage.name}" rejected after the timeout decided - recorded, absorbed:`,
         e instanceof Error ? e.message : String(e),
       );
+      try {
+        logger.audit("STAGE_REJECTED_AFTER_TIMEOUT", {
+          stage: stage.name,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      } catch {
+        void 0;
+      }
     });
     const result = await Promise.race([
       stageRun,

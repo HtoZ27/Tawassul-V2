@@ -397,6 +397,13 @@ export function analyzeEffort(task: string): EffortAnalysis {
     if (stepsDetected > 2) action_hint += ` (${stepsDetected} steps)`;
   }
 
+  if (thinking_effort !== null) {
+    thinking_effort = "deep";
+    action_hint = "Deep problem — use @analyst for initial analysis, then @dev for execution";
+    if (fileMentions > 3) action_hint += ` (${fileMentions} files mentioned)`;
+    if (stepsDetected > 2) action_hint += ` (${stepsDetected} steps)`;
+  }
+
   if (specializations.length === 0 && thinking_effort !== null) {
     action_hint = `No clear specialization identified. ${action_hint}`;
   }
