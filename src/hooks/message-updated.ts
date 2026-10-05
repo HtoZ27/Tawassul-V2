@@ -9,6 +9,7 @@ import { getMessageContent } from "../utils/format.ts";
 import { analyzeMessage as analyzeMessageFallback } from "../services/routing-algorithm.ts";
 import {
   analyzeEffort as analyzeEffortFallback,
+  isComplexEffort,
   isComplexTask as isComplexTaskFallback,
 } from "../services/effort-analyzer.ts";
 import {
@@ -181,8 +182,7 @@ function injectRoutingGuidance(
 }
 
 function buildDispatchPlan(ctx: MessageUpdatedContext, content: string, effort: EffortAnalysis | null): void {
-  const svc = resolveServiceClients(ctx.serviceClients);
-  if (!effort || !svc.isComplexTask(content)) return;
+  if (!effort || !isComplexEffort(effort, content)) return;
   const dispatchTasks: DispatchTask[] = [
     {
       id: `TASK-${Date.now()}`,

@@ -13,7 +13,7 @@ export function guard(name: string, fn: GuardFn): ValidationStage {
     check: async (ctx, input, output) => {
       let err: string | null | undefined;
       try {
-        err = fn(ctx, input, output);
+        err = await fn(ctx, input, output);
       } catch (e) {
         
         
@@ -41,7 +41,7 @@ export function guardWithRetry(name: string, fn: GuardFn, retries = 2): Validati
     check: async (ctx, input, output) => {
       for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-          const err = fn(ctx, input, output);
+          const err = await fn(ctx, input, output);
           if (err) {
             output.error = err;
             return false;

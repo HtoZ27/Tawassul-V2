@@ -9,7 +9,7 @@ import { resolveModelAlias, MODEL_CATALOG } from "../../core/model-registry.ts";
 import { detectDeletedProtectedAgents, stripJsoncComments } from "../../utils/opencode-config.ts";
 import { TASK_PERMISSIONS } from "../../security-policy.ts";
 import { AGENTS_DEFAULT } from "../../context/constants.ts";
-import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 function extractDeletedNames(raw: string | undefined): Set<string> | null {
@@ -101,7 +101,7 @@ export const DANGEROUS_PATTERNS = [
   /eval\s+\$\(/,
 ];
 
-export function checkRosterBoundaryDelete(input: Input, output: StageOutput, redirectNote?: string): string | null {
+export async function checkRosterBoundaryDelete(input: Input, output: StageOutput, redirectNote?: string): Promise<string | null> {
   const args = output.args ?? {};
   if (["edit", "write", "delete"].includes(input.tool)) {
     const filePath = (args.filePath ?? args.path ?? args.file_path ?? "") as string;
@@ -132,10 +132,10 @@ export function checkRosterBoundaryDelete(input: Input, output: StageOutput, red
       }
       let currentDisk: string | undefined;
       try {
-        currentDisk = readFileSync(filePath, "utf8");
+        currentDisk = await readFile(filePath, "utf8");
       } catch {
         try {
-          currentDisk = readFileSync(resolve(process.cwd(), filePath), "utf8");
+          currentDisk = await readFile(resolve(process.cwd(), filePath), "utf8");
         } catch {
           currentDisk = undefined;
         }
@@ -260,7 +260,7 @@ export const rosterBoundaryDeleteGuard = guardWithRetry("roster-boundary-delete"
   checkRosterBoundaryDelete(input, output),
 );
 
-export const permissionGuard = guardWithRetry("3-tier-permissions", (_ctx, input, output) => {
+export const permissionGuard = guardWithRetry("3-tier-permissions", async (_ctx, input, output) => {
   const agentTier = getTier(input.agent ?? "");
   const toolTier = TOOL_TIERS[input.tool] ?? "admin";
   if (TIER_RANK[agentTier] < TIER_RANK[toolTier]) {
@@ -301,7 +301,7 @@ export const permissionGuard = guardWithRetry("3-tier-permissions", (_ctx, input
   }
 
   if (["edit", "write", "delete"].includes(input.tool)) {
-    const rosterMsg = checkRosterBoundaryDelete(input, output);
+    const rosterMsg = await checkRosterBoundaryDelete(input, output);
     if (rosterMsg) return rosterMsg;
   }
 

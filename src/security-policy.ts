@@ -49,9 +49,6 @@ export interface TaskValidationResult {
 export const BLOCKED_TOOLS: readonly string[] = ["edit", "write", "bash", "addagent", "kick", "pause", "resume"];
 
 
-const ROLE_BLOCKED_TOOLS: Record<string, Set<string>> = {};
-
-
 const BLOCKED_HANDOFF_ACTIONS: readonly string[] = ["complete", "undo", "rescue", "helpRequest"];
 
 
@@ -245,7 +242,6 @@ export class SecurityPolicy {
   
   static checkBlockedTools(agent: string, tool: string): SecurityCheckResult {
     const a = normalizeName(agent);
-    const baseRole = resolveRole(a) ?? a;
 
     if (a === "tawa" && BLOCKED_TOOLS.includes(tool)) {
       return {
@@ -255,14 +251,6 @@ export class SecurityPolicy {
       };
     }
 
-    const roleBlocked = ROLE_BLOCKED_TOOLS[baseRole];
-    if (roleBlocked?.has(tool)) {
-      return {
-        allowed: false,
-        error: t("spRoleBlocked", { role: baseRole, tool }),
-        reason: `Blocked @${baseRole} from using ${tool}`,
-      };
-    }
     return { allowed: true };
   }
 

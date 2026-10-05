@@ -5,7 +5,7 @@ import type { PipelineState } from "../../PipelineState.ts";
 export type StageOutput = { args: Record<string, unknown>; error?: string };
 export type Ctx = ToolExecuteBeforeContext;
 export type Input = { tool: string; agent?: string; sessionID: string; callID?: string };
-export type GuardFn = (ctx: Ctx, input: Input, output: StageOutput) => string | null;
+export type GuardFn = (ctx: Ctx, input: Input, output: StageOutput) => string | null | Promise<string | null>;
 
 
 

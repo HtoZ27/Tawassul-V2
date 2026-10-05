@@ -8,6 +8,7 @@ import type { HealResult } from "../types/plan.types.ts";
 import { logger } from "../utils/logger.ts";
 import { t } from "../translations.ts";
 import type { EventHub } from "./event-hub.ts";
+import type { TimerManagerLike } from "../types/timer-types.ts";
 
 interface Issue {
   component?: string;
@@ -31,6 +32,7 @@ export class SelfHealEngine {
   private healPolicy: HealPolicy;
 
   private memoryTimer: ReturnType<typeof setInterval> | null = null;
+  private timers: TimerManagerLike | null = null;
 
   
   private lastFailureContext: { phase: string; reason: string } | null = null;
@@ -44,6 +46,7 @@ export class SelfHealEngine {
     healthTracker?: HealthTracker,
     healPolicy?: HealPolicy,
     fallbackResolver?: (component: string) => { agent?: string } | null,
+    timers?: TimerManagerLike,
   ) {
     this.circuitBreaker = circuitBreaker ?? new CircuitBreaker();
     this.healthTracker = healthTracker ?? new HealthTracker();
@@ -52,7 +55,10 @@ export class SelfHealEngine {
     this.rollbackManager = new RollbackManager();
     this.healPolicy = healPolicy ?? new HealPolicy();
     this.fallbackResolver = fallbackResolver;
-    this.memoryTimer = setInterval(() => this.checkMemory(), 30000);
+    this.timers = timers ?? null;
+    this.memoryTimer = this.timers
+      ? this.timers.setInterval(() => this.checkMemory(), 30000)
+      : setInterval(() => this.checkMemory(), 30000);
     this.memoryTimer?.unref?.();
   }
 
@@ -201,7 +207,8 @@ export class SelfHealEngine {
 
   dispose(): void {
     if (this.memoryTimer) {
-      clearInterval(this.memoryTimer);
+      if (this.timers) this.timers.clear(this.memoryTimer);
+      else clearInterval(this.memoryTimer);
       this.memoryTimer = null;
     }
     this.circuitBreaker.resetAll();

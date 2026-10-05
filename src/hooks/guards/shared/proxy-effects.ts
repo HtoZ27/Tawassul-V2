@@ -5,7 +5,9 @@ import { selectModelForTask, selectModelForTaskDynamic } from "../../../services
 import { getFallbackChain, buildDynamicFallbackChain } from "../../../services/proxy-fallback-chains.ts";
 import { getTaskVector } from "../../task-vector.ts";
 import { isTawaAgent, normalizeName } from "./normalize.ts";
-import { getAvailableModelsCached } from "./model-cache.ts";
+import { getAvailableModelsCached, getModelListProvenance } from "./model-cache.ts";
+import { warnThrottled } from "./warn-throttle.ts";
+import { recordFetchWait } from "./fetch-wait-metrics.ts";
 import type { Ctx, Input, StageOutput } from "./types.ts";
 
 
@@ -118,16 +120,29 @@ export async function proxyAgentRoutingStage(ctx: Ctx, input: Input, output: Sta
     const baseRole = resolveRole(target) ?? target;
     const MODEL_FETCH_TIMEOUT = 3000;
     let modelTimer: ReturnType<typeof setTimeout> | undefined;
+    const fetchController = new AbortController();
+    const waitStart = Date.now();
     const availableModels = await Promise.race([
-      getAvailableModelsCached(ctx.sessionId),
+      getAvailableModelsCached(ctx.sessionId, fetchController.signal),
       new Promise<never[]>((resolve) => {
         modelTimer = setTimeout(() => {
-          logger.warn(`[tawassul] proxyAgentRouting: getAvailableModels timed out — falling back to static selection`);
+          const prov = getModelListProvenance();
+          const ageNote =
+            prov === null
+              ? "no cached list"
+              : `cached list age ${prov.ageMs}ms, gen ${prov.gen}${prov.negative ? " (short-negative window)" : ""}${prov.stale ? " (stale)" : ""}`;
+          warnThrottled(
+            "proxy-fetch-timeout",
+            60_000,
+            `[tawassul] proxyAgentRouting: getAvailableModels timed out after ${MODEL_FETCH_TIMEOUT}ms - aborting loser, falling back to static selection (${ageNote})`,
+          );
+          fetchController.abort();
           resolve([]);
         }, MODEL_FETCH_TIMEOUT);
       }),
     ]).finally(() => {
       if (modelTimer) clearTimeout(modelTimer);
+      recordFetchWait(Date.now() - waitStart);
     });
     const prompt = typeof output.args?.prompt === "string" ? output.args.prompt : "";
     const fileCount = Array.isArray(output.args?.files) ? (output.args.files as unknown[]).length : 0;

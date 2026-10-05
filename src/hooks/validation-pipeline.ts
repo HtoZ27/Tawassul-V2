@@ -243,7 +243,7 @@ export async function runPipeline(ctx: Ctx, input: Input, output: StageOutput): 
       }
     }
     if (input.tool === "edit" || input.tool === "write" || input.tool === "delete") {
-      const rosterMsg = checkRosterBoundaryDelete(
+      const rosterMsg = await checkRosterBoundaryDelete(
         input,
         output,
         `\n➡️ Official path: @addagent for add/remove — easier than hand-editing, no extra approval needed for add`,
@@ -297,8 +297,15 @@ export async function runPipeline(ctx: Ctx, input: Input, output: StageOutput): 
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
+    const stagesRun = runStages(stages, ctx, input, output);
+    stagesRun.catch((e: unknown) => {
+      logger.warn(
+        `[tawassul] simple pipeline rejected after the timeout decided - recorded, absorbed:`,
+        e instanceof Error ? e.message : String(e),
+      );
+    });
     return await Promise.race([
-      runStages(stages, ctx, input, output),
+      stagesRun,
       new Promise<boolean>((resolve) => {
         timer = setTimeout(() => {
           logger.warn(
@@ -342,8 +349,15 @@ async function checkStageWithTimeout(
 ): Promise<boolean> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
+    const stageRun = stage.check(ctx, input, output);
+    stageRun.catch((e: unknown) => {
+      logger.warn(
+        `[tawassul] pipeline stage "${stage.name}" rejected after the timeout decided - recorded, absorbed:`,
+        e instanceof Error ? e.message : String(e),
+      );
+    });
     const result = await Promise.race([
-      stage.check(ctx, input, output),
+      stageRun,
       new Promise<boolean>((resolve) => {
         timer = setTimeout(() => {
           logger.warn(

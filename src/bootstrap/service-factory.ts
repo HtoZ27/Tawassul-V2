@@ -203,8 +203,8 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
     circuitBreaker,
     healthTracker,
     undefined,
-    
-    
+
+
     (component) => {
       try {
         const alt = resolveFallbackAgent(component, {
@@ -216,6 +216,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
         return null;
       }
     },
+    tawaCtx.timerManager,
   );
   const handoffService = new HandoffService(tawaCtx, healthTracker, circuitBreaker);
   tawaCtx.handoffService = handoffService;
@@ -466,9 +467,12 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
 
   
   if (isInnovationOn("backgroundCoordinator")) {
-    const backgroundCoordinator = getBackgroundCoordinator({
-      storagePath: join(runtimeStateDir, "background-coordinator.json"),
-    });
+    const backgroundCoordinator = getBackgroundCoordinator(
+      {
+        storagePath: join(runtimeStateDir, "background-coordinator.json"),
+      },
+      tawaCtx.timerManager,
+    );
     const systemAgents = new Set<string>();
     const buildResult = (
       jobId: string,

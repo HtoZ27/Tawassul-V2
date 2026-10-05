@@ -8,6 +8,7 @@ import { withTimeout } from "../../utils/with-timeout.ts";
 import { TimeoutError } from "../../utils/errors.ts";
 import { isIsolationActiveSync } from "../isolation.ts";
 import type { BackgroundJob, BackgroundTaskResult, BackgroundCoordinatorConfig, BackgroundEvent } from "./types.js";
+import type { TimerManagerLike } from "../../types/timer-types.ts";
 import {
   BackgroundCoordinatorConfigSchema,
   BackgroundJobSchema,
@@ -58,11 +59,13 @@ export class BackgroundCoordinator {
   private boardRunning = new Set<string>();
   private boardResolvers = new Map<string, (job: Job) => void>();
   private maxConcurrentJobs: number;
+  private timers: TimerManagerLike | null = null;
 
-  constructor(config?: Partial<BackgroundCoordinatorConfig>) {
+  constructor(config?: Partial<BackgroundCoordinatorConfig>, timers?: TimerManagerLike) {
     this.config = BackgroundCoordinatorConfigSchema.parse(config || {});
     this.maxConcurrentJobs = this.config.maxConcurrentJobs;
     this.storagePath = this.config.storagePath.replace("~", process.env.HOME || "~");
+    this.timers = timers ?? null;
 
     
     for (const jobDef of BUILTIN_JOBS) {
@@ -87,15 +90,25 @@ export class BackgroundCoordinator {
     
     
     
-    this.intervalId = setInterval(() => {
-      if (this._ticking) return;
-      this._ticking = true;
-      Promise.resolve(this.tick())
-        .catch((e) => logger.error("[background-coordinator] tick failed:", e))
-        .finally(() => {
-          this._ticking = false;
-        });
-    }, this.config.checkIntervalMs);
+    this.intervalId = this.timers
+      ? this.timers.setInterval(() => {
+        if (this._ticking) return;
+        this._ticking = true;
+        Promise.resolve(this.tick())
+          .catch((e) => logger.error("[background-coordinator] tick failed:", e))
+          .finally(() => {
+            this._ticking = false;
+          });
+      }, this.config.checkIntervalMs)
+      : setInterval(() => {
+        if (this._ticking) return;
+        this._ticking = true;
+        Promise.resolve(this.tick())
+          .catch((e) => logger.error("[background-coordinator] tick failed:", e))
+          .finally(() => {
+            this._ticking = false;
+          });
+      }, this.config.checkIntervalMs);
     if (this.intervalId?.unref) this.intervalId.unref();
 
     logger.info(`[background-coordinator] Started with ${this.jobs.size} jobs`);
@@ -104,7 +117,8 @@ export class BackgroundCoordinator {
   
   stop(): void {
     if (this.intervalId) {
-      clearInterval(this.intervalId);
+      if (this.timers) this.timers.clear(this.intervalId);
+      else clearInterval(this.intervalId);
       this.intervalId = null;
     }
 
@@ -697,9 +711,9 @@ export class BackgroundCoordinator {
 
 let instance: BackgroundCoordinator | null = null;
 
-export function getBackgroundCoordinator(config?: Partial<BackgroundCoordinatorConfig>): BackgroundCoordinator {
+export function getBackgroundCoordinator(config?: Partial<BackgroundCoordinatorConfig>, timers?: TimerManagerLike): BackgroundCoordinator {
   if (!instance) {
-    instance = new BackgroundCoordinator(config);
+    instance = new BackgroundCoordinator(config, timers);
   }
   return instance;
 }

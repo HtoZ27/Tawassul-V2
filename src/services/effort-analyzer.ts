@@ -446,16 +446,26 @@ function computeStructuralComplexity(
 }
 
 export function isComplexTask(task: string): boolean {
+  if (!passesComplexityGate(task)) return false;
+  const analysis = analyzeEffort(task);
+  return isComplexEffort(analysis, task);
+}
+
+export function passesComplexityGate(task: string): boolean {
   const words = task.split(/\s+/).filter(Boolean);
   if (words.length < 12) {
     const hasFile = /[a-zA-Z0-9_-]+\.[a-z]{2,4}\b|\//.test(task);
     const stepMarkers = (task.match(/(?:after that|step\s*\d|then|and then|first|second|third)/gi) ?? []).length;
     if (!hasFile && stepMarkers < 2 && words.length < 8) return false;
   }
-  const analysis = analyzeEffort(task);
+  return true;
+}
+
+export function isComplexEffort(effort: EffortAnalysis | null, content: string): boolean {
+  if (!effort || !passesComplexityGate(content)) return false;
   return (
-    analysis.thinking_effort === "deep" ||
-    analysis.thinking_effort === "analyze-first" ||
-    analysis.structuralComplexity > 0.6
+    effort.thinking_effort === "deep" ||
+    effort.thinking_effort === "analyze-first" ||
+    (effort.structuralComplexity ?? 0) > 0.6
   );
 }

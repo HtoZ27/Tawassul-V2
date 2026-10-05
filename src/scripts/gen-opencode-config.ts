@@ -534,7 +534,7 @@ export function buildAgents(deleted?: readonly string[], opts?: GenOptions): Rec
     mode: "subagent",
     permission: {
       edit: "deny",
-      bash: "deny",
+      bash: BASH_READ_ONLY,
       external_directory: "allow",
       webfetch: "allow",
       websearch: "allow",
@@ -617,6 +617,14 @@ export function buildMergedAgents(maybeRaw?: string, opts?: GenOptions): Record<
           if (JSON.stringify(merged.permission.bash) !== JSON.stringify(live)) {
             merged.permission.bash = live;
           }
+        }
+        if (
+          (name === TAWA_AGENT || name === "addagent") &&
+          merged &&
+          merged.permission &&
+          typeof merged.permission.bash === "string"
+        ) {
+          merged.permission.bash = JSON.parse(JSON.stringify(BASH_READ_ONLY)) as Record<string, string>;
         }
         continue;
       }

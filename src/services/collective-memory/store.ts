@@ -78,7 +78,7 @@ export class CollectiveMemoryStoreImpl
   private stripOldPrefix(id: string): string {
     if (!this.projectKey) return id;
     const prefix = `${this.projectKey}:`;
-    if (id.startsWith(prefix)) return id;
+    if (id.startsWith(prefix)) return id.slice(prefix.length);
     const colonIdx = id.indexOf(":");
     if (colonIdx !== -1) return id.slice(colonIdx + 1);
     return id;
@@ -271,12 +271,12 @@ export class CollectiveMemoryStoreImpl
 
     this.emitEvent({
       type: "memory_created",
-      payload: { memoryId: newMemory.id, source: newMemory.source },
+      payload: { memoryId: scopedNew.id, source: scopedNew.source },
       source: "collective-memory",
       timestamp: now,
     });
 
-    return newMemory;
+    return scopedNew;
   }
 
   
@@ -483,9 +483,16 @@ export class CollectiveMemoryStoreImpl
       const limited = data.memories.slice(0, MAX_LOAD_MEMORIES);
       for (const memory of limited) {
         try {
-          const validated = MemoryEntrySchema.parse(memory);
-          const rawId = this.stripOldPrefix(validated.id);
-          const scopedValidated = { ...validated, id: this.scopedId(rawId) };
+          const rawId =
+            memory !== null && typeof memory === "object" && "id" in memory
+              ? (memory as { id?: unknown }).id
+              : undefined;
+          const candidate =
+            typeof rawId === "string"
+              ? { ...(memory as Record<string, unknown>), id: this.stripOldPrefix(rawId) }
+              : memory;
+          const validated = MemoryEntrySchema.parse(candidate);
+          const scopedValidated = { ...validated, id: this.scopedId(validated.id) };
           this.memories.set(scopedValidated.id, scopedValidated);
         } catch (e) {
           logger.warn("Invalid memory, skipping:", e);

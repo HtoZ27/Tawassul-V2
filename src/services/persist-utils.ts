@@ -63,6 +63,20 @@ export function resolveConfigPath(path: string): string {
   return path.replace("~", home);
 }
 
+export async function writeIfChanged(
+  filePath: string,
+  data: string,
+  opts: { backup?: boolean } = {},
+): Promise<boolean> {
+  try {
+    if ((await readFile(filePath, "utf8")) === data) return false;
+  } catch {
+    void 0;
+  }
+  await atomicWriteFile(filePath, data, { backup: opts.backup ?? false });
+  return true;
+}
+
 
 
 

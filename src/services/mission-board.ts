@@ -98,7 +98,7 @@ export class MissionBoard {
   private dataDir: string;
   private explicitDataDir: boolean;
   private indexWriteChain: Promise<void> = Promise.resolve();
-  private boardChains: Map<string, Promise<void>> = new Map();
+  private boardChains: Map<string, Promise<unknown>> = new Map();
   private loadPromise: Promise<void>;
 
   constructor(
@@ -312,6 +312,17 @@ export class MissionBoard {
       return;
     }
     try {
+      const boardsJson = JSON.stringify(this.buildIndex().boards);
+      let unchanged = false;
+      try {
+        const { readFile } = await import("node:fs/promises");
+        const raw = await readFile(lockPath, "utf8");
+        const parsed = JSON.parse(raw) as { boards?: unknown };
+        unchanged = Array.isArray(parsed.boards) && JSON.stringify(parsed.boards) === boardsJson;
+      } catch {
+        unchanged = false;
+      }
+      if (unchanged) return;
       await atomicWriteFileFast(lockPath, JSON.stringify(this.buildIndex(), null, 2));
     } finally {
       await this.lockManager.releaseLock(lockPath, "mission-board");
@@ -330,7 +341,7 @@ export class MissionBoard {
   }
 
   
-  private enqueue(boardId: string, op: () => Promise<void>): Promise<void> {
+  private enqueue<T>(boardId: string, op: () => Promise<T>): Promise<T | void> {
     const prev = this.boardChains.get(boardId) ?? Promise.resolve();
     const next = prev.then(op).catch(() => {});
     this.boardChains.set(boardId, next);
@@ -342,21 +353,23 @@ export class MissionBoard {
     return next;
   }
 
-  private persist(board: Board): Promise<void> {
-    return this.enqueue(board.id, async () => {
+  private async persist(board: Board): Promise<boolean> {
+    const v = await this.enqueue(board.id, async () => {
       await this.ensureDataDir();
       const lockPath = this.boardPath(board.id);
       const lock = await this.lockManager.acquireLock(lockPath, "mission-board", "persist");
       if (!lock.acquired) {
         logger.warn(`MissionBoard: board lock not acquired for ${board.id} — skipping save`);
-        return;
+        return false;
       }
       try {
         await atomicWriteFileFast(lockPath, JSON.stringify(board, null, 2));
+        return true;
       } finally {
         await this.lockManager.releaseLock(lockPath, "mission-board");
       }
     });
+    return v ?? false;
   }
 
   private deleteBoardFile(boardId: string): Promise<void> {

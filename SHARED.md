@@ -162,7 +162,7 @@ v1 ships a role-scoped security policy (role→tool matrix, role-scoped plugin p
 | v1 problem | `v1/security-policy.ts:146` — role-scoped permission matrix (role→tool) |
 | v1 fix | `v1/security-policy.ts:641` — `getAllowedToolsForRole` single source of truth |
 | v2 problem | `src/security-policy.ts:532` — `TAWASSUL_TOOL_ROLES` role→tool matrix already present; `src/tools/record.ts:50` and `src/tools/evaluation-report.ts:106` — read-back via `record(get/list)` and `evaluationreport(get: true)` already present; `src/hooks/message-updated.ts:487` — `SYSTEM_CONCORDANCE_TEXT` already deflects plugin-file/MCP hunting |
-| proposed v2 fix | `src/security-policy.ts:554` — `getAllowedToolsForRole` present as the single source of truth; persistence read-back guard added: `getSaveHealth()` wired through `src/services/state-persistence.ts:593`, `src/services/lifecycle-manager.ts:35`, `src/context/facades/state-facade.ts` → `src/context-class.ts:490`; write paths now `await ctx.saveState()` and append a `⚠️ Persistence warning: on-disk save failed (N)` disclosure when stale (`src/tools/record.ts` write path, `src/tools/evaluation-report.ts:173`) |
+| proposed v2 fix | `src/security-policy.ts:542` — `getAllowedToolsForRole` present as the single source of truth; persistence read-back guard added: `getSaveHealth()` wired through `src/services/state-persistence.ts:593`, `src/services/lifecycle-manager.ts:35`, `src/context/facades/state-facade.ts` → `src/context-class.ts:490`; write paths now `await ctx.saveState()` and append a `⚠️ Persistence warning: on-disk save failed (N)` disclosure when stale (`src/tools/record.ts` write path, `src/tools/evaluation-report.ts:173`) |
 
 ## S-014 Standalone health tool — IMPLEMENTED on v2
 
@@ -333,3 +333,25 @@ v1 commit 29a4f809 closes the external atomic-audit P0s (73 green): WAL-blind so
 | mark v1 fix | `v1/tests/launch-cap.test.ts:1` — mark liveness cleared on failure except exit 8 |
 | mark v2 port | `scripts/opencode-db-maintenance.sh:65` — cooldown-mark option with trap clear; `scripts/opencode-v2-iso.sh:58` — launcher stamps and passes the mark |
 | vendoring | `scripts/opencode-db-maintenance.sh:1` — V2 local copy with V2 defaults, V2 launcher prefers it before the v1 fallback |
+
+## S-020 v1 nine-day batch 2026-09-26 → 2026-10-05 (tool-surface, cache, guards, wiring, burn discipline) — IMPLEMENTED on v2
+
+Seventeen v1 commits in the window; four are bundle rebuilds and three are v1-only harnesses with no V2 counterpart (vitest type-error unmasking, dist gate budgets, pipeline early-exit proof, scheduler rotation and single-owner installer with no V2 timer or installer). Everything below was ported on merit, v2-shaped (English-only, no comments), proven by `scripts/prove-s020.ts` (21 assertions) plus `scripts/prove-roster-boundary.ts` and generator `--check`.
+
+| | Anchor |
+| --- | --- |
+| bash v1 fix | `v1/tests/permissions.test.ts:1` — drift tests pin the record, the MCP deny, and fallback parity |
+| bash v2 port | `src/core/agent-data.ts:41` — tawa flat deny becomes the record; `src/scripts/gen-opencode-config.ts:537` — addagent entry ditto, with flat-string re-assertion at merge; dead `ROLE_BLOCKED_TOOLS` removed from `src/security-policy.ts`; MCP disconnect not applicable (v2 has no MCP bundle) |
+| cache v1 fix | `v1/hooks/guards/shared/model-cache.ts:36` — single-flight state, short negatives, generation-keyed slot |
+| cache v2 port | `src/hooks/guards/shared/model-cache.ts:1` — unified slot on `getPortCacheGen`, single-flight shared fetch with per-caller abort race, fail-closed short negatives, `getModelListProvenance` disclosure |
+| throttle v1 fix | `v1/hooks/guards/shared/warn-throttle.ts:20` — first logs full, repeats counted, summary on rollover |
+| throttle v2 port | `src/hooks/guards/shared/warn-throttle.ts:1` + `src/hooks/guards/shared/fetch-wait-metrics.ts:1` — new modules; proxy timeout message carries provenance age via `warnThrottled`, waits recorded |
+| roster v1 fix | `v1/hooks/validation-pipeline.ts:1` — async boundary check with late-rejection absorption |
+| roster v2 port | `src/hooks/guards/permission-guard.ts:104` — async disk reads; `src/hooks/guards/shared/types.ts:8` — `GuardFn` widens to `MaybePromise`; factories await; pipeline absorbs late rejections |
+| consent v1 fix | `v1/hooks/guards/consent-gate-guard.ts:75` — denial TTL 60s vs approval 10min; `v1/hooks/guards/consent-gate-guard.ts:94` — expired-unseen relay |
+| consent v2 port | `src/hooks/guards/consent-gate-guard.ts:42` — asymmetric TTL; heredoc-aware key stripping with kick target in key; no-root-binding fail-loud; dead always-persist removed; two new `en` keys |
+| wiring v1 fix | `v1/services/goal-store.ts:748` — clone the in-lock fresh goal; `v1/services/collective-memory/store.ts:91` — strip actually strips |
+| wiring v2 port | `src/services/goal-store.ts:643` — fresh-evidence check already present, kept; `src/services/collective-memory/store.ts:78` — strip fix, scoped return, strip-before-validate on load; `src/services/mission-board.ts:333` — generic enqueue with boolean persist; central timer registration in coordinator, self-heal, factory |
+| burn v1 fix | `v1/services/effort-analyzer.ts:595` — predicate on already-computed analysis; `v1/services/persist-utils.ts:93` — no-write gate |
+| burn v2 port | `src/services/effort-analyzer.ts:464` — `isComplexEffort` reused by `src/hooks/message-updated.ts:183`; `src/services/persist-utils.ts:66` — `writeIfChanged`; `src/services/mission-board.ts:306` — index diff-gate; ONCE-PER-TASK wording in `src/core/agent-data.ts:184`; big-pickle worker/dispatcher rule in tawa instructions |
+| deferred | SDK-first providers: no SDK client exists on the V2 hook context, nothing to prefer — self-fetch stays until a client surface appears |
