@@ -49,8 +49,8 @@ function announceModelFallback(
   logger.warn(msg);
   try {
     logger.audit("MODEL_FALLBACK", { target, from: configuredModel, to: actualModel, reason });
-  } catch {
-    /* audit sink optional */
+  } catch (auditErr) {
+    logger.debug("[tawassul] MODEL_FALLBACK audit sink unavailable", auditErr);
   }
 }
 

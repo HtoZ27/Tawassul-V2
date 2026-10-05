@@ -284,7 +284,7 @@ function disposeGlobalErrorHandlers(): void {
 }
 
 
-async function injectTranscriptQuestion(
+export async function injectTranscriptQuestion(
   ctx: PluginInput,
   sessionID: string,
   title: string,
@@ -304,7 +304,13 @@ async function injectTranscriptQuestion(
       body: { parts: [{ type: "text", text }], noReply: true },
       query: { directory: ctx.directory },
     }),
-  ).catch(() => undefined);
+  ).catch((injectErr) => {
+    logger.warn("[tawassul] AskChannel: transcript inject failed — question not shown", {
+      sessionID,
+      title,
+      err: injectErr,
+    });
+  });
   let settled = false;
   let releaseTimeout = () => {};
   const timeout = new Promise<void>((resolve) => {

@@ -365,21 +365,21 @@ What is genuinely behind, all V2-compatible (v1 states fix shape, v2 owns implem
 | | Anchor |
 | --- | --- |
 | resurrection v1 fix | `v1/tests/integration/goal-resurrection.test.ts:1` — both loser outcomes (not-found/locked) accepted, no-ghost-write stays strict |
-| resurrection v2 todo | `src/services/mission-board.ts:1` — no resurrection handling today; port the invariant (accept both losers, never write a ghost) and prove it bun-style |
+| resurrection implemented | `scripts/prove-goal-resurrection.ts:1` — both losers observed live on a tmp store, ghost write refused; invariant code already in `src/services/goal-store.ts:397` (`mutate` fail-fast) plus in-lock re-reads |
 | early-exit v1 fix | `v1/tests/integration/pipeline-early-exit.test.ts:1` — pipeline early-exit proof + plan ledger (Phase 6 proven-by-design) |
-| early-exit v2 todo | `src/hooks/validation-pipeline.ts:1` — S-020 roster touched this pipeline but not the proof; port the early-exit proof pattern |
+| early-exit implemented | `scripts/prove-pipeline-early-exit.ts:1` — group stops at first failure with attribution; overlong task blocked at content-checks with model unset; control reaches proxyRouting |
 | priming v1 fix | `v1/tests/integration/store-ensure-loaded.test.ts:1` — reader-correctness: stores primed before first read (hooks-registration, service-factory, session hook) |
-| priming v2 todo | `src/bootstrap/service-factory.ts:1` — ensureLoaded existence already proven; verify the boot path primes every store before first read and extend the proof to the remaining stores |
-| G8-remainder v1 fix | `v1/services/timeline-store.ts:1` + `v1/services/tool-run-log.ts:1` + `v1/services/ask-channel.ts:1` + `v1/services/event-hub.ts:1` + `v1/services/persist-utils.ts:1` (commit 64bf081f minus the S-020-consent part: close/flush semantics, run log, transcript question, turn handling, no-write gate) |
-| G8-remainder v2 todo | `src/services/timeline-store.ts:1` + `src/services/tool-run-log.ts:1` + `src/services/ask-channel.ts:1` + `src/services/event-hub.ts:1` + `src/services/persist-utils.ts:1` — all present; diff each pair against 64bf081f and port on merit |
-| pipeline-tweak v1 fix | `v1/hooks/validation-pipeline.ts:1` + `v1/hooks/guards/shared/proxy-effects.ts:1` (64bf081f validation touch) |
-| pipeline-tweak v2 todo | `src/hooks/validation-pipeline.ts:1` — confirm the same tweak or record why v2 differs |
+| priming implemented | `scripts/prove-store-priming.ts:1` — shared single load, fail-open on missing dir, board `ready` joins; collective-memory has no V2 readers outside boot/event wiring, so no join needed there |
+| G8-remainder v1 fix | commit 64bf081f minus the S-020-consent part: warn-loud inject, announced port-skip, per-session turn sequencing, settled-anyway timeouts, blank-session guard, announced slices, disk pre-flight, audit-sink debug |
+| G8-remainder implemented | `src/bootstrap/plugin-init.ts:287` — exported inject with loud warn; `src/context/model-utils.ts:56` — announced URL skip; `src/services/tool-run-log.ts:105` — per-session turn sequencing, caller turn dropped at `src/hooks/tool-execute.ts:566`; `src/services/ask-channel.ts:71` — blank guard plus settle-anyway timeout; `src/services/collective-memory/store.ts:436` — disk pre-flight plus announced slices; `src/services/event-hub.ts:79` — `CONSENT_EXPIRED` member; audit-sink debug in proxy-effects, validation-pipeline, memory telemetry |
+| pipeline-tweak v1 fix | 64bf081f memory-telemetry catch |
+| pipeline-tweak implemented | `src/hooks/validation-pipeline.ts:185` — telemetry failure announced on debug |
 | sqlite-lessons v1 fix | commit ed96a537 D1/D13 findings (app-path busy_timeout effectively zero, retry-with-backoff discipline, WAL-blind reads abort live runs — the exact bug class S-019 just closed in the vendored script) |
-| sqlite-lessons v2 todo | `src/services/state-persistence.ts:1` — no busy handling today (verified: no busy_timeout/retry); add busy_timeout + retry discipline to v2 sqlite paths before the first 4GB-scale live DB |
+| sqlite-lessons verified absent | no sqlite touchpoints anywhere under `src/` (state persists via signed JSON envelopes with save-window retry/backoff); WAL lesson already applied in the S-019 vendored script — nothing to add |
 | cost-remainder v1 fix | commit cc04987f honest-cost-records part (prove-s021.ts already covers unattributed-zero; attribution paths remain) |
-| cost-remainder v2 todo | `src/services/cost-transparency/tracker.ts:1` — verify attribution matches the honest-cost shape, extend the proof |
+| cost-remainder verified | single producer `src/bootstrap/event-integrations.ts:231` records unattributed+estimated; no other `recordOperation` callers exist |
 | static-gates v1 fix | `v1/tests/installer.test.ts:1` — bash -n gate over every shipped script (e329c612 practice) |
-| static-gates v2 todo | `package.json:1` — add a shell-syntax gate over scripts/*.sh to the v2 verify/ci path (cheap, catches the exact class that once shipped a broken launcher) |
+| static-gates implemented | `package.json:14` — `check:sh` over `scripts/*.sh`, wired into `verify` (hence `ci`) |
 
 Ownership: v1 side will not modify V2 sources; V2 side owns every row marked v2 todo. Prove each row bun-style (extend `scripts/prove-s021.ts:1` or add a focused proof script); a row is done when its proof runs in `ci`, not when the code merely exists.
 

@@ -188,8 +188,8 @@ export function logMemoryUsage(sessionId?: string): void {
     logger.debug(
       `MEM (session=${sessionId ?? "default"}): RSS=${(usage.rss / 1024 / 1024).toFixed(1)}MB heap=${(usage.heapUsed / 1024 / 1024).toFixed(1)}MB`,
     );
-  } catch {
-    /* ignore */
+  } catch (memErr) {
+    logger.debug("[tawassul] memory telemetry unavailable", memErr);
   }
 }
 
@@ -308,8 +308,8 @@ export async function runPipeline(ctx: Ctx, input: Input, output: StageOutput): 
           stage: "simple-pipeline",
           error: e instanceof Error ? e.message : String(e),
         });
-      } catch {
-        void 0;
+      } catch (auditErr) {
+        logger.debug("[tawassul] audit sink unavailable for STAGE_REJECTED_AFTER_TIMEOUT", auditErr);
       }
     });
     return await Promise.race([
@@ -368,8 +368,8 @@ async function checkStageWithTimeout(
           stage: stage.name,
           error: e instanceof Error ? e.message : String(e),
         });
-      } catch {
-        void 0;
+      } catch (auditErr) {
+        logger.debug("[tawassul] audit sink unavailable for STAGE_REJECTED_AFTER_TIMEOUT", auditErr);
       }
     });
     const result = await Promise.race([

@@ -2,6 +2,7 @@
 
 import crypto from "node:crypto";
 import { logger } from "../../utils/logger.ts";
+import { checkDiskSpace } from "../../infra/disk-utils.ts";
 import { BaseInnovationService } from "../base-innovation-service.ts";
 import { computeTextRelevance, tokenize } from "../../lib/classifier.ts";
 
@@ -434,6 +435,13 @@ export class CollectiveMemoryStoreImpl
 
   
   async persist(): Promise<void> {
+    const space = await checkDiskSpace(this.storagePath);
+    if (!space.ok) {
+      logger.warn(
+        `[memory] persist deferred (${space.error}) — ${this.patterns.size} patterns / ${this.memories.size} memories retained in RAM`,
+      );
+      return;
+    }
     if (this.patterns.size > MAX_LOAD_PATTERNS || this.memories.size > MAX_LOAD_MEMORIES) {
       logger.warn(
         `[memory] trimming before persist: ${this.patterns.size} patterns / ${this.memories.size} memories exceeds limit`,
@@ -467,6 +475,11 @@ export class CollectiveMemoryStoreImpl
 
     
     if (data.patterns && Array.isArray(data.patterns)) {
+      if (data.patterns.length > MAX_LOAD_PATTERNS) {
+        logger.warn(
+          `[memory] load sliced patterns ${data.patterns.length} → ${MAX_LOAD_PATTERNS} (cap) — oldest beyond cap not loaded`,
+        );
+      }
       const limited = data.patterns.slice(0, MAX_LOAD_PATTERNS);
       for (const pattern of limited) {
         try {
@@ -480,6 +493,11 @@ export class CollectiveMemoryStoreImpl
 
     
     if (data.memories && Array.isArray(data.memories)) {
+      if (data.memories.length > MAX_LOAD_MEMORIES) {
+        logger.warn(
+          `[memory] load sliced memories ${data.memories.length} → ${MAX_LOAD_MEMORIES} (cap) — oldest beyond cap not loaded`,
+        );
+      }
       const limited = data.memories.slice(0, MAX_LOAD_MEMORIES);
       for (const memory of limited) {
         try {

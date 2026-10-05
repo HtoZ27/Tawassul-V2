@@ -76,6 +76,7 @@ export type TawassulEvent =
   | { type: "BOARD_CREATED"; boardId: string; name: string }
   | { type: "TASK_STATUS_CHANGED"; boardId: string; taskId: string; from: string; to: string; sessionId?: string }
   | { type: "TASK_BLOCKED"; boardId: string; taskId: string; reason: string }
+  | { type: "CONSENT_EXPIRED"; sessionID: string; tool: string; key: string }
   // P0.6 — frame-only events (payloads filled in by their P1-P3 consumers)
   | {
       type: "ELICITATION_RESOLVED";

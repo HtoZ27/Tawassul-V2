@@ -570,7 +570,6 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
           sessionId: input.sessionID,
           argsHash: canonicalStringify(input.args ?? {}),
           status: success ? "success" : "error",
-          turn: 0,
           input: input.args,
           error: success ? undefined : (output.output ?? output.title ?? "unknown"),
         });

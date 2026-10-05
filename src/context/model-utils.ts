@@ -66,7 +66,8 @@ async function detectOpenCodePort(serverUrl?: string): Promise<number> {
       if (Number.isInteger(p) && p > 0 && p < 65536) {
         return setCachedPort(p, host);
       }
-    } catch {
+    } catch (urlErr) {
+      logger.debug("[tawassul] detectOpenCodePort: skipping unparseable URL", urlErr);
     }
   }
 

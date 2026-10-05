@@ -36,7 +36,7 @@ export interface ToolRunRecordInput {
   sessionId: string;
   argsHash: string;
   status: ToolRunStatus;
-  turn: number;
+  turn?: number;
   input?: unknown;
   error?: string;
   timestamp?: number;
@@ -103,10 +103,17 @@ export class ToolRunLog {
   }
 
   record(input: ToolRunRecordInput): ToolRunEntry {
-    
+
     const redactedInput =
       input.input !== undefined ? this.redactor.redact(JSON.stringify(input.input)).redacted : undefined;
     const redactedError = input.error !== undefined ? this.redactor.redact(String(input.error)).redacted : undefined;
+    let turn = 0;
+    for (let i = this.runs.length - 1; i >= 0; i--) {
+      const r = this.runs[i]!;
+      if (r.sessionId !== input.sessionId) continue;
+      turn = r.turn + 1;
+      break;
+    }
     const entry: ToolRunEntry = {
       id: `tr-${input.tool}-${input.argsHash}-${(input.timestamp ?? Date.now()).toString(36)}`,
       timestamp: input.timestamp ?? Date.now(),
@@ -115,7 +122,7 @@ export class ToolRunLog {
       sessionId: input.sessionId,
       argsHash: input.argsHash,
       status: input.status,
-      turn: input.turn,
+      turn,
       input: redactedInput,
       error: redactedError,
     };

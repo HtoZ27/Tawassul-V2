@@ -69,6 +69,7 @@ export class AskChannel {
 
   
   noteSession(sessionID: string): void {
+    if (!sessionID || sessionID.trim() === "") return;
     this.sessionOverride = sessionID;
   }
 
@@ -237,9 +238,14 @@ export class AskChannel {
       slot.timer = this.deps.timers.setTimeout(() => {
         if (slot.settled) return;
         logger.debug(`AskChannel: ask "${title}" timed out after ${timeoutMs}ms`);
-        slot.onTimeout?.();
-        this._settle(slot, defaultFor(kind));
-        this._shift(sessionID);
+        try {
+          slot.onTimeout?.();
+        } catch (timeoutErr) {
+          logger.warn(`AskChannel: onTimeout threw for "${title}" — settling anyway:`, timeoutErr);
+        } finally {
+          this._settle(slot, defaultFor(kind));
+          this._shift(sessionID);
+        }
       }, timeoutMs);
       this.slots.set(id, slot);
       queue.push(id);
