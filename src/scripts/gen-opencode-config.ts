@@ -513,6 +513,9 @@ export function buildAgents(deleted?: readonly string[], opts?: GenOptions): Rec
       mode: fm.mode as string,
       permission: buildPermission(fm),
     };
+    if ((name === TAWA_AGENT || name === "addagent") && typeof agents[name].permission?.bash === "string") {
+      agents[name].permission.bash = JSON.parse(JSON.stringify(BASH_READ_ONLY)) as Record<string, string>;
+    }
   }
 
   grantRolePluginTools(agents);

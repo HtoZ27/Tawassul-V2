@@ -20,7 +20,9 @@
     "prove:web-ssrf": "bun scripts/prove-web-ssrf.ts",
     "prove:first-boot": "bun scripts/prove-first-boot-seed.ts",
     "prove:disclosure": "bun scripts/prove-disclosure.ts",
-    "ci": "npm run verify && npm run check:config && npm run check:facts && npm run prove:gen-lock && npm run prove:gen-merge && npm run prove:roster-boundary && npm run prove:event-trust && npm run prove:web-ssrf && npm run prove:first-boot && npm run prove:disclosure",
+    "prove:s020": "bun scripts/prove-s020.ts",
+    "prove:s021": "bun scripts/prove-s021.ts",
+    "ci": "npm run verify && npm run check:config && npm run check:facts && npm run prove:gen-lock && npm run prove:gen-merge && npm run prove:roster-boundary && npm run prove:event-trust && npm run prove:web-ssrf && npm run prove:first-boot && npm run prove:disclosure && npm run prove:s020 && npm run prove:s021",
     "verify": "npm run check:rules && npm run check:shared && npm run typecheck && npm run build"
   },
   "devDependencies": {

@@ -18,6 +18,7 @@ const SILENT_CATCH_INVENTORY: Record<string, number> = {
   "tools/dependency-map.ts": 4,
   "services/code-state.ts": 1,
   "services/mission-board.ts": 2,
+  "services/persist-utils.ts": 1,
   "services/ast-service.ts": 2,
   "services/session-observer.ts": 1,
   "services/checkpoint-manager.ts": 2,
@@ -30,8 +31,8 @@ const SILENT_CATCH_INVENTORY: Record<string, number> = {
   "context/managers/AgentManager.ts": 3,
   "scripts/gen-opencode-config.ts": 1,
   "hooks/PipelineState.ts": 1,
+  "hooks/validation-pipeline.ts": 2,
   "hooks/guards/shared/factories.ts": 2,
-  "hooks/guards/consent-gate-guard.ts": 2,
 };
 const SCAN_DIRS = ["tools", "services", "utils", "bootstrap", "context", "core", "scripts", "infra", "hooks"];
 

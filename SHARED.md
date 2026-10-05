@@ -140,7 +140,7 @@ The remaining contested batch (session provenance for board tasks) is fully cove
 | v1 problem | `v1/services/mission-board.ts:224` — `persistAndLog` without `scheduleIndexWrite` inside the status-change path; no `sessionId` anywhere in the file |
 | v1 fix shape | `v1/services/mission-board.ts:232` — stale-index rebuild + retry (un-stick) covers the write path only, not the index or provenance |
 | v2 problem | `src/services/mission-board.ts:240` — persist without index sync in `updateStatus`; `src/services/mission-board.ts:24` — `TaskItem` without session identity |
-| proposed v2 fix | in `src/services/mission-board.ts:240` call `scheduleIndexWrite()` after `persistAndLog`; add `sessionId?: string` to `TaskItem` at `src/services/mission-board.ts:24`, accept it via `updateStatus` at `src/services/mission-board.ts:208`, store and emit it, carry it on the event at `src/services/event-hub.ts:77`, and render it in `src/tools/tawa/show-board.ts:45` |
+| v2 fix | in `src/services/mission-board.ts:240` call `scheduleIndexWrite()` after `persistAndLog`; add `sessionId?: string` to `TaskItem` at `src/services/mission-board.ts:24`, accept it via `updateStatus` at `src/services/mission-board.ts:208`, store and emit it, carry it on the event at `src/services/event-hub.ts:77`, and render it in `src/tools/tawa/show-board.ts:45` |
 
 ## S-012 Completion invariant — close-only + droppable closed goals + true CAS (loop guard, proven CAS shape) — IMPLEMENTED on v2
 
@@ -151,7 +151,7 @@ The remaining contested batch (session provenance for board tasks) is fully cove
 | v1 problem | `v1/services/goal-store.ts:115` — `completed` invariant enforced HERE (not in prompts); `v1/services/goal-store.ts:117` — completed goals physically dropped from `list("completed")` |
 | v1 fix | `v1/services/goal-store.ts:8` — CAS-grade mutual exclusion (HMAC never suffices); `v1/services/goal-store.ts:131-135` — `completed` is close-only and droppable (`in_progress`→`blocked`→`completed` are allowed, `completed` re-open never) |
 | v2 problem | `src/services/mission-board.ts:240` — `updateStatus` without a CAS gate; `src/services/mission-board.ts:24` — `TaskItem` with no completion invariant |
-| proposed v2 fix | in `src/services/mission-board.ts:240` enforce close-only: a `completed` task cannot be reopened; use a true CAS (compare-and-set on the persisted status) before applying the transition; represent droppable-closed goals so closed work is physically removable from the board |
+| v2 fix | in `src/services/mission-board.ts:240` enforce close-only: a `completed` task cannot be reopened; use a true CAS (compare-and-set on the persisted status) before applying the transition; represent droppable-closed goals so closed work is physically removable from the board |
 
 ## S-013 Role-scoped permissions + record/eval read-back + MCP boundary (security hardening) — IMPLEMENTED on v2
 
@@ -162,7 +162,7 @@ v1 ships a role-scoped security policy (role→tool matrix, role-scoped plugin p
 | v1 problem | `v1/security-policy.ts:146` — role-scoped permission matrix (role→tool) |
 | v1 fix | `v1/security-policy.ts:641` — `getAllowedToolsForRole` single source of truth |
 | v2 problem | `src/security-policy.ts:532` — `TAWASSUL_TOOL_ROLES` role→tool matrix already present; `src/tools/record.ts:50` and `src/tools/evaluation-report.ts:106` — read-back via `record(get/list)` and `evaluationreport(get: true)` already present; `src/hooks/message-updated.ts:487` — `SYSTEM_CONCORDANCE_TEXT` already deflects plugin-file/MCP hunting |
-| proposed v2 fix | `src/security-policy.ts:542` — `getAllowedToolsForRole` present as the single source of truth; persistence read-back guard added: `getSaveHealth()` wired through `src/services/state-persistence.ts:593`, `src/services/lifecycle-manager.ts:35`, `src/context/facades/state-facade.ts` → `src/context-class.ts:490`; write paths now `await ctx.saveState()` and append a `⚠️ Persistence warning: on-disk save failed (N)` disclosure when stale (`src/tools/record.ts` write path, `src/tools/evaluation-report.ts:173`) |
+| v2 fix | `src/security-policy.ts:542` — `getAllowedToolsForRole` present as the single source of truth; persistence read-back guard added: `getSaveHealth()` wired through `src/services/state-persistence.ts:593`, `src/services/lifecycle-manager.ts:35`, `src/context/facades/state-facade.ts` → `src/context-class.ts:490`; write paths now `await ctx.saveState()` and append a `⚠️ Persistence warning: on-disk save failed (N)` disclosure when stale (`src/tools/record.ts` write path, `src/tools/evaluation-report.ts:173`) |
 
 ## S-014 Standalone health tool — IMPLEMENTED on v2
 
@@ -173,7 +173,7 @@ v1 ships a standalone health tool (`agent-health.ts` + test) as its own tool; v2
 | v1 problem | `v1/services/agent-health.ts:20` — standalone health tool |
 | v1 fix | `v1/services/agent-health.ts` — health tool as a distinct tool file + `v1/tests/health-tool.test.ts` |
 | v2 problem | `src/tools/` — no health tool file |
-| proposed v2 fix | add `src/tools/tawa/health.ts` exposing a standalone health tool mirroring `v1/services/agent-health.ts` |
+| v2 fix | add `src/tools/tawa/health.ts` exposing a standalone health tool mirroring `v1/services/agent-health.ts` |
 
 ## S-015 Old `kanban-board` naming removed from v1 — DONE on v1 (baseline, do NOT re-implement in v2)
 
@@ -356,9 +356,9 @@ Seventeen v1 commits in the window; four are bundle rebuilds and three are v1-on
 | burn v2 port | `src/services/effort-analyzer.ts:464` — `isComplexEffort` reused by `src/hooks/message-updated.ts:183`; `src/services/persist-utils.ts:66` — `writeIfChanged`; `src/services/mission-board.ts:306` — index diff-gate; ONCE-PER-TASK wording in `src/core/agent-data.ts:184`; big-pickle worker/dispatcher rule in tawa instructions |
 | deferred | SDK-first providers: no SDK client exists on the V2 hook context, nothing to prefer — self-fetch stays until a client surface appears |
 
-## S-021 v1 37-commit backlog ad40a084..HEAD — triage for V2 (v1 side provides, V2 implements)
+## S-022 v1 37-commit backlog ad40a084..HEAD — triage for V2 (v1 side provides, V2 implements)
 
-Scope: 37 v1 commits after S-017's end (`ad40a084..HEAD` on v1 master, verified count 37). This entry exists so the in-flight port work does not re-triage or duplicate. Already covered — no action: S-018 (3af1b224), S-019 (29a4f809), S-020's seventeen (bash/cache/throttle/roster/consent/wiring/burn/deferred), and the in-flight `scripts/prove-s021.ts:1` (tawa fallback record, scoped budgets, unattributed-zero cost, MAX tiers, mention/dispatch regexes, goal/timeline ensureLoaded). Deliberate skips — no action: ten rebuild-only bundle commits (dist artifacts, source batches covered separately), two docs-only commits (fecce8cb, 58896e4b), vitest/dist harness commits (4fa50311, 60fa2b95 — v2 runs bun proofs, shapes differ), scheduler rotation + single-owner installer (c15473e1, 29662006-owner — v2 has no timer and no installer; S-020 agrees), SDK-first (deferred, S-020). Rejected with evidence — do NOT port: extra V2 markers (proven live in both working DBs, would brick them) and mkdir owner lock (wedge risk exceeds race risk); see S-019.
+Scope: 37 v1 commits after S-017's end (`ad40a084..HEAD` on v1 master, verified count 37). This entry exists so port work does not re-triage or duplicate. Already covered — no action: S-018 (3af1b224), S-019 (29a4f809), S-020's seventeen (bash/cache/throttle/roster/consent/wiring/burn/deferred), S-021's implemented rows, and the committed `scripts/prove-s021.ts:1` (tawa fallback record, scoped budgets, unattributed-zero cost, MAX tiers, mention/dispatch regexes, goal/timeline ensureLoaded). Deliberate skips — no action: ten rebuild-only bundle commits (dist artifacts, source batches covered separately), two docs-only commits (fecce8cb, 58896e4b), vitest/dist harness commits (4fa50311, 60fa2b95 — v2 runs bun proofs, shapes differ), scheduler rotation + single-owner installer (c15473e1, 29662006-owner — v2 has no timer and no installer; S-020 agrees), SDK-first (deferred, S-020). Rejected with evidence — do NOT port: extra V2 markers (proven live in both working DBs, would brick them) and mkdir owner lock (wedge risk exceeds race risk); see S-019.
 
 What is genuinely behind, all V2-compatible (v1 states fix shape, v2 owns implementation):
 
