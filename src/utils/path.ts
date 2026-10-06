@@ -37,7 +37,7 @@ export async function resolveSafePath(targetPath: string, baseDir: string): Prom
       return realChecked;
     }
   } catch {
-    /* stat failed — fall through to startsWith check */
+
   }
   if (!realChecked.startsWith(realBase + sep) && realChecked !== realBase) return null;
 
@@ -71,12 +71,12 @@ export async function resolveSafePath(targetPath: string, baseDir: string): Prom
             }
           }
         } catch {
-          /* skip unreadable entries */
+
         }
       }
     }
   } catch {
-    /* file doesn't exist yet — skip hardlink check */
+
   }
 
   return realChecked;
@@ -141,7 +141,7 @@ export function resolveSafePathSync(targetPath: string, baseDir: string): string
       return realChecked;
     }
   } catch {
-    /* stat failed */
+
   }
   if (!realChecked.startsWith(realBase + sep) && realChecked !== realBase) return null;
   return realChecked;

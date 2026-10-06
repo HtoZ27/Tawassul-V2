@@ -108,7 +108,7 @@ export class SelfHealEngine {
         });
       }
     } catch {
-      // memory check not available
+
     }
   }
 

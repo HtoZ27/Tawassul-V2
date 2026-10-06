@@ -45,7 +45,7 @@ export async function getSecret(name: string): Promise<string | null> {
           }).trim();
           if (value) return value;
         } catch {
-          // Keyring not available — fall through
+
         }
       }
     }
@@ -88,7 +88,7 @@ export async function setSecret(name: string, value: string): Promise<void> {
       data = JSON.parse(await readFile(file, "utf8"));
     }
   } catch {
-    // Start fresh
+
   }
 
   data[name] = value;

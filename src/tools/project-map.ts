@@ -96,7 +96,7 @@ async function buildTree(dirPath: string, rootDir: string, depth: number, maxDep
       const entryStat = await stat(fullPath);
       sorted.push({ name: entry, isDir: entryStat.isDirectory() });
     } catch {
-      // skip
+
     }
   }
   sorted.sort((a, b) => {
@@ -123,7 +123,7 @@ async function buildTree(dirPath: string, rootDir: string, depth: number, maxDep
           size: fileStat.size,
         });
       } catch {
-        // skip
+
       }
     }
   }

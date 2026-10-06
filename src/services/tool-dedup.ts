@@ -29,7 +29,7 @@ export class ToolDeduplicator {
     this.maxCallsPerWindow = maxCalls ?? MAX_CALLS_PER_WINDOW;
     this.cache = new RetentionCache<DedupCacheEntry>({
       maxEntries: DEDUP_CACHE_SIZE,
-      maxAgeMs: 7 * 24 * 60 * 60 * 1000, // freshness handled by window filtering below
+      maxAgeMs: 7 * 24 * 60 * 60 * 1000,
       cleanupIntervalMs: 0,
       onEvict: (key) => {
         for (const [sid, keys] of this.sessionIndex) {

@@ -49,7 +49,7 @@ async function evictIfOverCap(): Promise<void> {
       await unlink(join(cacheDir(), file.f)).catch(() => {});
     }
   } catch {
-    /* eviction is best-effort */
+
   }
 }
 
@@ -83,7 +83,7 @@ async function rmEmptyDir(dir: string): Promise<void> {
   try {
     await rmdir(dir);
   } catch {
-    /* not empty or gone — ignore */
+
   }
 }
 
@@ -103,7 +103,7 @@ if (typeof process !== "undefined") {
       try {
         unlinkSync(file);
       } catch {
-        /* already gone */
+
       }
     }
     _tempOutputs.clear();

@@ -13,18 +13,23 @@ import type {
   TimelineQuery,
   TimelineAchievements,
   TimelineStats,
+  TimelineFlushStats,
 } from "../types/timeline-types.ts";
+import { checkDiskSpace } from "../infra/disk-utils.ts";
 
 export interface TimelineStoreOptions {
   maxEntries?: number;
   maxAgeMs?: number;
   flushIntervalMs?: number;
+  maxFlushBuffer?: number;
   timers?: TimerManagerLike;
 }
 
 const DEFAULT_MAX_ENTRIES = 50_000;
 const DEFAULT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; 
 const FLUSH_INTERVAL_MS = 5_000;
+const DEFAULT_MAX_FLUSH_BUFFER = 5_000;
+const MAX_FLUSH_BACKOFF_MS = 5 * 60_000;
 const WARN_THRESHOLD = 0.8; 
 const META_SCHEMA_VERSION = 1;
 
@@ -61,6 +66,11 @@ export class TimelineStore {
   private maxEntries: number;
   private maxAgeMs: number;
   private flushIntervalMs: number;
+  private maxFlushBuffer: number;
+  private flushFailures = 0;
+  private flushDropped = 0;
+  private flushDropWarned = false;
+  private metaDirty = false;
 
   
   private entries: TimelineEntry[] = [];
@@ -80,6 +90,7 @@ export class TimelineStore {
     this.maxEntries = options.maxEntries ?? DEFAULT_MAX_ENTRIES;
     this.maxAgeMs = options.maxAgeMs ?? DEFAULT_MAX_AGE_MS;
     this.flushIntervalMs = options.flushIntervalMs ?? FLUSH_INTERVAL_MS;
+    this.maxFlushBuffer = options.maxFlushBuffer ?? DEFAULT_MAX_FLUSH_BUFFER;
     this.timers = options.timers ?? null;
   }
 
@@ -131,8 +142,44 @@ export class TimelineStore {
     if (this.entries.length > this.maxEntries) this.evictOldestDay();
 
     this.flushBuffer.push(entry);
+    if (this.flushBuffer.length > this.maxFlushBuffer) {
+      const overflow = this.flushBuffer.length - this.maxFlushBuffer;
+      this.flushBuffer.splice(0, overflow);
+      this.flushDropped += overflow;
+      if (!this.flushDropWarned) {
+        this.flushDropWarned = true;
+        logger.warn(
+          `[timeline] flush buffer capped at ${this.maxFlushBuffer} — dropped ${overflow} oldest unflushed event(s), total dropped ${this.flushDropped}`,
+        );
+      }
+    }
     this.scheduleFlush();
     return entry;
+  }
+
+  getFlushStats(): TimelineFlushStats {
+    return {
+      buffered: this.flushBuffer.length,
+      dropped: this.flushDropped,
+      consecutiveFailures: this.flushFailures,
+      nextDelayMs: this.flushDelayMs(),
+    };
+  }
+
+  private flushDelayMs(): number {
+    const exp = Math.min(this.flushFailures, 6);
+    return Math.min(this.flushIntervalMs * 2 ** exp, MAX_FLUSH_BACKOFF_MS);
+  }
+
+  private onFlushSuccess(): void {
+    this.flushFailures = 0;
+    this.flushDropWarned = false;
+  }
+
+  private onFlushFailure(e: unknown): void {
+    this.flushFailures++;
+    logger.warn("[timeline] flush failed, keeping buffer for retry:", e);
+    this.scheduleFlush();
   }
 
   
@@ -367,13 +414,14 @@ export class TimelineStore {
   
   private scheduleFlush(): void {
     if (this.flushTimer || this.disposed) return;
+    const delay = this.flushDelayMs();
     const runFlush = () => {
       this.flush().catch((e) => logger.warn("[timeline] flush failed:", e));
     };
     this.flushTimer = this.timers
-      ? this.timers.setTimeout(runFlush, this.flushIntervalMs)
+      ? this.timers.setTimeout(runFlush, delay)
       : (() => {
-          const t = setTimeout(runFlush, this.flushIntervalMs);
+          const t = setTimeout(runFlush, delay);
           if (t?.unref) t.unref();
           return t;
         })();
@@ -385,29 +433,39 @@ export class TimelineStore {
       else clearTimeout(this.flushTimer);
       this.flushTimer = null;
     }
-    if (this.flushBuffer.length === 0) return;
-    
-    
-    
+    if (this.flushBuffer.length === 0 && !this.metaDirty) return;
     if (isIsolationActiveSync()) {
       this.flushBuffer = [];
+      this.metaDirty = false;
       return;
     }
     await this.dirReady;
+    const space = await checkDiskSpace(this.eventsPath);
+    if (!space.ok) {
+      const err = new Error(`[timeline] ${space.error} — flush deferred, buffer kept`);
+      this.onFlushFailure(err);
+      throw err;
+    }
     const batch = this.flushBuffer;
     this.flushBuffer = [];
     try {
-      
       await this.ensureDir();
       const lines = batch.map((e) => JSON.stringify(e)).join("\n") + "\n";
       await appendFile(this.eventsPath, lines, { mode: 0o600 });
-      await this.writeMeta();
-    } catch (e) {
-      logger.warn("[timeline] flush failed, keeping buffer for retry:", e);
+    } catch (appendErr) {
       this.flushBuffer.unshift(...batch);
-      this.scheduleFlush();
-      throw e;
+      this.onFlushFailure(appendErr);
+      throw appendErr;
     }
+    try {
+      await this.writeMeta();
+    } catch (metaErr) {
+      this.metaDirty = true;
+      this.onFlushFailure(metaErr);
+      throw metaErr;
+    }
+    this.metaDirty = false;
+    this.onFlushSuccess();
   }
 
   private async writeMeta(): Promise<void> {

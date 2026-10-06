@@ -11,6 +11,7 @@ export interface AgentCostSummary {
   taskCount: number;
   averageCostPerTask: number;
   budgetRemaining: number;
+  estimatedTaskCount: number;
 }
 
 import type {
@@ -220,6 +221,7 @@ export class CostTransparencyTracker extends BaseInnovationService<CostTranspare
         taskCount: ops.length,
         averageCostPerTask: ops.length > 0 ? totalCost / ops.length : 0,
         budgetRemaining,
+        estimatedTaskCount: ops.filter((op) => op.estimated === true).length,
       });
     }
     return summaries.sort((a, b) => b.totalCost - a.totalCost);

@@ -78,6 +78,10 @@ resetBudgets();
 const analyst = ALL_AGENTS.find((a) => a.name === "analyst");
 if (!analyst) fail("analyst template missing");
 assert(generateAgentMd(analyst).includes("ONE summary of findings"), "analyst one-summary wording");
+for (const agent of ALL_AGENTS) {
+  if (agent.name === "tawa") continue;
+  assert(generateAgentMd(agent).includes("ONCE PER TASK"), `${agent.name} once-per-task discipline`);
+}
 
 const calls: Array<"set" | "clear"> = [];
 const fakeTimers: import("../src/types/timer-types.ts").TimerManagerLike = {

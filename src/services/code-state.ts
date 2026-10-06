@@ -183,7 +183,7 @@ export class CodeStateService {
         if (p && !this.isGitMeta(p)) paths.add(p);
       }
     } catch {
-      // fall through — untracked detection below may still find files
+
     }
     try {
       const statusOut = await git(["status", "--porcelain", "-z"], this.projectRoot, this.gitDir, this.projectRoot);
@@ -196,7 +196,7 @@ export class CodeStateService {
         paths.add(path);
       }
     } catch {
-      // no-op — caller degrades to an empty change set
+
     }
     return [...paths];
   }

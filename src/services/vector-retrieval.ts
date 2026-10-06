@@ -173,7 +173,7 @@ export class InMemoryVectorIndex implements VectorStore {
     try {
       await mkdir(dirname(p), { recursive: true });
     } catch {
-      /* ignore */
+
     }
     const data = JSON.stringify({ docs: [...this.docs.values()] }, null, 2);
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -202,7 +202,7 @@ export class InMemoryVectorIndex implements VectorStore {
         }
       }
     } catch {
-      /* no index yet — fresh start */
+
     }
   }
 }

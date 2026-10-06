@@ -81,7 +81,7 @@ export function registerCoreEventIntegrations(deps: CoreEventIntegrationDeps): {
         .map((h) => h.id);
       for (const id of pendingIds) {
         void tawaCtx.handoffService?.redirectHandoff(id, alt, "self-heal").catch(() => {
-          // redirect is best-effort — never break the failure pipeline
+
         });
       }
       logger.info(
@@ -132,7 +132,7 @@ export function registerCoreEventIntegrations(deps: CoreEventIntegrationDeps): {
             if (r.success) healCounts.delete(agentKey);
           })
           .catch(() => {
-            // heal is best-effort — never let it break the failure pipeline
+
           });
       } else {
         
@@ -223,11 +223,12 @@ export function registerCoreEventIntegrations(deps: CoreEventIntegrationDeps): {
     
     if (isInnovationOn("costTransparency")) {
       try {
-        const outputTokens =
-          e.outputLength !== undefined && e.outputLength > 0
-            ? Math.max(1, estimateTokensByFactor(e.outputLength, TOKENS_PER_CHAR_COMPRESS))
-            : 200;
-        const inputTokens = Math.max(1, Math.round(outputTokens * 1.5));
+        const outputLength = typeof e.outputLength === "number" ? e.outputLength : 0;
+        const measuredOutput = outputLength > 0;
+        const outputTokens = measuredOutput
+          ? Math.max(1, estimateTokensByFactor(outputLength, TOKENS_PER_CHAR_COMPRESS))
+          : 0;
+        const inputTokens = measuredOutput ? Math.max(1, Math.round(outputTokens * 1.5)) : 0;
         costTransparency.recordOperation(UNATTRIBUTED_MODEL_ID, inputTokens, outputTokens, {
           task: `agent:${e.agent}`,
           agentId: e.agent,
@@ -235,8 +236,11 @@ export function registerCoreEventIntegrations(deps: CoreEventIntegrationDeps): {
           estimated: true,
           ...(e.durationMs !== undefined ? { durationMs: e.durationMs } : {}),
         });
-      } catch {
-        warnCostOnce("pricing catalog miss on cost record - numbers are output-length heuristics");
+        if (!measuredOutput) {
+          warnCostOnce("no output length on AGENT_SUCCESS — recorded 0 tokens (not the previous 200-token guess)");
+        }
+      } catch (err) {
+        warnCostOnce(`cost recording failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
     
@@ -275,7 +279,7 @@ export function registerCoreEventIntegrations(deps: CoreEventIntegrationDeps): {
         collectiveMemory.persist().catch(() => {});
       }
     } catch {
-      // quarantine record is best-effort — never let it break the pipeline
+
     }
   };
 
@@ -300,7 +304,7 @@ export function registerCoreEventIntegrations(deps: CoreEventIntegrationDeps): {
           status,
         });
       } catch {
-        // recordExecution is best-effort — never let it break reflection
+
       }
       if (isInnovationOn("collectiveMemory")) {
         collectiveMemory.persist().catch(() => {});
@@ -313,7 +317,7 @@ export function registerCoreEventIntegrations(deps: CoreEventIntegrationDeps): {
         chain: (e as { chain?: import("../services/chain-ctx.ts").ChainCtx }).chain,
       });
     } catch {
-      // reflection is best-effort — never let it break the pipeline
+
     }
   };
 
@@ -325,7 +329,7 @@ export function registerCoreEventIntegrations(deps: CoreEventIntegrationDeps): {
           `baseRev=${e.payload.baseRevision} diskRev=${e.payload.currentRevision} outcome=${e.payload.outcome}`,
       );
     } catch {
-      // logging is best-effort
+
     }
   };
 

@@ -52,11 +52,11 @@ export const TrustReportSchema = z.object({
 
   
   level: z.enum([
-    "untrusted", // < 0.3
-    "low", // 0.3 - 0.5
-    "medium", // 0.5 - 0.7
-    "high", // 0.7 - 0.9
-    "excellent", // > 0.9
+    "untrusted",
+    "low",
+    "medium",
+    "high",
+    "excellent",
   ]),
 
   
@@ -141,7 +141,7 @@ export type TrustScoreHistory = z.infer<typeof TrustScoreHistorySchema>;
 
 export const TrustConfigSchema = z.object({
   
-  enabled: z.boolean().default(false), // opt-in only
+  enabled: z.boolean().default(false),
 
   
   beta: z.boolean().default(true),

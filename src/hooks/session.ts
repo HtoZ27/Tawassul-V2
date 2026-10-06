@@ -111,7 +111,7 @@ async function appendSoakLine(entry: {
     soakLinesWritten += 1;
     await appendFile(file, line, { encoding: "utf8" });
   } catch {
-    /* S7 measurement is best-effort — a read-only FS must never break compaction */
+
   }
 }
 
@@ -245,7 +245,7 @@ function buildPriorityIndex(ctx: SessionCompactedContext): ScoredContextEntry[] 
         if (entry) entry.score += 0.25;
       }
     } catch {
-      /* the order nudge is never allowed to break injection */
+
     }
   }
 
@@ -302,7 +302,7 @@ export function createSessionCompactedHook(ctx: SessionCompactedContext) {
           k7Remember(input.sessionID, digest);
         }
       } catch {
-        /* goals digest is best-effort */
+
       }
       if (!context.some((s) => s.includes("System Concordance"))) {
         if (!k7IsRepeat(input.sessionID, SYSTEM_CONCORDANCE_TEXT)) {
@@ -517,7 +517,7 @@ export function createSessionCompactedHook(ctx: SessionCompactedContext) {
           rememberInjectedTokens(input.sessionID, countTokens(swarmPrompt));
         }
       } catch {
-        /* C15 prompt injection is best-effort */
+
       }
     } catch (e) {
       logger.error("experimental.session.compacting hook error:", e instanceof Error ? e.stack : e);

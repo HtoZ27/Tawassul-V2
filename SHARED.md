@@ -385,7 +385,7 @@ Ownership: v1 side will not modify V2 sources; V2 side owns every row marked v2 
 
 ## S-021 v1 perf doctrine, local-server honesty, tawa/addagent invocation (37-commit sweep remainders) — IMPLEMENTED on v2
 
-Remainders of the 37-commit sweep after S-018/S-019/S-020: the invocation failure after recent opencode updates (gateway 403s shapes without declared allows), per-session budget scope, invented cost attribution, unobserved persist failures, reader races under parallel load, and the MAX effort+model doctrine. MCP mirror denies omitted deliberately (v2 has no MCP bundle — S-018 stance). Proven by `scripts/prove-s021.ts` (34 assertions) plus generator `--check`.
+Remainders of the 37-commit sweep after S-018/S-019/S-020: the invocation failure after recent opencode updates (gateway 403s shapes without declared allows), per-session budget scope, invented cost attribution, unobserved persist failures, reader races under parallel load, and the MAX effort+model doctrine. MCP mirror denies omitted deliberately (v2 has no MCP bundle — S-018 stance). Proven by `scripts/prove-s021.ts` (41 assertions) plus generator `--check`.
 
 | | Anchor |
 | --- | --- |
@@ -404,7 +404,7 @@ Remainders of the 37-commit sweep after S-018/S-019/S-020: the invocation failur
 
 ## S-023 exhaustive 37-commit reconciliation remainders — IMPLEMENTED on v2
 
-File-by-file diff of the full sweep (`ad40a084..HEAD`, ~120 files) after S-018/S-019/S-020/S-021/S-022. Rebuilds, docs, tests, CI shims, and v1-host artifacts need no port. Everything below was missing in V2 and is now ported, proven by `scripts/prove-s021.ts` (34 assertions) plus generator `--check` and the lock proof.
+File-by-file diff of the full sweep (`ad40a084..HEAD`, ~120 files) after S-018/S-019/S-020/S-021/S-022. Rebuilds, docs, tests, CI shims, and v1-host artifacts need no port. Everything below was missing in V2 and is now ported, proven by `scripts/prove-s021.ts` (41 assertions) plus generator `--check` and the lock proof.
 
 | | Anchor |
 | --- | --- |
@@ -413,13 +413,39 @@ File-by-file diff of the full sweep (`ad40a084..HEAD`, ~120 files) after S-018/S
 | budgets v1 fix | `v1/services/iteration-budget.ts:71` — `applyIterationBudgets` escape hatch with invalid-entry reporting |
 | budgets v2 port | `src/services/iteration-budget.ts:15` — same shape; `iterationBudgets` schema at `src/context/config-schema.ts:14`, type at `src/context/types.ts:87`, applied at boot in `src/bootstrap/plugin-init.ts:595` |
 | timers v1 fix | B-micro central registration at all three sites plus ordered field init |
-| timers v2 port | `src/bootstrap/service-factory.ts:194` — HealthTracker, cleanup schedule, and router diff-gate via `src/services/persist-utils.ts:66`; `src/hooks/PipelineState.ts:195` — centrally registered auto-sweep; `src/context-class.ts:156` — timerManager declared first and passed in; boot priming via `ensureLoaded` at `src/bootstrap/service-factory.ts:575` + `:592` |
+| timers v2 port | `src/bootstrap/service-factory.ts:193` — HealthTracker, cleanup schedule, and router diff-gate via `src/services/persist-utils.ts:66`; `src/hooks/PipelineState.ts:195` — centrally registered auto-sweep; `src/context-class.ts:156` — timerManager declared first and passed in; boot priming via `ensureLoaded` at `src/bootstrap/service-factory.ts:575` + `:592` |
 | torn v1 fix | `v1/services/goal-store.ts:272` — pure read path, separator flag consumed on append |
 | torn v2 port | `src/services/goal-store.ts:239` — fragment skipped without rewrite; `src/services/goal-store.ts:329` — flag; separator consumed at `:340` |
 | abort v1 fix | abort-loser signal threaded into the fetch with quiet caller-abort path |
 | abort v2 port | `src/context/model-utils.ts:192` — `externalSignal` aborts the loser early; caller aborts serve defaults quietly with the port cache kept |
 | wording v1 fix | one completion summary only across all agent prompts |
-| wording v2 port | `src/core/agent-data.ts:184` — ONCE-PER-TASK record calls; transparency line rewritten to one completion summary; `t("rateLimitRetryExhausted")` toast at `src/bootstrap/plugin-init.ts:216` with key in `src/i18n/en.json:519`; dead `spRoleBlocked` key removed |
+| wording v2 port | `src/core/agent-data.ts:186` — ONCE-PER-TASK record calls; transparency line at `:221` rewritten to one completion summary; `t("rateLimitRetryExhausted")` toast at `src/bootstrap/plugin-init.ts:219` with key in `src/i18n/en.json:519`; dead `spRoleBlocked` key removed |
 | clients v1 fix | `v1/hooks/message-updated-types.ts:121` — `isComplexEffort` on the injectable clients |
-| clients v2 port | `src/hooks/message-updated-types.ts:113` — same field, resolved with fallback, consumed via `svc` in `src/hooks/message-updated.ts:62` + `:190`, registered in `src/bootstrap/hooks-registration.ts:22` + `:75` |
+| clients v2 port | `src/hooks/message-updated-types.ts:114` — same field, resolved with fallback, consumed via `svc` in `src/hooks/message-updated.ts:62` + `:190`, registered in `src/bootstrap/hooks-registration.ts:22` + `:75` |
 | verified N/A | dispatch-guards comment delta (no-comments rule covers it); validation NOTE (same rule); budget sweep rename (behavior identical); ar.json (Arabic catalog, never ported); SDK adapt paths (deferred, S-020); MCP mirror keys (no bundle, S-018 stance) |
+
+## S-024 atomic-audit findings — IMPLEMENTED on v2
+
+Independent four-analyst audit of S-018..S-023 plus the full 37-commit matrix found seven port gaps hiding inside rows marked verified, plus a rule-gate hole. All ported below and proven by new `scripts/prove-s024.ts` (33 assertions, wired into `ci` via `prove:s024`).
+
+| | Anchor |
+| --- | --- |
+| disclosure v1 fix | `v1/services/persist-utils.ts:101` — compare-read failure announces via debug instead of swallowing |
+| disclosure v2 port | `src/services/persist-utils.ts:74` — same announcement; census entry removed; sibling toast/lock catches at `src/bootstrap/plugin-init.ts:240` + `:578` also disclose now (remaining `:976` matches V1 silence verbatim, stays counted) |
+| flush v1 fix | `v1/services/timeline-store.ts:190` — buffer cap with announced drop; `:206` stats; `:217` backoff; `:486` disk pre-flight; `:499` append/meta split with `metaDirty` |
+| flush v2 port | `src/services/timeline-store.ts:145` — cap + drop; `:160` `getFlushStats` (`src/types/timeline-types.ts:76`); `:169` backoff wired into schedule; `:430` split flush with `:443` pre-flight; meta-only failure sets `metaDirty` without re-queue |
+| runlog v1 fix | `v1/services/tool-run-log.ts:47` — 8-member never-dedup set; `:130` caller-turn honor; `:172` turn sequencing + save-path age-out |
+| runlog v2 port | `src/services/tool-run-log.ts:46` — same set; `:121` `input.turn \|\| nextTurn`; `:65` + `:166` + `:172` sequencing; `:97` save-path age-out |
+| cost v1 fix | `v1/services/cost-transparency/tracker.ts:26` + `:253` — summary-level estimate count; `v1/bootstrap/event-integrations.ts:239` — zero tokens + warn-once when output length missing |
+| cost v2 port | `src/services/cost-transparency/tracker.ts:14` + `:224` — same count; `src/bootstrap/event-integrations.ts:227` — measured/zero split with `:240` + `:243` warnings |
+| gauge v1 fix | `v1/bootstrap/db-isolation.ts:34` — canonicalize; `:43` shared-DB detect; `:169` shared-DB warn; keyed hint path |
+| gauge v2 port | `src/bootstrap/db-isolation.ts:14` + `:22` — same; shared-DB warn branch with fixed `~/.local/share/opencode-projects` hint at `:71` + `:90`; `installationHealth` deliberately skipped (coupled to the rejected installer surface) |
+| reset v1 fix | `v1/services/goal-store.ts:284` — per-load separator reset |
+| reset v2 port | `src/services/goal-store.ts:202` — same one-liner |
+| consent wording gap | `src/i18n/en.json:79` promises yes/نعم/ok but the matcher honored only yes — fixed at the matcher instead of the string |
+| consent v2 port | `src/hooks/guards/consent-gate-guard.ts:16` — shared `isApprovalWord` (true/yes/ok/نعم/once), both approval sites; `always` preserved at the second site |
+| timers v2 remainder | `src/services/session-observer.ts:36` — `TimerManagerLike` injection with raw fallback for cleanup + persist timers, centrally cleared on dispose (out-of-sweep pre-existing raw timers) |
+| tawa scalar | `.opencode/agents/tawa.md` (generated tree, untracked) — `bash: deny` scalar removed so the local tree matches what the generator emits via `?? BASH_READ_ONLY`; generator scalar→record repair stays as backstop |
+| gate v2 fix | `scripts/check-v2-rules.mjs` — AST string-blanking + remainder scan finds every comment class (in-function, end-of-block, EOF); scans `.json`, regex literals, and template fragments; functional Arabic matchers pass via documented snippet allow-list (`:10`); `scripts/prove-disclosure.ts:102` + `:130` — brace-aware catch scanner, comment-only bodies count as silent, honest 49-file inventory |
+| gate v2 result | 174 comment ranges stripped across 55 files; `npm run check:rules` green on 339 files; census green |
+| verified N/A | model fetch deadline raw timeout (always cleared, short-lived); budget schema 10000 cap vs permissive applier (schema is the gate, documented); AGENTS.md entry line is confusing but the code (`src/index.ts:11` `Plugin.define`) is correct |

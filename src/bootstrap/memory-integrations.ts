@@ -18,12 +18,12 @@ export function registerMemoryEventIntegrations(deps: MemoryEventIntegrationDeps
     try {
       await cacheClear();
     } catch {
-      /* cleanup is best-effort */
+
     }
     try {
       codeState.reset();
     } catch {
-      /* cleanup is best-effort */
+
     }
   };
 

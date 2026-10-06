@@ -238,6 +238,6 @@ export class PipelineState {
   }
 }
 
-// ─── Deprecated fallback — removed (#5 m2) ─────────────────────────────
-// defaultPipelineState singleton deleted. All callers now create their own
-// per-context PipelineState instance.
+
+
+

@@ -34,10 +34,10 @@ export async function maybeAutoCapture(toolName: string, success: boolean): Prom
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
       svc.capture(`auto:${lastTool}`).catch(() => {
-        // Swallow — auto-capture must never affect the host hook.
+
       });
     }, DEBOUNCE_MS);
   } catch {
-    // Swallow — auto-capture must never affect the host hook.
+
   }
 }

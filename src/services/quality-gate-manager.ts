@@ -410,4 +410,4 @@ export function toGateContext(report: MergedReport, featureId: string, handoffs:
   };
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+

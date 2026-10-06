@@ -457,7 +457,7 @@ export class BackgroundCoordinator {
         version: "1.0.0",
         persistedAt: new Date().toISOString(),
         jobs: Array.from(this.jobs.values()),
-        results: this.results.slice(-100), // Only last 100 results
+        results: this.results.slice(-100),
         board: {
           jobs: Array.from(this.boardJobs.entries()),
           queue: this.boardQueue,

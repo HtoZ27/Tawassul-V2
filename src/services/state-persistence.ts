@@ -38,7 +38,7 @@ async function saveFeatureIndex(stateDir: string, featureIndex: unknown): Promis
   try {
     await mkdir(dirname(fiPath), { recursive: true });
   } catch {
-    /* ignore */
+
   }
   const fiData = JSON.stringify(featureIndex, null, 2);
   for (let fiAttempt = 0; fiAttempt < 3; fiAttempt++) {
@@ -756,7 +756,7 @@ export class StatePersistence {
       try {
         this.ctx.sharedMemory.compact();
       } catch {
-        /* ignore */
+
       }
 
       
@@ -812,7 +812,7 @@ export class StatePersistence {
                 }
                 this.ctx.eventHub.emit(conflictEvent);
                 await this.reBaseAndRetry();
-                // loop continues with the merged ctx (no save here — R6a)
+
               } else {
                 
                 
@@ -929,7 +929,7 @@ export class StatePersistence {
     
     this.enforceStateLimits();
 
-    // 4. baseline revision for the next attempt. (rebaseRollback stays armed.)
+
   }
 
   async loadStateAsync(): Promise<void> {

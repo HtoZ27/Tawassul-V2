@@ -242,7 +242,7 @@ export class TrustScoreCalculator extends BaseInnovationService<TrustConfig, nev
     const latest = agentHistory[agentHistory.length - 1]!;
     return this.buildReport(
       agentId,
-      agentId, // We don't store agent name in history
+      agentId,
       latest.components,
       agentHistory,
       false,

@@ -237,8 +237,8 @@ async function handleRateLimitError(
       message: t("rateLimitRetrying", { attempt: String(attempt + 1), delay: String(delayMs / 1000) }),
       variant: "warning",
     });
-  } catch {
-    void 0;
+  } catch (err) {
+    logger.debug("[tawassul] rate-limit retry toast failed:", err);
   }
   logger.warn(
     `[tawassul] rate-limit detected (attempt ${attempt + 1}/${apiRetryMax}) — retrying session ${sessionId} in ${delayMs}ms`,
@@ -573,8 +573,8 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
               } finally {
                 try {
                   await releaseFSLock(f6lock, f6owner);
-                } catch {
-                  void 0;
+                } catch (err) {
+                  logger.debug("[tawassul] F6 FS lock release failed:", err);
                 }
               }
             }
@@ -613,7 +613,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
       } catch (e) {
         logger.error("createServices failed:", e);
         initError = e instanceof Error ? e : new Error(String(e));
-        // Continue with reduced functionality — tools will use ensureReady fallback
+
       }
       mark("services:end");
       measure("services:start", "services:end", "createServices()");
@@ -704,7 +704,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
       if (initAbortController.signal.aborted) return; 
       initError = e instanceof Error ? e : new Error(String(e));
       logger.error("Background init failed:", initError.message);
-      // Plugin continues with reduced functionality — tools will use ensureReady fallback
+
     }
   });
 
@@ -906,7 +906,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
           );
         }
       } catch {
-        // fallback: keep existing output untouched
+
       }
     }) as NonNullable<Hooks["tool.definition"]>),
     "tool.execute.before": gateHook((async (
@@ -1027,6 +1027,6 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
         if (hooks) return hooks.disposeHook();
       });
     },
-    tawaCtx, // Expose context for tests (read-only via getter)
+    tawaCtx,
   };
 }

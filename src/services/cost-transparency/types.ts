@@ -141,7 +141,7 @@ export const CostPerOutcomeSchema = z.object({
   isEfficient: z.boolean(),
   
   
-  vsAverage: z.number(), // percentage difference
+  vsAverage: z.number(),
 });
 
 export type CostPerOutcome = z.infer<typeof CostPerOutcomeSchema>;

@@ -17,7 +17,7 @@ export async function atomicWriteFile(fp: string, content: string): Promise<void
     try {
       await unlink(tmp);
     } catch {
-      /* ignore */
+      
     }
     throw e;
   } finally {
@@ -39,7 +39,7 @@ export async function atomicWriteFile(fp: string, content: string): Promise<void
         try {
           await unlink(tmp);
         } catch {
-          /* ignore */
+          
         }
         throw e;
       }
@@ -47,7 +47,7 @@ export async function atomicWriteFile(fp: string, content: string): Promise<void
       try {
         await unlink(tmp);
       } catch {
-        /* ignore */
+        
       }
       throw e;
     }
@@ -57,14 +57,12 @@ export async function atomicWriteFile(fp: string, content: string): Promise<void
     try {
       await dh.sync();
     } catch {
-      /* EINVAL/ENOTSUP — best-effort */
+      
     } finally {
       await dh.close();
     }
   } catch {
-    /* F1: opening/syncing the parent dir is best-effort. On Windows opening a
-     * directory throws (EISDIR/EPERM) — must not fail the write after a
-     * successful rename. */
+
   }
 }
 
@@ -80,7 +78,7 @@ export async function atomicWriteFileFast(fp: string, content: string): Promise<
     try {
       await unlink(tmp);
     } catch {
-      /* ignore */
+      
     }
     throw e;
   } finally {
@@ -101,13 +99,13 @@ export async function atomicWriteFileFast(fp: string, content: string): Promise<
         await rename(tmp, fp);
         return;
       } catch {
-        /* fall through to cleanup + throw */
+        
       }
     }
     try {
       await unlink(tmp);
     } catch {
-      /* ignore */
+      
     }
     throw e;
   }

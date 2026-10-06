@@ -71,7 +71,7 @@ export async function writeIfChanged(
   try {
     if ((await readFile(filePath, "utf8")) === data) return false;
   } catch {
-    void 0;
+    logger.debug(`[persist] compare-read unavailable for ${basename(filePath)} — writing unconditionally`);
   }
   await atomicWriteFile(filePath, data, { backup: opts.backup ?? false });
   return true;
@@ -112,7 +112,7 @@ async function preserveRejectedState(filePath: string, raw: string): Promise<voi
       `[tawassul] M-2: rejected state preserved for recovery at ${dest} — review and restore manually if needed`,
     );
   } catch {
-    // best-effort only
+
   }
 }
 

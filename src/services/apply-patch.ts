@@ -55,7 +55,7 @@ async function releaseLock(lockPath: string): Promise<void> {
       await unlink(lockPath);
     }
   } catch {
-    /* already removed */
+
   }
 }
 
@@ -77,7 +77,7 @@ export async function applyPatch(filePath: string, content: string, options: Pat
       return { applied: false, file: filePath, error: "⛔ Symlink escape detected" };
     }
   } catch {
-    // File doesn't exist yet — safe
+
   }
 
   if (options.dryRun) {
@@ -99,7 +99,7 @@ export async function applyPatch(filePath: string, content: string, options: Pat
       backupFile = fullPath + ".bak";
       await copyFile(fullPath, backupFile);
     } catch {
-      // File doesn't exist — no backup needed
+
     }
 
     const tmpFile = path.join(os.tmpdir(), `.tawassul-patch-${Date.now()}-${secureId()}`);

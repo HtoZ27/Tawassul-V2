@@ -222,7 +222,7 @@ export class StateManager {
         return;
       }
     } catch {
-      /* ignore */
+
     }
 
     const bakBase = fp + ".bak";
@@ -230,7 +230,7 @@ export class StateManager {
       const oldest = bakBase + "." + StateManager.MAX_BACKUPS;
       await unlink(oldest);
     } catch {
-      /* oldest backup may not exist */
+
     }
 
     for (let i = StateManager.MAX_BACKUPS - 1; i >= 0; i--) {
@@ -238,14 +238,14 @@ export class StateManager {
       try {
         await rename(src, bakBase + "." + (i + 1));
       } catch {
-        /* source backup may not exist */
+
       }
       if (i % 3 === 0) await new Promise((resolve) => setImmediate(resolve));
     }
     try {
       await copyFile(fp, bakBase + ".0");
     } catch {
-      /* source file may not exist on first save */
+
     }
   }
 
@@ -321,7 +321,7 @@ export class StateManager {
         try {
           await unlink(join(dir, entry));
         } catch {
-          /* ignore */
+
         }
       }
     }
@@ -370,7 +370,7 @@ export class StateManager {
       await access(fp);
       baseExists = true;
     } catch {
-      /* fall through to full save */
+
     }
     if (!baseExists) {
       await this.writeFullSave(fp, jsonPayload, signedPayload);
@@ -581,13 +581,13 @@ export class StateManager {
             try {
               await rmdir(join(stateDir, entry));
             } catch {
-              /* not empty or locked — skip */
+
             }
           }
         }
       }
     } catch {
-      /* ignore */
+
     }
 
     let data: Record<string, unknown> | null;
@@ -610,7 +610,7 @@ export class StateManager {
           await access(bakBase);
           data = await this.tryLoadFile(bakBase);
         } catch {
-          /* no legacy backup */
+
         }
         if (data) {
           logger.debug(`Recovered from legacy backup: ${bakBase}`);

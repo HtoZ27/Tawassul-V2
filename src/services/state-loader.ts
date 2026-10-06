@@ -36,7 +36,7 @@ export async function walReplay(stateDir: string, stateData: WalStateData): Prom
         try {
           await unlink(fp);
         } catch {
-          /* ignore */
+
         }
       }
       return false;
@@ -96,7 +96,7 @@ export async function walReplay(stateDir: string, stateData: WalStateData): Prom
       try {
         await unlink(fp);
       } catch {
-        /* ignore */
+
       }
     }
     return true;

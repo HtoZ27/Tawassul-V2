@@ -38,7 +38,7 @@ export function wrapUntrusted(content: string): string {
 
 export const UNTRUSTED_TAGS = {
   ...STRUCTURAL_TAGS,
-  untrusted: (content: string) => wrapUntrusted(content), // wrapUntrusted escapes internally now
+  untrusted: (content: string) => wrapUntrusted(content),
 } as const;
 
 export function buildSafePrompt(parts: Record<string, string>): string {

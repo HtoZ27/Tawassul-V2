@@ -72,7 +72,7 @@ export class MetricsCollector {
         else if (k.startsWith("gauge.")) this.gauges.set(k.slice(6), v);
       }
     } catch {
-      /* ignore malformed JSON */
+
     }
   }
 
@@ -85,7 +85,7 @@ export class MetricsCollector {
       await mkdir(dir, { recursive: true });
       await writeFile(this.filePath, this.toJSON());
     } catch {
-      /* ignore write errors */
+
     }
   }
 

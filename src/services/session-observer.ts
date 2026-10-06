@@ -3,6 +3,7 @@ import { writeFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { logger } from "../utils/logger.ts";
 import { isIsolationActiveSync } from "./isolation.ts";
+import type { TimerManagerLike } from "../types/timer-types.ts";
 
 export type SessionEvent = "created" | "active" | "paused" | "resumed" | "completed" | "failed" | "destroyed";
 
@@ -25,22 +26,33 @@ export class SessionObserver {
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private persistPath: string | null = null;
   private persistTimer: ReturnType<typeof setInterval> | null = null;
+  private timers: TimerManagerLike | null = null;
   
   
   
   private _persistDirty = false;
   public readonly initPromise: Promise<void>;
 
-  constructor(persistPath?: string) {
+  constructor(persistPath?: string, timers?: TimerManagerLike) {
+    this.timers = timers ?? null;
     this.startCleanup();
     if (persistPath) {
       this.persistPath = persistPath;
       this.initPromise = this.loadPersisted().catch(() => {});
-      this.persistTimer = setInterval(() => void this.savePersisted(), 30000);
-      if (this.persistTimer?.unref) this.persistTimer.unref();
+      this.persistTimer = this.startPersistTimer();
     } else {
       this.initPromise = Promise.resolve();
     }
+  }
+
+  private startPersistTimer(): ReturnType<typeof setInterval> {
+    const run = (): void => {
+      void this.savePersisted();
+    };
+    if (this.timers) return this.timers.setInterval(run, 30000);
+    const t = setInterval(run, 30000);
+    if (t?.unref) t.unref();
+    return t;
   }
 
   on(event: SessionEvent, cb: SessionObserverCallback): void {
@@ -95,7 +107,7 @@ export class SessionObserver {
 
   private startCleanup(): void {
     if (this.cleanupTimer) return;
-    this.cleanupTimer = setInterval(() => {
+    const run = (): void => {
       const now = Date.now();
       for (const [id, info] of this.sessions) {
         if (now - info.updatedAt > TTL_MS) {
@@ -103,13 +115,20 @@ export class SessionObserver {
           this.sessions.delete(id);
         }
       }
-    }, CLEANUP_INTERVAL_MS);
-    if (this.cleanupTimer?.unref) this.cleanupTimer.unref();
+    };
+    this.cleanupTimer = this.timers
+      ? this.timers.setInterval(run, CLEANUP_INTERVAL_MS)
+      : (() => {
+          const t = setInterval(run, CLEANUP_INTERVAL_MS);
+          if (t?.unref) t.unref();
+          return t;
+        })();
   }
 
   stopCleanup(): void {
     if (this.cleanupTimer) {
-      clearInterval(this.cleanupTimer);
+      if (this.timers) this.timers.clear(this.cleanupTimer);
+      else clearInterval(this.cleanupTimer);
       this.cleanupTimer = null;
     }
   }
@@ -147,20 +166,21 @@ export class SessionObserver {
       const entries = JSON.parse(raw);
       this.sessions = new Map(entries);
     } catch {
-      /* clean start */
+
     }
   }
 
   async dispose(): Promise<void> {
     this.stopCleanup();
     if (this.persistTimer) {
-      clearInterval(this.persistTimer);
+      if (this.timers) this.timers.clear(this.persistTimer);
+      else clearInterval(this.persistTimer);
       this.persistTimer = null;
     }
     try {
       await this.savePersisted();
     } catch {
-      /* dispose errors non-fatal */
+
     }
   }
 }

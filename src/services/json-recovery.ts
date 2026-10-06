@@ -34,7 +34,7 @@ export function tryRecoverJSON(input: string): RecoveryResult {
     const parsed = JSON.parse(trimmed);
     return { recovered: true, data: parsed };
   } catch {
-    // Attempt recovery strategies
+
   }
 
   let attempt = trimmed;
@@ -66,7 +66,7 @@ export function tryRecoverJSON(input: string): RecoveryResult {
       recoverySuccesses++;
       return { recovered: true, data: parsed, strategiesApplied: strategies };
     } catch {
-      /* next strategy */
+
     }
   }
 
@@ -78,7 +78,7 @@ export function tryRecoverJSON(input: string): RecoveryResult {
       recoverySuccesses++;
       return { recovered: true, data: parsed, strategiesApplied: strategies };
     } catch {
-      /* next strategy */
+
     }
   }
 

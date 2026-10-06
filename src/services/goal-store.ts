@@ -199,6 +199,7 @@ export class GoalStore {
 
   async load(opts: { sweepStaleMs?: number } = {}): Promise<void> {
     await this.dirReady;
+    this.tornTailNeedsSep = false;
     const meta = await hmacReadFile<GoalMeta>(this.metaPath);
     if (meta && typeof meta.seq === "number") {
       this.seq = meta.seq;
@@ -234,7 +235,7 @@ export class GoalStore {
         JSON.parse(raw.slice(lastNl + 1));
         tailIsTorn = false; 
       } catch {
-        /* intentionally unparseable → torn */
+
       }
       if (tailIsTorn) {
         logger.warn(

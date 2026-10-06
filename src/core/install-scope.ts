@@ -12,7 +12,7 @@ export function detectInstallScope(metaUrl?: string): InstallScope {
       const modPath = fileURLToPath(metaUrl);
       if (isInsideGlobalConfigDir(modPath)) return "global";
     } catch {
-      /* malformed metaUrl — fall through to project */
+
     }
   }
   return "project";

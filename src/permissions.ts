@@ -172,7 +172,7 @@ export const BASH_READ_ONLY: Record<string, string> = {
   "find *-execdir*": "deny",
   "find *-delete*": "deny",
   "find *-fprint*": "deny",
-  "find *-fls*": "deny", // N5: -fls writes like -fprint
+  "find *-fls*": "deny",
   "find *-ok*": "deny",
   
   "sort *--random-source*": "deny",

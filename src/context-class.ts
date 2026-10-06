@@ -456,7 +456,7 @@ export class TawassulContext implements TawaOrchestratorContext {
       try {
         cleanup();
       } catch {
-        /* listener may already be removed */
+
       }
     }
     this._eventHubCleanups.length = 0;

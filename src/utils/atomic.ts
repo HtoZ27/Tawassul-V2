@@ -30,7 +30,7 @@ async function pruneOldBackups(filePath: string): Promise<void> {
       await unlink(join(dir, stale)).catch(() => undefined);
     }
   } catch {
-    /* best-effort */
+
   }
 }
 
@@ -51,7 +51,7 @@ export async function atomicWriteFile(
   try {
     originalMode = (await stat(filePath)).mode & 0o777;
   } catch {
-    /* destination does not exist yet — new files stay at the sensitive 0o600 */
+
   }
 
   if (backup) {
@@ -78,7 +78,7 @@ export async function atomicWriteFile(
     try {
       await chmod(filePath, originalMode);
     } catch {
-      /* best-effort */
+
     }
   }
 

@@ -498,7 +498,7 @@ export class SpecDrivenManager extends BaseInnovationService<SpecDrivenConfig, S
     try {
       await unlink(this.storagePath);
     } catch {
-      // File may not exist — that's fine
+
     }
   }
 

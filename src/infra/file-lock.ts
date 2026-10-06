@@ -68,27 +68,27 @@ function registerExitCleanup(): void {
       try {
         unlinkSync(resolve(lockDir, "lock"));
       } catch {
-        /* ENOENT expected */
+
       }
       try {
         unlinkSync(resolve(lockDir, "owner"));
       } catch {
-        /* ENOENT expected */
+
       }
       try {
         unlinkSync(resolve(lockDir, "expires"));
       } catch {
-        /* ENOENT expected */
+
       }
       try {
         unlinkSync(resolve(lockDir, "path"));
       } catch {
-        /* ENOENT expected */
+
       }
       try {
         rmdirSync(lockDir);
       } catch {
-        /* ENOENT or not-empty expected */
+
       }
     }
     acquiredFSLocks.clear();
@@ -214,27 +214,27 @@ async function removeStaleLock(lockDir: string): Promise<void> {
   try {
     await unlink(resolve(lockDir, "lock"));
   } catch {
-    /* ENOENT */
+
   }
   try {
     await unlink(resolve(lockDir, "owner"));
   } catch {
-    /* ENOENT */
+
   }
   try {
     await unlink(resolve(lockDir, "expires"));
   } catch {
-    /* ENOENT */
+
   }
   try {
     await unlink(resolve(lockDir, "path"));
   } catch {
-    /* ENOENT */
+
   }
   try {
     await rmdir(lockDir);
   } catch {
-    /* ENOENT or not-empty */
+
   }
 }
 
@@ -265,7 +265,7 @@ async function acquireFSLock(
       try {
         dirAge = Date.now() - statSync(lockDir).birthtimeMs;
       } catch {
-        /* dir vanished — re-acquire path below */
+
       }
       if (dirAge < 3000) return false;
       await removeStaleLock(lockDir);
@@ -281,7 +281,7 @@ async function acquireFSLock(
         const pid = parseInt(pidMatch[1]!, 10);
         if (!isNaN(pid)) {
           if (isProcessAlive(pid)) return false; 
-          /* ESRCH / win32 ERR_UNKNOWN_SIGNAL — dead, safe to reclaim */
+
         }
       } else {
         
@@ -321,27 +321,27 @@ async function releaseFSLock(lockName: string, ownerId: string): Promise<boolean
     try {
       await unlink(resolve(lockDir, "lock"));
     } catch {
-      /* ENOENT */
+
     }
     try {
       await unlink(resolve(lockDir, "owner"));
     } catch {
-      /* ENOENT */
+
     }
     try {
       await unlink(resolve(lockDir, "expires"));
     } catch {
-      /* ENOENT */
+
     }
     try {
       await unlink(resolve(lockDir, "path"));
     } catch {
-      /* ENOENT */
+
     }
     try {
       await rmdir(lockDir);
     } catch {
-      /* not-empty */
+
     }
     acquiredFSLocks.delete(lockName);
     
@@ -372,7 +372,7 @@ async function checkFSLock(lockName: string): Promise<{ locked: boolean; owner?:
           const pid = parseInt(pidMatch[1]!, 10);
           if (!isNaN(pid)) {
             if (isProcessAlive(pid)) return { locked: true, owner: owner ?? undefined, expiresAt: expiry }; 
-            /* ESRCH / win32 ERR_UNKNOWN_SIGNAL — dead, clean up */
+
           }
         } else if (owner) {
           
@@ -430,27 +430,27 @@ async function removeFSLockDir(lockName: string): Promise<boolean> {
   try {
     await unlink(resolve(lockDir, "lock"));
   } catch {
-    /* ENOENT */
+
   }
   try {
     await unlink(resolve(lockDir, "owner"));
   } catch {
-    /* ENOENT */
+
   }
   try {
     await unlink(resolve(lockDir, "expires"));
   } catch {
-    /* ENOENT */
+
   }
   try {
     await unlink(resolve(lockDir, "path"));
   } catch {
-    /* ENOENT */
+
   }
   try {
     await rmdir(lockDir);
   } catch {
-    /* not-empty */
+
   }
   acquiredFSLocks.delete(lockName);
   
@@ -543,7 +543,7 @@ export class FileLockManager {
         }
       }
     } catch {
-      // Ignore errors during cleanup
+
     }
   }
 
@@ -722,7 +722,7 @@ export class FileLockManager {
           }
         }
       } catch {
-        /* skip unreadable lock directories */
+
       }
     }
 

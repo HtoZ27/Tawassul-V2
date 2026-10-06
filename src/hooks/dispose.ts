@@ -30,7 +30,7 @@ export function createDisposeHook(ctx: DisposeContext) {
       } catch (e) {
         logger.warn("[tawassul] destroy failed:", e);
       }
-      // detectDroppedHandoffs is called inside destroy() — no need to repeat
+
     } catch (e) {
       logger.warn("[tawassul] dispose hook error:", e);
     }

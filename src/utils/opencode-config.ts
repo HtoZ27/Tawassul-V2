@@ -583,7 +583,7 @@ export async function writeTawassulRoster(
     const raw = readFileSync(path, "utf-8");
     rawHasComments = raw.trim() !== stripJsoncComments(raw).trim();
   } catch {
-    // absent file → nothing to warn about
+
   }
   if (rawHasComments) {
     console.warn(

@@ -77,7 +77,7 @@ export type TawassulEvent =
   | { type: "TASK_STATUS_CHANGED"; boardId: string; taskId: string; from: string; to: string; sessionId?: string }
   | { type: "TASK_BLOCKED"; boardId: string; taskId: string; reason: string }
   | { type: "CONSENT_EXPIRED"; sessionID: string; tool: string; key: string }
-  // P0.6 — frame-only events (payloads filled in by their P1-P3 consumers)
+
   | {
       type: "ELICITATION_RESOLVED";
       chainId: string;
@@ -106,7 +106,7 @@ export type TawassulEvent =
       adrId: string;
       chain?: ChainCtx;
     }
-  // P2.1 — ToolOutputBoundary: critical tool output quarantined (not injected)
+
   | { type: "TOOL_OUTPUT_QUARANTINED"; tool: string; agent: string; patterns: string[]; snippet: string };
 
 

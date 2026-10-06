@@ -233,7 +233,7 @@ export const BUILTIN_JOBS: Array<Omit<BackgroundJob, "id" | "status" | "attemptC
     name: "collective-memory-decay",
     description: "Apply decay to Collective Memory patterns",
     type: "periodic",
-    schedule: { type: "interval", value: "3600000" }, // Every hour
+    schedule: { type: "interval", value: "3600000" },
     priority: 2,
     maxAttempts: 3,
   },
@@ -241,7 +241,7 @@ export const BUILTIN_JOBS: Array<Omit<BackgroundJob, "id" | "status" | "attemptC
     name: "trust-score-cleanup",
     description: "Clean up old trust score history",
     type: "periodic",
-    schedule: { type: "daily", value: "03:00" }, // 3 AM daily
+    schedule: { type: "daily", value: "03:00" },
     priority: 2,
     maxAttempts: 3,
   },
@@ -249,7 +249,7 @@ export const BUILTIN_JOBS: Array<Omit<BackgroundJob, "id" | "status" | "attemptC
     name: "failure-pattern-detection",
     description: "Detect recurring failure patterns",
     type: "periodic",
-    schedule: { type: "interval", value: "1800000" }, // Every 30 minutes
+    schedule: { type: "interval", value: "1800000" },
     priority: 3,
     maxAttempts: 3,
   },
@@ -257,7 +257,7 @@ export const BUILTIN_JOBS: Array<Omit<BackgroundJob, "id" | "status" | "attemptC
     name: "cost-budget-check",
     description: "Check budget limits and send alerts",
     type: "periodic",
-    schedule: { type: "interval", value: "300000" }, // Every 5 minutes
+    schedule: { type: "interval", value: "300000" },
     priority: 4,
     maxAttempts: 2,
   },
@@ -265,7 +265,7 @@ export const BUILTIN_JOBS: Array<Omit<BackgroundJob, "id" | "status" | "attemptC
     name: "state-persistence",
     description: "Persist system state to disk",
     type: "periodic",
-    schedule: { type: "interval", value: "300000" }, // Every 5 minutes
+    schedule: { type: "interval", value: "300000" },
     priority: 5,
     maxAttempts: 3,
   },

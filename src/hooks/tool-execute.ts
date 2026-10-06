@@ -261,7 +261,7 @@ export function createToolExecuteBeforeHook(ctx: ToolExecuteBeforeContext) {
           try {
             refund(agentKey, input.sessionID);
           } catch {
-            /* ignore */
+
           }
           blockTool(t("heartbeatCheckFailed"));
         }
@@ -322,7 +322,7 @@ export function createToolExecuteBeforeHook(ctx: ToolExecuteBeforeContext) {
         if (chain.length > MAX_CHAIN_LENGTH) {
           chain.splice(0, chain.length - MAX_CHAIN_LENGTH);
         }
-        // P1-A: don't release locks here — released in after-hook to cover actual execution
+
       }
 
       
@@ -507,7 +507,7 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
           const newDepth = currentDepth - 1;
           if (newDepth <= 0) {
             p.callDepth.delete(input.sessionID);
-            // dispatchChain kept intact — prevents loops while allowing root return
+
           } else {
             p.callDepth.set(input.sessionID, newDepth);
           }
@@ -784,8 +784,8 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
           taskId: input.sessionID ?? input.callID ?? "task",
           status: "success",
         });
-        // Chain is cleared AFTER the AGENT_SUCCESS/AGENT_FAILED emissions below so
-        // those terminal events still carry the chain envelope (see emitWithChain).
+
+
       }
 
       

@@ -30,14 +30,14 @@ export function defaultProbe(): MemoryReading {
   try {
     rssMB = process.memoryUsage().rss / 1024 / 1024;
   } catch {
-    /* rss not available */
+
   }
   try {
     const meminfo = readFileSync("/proc/meminfo", "utf8");
     const m = /^MemAvailable:\s+(\d+)\s+kB$/m.exec(meminfo);
     if (m) memAvailableMB = Number(m[1]) / 1024;
   } catch {
-    /* /proc/meminfo not available (non-linux) */
+
   }
   return { rssMB, memAvailableMB };
 }
@@ -216,11 +216,11 @@ export class MemoryWatchdog {
         try {
           globalThis.gc();
         } catch {
-          /* gc not available */
+
         }
       }
     } catch {
-      // memory check not available
+
     }
   }
 

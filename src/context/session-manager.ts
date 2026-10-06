@@ -38,7 +38,7 @@ export class SessionManager {
       directory,
       pid: process.pid,
     };
-    // I/O deferred to start() — called from lifecycleManager.init()
+
   }
 
   private generateSessionId(): string {
@@ -127,7 +127,7 @@ export class SessionManager {
         delete registry[this.sessionId];
         await atomicWriteJson(registryFile, registry);
       } catch {
-        /* file doesn't exist or can't be read */
+
       }
     } catch (e) {
       logger.warn("Failed to cleanup session:", e);

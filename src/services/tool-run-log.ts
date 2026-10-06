@@ -43,7 +43,16 @@ export interface ToolRunRecordInput {
 }
 
 
-export const NEVER_DEDUP_TOOLS = new Set(["bash", "edit", "write", "task"]);
+export const NEVER_DEDUP_TOOLS = new Set([
+  "bash",
+  "edit",
+  "write",
+  "task",
+  "delete",
+  "kick",
+  "addagent",
+  "handoff",
+]);
 
 const MAX_MEMORY_ENTRIES = 2000;
 const PRUNE_KEEP = 1500;
@@ -53,6 +62,7 @@ export class ToolRunLog {
   private loaded = false;
   private readonly stateDir: string;
   private readonly redactor: PrivacyGuard;
+  private turnSeq = new Map<string, number>();
 
   constructor(stateDir: string) {
     this.stateDir = stateDir;
@@ -78,17 +88,18 @@ export class ToolRunLog {
         this.runs = parsed.runs.filter(isToolRunEntry);
       }
     } catch {
-      /* no log yet — fresh start */
+
     }
   }
 
   async save(): Promise<void> {
     if (isIsolationActiveSync()) return; 
+    for (const sessionId of this.turnSeq.keys()) this.purgeAgedFailures(sessionId);
     const p = this.logPath();
     try {
       await mkdir(dirname(p), { recursive: true });
     } catch {
-      /* ignore */
+
     }
     const data = JSON.stringify({ runs: this.runs }, null, 2);
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -107,13 +118,7 @@ export class ToolRunLog {
     const redactedInput =
       input.input !== undefined ? this.redactor.redact(JSON.stringify(input.input)).redacted : undefined;
     const redactedError = input.error !== undefined ? this.redactor.redact(String(input.error)).redacted : undefined;
-    let turn = 0;
-    for (let i = this.runs.length - 1; i >= 0; i--) {
-      const r = this.runs[i]!;
-      if (r.sessionId !== input.sessionId) continue;
-      turn = r.turn + 1;
-      break;
-    }
+    const turn = input.turn || this.nextTurn(input.sessionId);
     const entry: ToolRunEntry = {
       id: `tr-${input.tool}-${input.argsHash}-${(input.timestamp ?? Date.now()).toString(36)}`,
       timestamp: input.timestamp ?? Date.now(),
@@ -151,6 +156,29 @@ export class ToolRunLog {
     let purged = 0;
     for (const r of this.runs) {
       if (r.status === "error" && r.input !== undefined && now - r.timestamp > maxAgeMs) {
+        r.input = undefined;
+        purged++;
+      }
+    }
+    return purged;
+  }
+
+  private nextTurn(sessionId: string): number {
+    const t = (this.turnSeq.get(sessionId) ?? 0) + 1;
+    this.turnSeq.set(sessionId, t);
+    return t;
+  }
+
+  purgeAgedFailures(sessionId: string, keepTurns = 4): number {
+    const current = this.turnSeq.get(sessionId) ?? 0;
+    let purged = 0;
+    for (const r of this.runs) {
+      if (
+        r.sessionId === sessionId &&
+        r.status === "error" &&
+        r.input !== undefined &&
+        r.turn < current - keepTurns + 1
+      ) {
         r.input = undefined;
         purged++;
       }

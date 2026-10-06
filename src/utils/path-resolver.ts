@@ -37,7 +37,7 @@ export function safeHomedir(): string {
     const info = userInfo();
     if (info?.homedir) return info.homedir;
   } catch {
-    /* getpwuid failed — fall through */
+
   }
   throw new HomedirUnavailableError();
 }

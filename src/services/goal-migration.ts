@@ -74,7 +74,7 @@ export async function migrateBoardsToGoals(
       files = index.boards.map((b) => b.file).filter((f) => typeof f === "string");
     }
   } catch {
-    /* no usable index — fall back to directory scan */
+
   }
   for (const file of files) {
     result.boardsScanned++;

@@ -84,7 +84,7 @@ export class BackgroundNotifier {
     try {
       await mkdir(dirname(p), { recursive: true });
     } catch {
-      /* ignore */
+
     }
     const data = JSON.stringify({ metrics: this.getActivityMetrics() }, null, 2);
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -113,7 +113,7 @@ export class BackgroundNotifier {
         }
       }
     } catch {
-      /* no metrics yet — fresh start */
+
     }
   }
 }

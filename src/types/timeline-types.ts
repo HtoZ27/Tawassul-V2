@@ -72,3 +72,10 @@ export interface TimelineStats {
   maxAgeMs: number;
   monotonic: boolean;
 }
+
+export interface TimelineFlushStats {
+  buffered: number;
+  dropped: number;
+  consecutiveFailures: number;
+  nextDelayMs: number;
+}

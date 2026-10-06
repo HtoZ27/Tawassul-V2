@@ -766,5 +766,5 @@ export class FailureAutopsyAnalyzer extends BaseInnovationService<FailureAutopsy
 export const { get: getFailureAutopsyAnalyzer, reset: resetFailureAutopsyAnalyzer } =
   createSingleton<FailureAutopsyAnalyzer>(
     (config) => new FailureAutopsyAnalyzer(config as Partial<FailureAutopsyConfig> | undefined),
-    true, // warn when config passed to existing instance
+    true,
   );

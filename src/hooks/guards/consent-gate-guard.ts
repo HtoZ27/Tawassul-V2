@@ -13,6 +13,15 @@ export const setConsentGateEnabled = (enabled: boolean): void => {
 
 export const isConsentGateEnabled = (): boolean => consentGateEnabled;
 
+function isApprovalWord(value: unknown): boolean {
+  if (value === true) return true;
+  if (typeof value !== "string") return false;
+  const norm = value.toLowerCase().trim();
+  return (
+    norm === "true" || norm === "yes" || norm === "ok" || norm === "نعم" || norm === "once"
+  );
+}
+
 function buildDryRunPreview(tool: string, args: Record<string, unknown>): string {
   if (tool === "bash") {
     const cmd = typeof args.command === "string" ? args.command : "";
@@ -253,8 +262,7 @@ export const consentGateGuard: ValidationStage = {
         input.sessionID,
         (answer) => {
           expiredUnseen.delete(key);
-          const norm = typeof answer === "string" ? answer.toLowerCase().trim() : answer;
-          const approved = norm === true || norm === "true" || norm === "yes" || norm === "once";
+          const approved = isApprovalWord(answer);
           const at = Date.now();
           pruneExpiredApprovals();
           evictApprovalIfNeeded();
@@ -305,7 +313,7 @@ export const consentGateGuard: ValidationStage = {
         }),
       ]);
       const norm = typeof res === "string" ? (res as string).toLowerCase().trim() : res;
-      granted = norm === true || norm === "true" || norm === "yes" || norm === "once" || norm === "always";
+      granted = isApprovalWord(res) || norm === "always";
     } catch {
       granted = false;
     }

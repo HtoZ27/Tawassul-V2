@@ -458,7 +458,7 @@ export class MissionBoard {
     try {
       await fsp.mkdir(this.dataDir, { recursive: true });
     } catch {
-      // directory already exists or cannot be created — non-fatal
+
     }
   }
 
@@ -477,7 +477,7 @@ export class MissionBoard {
       const tmpFiles = (await fsp.readdir(this.dataDir)).filter((f) => f.endsWith(".tmp"));
       await Promise.all(tmpFiles.map((f) => fsp.rm(path.join(this.dataDir, f), { force: true })));
     } catch {
-      // unreadable dir — boot must continue; next boot will retry
+
     }
     
     let files: string[];
@@ -500,7 +500,7 @@ export class MissionBoard {
         this.boards.set(board.id, board);
         this._rebuildTaskIndex(board);
       } catch {
-        // skip corrupted files
+
       }
     });
     await Promise.all(loadTasks);

@@ -137,8 +137,8 @@ export interface MessageUpdatedServiceClients {
   ) => ContextUsage;
   
   takeCopilotDigest?: (sessionId: string) => string | undefined;
-  // NOTE: DEFAULT_PRICING_MODELS (cost-transparency catalog const) is
-  // intentionally NOT injected — it feeds module-scope static data
-  // (PRICING_MAX_TOKENS) consumed by the pure exported helper
-  // resolveMaxContextTokens, which takes no hook context.
+
+
+
+
 }

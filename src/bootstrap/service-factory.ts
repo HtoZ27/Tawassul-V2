@@ -109,7 +109,7 @@ class NullCodeStateService implements ICodeStateService {
     return null;
   }
   reset() {
-    /* Null code state has nothing to prune */
+
   }
 }
 
@@ -172,7 +172,7 @@ export function migrateLegacyCollectiveMemory(
     try {
       rmSync(newMemFile, { force: true });
     } catch {
-      /* ignore */
+
     }
     logger.warn("[tawassul] collective-memory migration failed, starting fresh:", e);
     return "skipped";
@@ -195,7 +195,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
     healthCfg.circuitBreakerThreshold,
     healthCfg.circuitBreakerResetMs,
     (event) => tawaCtx.eventHub.emit(event),
-    2, // recoveryThreshold: HALF_OPEN requires 2 consecutive successes to close
+    2,
   );
   const selfHealEngine = new SelfHealEngine(
     tawaCtx.eventHub,
@@ -799,7 +799,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
       try {
         integration.stop();
       } catch {
-        /* ignore cleanup errors */
+
       }
     }
   });

@@ -49,7 +49,7 @@ export class CheckpointManager {
       const arr: Snapshot[] = JSON.parse(data);
       for (const s of arr) this.snapshots.set(s.id, s);
     } catch {
-      /* first run — no file yet */
+
     }
   }
 

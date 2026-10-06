@@ -72,7 +72,7 @@ export function hmacKeyFileExists(): boolean {
   try {
     if (existsSync(resolve(getKeyDir(), HMAC_KEY_FILE))) return true;
   } catch {
-    /* fall through to legacy */
+
   }
   try {
     return existsSync(resolve(getLegacyKeyDir(), HMAC_KEY_FILE));
@@ -100,7 +100,7 @@ function sleepSync(ms: number): void {
   } catch {
     const end = Date.now() + ms;
     while (Date.now() < end) {
-      /* busy-wait fallback */
+
     }
   }
 }
@@ -136,7 +136,7 @@ function createKeyExclusive(keyFile: string, keyBytes: Buffer, isSelfHeal = fals
             try {
               unlinkSync(keyFile);
             } catch {
-              /* ignore */
+
             }
             return createKeyExclusive(keyFile, keyBytes, true);
           }
@@ -249,11 +249,11 @@ function loadOrCreateHmacKey(): Buffer {
       try {
         rmSync(legacyHmacKeyFile);
       } catch {
-        /* best-effort */
+
       }
       return _cachedHmacKey;
     } catch {
-      /* fall through to Priority 3 */
+
     }
   }
 
@@ -267,7 +267,7 @@ function loadOrCreateHmacKey(): Buffer {
     try {
       writeFileSync(oldKeyBak, oldKey, { mode: 0o600 });
     } catch {
-      /* best-effort backup */
+
     }
 
     
@@ -283,22 +283,22 @@ function loadOrCreateHmacKey(): Buffer {
     try {
       rmSync(oldKeyFile);
     } catch {
-      /* ignore */
+
     }
     try {
       rmSync(oldKeyBak);
     } catch {
-      /* ignore */
+
     }
     try {
       rmSync(resolve(legacyKeyDir, OLD_SALT_FILE));
     } catch {
-      /* ignore */
+
     }
     try {
       rmSync(resolve(legacyKeyDir, OLD_VERSION_FILE));
     } catch {
-      /* ignore */
+
     }
     logger.debug("Cleaned up old encryption key files and backup");
 
@@ -309,7 +309,7 @@ function loadOrCreateHmacKey(): Buffer {
     
     
     if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
-      // Old key doesn't exist — fall through to Priority 3
+
     } else {
       throw error;
     }
@@ -353,7 +353,7 @@ function loadExistingHmacKey(): Buffer | null {
       const k = readFileSync(keyFile);
       if (k.length === KEY_LENGTH) return k;
     } catch {
-      /* try the next location */
+
     }
   }
   return null;
