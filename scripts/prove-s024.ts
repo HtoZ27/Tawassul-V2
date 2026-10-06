@@ -9,6 +9,7 @@ import { UNATTRIBUTED_MODEL_ID } from "../src/services/cost-transparency/types.t
 import { canonicalize, isSharedDbPath, isolatedDbPathFor } from "../src/bootstrap/db-isolation.ts";
 import { writeIfChanged } from "../src/services/persist-utils.ts";
 import { SessionObserver } from "../src/services/session-observer.ts";
+import { parseUserReply } from "../src/services/ask-channel-parse.ts";
 
 function fail(msg: string): never {
   console.error(`PROOF FAIL: ${msg}`);
@@ -145,6 +146,18 @@ try {
   assert(timerCalls.filter((c) => c === "set").length === 2, "observer timers centrally registered");
   await obs.dispose();
   assert(timerCalls.filter((c) => c === "clear").length === 2, "observer timers centrally cleared");
+
+  const confirm = { type: "confirm", default: false } as const;
+  const arabicYes = String.fromCodePoint(0x0646, 0x0639, 0x0645);
+  const arabicNo = String.fromCodePoint(0x0644, 0x0627);
+  assert(parseUserReply(arabicYes, confirm) === true, "chat path honors Arabic approval");
+  assert(parseUserReply(arabicNo, confirm) === false, "chat path honors Arabic denial");
+  assert(parseUserReply("ok", confirm) === true, "chat path honors ok");
+  assert(parseUserReply("please help me with the code", confirm) === undefined, "chat path ignores prose");
+  const guardSrc = readFileSync("src/hooks/guards/consent-gate-guard.ts", "utf-8");
+  assert(guardSrc.includes("isApprovalWord"), "host path shares approval vocabulary");
+  const dbIsoSrc = readFileSync("src/bootstrap/db-isolation.ts", "utf-8");
+  assert(!dbIsoSrc.includes("installationHealth"), "installer-coupled health stays unported");
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

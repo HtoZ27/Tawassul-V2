@@ -40,8 +40,9 @@ versions; do not duplicate the fix in both codebases.
 - Strip all comments while porting.
 - Tool executions run in the promise domain: wrap effect pipelines with
   `Effect.runPromise`.
-- Entry point is `Plugin.Plugin.define` (`Plugin.define` is exported as the
-  `Plugin` namespace; actual entry is `Plugin.Plugin.define`).
+- Entry point is `Plugin.define` on the `Plugin` namespace imported from
+  `@opencode/plugin` (`Plugin.Plugin` is the config interface type, not a
+  runtime member).
 - Dependencies are external in the build (`import.meta.resolve` guard keeps
   `@opencode/plugin` and its transitive deps external when resolvable).
 

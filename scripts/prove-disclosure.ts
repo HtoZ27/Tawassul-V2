@@ -12,12 +12,14 @@ const AGENTS_DIR = resolve(REPO, ".opencode", "agents");
 const MARKERS = ["R-011", "disk-proven", "genuinely blocked"];
 
 const SILENT_CATCH_INVENTORY: Record<string, number> = {
-  "bootstrap/event-integrations.ts": 4,
+  "bootstrap/event-integrations.ts": 8,
   "bootstrap/memory-integrations.ts": 2,
   "bootstrap/plugin-init.ts": 2,
   "bootstrap/service-factory.ts": 2,
+  "context-class.ts": 1,
   "context/managers/AgentManager.ts": 3,
   "context/managers/StateManager.ts": 9,
+  "context/model-utils.ts": 1,
   "context/session-manager.ts": 1,
   "core/install-scope.ts": 1,
   "hooks/PipelineState.ts": 1,
@@ -30,19 +32,19 @@ const SILENT_CATCH_INVENTORY: Record<string, number> = {
   "services/apply-patch.ts": 3,
   "services/ast-service.ts": 2,
   "services/background-notifier.ts": 2,
-  "services/checkpoint-manager.ts": 1,
-  "services/code-state-auto.ts": 1,
-  "services/code-state.ts": 2,
+  "services/checkpoint-manager.ts": 3,
+  "services/code-state-auto.ts": 2,
+  "services/code-state.ts": 3,
   "services/goal-migration.ts": 1,
   "services/goal-store.ts": 1,
   "services/json-recovery.ts": 3,
   "services/keyring.ts": 2,
   "services/memory-watchdog.ts": 4,
   "services/metrics-collector.ts": 2,
-  "services/mission-board.ts": 3,
+  "services/mission-board.ts": 5,
   "services/persist-utils.ts": 1,
   "services/self-heal-engine.ts": 1,
-  "services/session-observer.ts": 2,
+  "services/session-observer.ts": 3,
   "services/spec-driven/manager.ts": 1,
   "services/state-loader.ts": 2,
   "services/state-persistence.ts": 2,
@@ -53,7 +55,7 @@ const SILENT_CATCH_INVENTORY: Record<string, number> = {
   "tools/handoff.ts": 1,
   "tools/image-gen.ts": 1,
   "tools/project-map.ts": 2,
-  "tools/web.ts": 3,
+  "tools/web.ts": 6,
   "utils/atomic.ts": 3,
   "utils/crypto.ts": 10,
   "utils/logger.ts": 1,
@@ -132,6 +134,12 @@ function extractCatchBodies(blanked: string): string[] {
   const re = /\bcatch\b/g;
   let m = re.exec(blanked);
   while (m !== null) {
+    if (blanked[m.index - 1] === ".") {
+      const silent = isSilentPromiseCatch(blanked, m.index + 5);
+      if (silent !== null) bodies.push(silent);
+      m = re.exec(blanked);
+      continue;
+    }
     let i = m.index + 5;
     while (i < blanked.length && /[\s]/.test(blanked[i]!)) i++;
     if (blanked[i] === "(") {
@@ -187,10 +195,54 @@ function extractCatchBodies(blanked: string): string[] {
   return bodies;
 }
 
+function isSilentPromiseCatch(blanked: string, from: number): string | null {
+  let i = from;
+  while (i < blanked.length && /[\s]/.test(blanked[i]!)) i++;
+  if (blanked[i] !== "(") return null;
+  let depth = 0;
+  let j = i;
+  let lineComment = false;
+  let blockComment = false;
+  while (j < blanked.length) {
+    const c = blanked[j]!;
+    const n = blanked[j + 1] ?? "";
+    if (lineComment) {
+      if (c === "\n") lineComment = false;
+    } else if (blockComment) {
+      if (c === "*" && n === "/") {
+        blockComment = false;
+        j++;
+      }
+    } else if (c === "/" && n === "/") {
+      lineComment = true;
+      j++;
+    } else if (c === "/" && n === "*") {
+      blockComment = true;
+      j++;
+    } else if (c === "(") {
+      depth++;
+    } else if (c === ")") {
+      depth--;
+      if (depth === 0) break;
+    }
+    j++;
+  }
+  const inner = blanked
+    .slice(i + 1, j)
+    .replace(/\/\/[^\n]*/g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .trim();
+  if (/^(\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>\s*\{\s*\}$/.test(inner)) return "";
+  return null;
+}
+
 function proveCensus(): void {
   const counts: Record<string, number> = {};
+  const roots = readdirSync(SRC)
+    .filter((e) => e.endsWith(".ts"))
+    .map((e) => join(SRC, e));
   for (const d of SCAN_DIRS) {
-    for (const f of collectTsFiles(join(SRC, d))) {
+    for (const f of [...roots, ...collectTsFiles(join(SRC, d))]) {
       const src = readFileSync(f, "utf-8");
       const n = extractCatchBodies(blankStrings(src)).filter((body) => {
         const code = body

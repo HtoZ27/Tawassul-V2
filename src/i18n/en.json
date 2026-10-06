@@ -81,7 +81,7 @@
   "consentDeferredRefused": "🚫 Consent gate: could not present the consent question — high-impact {tool} was blocked{detail}.",
   "consentDeniedCached": "🚫 Consent gate: {tool} was previously denied{detail}.",
   "consentHostDenied": "🚫 Consent gate: {tool} execution was denied{detail}. The ask() confirmation was not granted.",
-  "consentNoChannel": "🚫 Consent gate: no consent channel (ask) in this environment — high-impact {tool} was blocked{detail}.\nOnly the user decides: (1) enable the question channel via env var TAWASSUL_ASK_CHANNEL=1 (or remove =0), or (2) disable the gate in .opencode/tawassul.json via \"innovations\": { \"consentGate\": { \"enabled\": false } } and restart opencode.",
+  "consentNoChannel": "🚫 Consent gate: no consent channel (ask) in this environment — high-impact {tool} was blocked{detail}.\nOnly the user decides: (1) enable the question channel via env var TAWASSUL_ASK_CHANNEL=1 (or remove =0), or (2) disable the gate in .opencode/tawassul.jsonc (legacy .json accepted) via \"innovations\": { \"consentGate\": { \"enabled\": false } } and restart opencode.",
   "consentNoRootBinding": "🚫 Consent gate: consent from a subagent session with no known main session — the question cannot reach you. Send any message in the main session first, then retry {tool}{detail}.",
   "consentPendingQuestion": "🚫 Consent gate: a consent question is already pending — answer it (yes/no) in the chat, then retry {tool}{detail}.",
   "contextShortWarn": "📝 Context is short ({words} words). Explain more:\n  • Where exactly is the problem?\n  • What happened / what was expected?\n  • What did you try?\n  Example: context: \"src/render.rs:42 — render() doesn't handle cursor = null\"",

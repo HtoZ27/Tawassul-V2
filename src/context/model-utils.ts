@@ -214,13 +214,24 @@ export async function fetchAllAvailableModels(
     } finally {
       clearTimeout(timeout);
     }
+    const parseReject: { reject: ((e: Error) => void) | null } = { reject: null };
+    const parseDeadline = setTimeout(() => {
+      parseReject.reject?.(new Error("JSON parse timeout"));
+    }, 5000);
+    if (parseDeadline?.unref) parseDeadline.unref();
     const data = await Promise.race([
       response.json(),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("JSON parse timeout")), 5000)),
-    ]).catch((e) => {
-      response.body?.cancel?.().catch(() => {});
-      throw e;
-    }) as {
+      new Promise<never>((_, reject) => {
+        parseReject.reject = reject;
+      }),
+    ])
+      .catch((e) => {
+        response.body?.cancel?.().catch(() => {});
+        throw e;
+      })
+      .finally(() => {
+        clearTimeout(parseDeadline);
+      }) as {
       all?: Array<{
         id: string;
         models?: Record<string, unknown>;
