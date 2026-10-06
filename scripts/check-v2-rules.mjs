@@ -7,78 +7,20 @@ const ROOT = resolve(fileURLToPath(import.meta.url), "..", "..");
 const SCAN_DIRS = ["src", "scripts", "tests"];
 const SINGLE_FILES = ["build-v2.mjs", "check-v2-rules.mjs", "check-shared-anchors.mjs"];
 const ARABIC_RE = /\p{Script=Arabic}/u;
-const ARABIC_ALLOWLIST = [
-  "الجميع",
-  "الوكلاء",
-  "الوكيل",
-  "الكل",
-  "مرفوض",
-  "موافق",
-  "بنموذج",
-  "احذفوا",
-  "استكشف",
-  "توزيع",
-  "تقسيم",
-  "حوّل",
-  "خطّط",
-  "راجع",
-  "سلِّم",
-  "سلّم",
-  "شغّل",
-  "طبّق",
-  "أحذف",
-  "أرسل",
-  "أوزع",
-  "إرسال",
-  "احذف",
-  "احسم",
-  "اشرح",
-  "اقترح",
-  "تاوا",
-  "حقّق",
-  "حلّل",
-  "فوض",
-  "فوّض",
-  "قيّم",
-  "كلف",
-  "مهام",
-  "ناقش",
-  "نفّذ",
-  "وزّع",
-  "وضّح",
-  "وفبلس",
-  "وكلاء",
-  "أضف",
-  "اضف",
-  "أجل",
-  "اكيد",
-  "ايوا",
-  "تفضل",
-  "تمام",
-  "حسنا",
-  "رفض",
-  "فعّل",
-  "كلا",
-  "كِل",
-  "لأ",
-  "لاء",
-  "ممنوع",
-  "نعم",
-  "هل",
-  "وزع",
-  "كل",
-  "لا",
-  "من",
-  "يا",
-].sort((a, b) => b.length - a.length);
-const ALLOWED_COMMENT_PREFIXES = [
-  "@ts-expect-error",
-  "@ts-ignore",
-  "eslint-disable",
-  "eslint-enable",
-  "@eslint-disable",
-  "@eslint-enable",
-  "#__PURE__",
+const ARABIC_ALLOWED_FILES = [
+  "src/hooks/guards/consent-gate-guard.ts",
+  "src/hooks/guards/task-rejection-guard.ts",
+  "src/hooks/message-updated.ts",
+  "src/i18n/en.json",
+  "src/services/ask-channel-parse.ts",
+  "src/tools/agent-add-helpers.ts",
+  "src/tools/agent-management.ts",
+];
+const ALLOWED_COMMENT_PATTERNS = [
+  /^@ts-expect-error(?:\s|:|--|$)/,
+  /^@ts-ignore(?:\s|:|--|$)/,
+  /^eslint-disable(?:-next-line)?(?:\s|$)/,
+  /^eslint-enable(?:\s|$)/,
 ];
 
 function listFiles(dir) {
@@ -88,7 +30,7 @@ function listFiles(dir) {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
       out.push(...listFiles(full));
-    } else if (/\.(ts|mjs|json)$/.test(entry) && !entry.endsWith(".d.ts")) {
+    } else if (/\.(ts|mts|mjs|json)$/.test(entry)) {
       out.push(full);
     }
   }
@@ -105,14 +47,9 @@ function collectFiles() {
   return files;
 }
 
-function withoutAllowedSnippets(text) {
-  let out = text;
-  for (const s of ARABIC_ALLOWLIST) out = out.split(s).join("");
-  return out;
-}
-
-function hasForbiddenArabic(text) {
-  return ARABIC_RE.test(withoutAllowedSnippets(text));
+function arabicAllowedFile(file) {
+  const rel = relative(ROOT, file).split("\\").join("/");
+  return ARABIC_ALLOWED_FILES.includes(rel);
 }
 
 function stripComment(text) {
@@ -126,18 +63,23 @@ function stripComment(text) {
 }
 
 function isAllowedComment(text) {
-  if (/^#!/.test(text)) return true;
   const stripped = stripComment(text);
-  if (stripped.length === 0) return true;
-  return ALLOWED_COMMENT_PREFIXES.some((p) => stripped.startsWith(p));
+  if (stripped.length === 0) return false;
+  return ALLOWED_COMMENT_PATTERNS.some((re) => re.test(stripped));
 }
 
 function checkFile(file) {
-  const source = readFileSync(file, "utf8");
+  const relPath = relative(ROOT, file).split("\\").join("/");
+  return checkSource(relPath, readFileSync(file, "utf8"));
+}
+
+export function checkSource(relPath, source) {
+  const file = relPath;
   const errors = [];
+  const arabicExempt = arabicAllowedFile(file);
   if (extname(file) === ".json") {
-    if (hasForbiddenArabic(source)) {
-      errors.push(`${relative(ROOT, file)}:1: non-English literal in JSON`);
+    if (!arabicExempt && ARABIC_RE.test(source)) {
+      errors.push(`${file}:1: non-English literal in JSON`);
     }
     return errors;
   }
@@ -179,7 +121,7 @@ function checkFile(file) {
       seenComments.add(key);
       if (!isAllowedComment(source.slice(match.index, match.index + match[0].length))) {
         const line = source.slice(0, match.index).split("\n").length;
-        errors.push(`${relative(ROOT, file)}:${line}: comment present but comments are forbidden in v2`);
+        errors.push(`${file}:${line}: comment present but comments are forbidden in v2`);
       }
     }
     match = commentRe.exec(code);
@@ -199,9 +141,9 @@ function checkFile(file) {
     } else if (ts.isRegularExpressionLiteral(node)) {
       text = node.text;
     }
-    if (text !== null && hasForbiddenArabic(text)) {
+    if (text !== null && !arabicExempt && ARABIC_RE.test(text)) {
       const line = source.slice(0, node.getStart(sf)).split("\n").length;
-      errors.push(`${relative(ROOT, file)}:${line}: non-English literal (${JSON.stringify(text.slice(0, 40))})`);
+      errors.push(`${file}:${line}: non-English literal (${JSON.stringify(text.slice(0, 40))})`);
       return;
     }
     ts.forEachChild(node, visit);
@@ -212,15 +154,23 @@ function checkFile(file) {
   return errors;
 }
 
-const files = collectFiles();
-const allErrors = [];
-for (const file of files) {
-  allErrors.push(...checkFile(file));
+export function checkAll() {
+  const files = collectFiles();
+  const allErrors = [];
+  for (const file of files) {
+    allErrors.push(...checkFile(file));
+  }
+  return { files: files.length, errors: allErrors };
 }
 
-if (allErrors.length > 0) {
-  console.error("v2 rules violations:");
-  for (const err of allErrors) console.error("  - " + err);
-  process.exit(1);
+const invokedDirectly =
+  process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (invokedDirectly) {
+  const { files, errors } = checkAll();
+  if (errors.length > 0) {
+    console.error("v2 rules violations:");
+    for (const err of errors) console.error("  - " + err);
+    process.exit(1);
+  }
+  console.log(`v2 rules OK (${files} files, English-only + no-comments)`);
 }
-console.log(`v2 rules OK (${files.length} files, English-only + no-comments)`);

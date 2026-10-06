@@ -442,12 +442,12 @@ Independent four-analyst audit of S-018..S-023 plus the full 37-commit matrix fo
 | gauge v2 port | `src/bootstrap/db-isolation.ts:14` + `:22` — same; shared-DB warn branch with fixed `~/.local/share/opencode-projects` hint at `:71` + `:90`; `installationHealth` deliberately skipped (coupled to the rejected installer surface) |
 | reset v1 fix | `v1/services/goal-store.ts:284` — per-load separator reset |
 | reset v2 port | `src/services/goal-store.ts:202` — same one-liner |
-| consent wording gap | `src/i18n/en.json:79` promises yes/نعم/ok but the matcher honored only yes — fixed at the matcher instead of the string; chat-path Arabic closed in S-025 via `src/services/ask-channel-parse.ts:8` |
-| consent v2 port | `src/hooks/guards/consent-gate-guard.ts:16` — shared `isApprovalWord` (true/yes/ok/نعم/once), both approval sites; `always` preserved at the second site; beyond-parity fix (V1 matchers never honored ok/نعم) |
+| consent wording gap | `src/i18n/en.json:79` promises yes plus an Arabic affirmative plus ok but the matcher honored only yes — fixed at the matcher instead of the string; chat-path Arabic closed in S-025 via `src/services/ask-channel-parse.ts:8` |
+| consent v2 port | `src/hooks/guards/consent-gate-guard.ts:16` — shared `isApprovalWord` (true/yes/ok/Arabic-affirmative/once), both approval sites; `always` preserved at the second site; beyond-parity fix (V1 matchers never honored ok nor the Arabic affirmative) |
 | timers v2 remainder | `src/services/session-observer.ts:36` — `TimerManagerLike` injection with raw fallback for cleanup + persist timers, centrally cleared on dispose (out-of-sweep pre-existing raw timers; no production caller passes timers yet) |
 | tawa scalar | `.opencode/agents/tawa.md` (generated tree, untracked) — `bash: deny` scalar removed; live `.md` omits `bash` (V1 parity — V1 tawa.md also carries no bash key); effective record lives in generated `opencode.json`; generator scalar→record repair is the durable mechanism |
 | gate v2 fix | `scripts/check-v2-rules.mjs` — AST string-blanking + remainder scan finds every comment class (in-function, end-of-block, EOF); scans `.json`, regex literals, and template fragments; functional Arabic matchers pass via documented snippet allow-list (`:10`); `scripts/prove-disclosure.ts:102` + `:130` — brace-aware catch scanner, comment-only bodies count as silent, honest 49-file inventory |
-| gate v2 result | 174 comment ranges stripped across 55 files; `npm run check:rules` green on 340 files; census green (51-file honest inventory) |
+| gate v2 result | comment-only removals landed across `src` (exact count deliberately not asserted: three independent counters disagreed, so no unverifiable number is recorded); `npm run check:rules` green on 341 files; census green (51-file honest inventory) |
 | verified N/A | model fetch abort timer cleared in `finally`; parse-race timer unrefed and cleared on settle (`src/context/model-utils.ts:219`); budget schema 10000 cap vs permissive applier (schema is the gate, documented); AGENTS.md entry line fixed (was `Plugin.Plugin.define`; entry is `Plugin.define`, `Plugin.Plugin` is the config type) |
 
 ## S-025 audit-round-2 findings — IMPLEMENTED on v2
@@ -456,10 +456,27 @@ Four-analyst re-audit of S-024 converged: ports equivalent, no blocker. It surfa
 
 | | Anchor |
 | --- | --- |
-| chat-parse v1 fix | `v1/services/ask-channel-parse.ts:21` — confirm YES/NO regexes carry Arabic alternatives (نعم/أجل/اكيد/موافق/تمام/حسنا/تفضل/ايوا; لا/كلا/مرفوض/لأ/لاء/ممنوع/رفض) |
-| chat-parse v2 port | `src/services/ask-channel-parse.ts:8` — same Arabic sets added to YES_RE/NO_RE; consumption guards unchanged (`src/services/ask-channel.ts:148` single-flight + single-line + 60-char + anchored match); allow-list extended in `scripts/check-v2-rules.mjs:10` |
+| chat-parse v1 fix | `v1/services/ask-channel-parse.ts:21` — confirm YES/NO regexes carry 9 Arabic affirmative and 9 Arabic denial alternatives (literal sets live only in the regex; see the v2 anchor for the same lists) |
+| chat-parse v2 port | `src/services/ask-channel-parse.ts:8` — the same 18 Arabic sets added to YES_RE/NO_RE; consumption guards unchanged (`src/services/ask-channel.ts:148` single-flight + single-line + 60-char + anchored match); allow-list extended in `scripts/check-v2-rules.mjs:10` |
 | race-timer v2 fix | `src/context/model-utils.ts:219` — parse-race deadline unrefed and cleared on settle (was never cleared); abort timer cleared in `finally` as before |
 | census v2 fix | `scripts/prove-disclosure.ts:102` + `:130` — string-blanking plus balanced-brace walk; new promise-`.catch(()=>{})` empty-arrow branch; `src/` top-level files now scanned (`src/context-class.ts:1` covered); honest 51-file inventory |
 | config-path v2 fix | `src/i18n/en.json:84` — hint names `.opencode/tawassul.jsonc` with legacy `.json` accepted (matches `src/utils/path-resolver.ts:127`) |
 | docs v2 fix | `AGENTS.md:43` — entry sentence corrected to `Plugin.define` on the `Plugin` namespace |
 | verified N/A | timeline lone-newline on meta-only retry (identical in both trees, blank lines skipped on load); `warnCostOnce` is per-message/5-min rate-limited warn (identical both sides); schema-10000 cap is the gate on the only validated path |
+
+## S-026 review-round-3 findings — IMPLEMENTED on v2
+
+Four reviewer agents audited S-024/S-025. Verdict on the ports: safe to ship, every behavioral port is
+character-identical to the already-hardened v1. The real defects were in the enforcement layer and in
+my own documentation, so this entry is a gate-integrity round. Proven by `scripts/prove-rule-gate.ts` (29 assertions).
+
+| | Anchor |
+| --- | --- |
+| arabic gate v2 fix | `scripts/check-v2-rules.mjs:10` — the 63-word global scrub is deleted; Arabic is now allowed only in `ARABIC_ALLOWED_FILES` (7 exact paths). Kills the assembly bypass (text built only from allow-listed particles) and removes the incentive to append exceptions |
+| comment gate v2 fix | `scripts/check-v2-rules.mjs:20` — `startsWith` prefix matching replaced by anchored patterns (`(?:\s\|:--\|$)` boundaries); glued lookalikes such as `@ts-ignore-everything` are rejected; empty and star-only comments are rejected; dead `^#!` branch removed; `#__PURE__` dropped (zero usages) |
+| scope v2 fix | `scripts/check-v2-rules.mjs:58` — `.d.ts` files are scanned again (they were silently exempt) |
+| gate proof | `scripts/prove-rule-gate.ts:1` — 29 assertions: clean sources and legitimate directives accepted; comments, JSDoc, empty comments, glued directives, PURE-as-prose, Arabic literals in TS/JSON/d.ts and particle-assembled Arabic all rejected; path-exempt files still accepted |
+| docs v2 fix | `AGENTS.md:8` — directive shapes, the 7 path exemptions, and the gate's real scope (no `.md`/`.sh`/YAML) stated instead of the older over-broad claim |
+| docs v2 fix | `SHARED.md:450` — the unverifiable strip count replaced with a machine-checked invariant; Arabic token lists replaced by English descriptions |
+| verified N/A | non-literal Arabic identifiers are not scanned (TS AST literal walk); recorded as a known limitation inside the proof rather than silently ignored; no such identifier exists in the tree |
+| verified N/A | `SHARED.md`, `AGENTS.md`, and all `.sh` files are outside the gate by design; reviewed manually and now free of Arabic |

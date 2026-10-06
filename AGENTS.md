@@ -7,9 +7,20 @@ It lives in its own folder and never overlaps with the v1 implementation.
 
 1. **English only.** All code, strings, tool descriptions, and docs are English.
    Arabic is forbidden. Enforced by `scripts/check-v2-rules.mjs` (`npm run check:rules`).
-2. **No comments in code.** Comments are forbidden, including JSDoc. Only
-   allow-listed compiler directives (`// @ts-expect-error`, `// @ts-ignore`,
-   `/* eslint-disable ... */`) are permitted. Enforced by the same checker.
+   Seven paths carry functional Arabic matchers or user-facing Arabic prompts and
+   are exempt by exact path (`ARABIC_ALLOWED_FILES`): the three rejection/phrase
+   matchers, `agent-add-helpers.ts`, `agent-management.ts`, `ask-channel-parse.ts`,
+   `consent-gate-guard.ts`, and `i18n/en.json`. Any new file needs an explicit
+   entry plus a reason; a global word allow-list is forbidden.
+2. **No comments in code.** Comments are forbidden, including JSDoc and empty
+   comments. Only these exact directive shapes are permitted: `// @ts-expect-error`,
+   `// @ts-ignore`, `/* eslint-disable ... */`, `// eslint-disable-next-line ... */`,
+   and `/* eslint-enable ... */` (an optional `:` or `--` reason may follow a
+   TypeScript directive; a glued prefix such as `@ts-ignore-everything` is
+   rejected). Enforced by the same checker and proven by `scripts/prove-rule-gate.ts`.
+3. **Gate scope.** The checker parses `.ts`, `.mjs`, and `.json` under `src/`,
+   `scripts/`, `tests/`, plus three root files. Shell, Markdown, and YAML are
+   outside its reach, so keep those English and comment-free by review, not by gate.
 
 ## Before any work
 
