@@ -480,3 +480,16 @@ my own documentation, so this entry is a gate-integrity round. Proven by `script
 | docs v2 fix | `SHARED.md:450` — the unverifiable strip count replaced with a machine-checked invariant; Arabic token lists replaced by English descriptions |
 | verified N/A | non-literal Arabic identifiers are not scanned (TS AST literal walk); recorded as a known limitation inside the proof rather than silently ignored; no such identifier exists in the tree |
 | verified N/A | `SHARED.md`, `AGENTS.md`, and all `.sh` files are outside the gate by design; reviewed manually and now free of Arabic |
+
+## S-027 S-022 closure re-verification (bilateral) — CLOSED, docs only
+
+V1 lesson D1/D13 (commit ed96a537) re-examined against the live V2 tree at V1's request.
+The sqlite-lessons row pair `SHARED.md:377` (problem half) + `SHARED.md:378` (verdict:
+verified absent, nothing to add) stands: no sqlite/SQL/DB references exist anywhere under
+`src/` (state persists via signed JSON envelopes; save-window retry/backoff at
+`src/services/state-persistence.ts:571`); the WAL/busy_timeout half already lives in the
+S-019 vendored script (`scripts/opencode-db-maintenance.sh:360`, `:405`). The V1-side
+audit register item (`v1/docs/ATOMIC-AUDIT-REGISTER.md:139`) concerns V1's own persist
+budget, not a V2 gap. Both sides agree S-022 is fully closed with zero remaining v2-todo
+rows; the exclusive-lock bun proof stays shelved for lack of a sqlite subject in V2
+sources. No code changed in this entry.
