@@ -27,8 +27,9 @@
     "prove:early-exit": "bun scripts/prove-pipeline-early-exit.ts",
     "prove:priming": "bun scripts/prove-store-priming.ts",
     "prove:s024": "bun scripts/prove-s024.ts",
+    "prove:s028": "bun scripts/prove-s028.ts",
     "prove:rules": "bun scripts/prove-rule-gate.ts",
-    "ci": "npm run verify && npm run check:config && npm run check:facts && npm run prove:gen-lock && npm run prove:gen-merge && npm run prove:roster-boundary && npm run prove:event-trust && npm run prove:web-ssrf && npm run prove:first-boot && npm run prove:disclosure && npm run prove:s020 && npm run prove:s021 && npm run prove:resurrection && npm run prove:early-exit && npm run prove:priming && npm run prove:s024 && npm run prove:rules",
+    "ci": "npm run verify && npm run check:config && npm run check:facts && npm run prove:gen-lock && npm run prove:gen-merge && npm run prove:roster-boundary && npm run prove:event-trust && npm run prove:web-ssrf && npm run prove:first-boot && npm run prove:disclosure && npm run prove:s020 && npm run prove:s021 && npm run prove:resurrection && npm run prove:early-exit && npm run prove:priming && npm run prove:s024 && npm run prove:rules && npm run prove:s028",
     "verify": "npm run check:rules && npm run check:shared && npm run check:sh && npm run typecheck && npm run build"
   },
   "devDependencies": {

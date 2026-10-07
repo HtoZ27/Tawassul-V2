@@ -1,3 +1,5 @@
+import { readFileSync, statSync } from "node:fs";
+
 export interface ModelCatalogEntry {
   id: string;
   suffix?: string;
@@ -101,6 +103,64 @@ export const KNOWN_MODEL_SUFFIXES: ReadonlySet<string> = new Set([
   ...Object.keys(MODEL_ALIASES),
   ...LEGACY_GOVERNED_SUFFIXES,
 ]);
+
+interface ProviderTokenCache {
+  path: string;
+  mtimeMs: number;
+  byProvider: Map<string, ReadonlySet<string>>;
+}
+
+let providerTokenCache: ProviderTokenCache | null = null;
+
+function readProviderTokenCache(): Map<string, ReadonlySet<string>> {
+  const home = process.env.HOME ?? "";
+  const path = process.env.TAWASSUL_MODELS_JSON ?? (home !== "" ? `${home}/.cache/opencode/models.json` : "");
+  if (path === "") return new Map();
+  let mtimeMs: number;
+  try {
+    const st = statSync(path);
+    if (!st.isFile()) return new Map();
+    mtimeMs = st.mtimeMs;
+  } catch {
+    return new Map();
+  }
+  if (providerTokenCache !== null && providerTokenCache.path === path && providerTokenCache.mtimeMs === mtimeMs) {
+    return providerTokenCache.byProvider;
+  }
+  const byProvider = new Map<string, ReadonlySet<string>>();
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, { models?: Record<string, unknown> }>;
+    for (const [provider, entry] of Object.entries(raw)) {
+      const models = entry?.models;
+      if (typeof models !== "object" || models === null) continue;
+      const tokens = new Set<string>();
+      for (const slug of Object.keys(models)) {
+        const lower = slug.toLowerCase();
+        tokens.add(lower);
+        for (const part of lower.split(/[-_.]+/)) {
+          if (part !== "") tokens.add(part);
+        }
+      }
+      byProvider.set(provider.toLowerCase(), tokens);
+    }
+  } catch {
+    return new Map();
+  }
+  providerTokenCache = { path, mtimeMs, byProvider };
+  return byProvider;
+}
+
+export function getProviderModelTokens(provider: string): ReadonlySet<string> {
+  return readProviderTokenCache().get(provider.trim().toLowerCase()) ?? new Set();
+}
+
+export function getAllProviderModelTokens(): ReadonlySet<string> {
+  const union = new Set<string>();
+  for (const tokens of readProviderTokenCache().values()) {
+    for (const t of tokens) union.add(t);
+  }
+  return union;
+}
 
 export function resolveModelAlias(alias: string): string | null {
   const trimmed = alias.trim().toLowerCase();

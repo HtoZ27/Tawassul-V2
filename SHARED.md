@@ -493,3 +493,20 @@ audit register item (`v1/docs/ATOMIC-AUDIT-REGISTER.md:139`) concerns V1's own p
 budget, not a V2 gap. Both sides agree S-022 is fully closed with zero remaining v2-todo
 rows; the exclusive-lock bun proof stays shelved for lack of a sqlite subject in V2
 sources. No code changed in this entry.
+
+## S-028 v1 commit ba3d7d8d provider-is-truth suffix gate — IMPLEMENTED on v2
+
+V1 ba3d7d8d makes the provider models cache the source of truth for compound-suffix
+governance (static set becomes fallback-only), lowercases model bindings at parse, and
+retires the seven ling-3.0 agent variants. Proven by `scripts/prove-s028.ts` (30 assertions).
+
+| | Anchor |
+| --- | --- |
+| gate v1 fix | `v1/core/model-registry.ts:243` — mtime-cached provider token cache (`TAWASSUL_MODELS_JSON` override), `getProviderModelTokens` plus `getAllProviderModelTokens`; static set fallback-only, missing cache degrades to static fail-closed |
+| gate v2 port | `src/core/model-registry.ts:153` — same cache and both getters, comment-free; `src/tools/agent-add-helpers.ts:157` — governed equals static union provider tokens of the binding's provider; `src/utils/agent.ts:36` — `resolveRole` accepts static union all-provider tokens (`v1/utils/agent.ts:49`) |
+| lowercase v1 fix | `v1/tools/agent-add-helpers.ts:163` + `:186` — model binding lowercased at both parse sites |
+| lowercase v2 port | `src/tools/agent-add-helpers.ts:118` — single parse site lowercased (V2 has one input pattern; V1's second Arabic-verb pattern predates this commit and stays unported under the English-only rule) |
+| retire v1 fix | seven `*-ling` agent names kicked in the V1 `deleted-agents.json` |
+| retire v2 port | `src/security-policy.ts:130` — same seven names in `DELETED_AGENTS` (enforced at add time plus guard boundary) |
+| variants | analyst-fledge, analyst-longcat, and analyst-ling-3.1-flash-free are runtime-created through addagent in V1 (first-try accepts through the new gate); V2 needs no generator change — the ported gate enables the same path |
+| skipped | V1 vitest files (resolve-role, agent-add-helpers) — covered by the bun proof instead; `opencode.json` regen plus dist/plugin/mcp bundles — build artifacts, V2 builds its own |

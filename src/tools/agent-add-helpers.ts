@@ -2,6 +2,7 @@ import { ALL_AGENTS } from "../agent-templates.ts";
 import { ROLE_NAMES } from "../core/agent-data.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 import { resolveModelAlias, MODEL_ALIASES, MODEL_CATALOG, KNOWN_MODEL_SUFFIXES } from "../services/proxy-models.ts";
+import { getProviderModelTokens } from "../core/model-registry.ts";
 import { buildCapabilitySummary } from "../core/capability-summary.ts";
 import { isGeneratedVariant } from "../core/variant-names.ts";
 import { levenshtein } from "../core/nlp.ts";
@@ -114,7 +115,7 @@ export function parseAddInput(input: string): { specs: string[]; model: string }
     }
     return {
       specs,
-      model: alias ?? (raw.includes("/") ? raw : `${provider}/${raw}`),
+      model: (alias ?? (raw.includes("/") ? raw : `${provider}/${raw}`)).toLowerCase(),
     };
   }
   return null;
@@ -152,7 +153,12 @@ export function validateAddInput(specs: string[], model: string): string | null 
     }
     const compound = parseCompoundSpec(spec);
     if (compound) {
-      if (!KNOWN_MODEL_SUFFIXES.has(compound.suffix.toLowerCase())) {
+      const suffixLower = compound.suffix.toLowerCase();
+      const providerOf = model.includes("/") ? model.split("/")[0]!.toLowerCase() : "";
+      const governed =
+        KNOWN_MODEL_SUFFIXES.has(suffixLower) ||
+        (providerOf !== "" && getProviderModelTokens(providerOf).has(suffixLower));
+      if (!governed) {
         return t("addagentCompoundInvalidSuffix", {
           spec,
           suffix: compound.suffix,

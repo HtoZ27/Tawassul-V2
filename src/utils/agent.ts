@@ -13,7 +13,7 @@ export function normalizeAgentName(name: string): string {
 
 
 import { ALL_AGENTS } from "../core/agent-data.ts";
-import { KNOWN_MODEL_SUFFIXES } from "../core/model-registry.ts";
+import { KNOWN_MODEL_SUFFIXES, getAllProviderModelTokens } from "../core/model-registry.ts";
 import { normalizeName } from "./name-utils.ts";
 import { logger } from "./logger.ts";
 
@@ -33,7 +33,8 @@ export function resolveRole(agent: string): string | null {
   if (dashIdx > 0) {
     const base = normalized.slice(0, dashIdx);
     const suffix = normalized.slice(dashIdx + 1);
-    if (AGENT_ROLE_MAP[base] && KNOWN_MODEL_SUFFIXES.has(suffix)) return AGENT_ROLE_MAP[base];
+    if (AGENT_ROLE_MAP[base] && (KNOWN_MODEL_SUFFIXES.has(suffix) || getAllProviderModelTokens().has(suffix)))
+      return AGENT_ROLE_MAP[base];
   }
   return null;
 }

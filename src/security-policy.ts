@@ -127,6 +127,13 @@ export const DELETED_AGENTS: ReadonlySet<string> = Object.freeze(
     "tester-kimi",
     "designer-kimi",
     "doc-kimi",
+    "analyst-ling",
+    "architect-ling",
+    "designer-ling",
+    "dev-ling",
+    "doc-ling",
+    "reviewer-ling",
+    "tester-ling",
   ]),
 ) as ReadonlySet<string>;
 
