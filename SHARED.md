@@ -545,3 +545,15 @@ and the census counts use the same effective list as the builder.
 | roster v2 state | `src/FACTS.md:6` — regenerated to the live roster (40 agents, 31 manifests); runtime pins sidecar records all 40 names as explicit choices; tawa permission spliced from the V2 template; runtime deleted file carries the 7 ling names |
 | proof v2 fix | `scripts/prove-s029.ts:77` — default generation excludes retired variants while an explicit empty list keeps everything; `scripts/prove-gen-merge-guards.ts:64` — pinned-drift assertion pins the whole live roster instead of one name |
 | skipped | V1 roster evolution itself (muse-1.3 heads predate this tree's generator) — adopted as pinned user choice, not re-templated |
+
+## S-031 documented install method (plugin entry) — IMPLEMENTED on v2
+
+The V1 plugin README documents the only supported load path: an installed package
+directory holding the built bundle plus declared dependencies (opencode runs the
+install itself at startup from the settings-dir `package.json`), with no `plugin:`
+entry in `opencode.json`. A `file:` entry was tried and removed as the wrong way.
+
+| | Anchor |
+| --- | --- |
+| entry v2 fix | `build-v2.mjs:56` — every build materializes `.opencode/plugin/tawassul.js` (copy of `dist/index.js`); runtime deps declared in the settings-dir manifest (`@opencode/plugin`, `zod`, `web-tree-sitter`) and installed once via `bun install --cwd .opencode` |
+| verified | clean host-runtime import of the entry with `id: tawassul` and no module-type warning; `npm run verify` and `check:config` green |

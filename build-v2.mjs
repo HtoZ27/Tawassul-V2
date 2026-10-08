@@ -1,5 +1,5 @@
 import { build } from "bun";
-import { rmSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { rmSync, existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, copyFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const outdir = "./dist";
@@ -51,3 +51,8 @@ if (existsSync(dtsTarget)) {
 }
 
 console.log(`Build complete: ${join(outdir, "index.js")}`);
+
+const pluginDir = join(".opencode", "plugin");
+mkdirSync(pluginDir, { recursive: true });
+copyFileSync(join(outdir, "index.js"), join(pluginDir, "tawassul.js"));
+console.log(`Plugin entry ready: ${join(pluginDir, "tawassul.js")} (run bun install --cwd .opencode once)`);
