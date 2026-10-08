@@ -510,3 +510,23 @@ retires the seven ling-3.0 agent variants. Proven by `scripts/prove-s028.ts` (30
 | retire v2 port | `src/security-policy.ts:130` — same seven names in `DELETED_AGENTS` (enforced at add time plus guard boundary) |
 | variants | analyst-fledge, analyst-longcat, and analyst-ling-3.1-flash-free are runtime-created through addagent in V1 (first-try accepts through the new gate); V2 needs no generator change — the ported gate enables the same path |
 | skipped | V1 vitest files (resolve-role, agent-add-helpers) — covered by the bun proof instead; `opencode.json` regen plus dist/plugin/mcp bundles — build artifacts, V2 builds its own |
+
+## S-029 v1 commit 015dc8e9 R7 variant pins, dispatch precedence, log default — IMPLEMENTED on v2
+
+V1 015dc8e9 extends R7 provenance to variants (auto-pin, loud failures, kick strips
+variant pins), gives deleted agents precedence in the distribution guard, allows dotted
+provider suffixes in the generator census, and restores default-on logging at a safe
+path. Proven by `scripts/prove-s029.ts` (21 assertions).
+
+| | Anchor |
+| --- | --- |
+| pins v1 fix | `v1/tools/agent-management.ts:307` — pure `computePinEntries` (base roles pin only off-head, variants always, errored specs excluded); kick strips variant pins; pins/undo failures loud via warnings |
+| pins v2 port | `src/tools/agent-management.ts:238` — same pure function, comment-free; `:285` — kick strips base roles and compounds; `:476` — exported `formatAddResult` surfaces warnings on all-skipped; `:828` — call site plus loud pins/undo failures |
+| precedence v1 fix | `v1/hooks/guards/dispatch-guards.ts:158` — deleted targets skipped so the precise deleted refusal wins over the same-specialty refusal |
+| precedence v2 port | `src/hooks/guards/dispatch-guards.ts:140` — same one-line skip |
+| suffix v1 fix | `v1/scripts/gen-opencode-config.ts:640` — dotted suffixes accepted for versioned provider ids |
+| suffix v2 port | `src/scripts/gen-opencode-config.ts:384` — same character class (plus a one-word export of `isKnownDynamicAgent` at `:377` for the proof) |
+| logpath v1 fix | `v1/utils/logger.ts:118` — default-on safe path under user-owned tree, empty string opts out |
+| logpath v2 port | `src/utils/logger.ts:100` — same default and opt-out semantics |
+| skipped | V1 vitest files (addagent-pins and the rest) — mirrored in the bun proof instead; docs consolidation (44 reports into inventories), `tawassul-pins.json` runtime state, d3-report eval harness, launcher flags, workspace `engines`, dist/mcp bundles — V1-host or build artifacts |
+| review | all 84 commit files dispositioned one by one: the 8 vitest files reviewed case-by-case (addagent-pins mirrored; logger default/opt-out covered hermetically; gen pins fixture is runtime state; scheduled/d3, launch-cap, bidi-guard, lifecycle-census, summary-SCOPED are V1-harness or already satisfied — iso `--backup-dir` predates at `scripts/opencode-v2-iso.sh:63`, db-isolation census delta is intentional with zero silent catches in V2, FACTS green via `check:facts`, no SCOPED roster exists in V2) |

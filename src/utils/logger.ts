@@ -95,7 +95,14 @@ function formatEntry(level: string, msg: string, data?: LogData): string {
 import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
-const LOG_FILE_PATH = process.env.TAWASSUL_LOG_FILE || "";
+const LOG_FILE_ENV = process.env.TAWASSUL_LOG_FILE;
+
+function defaultLogPath(): string {
+  const home = process.env.HOME ?? "";
+  if (!home || home === "/") return "";
+  return `${home}/.local/share/tawassul/tawassul.log`;
+}
+const LOG_FILE_PATH = LOG_FILE_ENV === undefined ? defaultLogPath() : LOG_FILE_ENV;
 
 
 

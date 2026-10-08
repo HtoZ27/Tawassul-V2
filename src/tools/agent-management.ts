@@ -235,6 +235,21 @@ async function loadPinnedAgents(ctx: TawassulContext): Promise<Set<string>> {
   }
 }
 
+export function computePinEntries(
+  specs: readonly string[],
+  errorTags: ReadonlySet<string>,
+  fullModel: string,
+): Array<{ name: string; pinned: boolean }> {
+  return specs
+    .map((s) => normalizeName(s))
+    .filter((n) => !errorTags.has(`@${n}`))
+    .filter((n) => BASE_ROLE_NAMES.has(n) || parseCompoundSpec(n) !== null)
+    .map((n) => ({
+      name: n,
+      pinned: parseCompoundSpec(n) !== null ? true : fullModel !== defaultAgentModelForRole(n),
+    }));
+}
+
 async function writeBaseRolePins(
   ctx: TawassulContext,
   entries: ReadonlyArray<{ name: string; pinned: boolean }>,
@@ -265,7 +280,9 @@ async function writeBaseRolePins(
 }
 
 async function removeBaseRolePins(ctx: TawassulContext, names: readonly string[]): Promise<void> {
-  const candidates = names.map((n) => normalizeName(n)).filter((n) => BASE_ROLE_NAMES.has(n));
+  const candidates = names
+    .map((n) => normalizeName(n))
+    .filter((n) => BASE_ROLE_NAMES.has(n) || parseCompoundSpec(n) !== null);
   if (candidates.length === 0) return;
   const path = pinsPath(ctx);
   let raw: string;
@@ -456,7 +473,7 @@ async function executeAddAll(ctx: TawassulContext, specs: string[], fullModel: s
   return result;
 }
 
-function formatAddResult(result: AddResult): string {
+export function formatAddResult(result: AddResult): string {
   const lines: string[] = [];
   if (result.added.length > 0) {
     lines.push(t("addagentAdded", { count: String(result.added.length) }));
@@ -476,7 +493,8 @@ function formatAddResult(result: AddResult): string {
     lines.push(t("addagentErrors", { list: result.errors.join(", ") }));
   }
   if (result.added.length === 0 && result.skipped.length > 0 && result.errors.length === 0) {
-    return t("addagentAllSkipped", { list: result.skipped.join(", ") });
+    const warnLines = (result.warnings ?? []).map((w) => `⚠️ ${w}`);
+    return [t("addagentAllSkipped", { list: result.skipped.join(", ") }), ...warnLines].join("\n");
   }
   if (result.skipped.length > 0) {
     lines.push(t("addagentSkipped", { list: result.skipped.join(", ") }));
@@ -802,22 +820,21 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
               await unpersistDeletedAgents(ctx, variantUndo);
             });
           } catch (e) {
-            logger.warn("addagent: failed to undo deletion list entry:", e);
+            const msg = `addagent: failed to undo deletion list entry (${variantUndo.join(", ")}) — the variant stays in deleted-agents.json and regen will skip it; re-run the same addagent line to repair: ${(e as Error).message}`;
+            logger.warn(msg, e);
+            (result.warnings ??= []).push(msg);
           }
         }
-        const errorTags = new Set(result.errors);
-        const baseEntries = parsed.specs
-          .map((s) => normalizeName(s))
-          .filter((n) => !errorTags.has(`@${n}`))
-          .filter((n) => BASE_ROLE_NAMES.has(n))
-          .map((n) => ({ name: n, pinned: fullModel !== defaultAgentModelForRole(n) }));
-        if (baseEntries.length > 0) {
+        const pinEntries = computePinEntries(parsed.specs, new Set(result.errors), fullModel);
+        if (pinEntries.length > 0) {
           try {
             await withConfigWriteLock(ctx, async () => {
-              await writeBaseRolePins(ctx, baseEntries);
+              await writeBaseRolePins(ctx, pinEntries);
             });
           } catch (e) {
-            logger.warn("addagent: failed to update base-role pins:", e);
+            const msg = `addagent: failed to record pins (${pinEntries.map((p) => p.name).join(", ")}) — re-run the same addagent line to repair: ${(e as Error).message}`;
+            logger.warn(msg, e);
+            (result.warnings ??= []).push(msg);
           }
         }
       }

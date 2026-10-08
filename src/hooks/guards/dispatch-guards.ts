@@ -137,6 +137,7 @@ export const sameRoleDistributionGuard = guard("same-role-distribution", (_ctx, 
   const callerRole = resolveRole(caller) ?? caller;
   for (const target of targets) {
     if (target === "tawa" || target === "explore" || target === "general") continue;
+    if (SecurityPolicy.checkDeletedAgent(target)) continue;
     const targetRole = resolveRole(target) ?? target;
     if (callerRole && callerRole === targetRole)
       return `🚫 Agent "${input.agent}" cannot dispatch to "${target}" — same specialty "${callerRole}". Use @tawa for distribution.`;

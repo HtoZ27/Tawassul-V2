@@ -374,14 +374,14 @@ function grantRolePluginTools(agents: Record<string, AgentConfig>): void {
   }
 }
 
-function isKnownDynamicAgent(name: string): boolean {
+export function isKnownDynamicAgent(name: string): boolean {
   const idx = name.indexOf("-");
   if (idx < 1 || idx >= name.length - 1) return false;
   const base = name.slice(0, idx);
   const suffix = name.slice(idx + 1);
   if (!EXTEND_AGENTS.includes(base)) return false;
   if (resolveModelAlias(suffix) !== null || suffix in MODEL_ALIASES) return true;
-  return /^[a-z0-9][a-z0-9-]*$/i.test(suffix);
+  return /^[a-z0-9][a-z0-9.-]*$/i.test(suffix);
 }
 
 export function collectBaseRegistry(
