@@ -530,3 +530,18 @@ path. Proven by `scripts/prove-s029.ts` (21 assertions).
 | logpath v2 port | `src/utils/logger.ts:100` — same default and opt-out semantics |
 | skipped | V1 vitest files (addagent-pins and the rest) — mirrored in the bun proof instead; docs consolidation (44 reports into inventories), `tawassul-pins.json` runtime state, d3-report eval harness, launcher flags, workspace `engines`, dist/mcp bundles — V1-host or build artifacts |
 | review | all 84 commit files dispositioned one by one: the 8 vitest files reviewed case-by-case (addagent-pins mirrored; logger default/opt-out covered hermetically; gen pins fixture is runtime state; scheduled/d3, launch-cap, bidi-guard, lifecycle-census, summary-SCOPED are V1-harness or already satisfied — iso `--backup-dir` predates at `scripts/opencode-v2-iso.sh:63`, db-isolation census delta is intentional with zero silent catches in V2, FACTS green via `check:facts`, no SCOPED roster exists in V2) |
+
+## S-030 local roster adoption plus generation-layer retire — IMPLEMENTED on v2
+
+The live `opencode.json` carries the V1 roster (40 agents, muse-1.3 heads, fledge/longcat/ling-3.1
+variants) instead of a fresh regen. Aligned it with V2's own gates rather than regenerating:
+the S-028 retire is now honored at generation time too, off-head models are recorded as pins,
+and the census counts use the same effective list as the builder.
+
+| | Anchor |
+| --- | --- |
+| retire-gen v2 fix | `src/scripts/gen-opencode-config.ts:284` — `unionDeletedVariants` unions the static `DELETED_AGENTS` shape-valid retires into the default deletion list, so retired variants stay ungenerated on fresh checkouts (explicit lists keep exact legacy semantics) |
+| census v2 fix | `src/scripts/gen-opencode-config.ts:838` + `:853` — both regen count gates derive expectations from the same union the builder uses (a file-only census against a union-built roster fails loud) |
+| roster v2 state | `src/FACTS.md:6` — regenerated to the live roster (40 agents, 31 manifests); runtime pins sidecar records all 40 names as explicit choices; tawa permission spliced from the V2 template; runtime deleted file carries the 7 ling names |
+| proof v2 fix | `scripts/prove-s029.ts:77` — default generation excludes retired variants while an explicit empty list keeps everything; `scripts/prove-gen-merge-guards.ts:64` — pinned-drift assertion pins the whole live roster instead of one name |
+| skipped | V1 roster evolution itself (muse-1.3 heads predate this tree's generator) — adopted as pinned user choice, not re-templated |

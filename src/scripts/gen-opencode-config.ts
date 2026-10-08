@@ -4,7 +4,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { BASH_READ_ONLY } from "../permissions.ts";
 import { TAWASSUL_TOOL_NAMES } from "../tool-names.ts";
-import { BLOCKED_TOOLS, TAWA_AGENT, getAllowedToolsForRole } from "../security-policy.ts";
+import { BLOCKED_TOOLS, TAWA_AGENT, DELETED_AGENTS, getAllowedToolsForRole } from "../security-policy.ts";
 import { ALL_AGENTS, ROLE_NAMES } from "../core/agent-data.ts";
 import { MODEL_SUFFIX_MAP, isGeneratedVariant, RETIRED_MODEL_IDS, LEGACY_UNIFIED_HEAD } from "../core/variant-names.ts";
 import { resolveModelAlias, MODEL_ALIASES } from "../services/proxy-models.ts";
@@ -281,6 +281,10 @@ export function validateDeletedList(deleted: readonly string[], extend: readonly
   }
 }
 
+export function unionDeletedVariants(base: readonly string[]): string[] {
+  return [...new Set([...base, ...[...DELETED_AGENTS].filter((n) => isGeneratedVariant(n, EXTEND_AGENTS))])];
+}
+
 export function derivedExpectedCount(deleted: readonly string[]): number {
   return EXPECTED_AGENT_COUNT - new Set(deleted.filter((n) => isGeneratedVariant(n, EXTEND_AGENTS))).size;
 }
@@ -498,7 +502,7 @@ function escapeRegex(pattern: string): string {
 export function buildAgents(deleted?: readonly string[], opts?: GenOptions): Record<string, AgentConfig> {
   const paths = opts?.projectRoot ? resolveGenPaths(opts.projectRoot) : getDefaultPaths();
   const agentsDir = opts?.agentsDir ?? paths.agentsDir;
-  const deletedList = [...new Set(deleted ?? readDeletedAgents(opts?.deletedPath ?? paths.deletedPath))];
+  const deletedList = deleted ?? unionDeletedVariants(readDeletedAgents(opts?.deletedPath ?? paths.deletedPath));
   validateDeletedList(deletedList);
   assertBaseRegistrySync(agentsDir, deletedList);
 
@@ -831,7 +835,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const deleted = readDeletedAgents(paths.deletedPath);
+  const deleted = unionDeletedVariants(readDeletedAgents(paths.deletedPath));
   const agents = buildAgents(deleted, opts);
   const count = Object.keys(agents).length;
   const expected = derivedExpectedCount(deleted);
@@ -846,7 +850,7 @@ async function main(): Promise<void> {
   }
 
   const locked = await withCliConfigLock(dirname(paths.configPath), async () => {
-    const deletedIn = readDeletedAgents(paths.deletedPath);
+    const deletedIn = unionDeletedVariants(readDeletedAgents(paths.deletedPath));
     const agentsIn = buildAgents(deletedIn, opts);
     const countIn = Object.keys(agentsIn).length;
     const expectedIn = derivedExpectedCount(deletedIn);

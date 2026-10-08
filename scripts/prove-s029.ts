@@ -6,6 +6,7 @@ import { computePinEntries, formatAddResult } from "../src/tools/agent-managemen
 import { defaultAgentModelForRole } from "../src/services/proxy-fallback-chains.ts";
 import { sameRoleDistributionGuard, deletedAgentGuard } from "../src/hooks/guards/dispatch-guards.ts";
 import { isKnownDynamicAgent } from "../src/scripts/gen-opencode-config.ts";
+import { buildAgents } from "../src/scripts/gen-opencode-config.ts";
 import type { Ctx, Input, StageOutput } from "../src/hooks/guards/shared/types.ts";
 
 let passed = 0;
@@ -73,6 +74,8 @@ assert(isKnownDynamicAgent("analyst-ling-3.1-flash-free"), "dotted provider suff
 assert(isKnownDynamicAgent("analyst-ling"), "plain suffix accepted");
 assert(!isKnownDynamicAgent("analyst-evil!"), "invalid characters rejected");
 assert(!isKnownDynamicAgent("analyst"), "base name without suffix rejected");
+assert(buildAgents()["analyst-ling"] === undefined, "retired variants excluded from default generation");
+assert(buildAgents([])["analyst-ling"] !== undefined, "explicit empty deletion list keeps every variant");
 
 const root = mkdtempSync(join(tmpdir(), "s029-"));
 function runLoggerChild(extraEnv: Record<string, string>, dropKeys: string[] = []): number {
@@ -102,4 +105,4 @@ function runLoggerChild(extraEnv: Record<string, string>, dropKeys: string[] = [
   assert(!existsSync(join(home, ".local", "share", "tawassul", "tawassul.log")), "empty variable opts the sink out");
 }
 
-console.log(`PROOF PASS: s029 pins, dispatch precedence, dynamic suffix, log default (${passed} assertions)`);
+console.log(`PROOF PASS: s029 pins, dispatch precedence, dynamic suffix, log default, retire census (${passed} assertions)`);

@@ -61,7 +61,7 @@ async function proveHybridPins(): Promise<void> {
     if (!(refused.diff ?? "").includes("pins sidecar")) fail("unpinned drift message missing pins sidecar hint");
     console.log("A5-hybrid unpinned-drift-fails ok");
     const withPins = join(dir, "pins-analyst.json");
-    writeFileSync(withPins, JSON.stringify({ pinned: ["analyst"] }), "utf-8");
+    writeFileSync(withPins, JSON.stringify({ pinned: Object.keys(live.agent) }), "utf-8");
     const allowed = checkGeneratedConfig(raw, { projectRoot: dir, pinsPath: withPins });
     if (!allowed.ok) fail(`pinned drift must pass: ${allowed.diff ?? ""}`);
     console.log("A5-hybrid pinned-drift-passes ok");
