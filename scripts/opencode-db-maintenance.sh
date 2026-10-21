@@ -348,6 +348,20 @@ fi
 echo "→ backup verified (quick_check=ok, sessions=$BKP_SESSIONS)"
 ls -1t "$BACKUP_DIR"/opencode-*.db 2>/dev/null | tail -n +$((KEEP_BACKUPS + 1)) | xargs -r rm -f --
 
+_GEN_GUARD="$(cd "$(dirname "$0")" && pwd -P)/guard-db-generation.sh"
+if [ ! -x "$_GEN_GUARD" ]; then
+  echo "❌ generation guard missing at $_GEN_GUARD — refusing mutations (backup is complete)." >&2
+  exit 2
+fi
+_grc=0; _gout=""
+_gout="$("$_GEN_GUARD" --db "$DB_PATH" --expect v2 2>&1)" || _grc=$?
+if [ "$_grc" -ne 0 ]; then
+  echo "⛔ mutations skipped: generation guard refused (rc=$_grc) — $DB_PATH" >&2
+  echo "   The verified backup above is kept. Prune/VACUUM were NOT run: this DB is not proven V2." >&2
+  exit 2
+fi
+echo "→ generation guard: ok (V2) — mutations allowed"
+
 # ── prune old messages+parts (sessions untouched) ─────────────────────────────
 if [ "$PRUNE_DAYS" -gt 0 ]; then
   CUTOFF="$(date -d "now -${PRUNE_DAYS} days" +%s)"

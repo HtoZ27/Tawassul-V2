@@ -4,7 +4,13 @@ import { access, rename, copyFile, unlink, readdir, rmdir, stat, readFile } from
 import { join, dirname, basename } from "node:path";
 import { createHash } from "node:crypto";
 import { t } from "../../translations.ts";
-import { HandoffEntrySchema, RecordEntrySchema, StateSchema } from "../../validation.ts";
+import {
+  DiscussionSchema,
+  EvidencedDiscussionSchema,
+  HandoffEntrySchema,
+  RecordEntrySchema,
+  StateSchema,
+} from "../../validation.ts";
 import { migrateStateData, isFreeOfPrototypePollution, replaceLegacyEncryptedFields } from "../migration.ts";
 import { MAX_DYNAMIC_AGENTS_DEFAULT, STATE_VERSION } from "../constants.ts";
 import { wrapWithHmac, unwrapWithHmac } from "../../utils/crypto.ts";
@@ -146,9 +152,15 @@ export class StateManager {
     timestamp: string;
     droppedRecords: number;
     droppedHandoffs: number;
+    droppedDiscussions: number;
+    droppedEvidenced: number;
     recordIds: string[];
     handoffIds: string[];
+    discussionIds: string[];
+    evidencedIds: string[];
   }> = [];
+
+  private static readonly _quarantineCopies = new Set<string>();
 
   
   private lockName(): string {
@@ -348,7 +360,16 @@ export class StateManager {
       patchingDecisions?: unknown;
       prb?: unknown;
     };
-    const jsonPayload = JSON.stringify(hmacData);
+    let baseExists = false;
+    try {
+      await access(fp);
+      baseExists = true;
+    } catch {
+
+    }
+
+    const checked = await this.validateBeforeSave(hmacData, fp);
+    const jsonPayload = JSON.stringify(checked);
 
     
     if (this._lastWrittenJson.get(fp) === this.cmpKey(fp, jsonPayload)) {
@@ -365,13 +386,6 @@ export class StateManager {
       return true;
     }
 
-    let baseExists = false;
-    try {
-      await access(fp);
-      baseExists = true;
-    } catch {
-
-    }
     if (!baseExists) {
       await this.writeFullSave(fp, jsonPayload, signedPayload);
       return true;
@@ -438,43 +452,65 @@ export class StateManager {
   }
 
   
-  sanitizeStateData(
-    data: Record<string, unknown>,
-  ): { data: Record<string, unknown>; droppedRecords: number; droppedHandoffs: number } | null {
-    const hasRecords = "records" in data;
-    const hasHandoffs = "handoffs" in data;
-    const rawRecords = Array.isArray(data.records) ? (data.records as unknown[]) : [];
-    const rawHandoffs = Array.isArray(data.handoffs) ? (data.handoffs as unknown[]) : [];
-    const validRecords = rawRecords.filter((r) => RecordEntrySchema.safeParse(r).success);
-    const validHandoffs = rawHandoffs.filter((h) => HandoffEntrySchema.safeParse(h).success);
-    const shapeBrokenRecords = hasRecords && !Array.isArray(data.records) ? 1 : 0;
-    const shapeBrokenHandoffs = hasHandoffs && !Array.isArray(data.handoffs) ? 1 : 0;
-    const droppedRecords = rawRecords.length - validRecords.length + shapeBrokenRecords;
-    const droppedHandoffs = rawHandoffs.length - validHandoffs.length + shapeBrokenHandoffs;
-    const healed: Record<string, unknown> = { ...data, records: validRecords, handoffs: validHandoffs };
-    if (droppedRecords === 0 && droppedHandoffs === 0) return null;
+  sanitizeStateData(data: Record<string, unknown>): {
+    data: Record<string, unknown>;
+    droppedRecords: number;
+    droppedHandoffs: number;
+    droppedDiscussions: number;
+    droppedEvidenced: number;
+  } | null {
+    const droppedIds = (arr: unknown[], schema: { safeParse: (v: unknown) => { success: boolean } }): string[] =>
+      arr
+        .filter((e) => !schema.safeParse(e).success)
+        .map((e) => (e as { id?: unknown } | null)?.id)
+        .filter((id): id is string => typeof id === "string");
 
-    const recordIds = rawRecords
-      .filter((r) => !RecordEntrySchema.safeParse(r).success)
-      .map((r) => (r as { id?: unknown } | null)?.id)
-      .filter((id): id is string => typeof id === "string");
-    const handoffIds = rawHandoffs
-      .filter((h) => !HandoffEntrySchema.safeParse(h).success)
-      .map((h) => (h as { id?: unknown } | null)?.id)
-      .filter((id): id is string => typeof id === "string");
+    const section = (
+      key: string,
+      schema: { safeParse: (v: unknown) => { success: boolean } },
+    ): { kept: unknown[]; dropped: number; ids: string[] } => {
+      const raw = Array.isArray(data[key]) ? (data[key] as unknown[]) : [];
+      const kept = raw.filter((e) => schema.safeParse(e).success);
+      const shapeBroken = key in data && !Array.isArray(data[key]) ? 1 : 0;
+      return { kept, dropped: raw.length - kept.length + shapeBroken, ids: droppedIds(raw, schema) };
+    };
+
+    const records = section("records", RecordEntrySchema);
+    const handoffs = section("handoffs", HandoffEntrySchema);
+    const discussions = section("discussions", DiscussionSchema);
+    const evidenced = section("evidencedDiscussions", EvidencedDiscussionSchema);
+    const total = records.dropped + handoffs.dropped + discussions.dropped + evidenced.dropped;
+    if (total === 0) return null;
+
+    const healed: Record<string, unknown> = { ...data, records: records.kept, handoffs: handoffs.kept };
+    if ("discussions" in data) healed.discussions = discussions.kept;
+    if ("evidencedDiscussions" in data) healed.evidencedDiscussions = evidenced.kept;
 
     this._quarantineAudit.push({
       timestamp: new Date().toISOString(),
-      droppedRecords,
-      droppedHandoffs,
-      recordIds,
-      handoffIds,
+      droppedRecords: records.dropped,
+      droppedHandoffs: handoffs.dropped,
+      droppedDiscussions: discussions.dropped,
+      droppedEvidenced: evidenced.dropped,
+      recordIds: records.ids,
+      handoffIds: handoffs.ids,
+      discussionIds: discussions.ids,
+      evidencedIds: evidenced.ids,
     });
     logger.warn(
-      `[tawassul] Quarantine audit: dropped ${droppedRecords} invalid record(s) [${recordIds.join(", ")}] and ${droppedHandoffs} invalid handoff(s) [${handoffIds.join(", ")}]`,
+      `[tawassul] Quarantine audit: dropped ${records.dropped} record(s) [${records.ids.join(", ")}], ` +
+        `${handoffs.dropped} handoff(s) [${handoffs.ids.join(", ")}], ` +
+        `${discussions.dropped} discussion(s) [${discussions.ids.join(", ")}] and ` +
+        `${evidenced.dropped} evidenced discussion(s) [${evidenced.ids.join(", ")}]`,
     );
 
-    return { data: healed, droppedRecords, droppedHandoffs };
+    return {
+      data: healed,
+      droppedRecords: records.dropped,
+      droppedHandoffs: handoffs.dropped,
+      droppedDiscussions: discussions.dropped,
+      droppedEvidenced: evidenced.dropped,
+    };
   }
 
   
@@ -482,10 +518,52 @@ export class StateManager {
     timestamp: string;
     droppedRecords: number;
     droppedHandoffs: number;
+    droppedDiscussions: number;
+    droppedEvidenced: number;
     recordIds: string[];
     handoffIds: string[];
+    discussionIds: string[];
+    evidencedIds: string[];
   }> {
     return [...this._quarantineAudit];
+  }
+
+  private async quarantineCopy(fp: string): Promise<void> {
+    try {
+      if (isIsolationActiveSync()) return;
+      let st;
+      try {
+        st = await stat(fp);
+      } catch {
+        return;
+      }
+      const key = `${fp}:${st.mtimeMs}`;
+      if (StateManager._quarantineCopies.has(key)) return;
+      StateManager._quarantineCopies.add(key);
+      if (StateManager._quarantineCopies.size > 256) {
+        const oldest = StateManager._quarantineCopies.values().next().value;
+        if (oldest !== undefined) StateManager._quarantineCopies.delete(oldest);
+      }
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const dest = `${fp}.quarantine-${stamp}`;
+      await copyFile(fp, dest);
+      logger.warn(`[tawassul] Quarantine copy preserved: ${dest}`);
+    } catch (e) {
+      logger.warn(`[tawassul] Quarantine copy failed for ${fp} (healing continues):`, e);
+    }
+  }
+
+  async validateBeforeSave(data: Record<string, unknown>, fp?: string): Promise<Record<string, unknown>> {
+    if (this.validateStateData(data).valid) return data;
+    const healed = this.sanitizeStateData(data);
+    if (!healed) return data;
+    if (fp) await this.quarantineCopy(fp);
+    logger.warn(
+      `[tawassul] State write healed before persist: dropped ${healed.droppedRecords} record(s), ` +
+        `${healed.droppedHandoffs} handoff(s), ${healed.droppedDiscussions} discussion(s), ` +
+        `${healed.droppedEvidenced} evidenced discussion(s)`,
+    );
+    return healed.data;
   }
 
   
@@ -532,8 +610,11 @@ export class StateManager {
       
       const sanitized = this.sanitizeStateData(migratedData);
       if (sanitized) {
+        await this.quarantineCopy(path);
         logger.warn(
-          `State self-healed: dropped ${sanitized.droppedRecords} invalid record(s) and ${sanitized.droppedHandoffs} invalid handoff(s)`,
+          `State self-healed: dropped ${sanitized.droppedRecords} invalid record(s), ` +
+            `${sanitized.droppedHandoffs} invalid handoff(s), ${sanitized.droppedDiscussions} discussion(s) ` +
+            `and ${sanitized.droppedEvidenced} evidenced discussion(s)`,
         );
         const healedValidation = this.validateStateData(sanitized.data);
         if (healedValidation.valid) return healedValidation.sanitized;

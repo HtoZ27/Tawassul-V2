@@ -90,6 +90,7 @@ export class BackgroundCoordinator {
     
     
     
+    const period = this.config.checkIntervalMs + Math.floor(Math.random() * this.config.checkIntervalMs * 0.1);
     this.intervalId = this.timers
       ? this.timers.setInterval(() => {
         if (this._ticking) return;
@@ -99,7 +100,7 @@ export class BackgroundCoordinator {
           .finally(() => {
             this._ticking = false;
           });
-      }, this.config.checkIntervalMs)
+      }, period)
       : setInterval(() => {
         if (this._ticking) return;
         this._ticking = true;
@@ -108,7 +109,7 @@ export class BackgroundCoordinator {
           .finally(() => {
             this._ticking = false;
           });
-      }, this.config.checkIntervalMs);
+      }, period);
     if (this.intervalId?.unref) this.intervalId.unref();
 
     logger.info(`[background-coordinator] Started with ${this.jobs.size} jobs`);

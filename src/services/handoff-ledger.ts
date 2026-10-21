@@ -1,6 +1,7 @@
 import { appendFile, mkdir, access } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { logger } from "../utils/logger.ts";
+import { quietValue, QUIET_LEDGER_FLUSH_MS } from "../utils/quiet.ts";
 import { isIsolationActiveSync } from "./isolation.ts";
 import type { TimerManagerLike } from "../types/timer-types.ts";
 
@@ -53,10 +54,11 @@ export class HandoffLedger {
     const runFlush = () => {
       this.flush().catch((e) => logger.warn("[tawassul] handoff ledger flush failed:", e));
     };
+    const delay = quietValue(QUIET_LEDGER_FLUSH_MS, HandoffLedger.FLUSH_INTERVAL_MS);
     this.flushTimer = this.timers
-      ? this.timers.setTimeout(runFlush, HandoffLedger.FLUSH_INTERVAL_MS)
+      ? this.timers.setTimeout(runFlush, delay)
       : (() => {
-          const t = setTimeout(runFlush, HandoffLedger.FLUSH_INTERVAL_MS);
+          const t = setTimeout(runFlush, delay);
           if (t?.unref) t.unref();
           return t;
         })();

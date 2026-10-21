@@ -37,7 +37,14 @@ mkdir -p "$(dirname "$V2_DB")"
 export OPENCODE_DB="$V2_DB"
 
 if [ -x "$GUARD" ]; then
-  "$GUARD" --db "$V2_DB" --expect v2 || exit 2
+  _grc=0
+  "$GUARD" --db "$V2_DB" --expect v2 || _grc=$?
+  case "$_grc" in
+    0) ;;
+    2) echo "opencode-v2-iso: generation guard refused the target DB (rc=2)." >&2; exit 2 ;;
+    3) echo "opencode-v2-iso: generation probe failed (rc=3) — refusing to launch unguarded." >&2; exit 3 ;;
+    *) echo "opencode-v2-iso: generation guard failed unexpectedly (rc=$_grc)." >&2; exit "$_grc" ;;
+  esac
 else
   echo "opencode-v2-iso: guard missing at $GUARD — refusing to launch unguarded." >&2
   exit 2

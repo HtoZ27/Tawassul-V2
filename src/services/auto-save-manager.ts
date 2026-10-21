@@ -1,6 +1,7 @@
 
 
 import { logger } from "../utils/logger.ts";
+import { quietValue, QUIET_AUTO_SAVE_INTERVAL_MS } from "../utils/quiet.ts";
 
 const AUTO_SAVE_INTERVAL_MS = 15 * 60 * 1000; 
 const RETRY_DELAY_MS = 200;
@@ -31,10 +32,12 @@ export class AutoSaveManager {
       }
       this.triggerSave();
     };
+    const base = quietValue(QUIET_AUTO_SAVE_INTERVAL_MS, AUTO_SAVE_INTERVAL_MS);
+    const period = base + Math.floor(Math.random() * base * 0.1);
     this.interval = this.timers
-      ? this.timers.setInterval(fn, AUTO_SAVE_INTERVAL_MS)
+      ? this.timers.setInterval(fn, period)
       : (() => {
-          const t = setInterval(fn, AUTO_SAVE_INTERVAL_MS);
+          const t = setInterval(fn, period);
           if (t?.unref) t.unref();
           return t;
         })();

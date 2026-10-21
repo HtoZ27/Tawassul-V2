@@ -249,7 +249,7 @@ const SolutionSchema = z.object({
   selectedAt: z.string(),
 });
 
-const DiscussionSchema = z.object({
+export const DiscussionSchema = z.object({
   id: z.string(),
   phase: z.enum(["collecting", "proposing", "voting", "dividing", "completed"]),
   errors: z.array(DiscussionErrorSchema),
@@ -315,7 +315,7 @@ const EvidenceResultSchema = z.object({
   verificationsCount: z.number(),
 });
 
-const EvidencedDiscussionSchema = z.object({
+export const EvidencedDiscussionSchema = z.object({
   id: z.string(),
   phase: z.enum(["gathering", "verifying", "challenging", "completed"]),
   receipts: z.array(ToolReceiptSchema),

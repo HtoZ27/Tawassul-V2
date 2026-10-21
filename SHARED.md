@@ -557,3 +557,120 @@ entry in `opencode.json`. A `file:` entry was tried and removed as the wrong way
 | --- | --- |
 | entry v2 fix | `build-v2.mjs:56` — every build materializes `.opencode/plugin/tawassul.js` (copy of `dist/index.js`); runtime deps declared in the settings-dir manifest (`@opencode/plugin`, `zod`, `web-tree-sitter`) and installed once via `bun install --cwd .opencode` |
 | verified | clean host-runtime import of the entry with `id: tawassul` and no module-type warning; `npm run verify` and `check:config` green |
+
+## S-032 stale project-scope plugin copy wins D4 registration and supersedes every later build — IMPLEMENTED on v2
+
+The desktop app restores previously active workspaces at boot and can load several project-scope plugin copies into one server process. D4 grants registration to the first copy loaded per process (same pid, same scope, different token yields); every other copy stays inert for tools and hooks. On 2026-10-20T18:53:19.260Z the plugin log recorded a duplicate: an Oct 8 copy under another project (dart22222222) had already registered before the current v1 build, so its stale feature set governed every session in that process — including the n2Auto hook the cold-boot measurement depends on, which it did not contain. All eight other Desktop project copies on this machine were refreshed to the current v1 bundle (md5 f7600b74b43af2dc60ef77a9b19a9d1b); the copy under this project is still the Oct 8 build (md5 7a25d04016465321d700116ebcf84f0c) and is the only stale copy left. Per user decision v2 owns this fix.
+
+Required on v2:
+1. Port the current v1 cross-cutting hook set (at minimum n2-auto; the v2 tree currently ships zero n2Auto occurrences across src, dist and the entry) through the existing pipeline, never hand-editing the entry (S-031).
+2. Rebuild so `.opencode/plugin/tawassul.js` is a fresh materialization and prove `grep -c n2Auto` on it is nonzero.
+3. Run `npm run verify` (it chains `check:shared`) and commit in the usual S-entry style.
+4. After the next app boot, inspect the tawassul plugin log lines containing `Duplicate plugin instance detected` and confirm no Oct-8-era copy wins the process.
+
+| | Anchor |
+| --- | --- |
+| v1 race | `v1/core/install-scope.ts:84` — `claimCoexistence` decides ownership per process before any hook registers |
+| v1 refusal | `v1/core/install-scope.ts:100` — same-scope second token gets the `already registered` refusal |
+| v1 warning | `v1/bootstrap/plugin-init.ts:440` — the losing copy logs the duplicate warning |
+| v1 hook | `v1/hooks/n2-auto.ts:27` — `n2AutoLogPath` of the hook a stale winner lacks |
+| v2 hook fix | `src/hooks/n2-auto.ts:30` — `createN2AutoHook` present (one record per process, bounded rotation) |
+| v2 hook wiring | `src/bootstrap/hooks-registration.ts:455` + `src/bootstrap/plugin-init.ts:996` — factory and event call site |
+| v2 artifact | `.opencode/plugin/tawassul.js:1` — rebuilt materialization; `grep -c n2Auto` = 5 |
+| v2 build path | `build-v2.mjs:56` — every build materializes the entry from `dist/index.js` |
+| v2 gate | `package.json:34` — `verify` chains rules, shared anchors, sh, typecheck, build |
+| v2 status | implemented 2026-10-20; `npm run verify` + `check:config` + `check:facts` green; post-boot duplicate-winner check still pending the next app boot |
+
+## S-033 cold-boot launch wave (M0–M2) — v1 `591d7418` + working tree — PARTIALLY IMPLEMENTED on v2 (plugin-side); launcher/installer/self-bootstrap skipped
+
+Launch-side fixes for the boot stall: CLI watcher policy shim (D1), slow-storage probe with named reasons (D7), quiet mode resolved env>pinned>auto with forced quiet on home-as-project (M2.3/D6), autoupdate pin feature-detect (M2.5), a global launcher layer with a loud repo-shim fallback (M1.3/D4), and the self-bootstrap staged per plan §12 (repair-only `--refresh-launchers` spawn — refresh writes launchers only, never pinned.env/units — async spawn error listener, marker-before-spawn) (D4). State side: write-behind timers and first-save quarantine silence (D5), full init profile (M2.2), and logger text lines get an ISO stamp. V2 required: port the plugin-side pieces below through the normal pipeline; the launcher/installer scripts are v1-host — port or record as skipped.
+
+| | Anchor |
+| --- | --- |
+| forced quiet | `v1/utils/quiet.ts:32` — `forceQuietMode(reason)` consumed on the live path |
+| quiet resolution | `v1/utils/quiet.ts:60` — `quietModeEnabled()` env>pinned>auto |
+| home-as-project | `v1/utils/quiet.ts:47` — `isHomeProject(directory)` |
+| self-bootstrap | `v1/bootstrap/db-isolation.ts:195` — `selfBootstrapInstall` repair-only spawn |
+| install health | `v1/bootstrap/db-isolation.ts:61` — `installationHealth` probe |
+| shared-db warn | `v1/bootstrap/db-isolation.ts:320` — `warnIfUnisolatedDb` |
+| boot repair wiring | `v1/bootstrap/plugin-init.ts:531` — `repairProjectConfigBoot` fire-and-forget |
+| quarantine silence | `v1/context/managers/StateManager.ts:188` — first-save quarantine copy set |
+| logger stamp | `v1/utils/logger.ts:146` — ISO-stamped text lines |
+| v1 proofs | `v1/tests/quiet-mode.test.ts:1`, `v1/tests/watcher-mode.test.ts:1`, `v1/tests/installer.test.ts:1` |
+| v2 quiet | `src/utils/quiet.ts:6` — force/clear/home detection; resolution is env > forced only (V2 has no pinned.env) |
+| v2 home force | `src/bootstrap/plugin-init.ts:349` — warn once per process, force quiet, never refuse |
+| v2 write-behind | `src/services/auto-save-manager.ts:35`, `src/services/handoff-ledger.ts:57`, `src/services/timeline-store.ts:93` |
+| v2 save debounce | `src/services/state-persistence.ts:646` — 100ms → 10s in quiet mode |
+| v2 jitter | `src/services/background-coordinator/coordinator.ts:93` — 0–10% per-instance phase shift |
+| v2 logger stamp | `src/utils/logger.ts:122` — ISO prefix on durable text lines only |
+| v2 quarantine | `src/context/managers/StateManager.ts:531` — one copy per path+mtime, isolation-skipped; load-time self-heal also preserves bytes at `:613` |
+| v2 save guard | `src/context/managers/StateManager.ts:371` — `validateBeforeSave` heals whole-entry drops before persist |
+| v2 schema heal | `src/context/managers/StateManager.ts:455` — records/handoffs/discussions/evidenced; no semantic remap |
+| v2 skipped | self-bootstrap/`installationHealth` is gate-blocked by `scripts/prove-s024.ts:160`; CLI watcher shim, slow-storage probe, pinned.env and the installer/launcher layer are v1-host |
+
+## S-034 boot measurement stack (M3.1) — v1 `591d7418` + working tree — PARTIALLY IMPLEMENTED on v2 (hook); scorecard/runner skipped
+
+`boot-scorecard.sh` scores N1..N5 from the two real log streams (windowed; `--append`/`--json`; exit 0/1/2); N1 counts level=ERROR only; blindness yields INCOMPLETE instead of a vacuous PASS; N2 without `--n2` gates the run closed; both tawassul.log formats are parsed. The n2-auto event hook writes one JSONL record per process (the first non-synthetic assistant text part; a `done` guard suppresses later parts) to `~/.local/share/tawassul/n2-auto.jsonl` (override `TAWASSUL_N2_LOG`). The cold-boot runner resolves `target_db` (TAWASSUL_TARGET_DB > OPENCODE_DB_OVERRIDE > XDG > HOME), runs preflight, stamps t0, and scores with `--n2 auto`; manual boots reconstruct t0 from kernel btime + startticks. V2 required: port `n2-auto` (it currently ships zero n2Auto occurrences anywhere), wire it like v1 does, and keep the materialized entry fresh (S-032).
+
+| | Anchor |
+| --- | --- |
+| scorecard tests | `v1/tests/boot-scorecard.test.ts:55` |
+| n2 log path | `v1/hooks/n2-auto.ts:27` — `n2AutoLogPath` |
+| n2 hook | `v1/hooks/n2-auto.ts:49` — `n2AutoHook` body |
+| hook type | `v1/bootstrap/hooks-registration.ts:43` |
+| hook factory | `v1/bootstrap/hooks-registration.ts:457` |
+| event call site | `v1/bootstrap/plugin-init.ts:1080` |
+| n2 tests | `v1/hooks/n2-auto.test.ts:43`, `v1/tests/cold-boot.test.ts:77` |
+| v2 n2 hook | `src/hooks/n2-auto.ts:30` — same one-record-per-process semantics, comments stripped |
+| v2 wiring | `src/bootstrap/hooks-registration.ts:43` type + `:455` factory + `src/bootstrap/plugin-init.ts:996` call |
+| v2 skipped | `boot-scorecard.sh` and the cold-boot runner are host measurement scripts with no V2 runtime surface; no V2 test suite exists, so no port |
+
+## S-035 DB-safety toolchain (guard, maintenance, D3, recovery, salvage) — v1 working tree — PARTIALLY IMPLEMENTED on v2 (guard + maintenance gate); D3/recovery/salvage skipped (v1-host)
+
+Generation guard: marker-verdict tool over the real DBs (exit 0 clean, 2 refused V2, 3 error; `--json` emits generation/verdict/reason; wired into the boot path; smoke-verified against shared V1, recovered V1 and v2-markers DBs). Maintenance: checkpoint/integrity sweep, 22/22 targeted. D3 rotation drills: breaker opens at >=2 hits in 24h, `TAWASSUL_D3_FORCE=1` override, journal/sentinel/notice, and `TAWASSUL_D3_NO_NOTIFY=1` silences desktop bubbles. Recovery: flock, `--allow-loss` for V1 demotion, id-set sha256, FK check, rollback, fallback to the newest V1 backup in TAWASSUL_BACKUP_DIR (13/13). Salvage: raw V2 export (4/4). V2 already mirrors the guard/maintenance script names — refresh them to the same semantics.
+
+| | Anchor |
+| --- | --- |
+| guard tests | `v1/tests/db-generation-guard.test.ts:42`, `v1/tests/db-generation-guard.test.ts:106` — refusal JSON |
+| d3 drills | `v1/tests/d3-escape.test.ts:25` |
+| recovery tests | `v1/tests/recover-desktop-db.test.ts:265` — FK fixture uses a real violation |
+| salvage tests | `v1/tests/salvage-v2.test.ts:48` |
+| v2 guard | `scripts/guard-db-generation.sh:1` — refreshed to the A1 working-tree guard: positive V2 markers (`session_v2`, `kv migration.v1-v2`, v2 path), `session_message` warn-only, WAL snapshot retry, exit 3 on probe failure |
+| v2 maintenance | `scripts/opencode-db-maintenance.sh:351` — backup first, then `--expect v2` gate; prune/VACUUM refuse on non-zero |
+| v2 iso rc3 | `scripts/opencode-v2-iso.sh:45` — guard rc 3 exits 3 instead of being reported as a generation refusal |
+| v2 skipped | D3 rotation drills, desktop recovery and V2 salvage scripts do not exist in this tree (host tooling); V2 has no test suite to port the fixtures |
+
+## S-036 agent-management week (`64cc1169`, `a38be0b3`, `37796211`, `353fe375`) — IMPLEMENTED on v2
+
+R-bare derivation: `parseAddInput` rewrites bare base+model to base-<suffix> before validation (catalog-known models keep the short suffix, unregistered customs keep the full slug); identical re-add is a quiet skip, bare base can never reach the write path (`addagentBareBaseRefused`). No-env hardening: trusted absolutes precede PATH in pinned resolution, relative XDG refuses, `openssl` HMAC fallback removed (argv/ps leak) and python3 is mandatory, portable stat/timeout/date/df/free wrappers, kick bulk routes AskChannel.askForRoot (card in the main UI, bounded, anti-stack). Roster: analyst-fledge -> analyst-deepseek; analyst-ling-3.1 retired; muse-spark-1.3 retired (`RETIRED_MODEL_IDS`), fallback chains re-headed (analyst->gemini, dev->deepseek, tester->mimo, reviewer/architect/designer/doc->big-pickle), opencode.json regenerated. Full-suite triage (7/7): vitest threads-pool homedir injection, R-bare test reworks, proxy-selector diversity, i18n-parity 120s budget, docs-truth examples, FACTS regen, legacy emitter moved off the retired id. v1 proofs: 253 / 294 / 291 targeted and 5106/5106 (314 files).
+
+| | Anchor |
+| --- | --- |
+| parseAddInput | `v1/tools/agent-add-helpers.ts:203` |
+| bare-base refusal | `v1/tools/agent-management.ts:828`, `v1/tools/agent-management.ts:978` |
+| i18n key | `v1/i18n/en.json:25` |
+| kick bulk | `v1/tools/agent-management.ts:1246` |
+| retire set | `v1/core/model-registry.ts:99` |
+| chains | `v1/services/proxy-fallback-chains.ts:23` |
+| facts | `v1/FACTS.md:6` |
+| v2 R-bare | `src/tools/agent-add-helpers.ts:104` — `deriveVariantSpec`; `:163` bare derivation before validation |
+| v2 refusal | `src/tools/agent-management.ts:649` + `:779` — both write loops reject a bare base |
+| v2 quiet skip/update | `src/tools/agent-management.ts:344` — identical re-add returns `skip-quiet`; differing model returns `updated` |
+| v2 kick bulk | `src/tools/agent-management.ts:992` — `askChannelInstance.askForRoot`, `hasPending` guard, English title |
+| v2 roster | `src/core/model-registry.ts` retired muse id; `src/services/proxy-fallback-chains.ts` re-headed chains; `opencode.json` regenerated roster |
+| v2 i18n | `src/i18n/en.json` — `addagentBareBaseRefused`, `addagentDerived`, `addagentVariantUpdated`, `kickBulkPending` |
+| v2 gate | `npm run verify` + `check:config` + `check:facts` green; `check:config` only warns that `*-muse` names in `deleted-agents.json` are advisory non-variants |
+| v2 skipped | no-env launcher wrappers and the openssl-HMAC removal are v1-host; V2 has no tests, so v1 proof counts do not map |
+
+## S-037 test-suite triage + notify gate — v1 working tree — N/A on v2 (v1 test-host only)
+
+Debate tests import through the fixed relative path (`../../../skills/debate-review/scripts/lib/dispatch.mjs` / `local.mjs`). watcher-mode neutralizes an ambient `OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER` before dumping the stub env. async-guard A2 expects the canonical "failing CLOSED" string. The recover FK fixture creates a real FK violation (drop table) instead of a delete. Drills set `TAWASSUL_D3_NO_NOTIFY=1` (tawassul-env gate) so no desktop bubble is posted on the user's session bus. Full v1 battery: 325 files / 5220 tests green; mission-board eviction test is a known load flake at the 30s default timeout under battery concurrency (passes standalone).
+
+| | Anchor |
+| --- | --- |
+| debate json | `v1/tests/debate-extract-json.test.ts:5` |
+| debate trust | `v1/tests/debate-trust-carry.test.ts:10` |
+| watcher env | `v1/tests/watcher-mode.test.ts:21` |
+| async text | `v1/tests/integration/async-guard-3.1.test.ts:72` |
+| notify gate | `v1/tests/d3-escape.test.ts:25` |
+| v2 status | no `.test.ts` suite exists here (rules forbids comments, V2 uses `scripts/prove-*.ts`); the debate/watcher/async/recover fixtures and the D3 notify gate have no V2 runtime surface |

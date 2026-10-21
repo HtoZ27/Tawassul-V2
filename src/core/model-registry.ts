@@ -44,12 +44,6 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     display: "Nemotron 3 Ultra (NVIDIA)",
   },
   {
-    id: "opencode/muse-spark-1.3-contributor-free",
-    suffix: "muse",
-    aliases: ["muse", "muse-spark", "muse-spark-1.3", "muse-spark-1.3-free"],
-    display: "Muse Spark 1.3 (OpenCode)",
-  },
-  {
     id: "opencode/muse-spark-1.2-contributor-free",
     aliases: ["muse-spark-1.2", "muse-spark-1.2-free", "muse-1.2"],
     display: "Muse Spark 1.2 (OpenCode)",
@@ -74,6 +68,7 @@ export const RETIRED_MODEL_IDS: ReadonlySet<string> = new Set([
   "opencode/ox-alpha-free",
   "opencode/muse-spark-1.2-free",
   "opencode/muse-spark-1.2-contributor-free",
+  "opencode/muse-spark-1.3-contributor-free",
   "opencode/hy3-free",
   "opencode/mimo-v2.5-free",
   "cloudflare-workers-ai/@cf/moonshotai/kimi-k2.7-code",

@@ -51,7 +51,11 @@ try {
 
   const parsed = parseAddInput("analyst with model Exo Free from opencode");
   assert(parsed !== null && parsed.model === "opencode/exo-free", "model binding lowercased at parse");
-  assert(parsed !== null && parsed.specs.join(",") === "analyst", "parse specs unchanged");
+  assert(parsed !== null && parsed.specs.join(",") === "analyst-exo-free", "bare base derives a variant");
+  assert(parsed !== null && parsed.derived["analyst-exo-free"] === "analyst", "derivation records the source base");
+  const explicit = parseAddInput("analyst-mimo with model Exo Free from opencode");
+  assert(explicit !== null && explicit.specs.join(",") === "analyst-mimo", "explicit suffix stays unchanged");
+  assert(explicit !== null && Object.keys(explicit.derived).length === 0, "explicit suffix records no derivation");
 
   useCache("absent.json");
   assert(validateAddInput(["analyst-mimo"], "opencode/mimo-v2.6-flash-free") === null, "static suffix accepted without cache");

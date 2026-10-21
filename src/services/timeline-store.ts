@@ -5,6 +5,7 @@ import { logger } from "../utils/logger.ts";
 import { hmacWriteFile, hmacReadFile } from "./persist-utils.ts";
 import { isIsolationActiveSync } from "./isolation.ts";
 import { normalizeName } from "../utils/name-utils.ts";
+import { quietValue, QUIET_LEDGER_FLUSH_MS } from "../utils/quiet.ts";
 import type { TimerManagerLike } from "../types/timer-types.ts";
 import type {
   TimelineEntry,
@@ -89,7 +90,7 @@ export class TimelineStore {
     this.dirReady = this.ensureDir();
     this.maxEntries = options.maxEntries ?? DEFAULT_MAX_ENTRIES;
     this.maxAgeMs = options.maxAgeMs ?? DEFAULT_MAX_AGE_MS;
-    this.flushIntervalMs = options.flushIntervalMs ?? FLUSH_INTERVAL_MS;
+    this.flushIntervalMs = options.flushIntervalMs ?? quietValue(QUIET_LEDGER_FLUSH_MS, FLUSH_INTERVAL_MS);
     this.maxFlushBuffer = options.maxFlushBuffer ?? DEFAULT_MAX_FLUSH_BUFFER;
     this.timers = options.timers ?? null;
   }

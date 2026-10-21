@@ -22,25 +22,10 @@ export const FALLBACK_CHAINS: Record<string, string[]> = {
     "opencode/big-pickle",
     "google/gemini-flash-lite-latest",
   ],
-  reviewer: [
-    "opencode/big-pickle",
-    "opencode/muse-spark-1.3-contributor-free",
-    "nvidia-nim/deepseek-ai/deepseek-v4-flash",
-    "google/gemini-flash-lite-latest",
-  ],
-  architect: [
-    "opencode/muse-spark-1.3-contributor-free",
-    "opencode/big-pickle",
-    "opencode/mimo-v2.6-flash-free",
-    "google/gemini-flash-lite-latest",
-  ],
-  designer: ["opencode/muse-spark-1.3-contributor-free", "opencode/mimo-v2.6-flash-free", "google/gemini-flash-lite-latest"],
-  doc: [
-    "opencode/big-pickle",
-    "opencode/muse-spark-1.3-contributor-free",
-    "nvidia-nim/deepseek-ai/deepseek-v4-flash",
-    "google/gemini-flash-lite-latest",
-  ],
+  reviewer: ["opencode/big-pickle", "nvidia-nim/deepseek-ai/deepseek-v4-flash", "google/gemini-flash-lite-latest"],
+  architect: ["opencode/big-pickle", "opencode/mimo-v2.6-flash-free", "google/gemini-flash-lite-latest"],
+  designer: ["opencode/big-pickle", "opencode/mimo-v2.6-flash-free", "google/gemini-flash-lite-latest"],
+  doc: ["opencode/big-pickle", "nvidia-nim/deepseek-ai/deepseek-v4-flash", "google/gemini-flash-lite-latest"],
 };
 
 export function getFallbackChain(role: string): string[] {

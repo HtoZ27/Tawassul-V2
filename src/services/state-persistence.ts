@@ -1,5 +1,6 @@
 import type { TawaOrchestratorContext, SaveHealth } from "../core/service-context.ts";
 import { logger } from "../utils/logger.ts";
+import { quietValue, QUIET_SAVE_DEBOUNCE_MS } from "../utils/quiet.ts";
 import { mkdir } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { normalizeName } from "../utils/name-utils.ts";
@@ -642,7 +643,7 @@ export class StatePersistence {
         ? this.jitterBackoff(
             Math.min(StatePersistence.MAX_BACKOFF, StatePersistence.BASE_DELAY * 2 ** this.saveFailureCount),
           )
-        : StatePersistence.BASE_DELAY;
+        : quietValue(QUIET_SAVE_DEBOUNCE_MS, StatePersistence.BASE_DELAY);
     const runSave = () => {
       this.saveTimeout = null;
       if (this.saveDirty) {

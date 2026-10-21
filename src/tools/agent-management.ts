@@ -312,6 +312,8 @@ type AddResult = {
   added: string[];
   skipped: string[];
   errors: string[];
+  quiet?: string[];
+  updated?: { tag: string; prev: string; curr: string }[];
   warnings?: string[];
 };
 
@@ -333,8 +335,13 @@ async function addSingleAgent(ctx: TawassulContext, spec: string, fullModel: str
   if (ctx.dynamicAgents.length >= getMaxDynamicAgents(ctx)) {
     return "limit";
   }
-  if (ctx.dynamicAgents.includes(tag)) {
-    return "skip";
+  if ((BASE_ROLE_NAMES as ReadonlySet<string>).has(tag)) {
+    logger.warn(`addSingleAgent: bare base "${tag}" reached the write path without derivation — refusing`);
+    return "error";
+  }
+  const already = ctx.dynamicAgents.includes(tag);
+  if (already && ctx.agentModelMap[normalizeName(tag)] === fullModel) {
+    return "skip-quiet";
   }
   const compound = parseCompoundSpec(spec);
   const templateName = compound ? compound.base : spec;
@@ -385,9 +392,11 @@ async function addSingleAgent(ctx: TawassulContext, spec: string, fullModel: str
     mdBackupBeforeAdd.delete(backupKey);
     return "error";
   }
-  ctx.dynamicAgents.push(tag);
+  if (!(BASE_ROLE_NAMES as ReadonlySet<string>).has(tag) && !ctx.dynamicAgents.includes(tag)) {
+    ctx.dynamicAgents.push(tag);
+  }
   ctx.agentModelMap[normalizeName(tag)] = fullModel;
-  return null;
+  return already ? "updated" : null;
 }
 
 function rollbackAdd(ctx: TawassulContext, specs: string[]): void {
@@ -455,12 +464,16 @@ export function globalSpaceGuard(ctx: TawassulContext): string | null {
 }
 
 async function executeAddAll(ctx: TawassulContext, specs: string[], fullModel: string): Promise<AddResult> {
-  const result: AddResult = { added: [], skipped: [], errors: [] };
+  const result: AddResult = { added: [], skipped: [], errors: [], quiet: [], updated: [] };
   for (const spec of specs) {
     const tag = `@${spec}`;
+    const prev = ctx.agentModelMap[normalizeName(spec)];
     const err = await addSingleAgent(ctx, spec, fullModel);
-    if (err === "skip") {
+    if (err === "skip-quiet") {
       result.skipped.push(tag);
+      result.quiet!.push(tag);
+    } else if (err === "updated") {
+      result.updated!.push({ tag, prev: prev ?? "?", curr: fullModel });
     } else if (err === "limit") {
       result.errors.push(t("addagentLimitReached", { limit: String(getMaxDynamicAgents(ctx)) }));
       break;
@@ -492,7 +505,18 @@ export function formatAddResult(result: AddResult): string {
   if (result.errors.length > 0) {
     lines.push(t("addagentErrors", { list: result.errors.join(", ") }));
   }
-  if (result.added.length === 0 && result.skipped.length > 0 && result.errors.length === 0) {
+  if ((result.updated ?? []).length > 0) {
+    lines.push(t("addagentVariantUpdated", { count: String(result.updated!.length) }));
+    for (const u of result.updated!) {
+      lines.push(`   ${u.tag}: ${u.prev} → ${u.curr}`);
+    }
+  }
+  if (
+    result.added.length === 0 &&
+    result.skipped.length > 0 &&
+    result.errors.length === 0 &&
+    (result.updated ?? []).length === 0
+  ) {
     const warnLines = (result.warnings ?? []).map((w) => `⚠️ ${w}`);
     return [t("addagentAllSkipped", { list: result.skipped.join(", ") }), ...warnLines].join("\n");
   }
@@ -508,9 +532,9 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
       "Add one or more specialist agents.",
       "Format: add spec1 spec2 ... with model model from provider",
       "Shorthand: add all / all / * with model model from provider — adds all seven agents at once",
-      "Model: alias (gemini, mimo, big-pickle, minimax, muse, ox, ling) or provider/model (fail-open with warning if not in catalog)",
+      "Model: alias (gemini, mimo, big-pickle, minimax, ox, ling) or provider/model (fail-open with warning if not in catalog)",
       "Behavior: the tool writes .opencode/agents/<tag>.md and opencode.json/roster programmatically (no edit/bash needed, no delegation to dev)",
-      "Existing base (e.g. analyst): patches model in-place in opencode.json and .md; new variant (e.g. analyst-ling): creates <base>-<suffix>.md + new entry",
+      "Bare base + model (e.g. analyst with model M): the base is never touched — a variant <base>-<suffix> is derived automatically (short catalog suffix for known models, full model slug for provider-offered customs; unoffered suffixes are rejected fail-closed) and created; an explicit suffix (e.g. analyst-ling) creates <base>-<suffix>.md + new entry; identical re-add = zero writes; a different model on the same suffix = announced update",
       "tawa: singular only (tawa with model X from Y) preserves mode:all; tawa-* is blocked",
       examplesText(),
     ].join("\n"),
@@ -576,7 +600,12 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
       const scopeGuard = globalSpaceGuard(ctx);
       if (scopeGuard) return { output: `❌ ${scopeGuard}\n\n${examplesText()}` };
       const result = await executeAddAll(ctx, parsed.specs, fullModel);
-      const touchedTags = new Set([...result.added, ...result.skipped]);
+      const quietSet = new Set(result.quiet ?? []);
+      const touchedTags = new Set([
+        ...result.added,
+        ...(result.updated ?? []).map((u) => u.tag),
+        ...result.skipped.filter((s) => !quietSet.has(s)),
+      ]);
       if (modelAdvisory && result.added.length > 0) {
         (result.warnings ??= []).push(modelAdvisory);
       }
@@ -619,6 +648,12 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
                         }
                       }
                       changed = true;
+                      continue;
+                    }
+                    if ((BASE_ROLE_NAMES as ReadonlySet<string>).has(normalizeName(spec))) {
+                      const bareMsg = t("addagentBareBaseRefused", { spec });
+                      logger.warn(bareMsg);
+                      result.errors.push(bareMsg);
                       continue;
                     }
                     const cfg = agentConfigFor(spec, fullModel);
@@ -745,6 +780,13 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
                               changed = true;
                               continue;
                             }
+                            if ((BASE_ROLE_NAMES as ReadonlySet<string>).has(normalizeName(spec))) {
+                              const bareMsg = t("addagentBareBaseRefused", { spec });
+                              logger.warn(bareMsg);
+                              result.errors.push(bareMsg);
+                              configWriteFailed = true;
+                              continue;
+                            }
                             const cfg = agentConfigFor(spec, fullModel);
                             if (!cfg) {
                               logger.warn(`addagent: no template for "${spec}" — skipping config write`);
@@ -825,7 +867,11 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
             (result.warnings ??= []).push(msg);
           }
         }
-        const pinEntries = computePinEntries(parsed.specs, new Set(result.errors), fullModel);
+        const pinEntries = computePinEntries(
+          parsed.specs.filter((s) => !quietSet.has(`@${s}`)),
+          new Set(result.errors),
+          fullModel,
+        );
         if (pinEntries.length > 0) {
           try {
             await withConfigWriteLock(ctx, async () => {
@@ -839,7 +885,14 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
         }
       }
       ctx.saveState();
-      return { title: t("addagentTitle", { count: String(result.added.length) }), output: formatAddResult(result) };
+      const addedTags = new Set(result.added);
+      const derivedLines = Object.entries(parsed.derived ?? {})
+        .filter(([to]) => addedTags.has(`@${to}`))
+        .map(([to, from]) => t("addagentDerived", { from: `@${from}`, to: `@${to}`, model: fullModel }));
+      return {
+        title: t("addagentTitle", { count: String(result.added.length) }),
+        output: [...derivedLines, formatAddResult(result)].filter(Boolean).join("\n"),
+      };
     },
   });
 }
@@ -925,24 +978,44 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
       }
 
       if (specs.length >= 2) {
-        if (!cctx.ask) {
-          return { output: t("kickBulkConfirmRequired") };
-        }
-        try {
-          const removable = specs.filter((s) => !isProtected(ctx, `@${s}`));
-          const display = removable.length > 0 ? removable.join(", ") : specs.join(", ");
-          const confirmed = await cctx.ask(
-            `Confirm removal of ${removable.length || specs.length} agents: ${display} — are you sure?`,
-            {
-              type: "confirm",
-              default: false,
-            },
-          );
-          if (!confirmed) {
+        const removable = specs.filter((s) => !isProtected(ctx, `@${s}`));
+        const display = removable.length > 0 ? removable.join(", ") : specs.join(", ");
+        const title = `Confirm removal of ${removable.length || specs.length} agents: ${display} — are you sure?`;
+        const channel = ctx.askChannelInstance;
+        if (channel) {
+          const answerSession = channel.currentSessionOverride || cctx.sessionID;
+          if (!callerIsMainSession && !channel.currentSessionOverride) {
+            logger.warn(
+              "[kick] no-root-binding: bulk confirm from sub without a known root — question cannot reach the user",
+              { specs: specs.join(",") },
+            );
+            return { output: t("kickBulkConfirmRequired") };
+          }
+          if (channel.hasPending(answerSession)) {
+            return { output: t("kickBulkPending") };
+          }
+          try {
+            const reply = await channel.askForRoot(title, { type: "confirm", default: false }, cctx.sessionID);
+            if (reply !== true) {
+              return { output: t("kickCancelled") };
+            }
+          } catch {
             return { output: t("kickCancelled") };
           }
-        } catch {
-          return { output: t("kickCancelled") };
+        } else if (callerIsMainSession && cctx.ask) {
+          try {
+            const confirmed = await cctx.ask(title, {
+              type: "confirm",
+              default: false,
+            });
+            if (!confirmed) {
+              return { output: t("kickCancelled") };
+            }
+          } catch {
+            return { output: t("kickCancelled") };
+          }
+        } else {
+          return { output: t("kickBulkConfirmRequired") };
         }
       }
 

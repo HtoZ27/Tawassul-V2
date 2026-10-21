@@ -2,7 +2,7 @@ import { ALL_AGENTS } from "../agent-templates.ts";
 import { ROLE_NAMES } from "../core/agent-data.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 import { resolveModelAlias, MODEL_ALIASES, MODEL_CATALOG, KNOWN_MODEL_SUFFIXES } from "../services/proxy-models.ts";
-import { getProviderModelTokens } from "../core/model-registry.ts";
+import { getProviderModelTokens, MODEL_ID_TO_SUFFIX } from "../core/model-registry.ts";
 import { buildCapabilitySummary } from "../core/capability-summary.ts";
 import { isGeneratedVariant } from "../core/variant-names.ts";
 import { levenshtein } from "../core/nlp.ts";
@@ -95,7 +95,53 @@ export function findClosest(input: string, candidates: string[]): string | null 
   return best;
 }
 
-export function parseAddInput(input: string): { specs: string[]; model: string } | null {
+export interface ParsedAddInput {
+  specs: string[];
+  model: string;
+  derived: Record<string, string>;
+}
+
+export function deriveVariantSpec(spec: string, model: string, provider = ""): { tag: string; from: string } | null {
+  const n = normalizeName(spec);
+  if (n === "tawa" || !SPECIALIZATIONS.includes(n)) return null;
+  const m = model.toLowerCase();
+  const candidates = [
+    provider ? `${provider.toLowerCase()}/${m}` : "",
+    m,
+    m.includes("/") ? m.split("/").slice(1).join("-") : "",
+  ];
+  for (const c of candidates) {
+    const short = c ? MODEL_ID_TO_SUFFIX[c] : undefined;
+    if (short) return { tag: `${n}-${short}`, from: spec };
+  }
+  const slugRaw = m.includes("/") ? m.split("/").slice(1).join("-") : m;
+  const slug = slugRaw
+    .replace(/_/g, "-")
+    .replace(/\/+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!slug) return null;
+  return { tag: `${n}-${slug}`, from: spec };
+}
+
+function applyBareDerivation(
+  specs: string[],
+  model: string,
+  provider: string,
+): { specs: string[]; derived: Record<string, string> } {
+  const derived: Record<string, string> = {};
+  const out = specs.map((s) => {
+    const d = deriveVariantSpec(s, model, provider);
+    if (d) {
+      derived[d.tag] = d.from;
+      return d.tag;
+    }
+    return s;
+  });
+  return { specs: out, derived };
+}
+
+export function parseAddInput(input: string): ParsedAddInput | null {
   const WILDCARD = new Set(["*", "all"]);
   input = stripLeadingVerb(input);
   const matchEn = input.match(/^([\w\s*/\-.\u0600-\u06FF]+?)\s+with\s+model\s+(.+?)\s+from\s+([\w\s.-]+)$/i);
@@ -113,10 +159,9 @@ export function parseAddInput(input: string): { specs: string[]; model: string }
         if (tagged) specs = tagged;
       }
     }
-    return {
-      specs,
-      model: (alias ?? (raw.includes("/") ? raw : `${provider}/${raw}`)).toLowerCase(),
-    };
+    const model = (alias ?? (raw.includes("/") ? raw : `${provider}/${raw}`)).toLowerCase();
+    const { specs: finalSpecs, derived } = applyBareDerivation(specs, model, provider);
+    return { specs: finalSpecs, model, derived };
   }
   return null;
 }

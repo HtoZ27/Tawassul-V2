@@ -46,6 +46,15 @@ assert(eq(out2, [{ name: "analyst-fledge", pinned: true }]), "errored specs excl
 assert(eq(computePinEntries(["xyzzy"], new Set(), "opencode/x"), []), "non-agent names excluded");
 const skipped = formatAddResult({ added: [], skipped: ["analyst"], errors: [], warnings: ["pins exploded"] });
 assert(skipped.includes("pins exploded"), "all-skipped still surfaces warnings");
+const mixed = formatAddResult({
+  added: [],
+  skipped: ["@analyst"],
+  errors: [],
+  quiet: ["@analyst"],
+  updated: [{ tag: "@dev", prev: "opencode/x", curr: "opencode/y" }],
+});
+assert(mixed.includes("@dev") && mixed.includes("→"), "mixed quiet-skip + update announces the update");
+assert(!mixed.includes("All agents already exist"), "mixed batch is not reported as all-skipped");
 
 const ctx = {} as unknown as Ctx;
 function handoffTo(to: string): { input: Input; output: StageOutput } {

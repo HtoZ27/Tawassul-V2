@@ -67,7 +67,7 @@ export function warnIfUnisolatedDb(projectRoot: string): void {
       logger.warn(
         `[tawassul] ⚠️ S8 DB isolation off for "${canonical}" — OPENCODE_DB points at the SHARED database ${env}: ` +
           `SQLITE_BUSY risk when many projects are open. ` +
-          `Run the CLI through scripts/opencode-iso.sh (per-project OPENCODE_DB).`,
+          `Run the CLI through scripts/opencode-v2-iso.sh (per-project OPENCODE_DB).`,
         { hint: `HMAC-keyed base: ~/.local/share/${DB_ISOLATION_BASE_SUBDIR}/<keyed> ` },
       );
       return;
@@ -86,7 +86,7 @@ export function warnIfUnisolatedDb(projectRoot: string): void {
     logger.warn(
       `[tawassul] ⚠️ S8 DB isolation off for "${canonical}" — shared opencode.db: ` +
         `SQLITE_BUSY risk when many projects are open. ` +
-        `Run opencode through scripts/opencode-iso.sh (per-project OPENCODE_DB → ${isolated}).`,
+        `Run opencode through scripts/opencode-v2-iso.sh (per-project OPENCODE_DB → ${isolated}).`,
       { hint: `HMAC-keyed base: ~/.local/share/${DB_ISOLATION_BASE_SUBDIR}/<keyed> ` },
     );
   } catch (err) {

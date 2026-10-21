@@ -7,6 +7,7 @@ import { createSessionCompactedHook } from "../hooks/session.ts";
 import { createToolExecuteBeforeHook, createToolExecuteAfterHook } from "../hooks/tool-execute.ts";
 import { createToolOutputStreamHook } from "../hooks/tool-output-stream.ts";
 import { createDisposeHook } from "../hooks/dispose.ts";
+import { createN2AutoHook } from "../hooks/n2-auto.ts";
 import { PriorityIndex } from "../context/priority-index.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 import { AgentTransactionManager } from "../context/transaction-manager.ts";
@@ -39,6 +40,7 @@ export interface HooksResult {
   toolExecuteBeforeHook: ReturnType<typeof createToolExecuteBeforeHook>;
   toolExecuteAfterHook: ReturnType<typeof createToolExecuteAfterHook>;
   toolOutputStreamHook: ReturnType<typeof createToolOutputStreamHook>;
+  n2AutoHook: ReturnType<typeof createN2AutoHook>;
   disposeHook: ReturnType<typeof createDisposeHook>;
 }
 
@@ -450,6 +452,7 @@ export function createHooks(
     toolExecuteBeforeHook,
     toolExecuteAfterHook,
     toolOutputStreamHook: createToolOutputStreamHook({ isIsolationActive: isIsolationActiveSync }),
+    n2AutoHook: createN2AutoHook(),
     disposeHook,
   };
 }

@@ -119,13 +119,14 @@ let _sinkQueue: Promise<void> = Promise.resolve();
 
 function writeToSink(line: string): void {
   if (!LOG_FILE_PATH || _sinkDead) return;
+  const stamped = `${new Date().toISOString()} ${line}`;
   _sinkQueue = _sinkQueue
     .then(async () => {
       if (!_sinkDirReady) {
         await mkdir(dirname(LOG_FILE_PATH), { recursive: true });
         _sinkDirReady = true;
       }
-      await appendFile(LOG_FILE_PATH, line + "\n", "utf-8");
+      await appendFile(LOG_FILE_PATH, stamped + "\n", "utf-8");
       _sinkConsecutiveFails = 0; 
     })
     .catch((e) => {

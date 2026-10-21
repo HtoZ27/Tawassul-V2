@@ -18,6 +18,7 @@ import { initAutoSweep, stopAutoSweep, resetAllState } from "../hooks/validation
 import { resetModelCache } from "../hooks/guards/shared.ts";
 import { buildToolRegistry } from "./tool-registry.ts";
 import { logger } from "../utils/logger.ts";
+import { isHomeProject, forceQuietMode, clearQuietModeForce, quietModeForceReason } from "../utils/quiet.ts";
 import { lruSet } from "../utils/bounded-map.ts";
 import { runWithContext } from "../context/context-store.ts";
 import { AskChannel, type AskChannelDeps } from "../services/ask-channel.ts";
@@ -283,6 +284,7 @@ const TRANSCRIPT_INJECT_TIMEOUT_MS = 10_000;
 
 let errorHandlerRefCount = 0;
 let uncaughtHandler: ((err: Error) => void) | undefined = undefined;
+let _homeProjectWarned = false;
 let unhandledRejectionHandler: ((reason: unknown) => void) | undefined = undefined;
 
 function disposeGlobalErrorHandlers(): void {
@@ -344,8 +346,15 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   
   void passiveSelfCheck(ctx.directory, resolve(ctx.directory, ".opencode/plugins/tawassul"));
 
-  
-  
+  clearQuietModeForce();
+  if (!_homeProjectWarned && isHomeProject(ctx.directory)) {
+    _homeProjectWarned = true;
+    forceQuietMode("home-as-project");
+    logger.warn(
+      `[tawassul] home-as-project detected: the project directory is $HOME itself — quiet mode forced (${quietModeForceReason()}; warn-once; run continues, no refusal).`,
+    );
+  }
+
   warnIfUnisolatedDb(ctx.directory);
 
   
@@ -982,7 +991,11 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
         return;
       }
       return runWithContext(tawaCtx, async () => {
-        if (hooks) return hooks.toolOutputStreamHook(input as Parameters<NonNullable<Hooks["event"]>>[0]);
+        if (hooks) {
+          const eventInput = input as Parameters<NonNullable<Hooks["event"]>>[0];
+          await hooks.n2AutoHook(eventInput as { event: unknown });
+          return hooks.toolOutputStreamHook(eventInput);
+        }
       });
     }) as NonNullable<Hooks["event"]>),
     dispose: async () => {
