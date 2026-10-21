@@ -388,7 +388,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   
   const coexistenceScope = detectInstallScope(import.meta.url);
   const coexistenceToken = fileURLToPath(import.meta.url);
-  const coexistence = claimCoexistence(coexistenceScope, coexistenceToken);
+  const coexistence = claimCoexistence(coexistenceScope, coexistenceToken, ctx.directory);
   if (!coexistence.shouldRegister) {
     logger.warn(`[tawassul] ⚠️ Duplicate plugin instance detected: ${coexistence.reason}`);
     return {};
@@ -397,7 +397,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   
   
   
-  const isActiveOwner = (): boolean => isCoexistenceOwner(coexistenceScope, coexistenceToken);
+  const isActiveOwner = (): boolean => isCoexistenceOwner(coexistenceScope, coexistenceToken, ctx.directory);
   let coexistenceReleased = false;
 
   
@@ -1009,7 +1009,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
       
       if (!coexistenceReleased) {
         coexistenceReleased = true;
-        releaseCoexistence(coexistenceScope, coexistenceToken);
+        releaseCoexistence(coexistenceScope, coexistenceToken, ctx.directory);
       }
       
       try {

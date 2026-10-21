@@ -664,7 +664,7 @@ R-bare derivation: `parseAddInput` rewrites bare base+model to base-<suffix> bef
 
 ## S-037 test-suite triage + notify gate — v1 working tree — N/A on v2 (v1 test-host only)
 
-Debate tests import through the fixed relative path (`../../../skills/debate-review/scripts/lib/dispatch.mjs` / `local.mjs`). watcher-mode neutralizes an ambient `OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER` before dumping the stub env. async-guard A2 expects the canonical "failing CLOSED" string. The recover FK fixture creates a real FK violation (drop table) instead of a delete. Drills set `TAWASSUL_D3_NO_NOTIFY=1` (tawassul-env gate) so no desktop bubble is posted on the user's session bus. Full v1 battery: 325 files / 5220 tests green; mission-board eviction test is a known load flake at the 30s default timeout under battery concurrency (passes standalone).
+Debate tests import through the fixed relative path (`../../../skills/debate-review/scripts/lib/dispatch.mjs` / `local.mjs`). watcher-mode neutralizes an ambient `OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER` before dumping the stub env. async-guard A2 asserts the localized `guardFailClosed` message via `t()` (locale-independent en/ar). The recover FK fixture creates a real FK violation (drop table) instead of a delete. Drills set `TAWASSUL_D3_NO_NOTIFY=1` (tawassul-env gate) so no desktop bubble is posted on the user's session bus. Full v1 battery: 322 files / 5210 tests green; mission-board eviction test is a known load flake at the 30s default timeout under battery concurrency (passes standalone).
 
 | | Anchor |
 | --- | --- |
@@ -674,3 +674,21 @@ Debate tests import through the fixed relative path (`../../../skills/debate-rev
 | async text | `v1/tests/integration/async-guard-3.1.test.ts:72` |
 | notify gate | `v1/tests/d3-escape.test.ts:25` |
 | v2 status | no `.test.ts` suite exists here (rules forbids comments, V2 uses `scripts/prove-*.ts`); the debate/watcher/async/recover fixtures and the D3 notify gate have no V2 runtime surface |
+
+## S-038 coexistence seat must be per workspace (Desktop multi-workspace starvation) — v1 working tree — IMPLEMENTED on v2
+
+v1 D4 kept ONE process-global seat (`globalThis[Symbol.for("tawassul.plugin.warmedup")]`). Desktop loads one plugin instance per workspace into a single NodeService process and dispatches `event` hooks per directory — proven from the shipped host bundle (`/opt/OpenCode/resources/app.asar` → `out/main/chunks/node-*.js`): the listener is registered per instance, filters `event.location?.directory !== ctx.directory`, then calls `hook["event"]`. A workspace whose copy lost the seat therefore returned `{}` from plugin init (loser path) and silently lost every feature (n2 capture, guards, tools). Live proof (2026-10-21, boot 03:22 local): four copies initialized in one process (v2, ciel, tawassyl, athan), ciel won, and `~/.local/share/tawassul/n2-auto.jsonl` stayed absent despite assistant text parts; on 2026-10-20T18:53:19Z the stale dart copy won the same way. Fix (v1 working tree): the registry is keyed by `ctx.directory` — `claimCoexistence(scope, token, directory)`, `isCoexistenceOwner(scope, token, directory)`, `releaseCoexistence(scope, token, directory)` — so each workspace has exactly one owner and project > global dedup still applies within a workspace; a pre-fix plain entry is discarded on first use (host restart required, and all project copies must be refreshed to one build). v2 required: apply the directory-keyed seat in `src/core/install-scope.ts` and pass `ctx.directory` at claim/owner/release call sites; live check after restart: `~/.local/share/tawassul/n2-auto.jsonl` gains a record and the log shows `registered` for more than one workspace in the same boot. V2 architecture check (2026-10-21): the host Plugin service caches its hook state per directory (InstanceState/ScopedCache lookup keyed on `ctx.directory`), dispatches `event` hooks only when `event.location.directory === ctx.directory`, and loads the entry's `server` export with `input.directory`; the V2 `setup` path obtains the same value from `ctx.location.directory` via `buildPluginInput`. Directory-keyed seats therefore match the host's instance identity exactly.
+
+| | Anchor |
+| --- | --- |
+| v1 claim | `v1/core/install-scope.ts:114` |
+| v1 owner gate | `v1/core/install-scope.ts:161` |
+| v1 release | `v1/core/install-scope.ts:174` |
+| v1 call sites | `v1/bootstrap/plugin-init.ts:441`, `v1/bootstrap/plugin-init.ts:450`, `v1/bootstrap/plugin-init.ts:1098` |
+| v1 tests | `v1/tests/install-scope.test.ts:149` — per-workspace block |
+| v2 seat | `src/core/install-scope.ts:37` — per-workspace `Map` registry; `src/core/install-scope.ts:56` claim; `src/core/install-scope.ts:96` owner gate; `src/core/install-scope.ts:102` refcounted release; legacy plain entry discarded on first use |
+| v2 call sites | `src/bootstrap/plugin-init.ts:391`, `src/bootstrap/plugin-init.ts:400`, `src/bootstrap/plugin-init.ts:1012` — `ctx.directory` at claim/owner/release |
+| v2 proof | `scripts/prove-s038.ts:1` — 26 assertions: cross-workspace coexistence, project > global within a workspace, duplicate-copy yield, refcount release, legacy-seat discard, default-directory compatibility |
+| v2 gate | `package.json:32` — `prove:s038` (also chained in `ci`); `npm run verify` + `prove:s038` green 2026-10-21 |
+| v2 status | implemented 2026-10-21; architecture verified against the host Plugin service (per-directory hook cache + directory event filter + `input.directory`); `prove:s038` + `npm run verify` green; live multi-workspace boot check (`n2-auto.jsonl` record + `registered` for >1 workspace) still pending the next app restart |
+| host proof | `/opt/OpenCode/resources/app.asar` — directory filter before the `event` hook call |
