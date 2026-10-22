@@ -713,12 +713,13 @@ The 2026-10-22 "app opened but sessions never loaded" report is not provider lat
 
 Live evidence (2026-10-22): session-list query on 265 sessions took 4.2s. Three Desktop launches: `81aa841b` 09:20:39–09:23:58 and `f5e6bd77` 09:27:58–09:29:53 both hung after `booting location services` for tawassyl with **no plugin `initPlugin` line** (user force-closed both); `9829e20d` 09:36:28 became usable after ~45s. Case 14's `n2=57.6s` was measured on the successful third launch, not on the hang — the provider-latency attribution is retracted.
 
-Fix (requires the app closed; VACUUM is forbidden on a live DB): full-file backup → prune `event` for closed/old sessions by `session.time_updated` (events carry no timestamp) → VACUUM → verify an old session still renders its full history before deleting the backup → extend maintenance to prune `event` and fix the `quick_check` backup failure. Re-derive N2 cold-boot cases after the shrink.
+Fix (requires the app closed; VACUUM is forbidden on a live DB): `scripts/tawassul-shrink-db.sh` (2026-10-22) takes a SQLite `.backup` + quick_check + session probe, deletes `event` rows (`--keep N`, default 0), VACUUMs, and re-proves integrity; then verify an old session still renders its full history before deleting the backup. Extend maintenance to prune `event` and fix the `quick_check` backup failure. Re-derive N2 cold-boot cases after the shrink.
 
 | anchor | location |
 | --- | --- |
 | v1 evidence | `~/.local/share/opencode/opencode-desktop.db` — `event` 2.94GB / 174,758 rows (2026-10-22) |
 | host schema | `/opt/OpenCode/resources/app.asar` — `CREATE TABLE event`; no event delete/retention |
 | maintenance gap | `scripts/opencode-db-maintenance.sh` — message/part prune only; event retention missing |
+| shrink tool | `scripts/tawassul-shrink-db.sh` — offline backup → prune → VACUUM → check (refuses a running app) |
 | boot evidence | `~/.local/share/opencode/log/opencode.log` — runs `81aa841b`, `f5e6bd77`, `9829e20d` |
 | v2 status | REQUIRED: event retention + maintenance fix; re-measure N2 after |
