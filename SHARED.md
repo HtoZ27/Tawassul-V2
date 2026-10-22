@@ -690,5 +690,35 @@ v1 D4 kept ONE process-global seat (`globalThis[Symbol.for("tawassul.plugin.warm
 | v2 call sites | `src/bootstrap/plugin-init.ts:391`, `src/bootstrap/plugin-init.ts:400`, `src/bootstrap/plugin-init.ts:1012` — `ctx.directory` at claim/owner/release |
 | v2 proof | `scripts/prove-s038.ts:1` — 26 assertions: cross-workspace coexistence, project > global within a workspace, duplicate-copy yield, refcount release, legacy-seat discard, default-directory compatibility |
 | v2 gate | `package.json:32` — `prove:s038` (also chained in `ci`); `npm run verify` + `prove:s038` green 2026-10-21 |
-| v2 status | implemented 2026-10-21; architecture verified against the host Plugin service (per-directory hook cache + directory event filter + `input.directory`); `prove:s038` + `npm run verify` green; live multi-workspace boot check (`n2-auto.jsonl` record + `registered` for >1 workspace) still pending the next app restart |
+| v2 status | implemented 2026-10-21; architecture verified against the host Plugin service (per-directory hook cache + directory event filter + `input.directory`); `prove:s038` + `npm run verify` green; live multi-workspace boot PASSED 2026-10-21T04:32:15Z — five copies initialized in one NodeService (athan, tawassyl, dart, ciel, v2) with zero cross-workspace rejections, and `n2-auto.jsonl` gained records from two different sessions in that process (`ses_ec148abb…` +154s, `ses_ec151013…` +1929s); tawassyl tool hooks logged live on the same boot |
 | host proof | `/opt/OpenCode/resources/app.asar` — directory filter before the `event` hook call |
+
+## S-039 N2 auto must gate on assistant messages (user text parts were recorded) — v1 working tree — v2 REQUIRED
+`message.part.updated` fires for the USER's own text part too. `hooks/n2-auto.ts` recorded the first text part without checking the author, so every live N2 record was the user's message: case 7 `ses_ec148abb…` +154s and case 8 auto `ses_ec151013…` +52.4s both resolve to role=user messages (`msg_15cbd8a46…`, `msg_15d0ddb23…`, `msg_15d0ee0a2…` all user). N2 was therefore measuring when a user message was persisted, not the first assistant stream — invalid for the cold-boot gate.
+
+Fix (v1): track assistant message ids from `message.updated` (`info.role === "assistant"`) and record a text part only when `part.messageID` is in that set; parts of unannounced messages are ignored (fail-closed → missing record yields INCOMPLETE, never a false early PASS). Tests: existing drills announce an assistant message first; new drill `ignores user text parts and unannounced messages (role gate)` asserts no record for user/unknown parts.
+
+| anchor | location |
+| --- | --- |
+| v1 hook | `.opencode/plugins/tawassul/hooks/n2-auto.ts:51` — `assistantMessages` set; role gate at the text-part branch |
+| v1 tests | `.opencode/plugins/tawassul/hooks/n2-auto.test.ts` — role-gate drill + announced-assistant fixtures |
+| v1 build | `ae2cb0ce…` copied to all 8 Desktop workspaces 2026-10-21 |
+| v2 target | `src/hooks/n2-auto.ts` — same missing gate; `src/hooks/n2-auto.test.ts` |
+| v2 status | REQUIRED before any v2 N2 measurement is trusted; v2 `n2-auto.jsonl` records must be re-derived after the gate |
+
+## S-040 Desktop session-load freeze is the host `event` table (2.94GB, no retention) — v1 DIAGNOSED (fix pending) — v2 REQUIRED
+The 2026-10-22 "app opened but sessions never loaded" report is not provider latency. The working DB `~/.local/share/opencode/opencode-desktop.db` was 3.47GB (848,540 pages, freelist=0); `dbstat` attributes 2.94GB (85%) to `event`, 316MB to `part`, 179MB to `message`. `event` had 174,758 rows; the top aggregate ids are session ids (`ses_ec148abb…` 42,482, `ses_ebfceb35…` 33,906, `ses_ec151013…` 21,305, `ses_ec14461f…` 17,104), i.e. per-session append-only streams. The shipped host (`/opt/OpenCode/resources/app.asar`) contains `CREATE TABLE event (id, aggregate_id, seq, type, data, FK aggregate_id → event_sequence ON DELETE CASCADE)` and **no `DELETE FROM event` and no retention path** — the table grows without bound. opencode runs better-sqlite3 synchronously on the server event loop, so queries/checkpoints on this file freeze the local server ("sessions don't load" in the UI).
+
+`scripts/opencode-db-maintenance.sh` cannot reclaim it: it prunes `message`/`part` only (90-day cutoff; 0 eligible because all data is recent) and then VACUUMs — `event` is never touched. Worse, the auto-maint aborted 3× (2026-10-14 at 4.2G, 2026-10-15 ×2 at 5.2G) at `backup quick_check failed`, so no prune/VACUUM ever ran; the DB hit 5.2GB before the working DB was replaced on the 2026-10-19 recovery, and the new one regrew to 3.47GB.
+
+Live evidence (2026-10-22): session-list query on 265 sessions took 4.2s. Three Desktop launches: `81aa841b` 09:20:39–09:23:58 and `f5e6bd77` 09:27:58–09:29:53 both hung after `booting location services` for tawassyl with **no plugin `initPlugin` line** (user force-closed both); `9829e20d` 09:36:28 became usable after ~45s. Case 14's `n2=57.6s` was measured on the successful third launch, not on the hang — the provider-latency attribution is retracted.
+
+Fix (requires the app closed; VACUUM is forbidden on a live DB): full-file backup → prune `event` for closed/old sessions by `session.time_updated` (events carry no timestamp) → VACUUM → verify an old session still renders its full history before deleting the backup → extend maintenance to prune `event` and fix the `quick_check` backup failure. Re-derive N2 cold-boot cases after the shrink.
+
+| anchor | location |
+| --- | --- |
+| v1 evidence | `~/.local/share/opencode/opencode-desktop.db` — `event` 2.94GB / 174,758 rows (2026-10-22) |
+| host schema | `/opt/OpenCode/resources/app.asar` — `CREATE TABLE event`; no event delete/retention |
+| maintenance gap | `scripts/opencode-db-maintenance.sh` — message/part prune only; event retention missing |
+| boot evidence | `~/.local/share/opencode/log/opencode.log` — runs `81aa841b`, `f5e6bd77`, `9829e20d` |
+| v2 status | REQUIRED: event retention + maintenance fix; re-measure N2 after |
