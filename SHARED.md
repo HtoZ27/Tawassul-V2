@@ -715,11 +715,14 @@ Live evidence (2026-10-22): session-list query on 265 sessions took 4.2s. Three 
 
 Fix (requires the app closed; VACUUM is forbidden on a live DB): `scripts/tawassul-shrink-db.sh` (2026-10-22) takes a SQLite `.backup` + quick_check + session probe, deletes `event` rows (`--keep N`, default 0), VACUUMs, and re-proves integrity; then verify an old session still renders its full history before deleting the backup. Extend maintenance to prune `event` and fix the `quick_check` backup failure. Re-derive N2 cold-boot cases after the shrink.
 
+Automation (2026-10-23, user decision: act at the cap, never every boot): `opencode-desktop-iso.sh` already gates on `TAWASSUL_DB_CAP_BYTES` (default 4GiB, 24h cooldown). Inside that gate and before exec it now runs `scripts/tawassul-prune-events.sh --db "$ISO_DB" --apply` (silent, refuses a live app, skips a missing `event` table): every row present pre-launch belongs to a previous run, history stays in `message`/`part`, and freed pages are reused so no VACUUM/user prompt is needed. The manual shrink tool remains for reclaiming disk. Note: the observed freeze was at 3.47GB, below the 4GiB cap — if it recurs, lower `TAWASSUL_DB_CAP_BYTES` (e.g., 3GiB) rather than raising it.
+
 | anchor | location |
 | --- | --- |
 | v1 evidence | `~/.local/share/opencode/opencode-desktop.db` — `event` 2.94GB / 174,758 rows (2026-10-22) |
 | host schema | `/opt/OpenCode/resources/app.asar` — `CREATE TABLE event`; no event delete/retention |
 | maintenance gap | `scripts/opencode-db-maintenance.sh` — message/part prune only; event retention missing |
 | shrink tool | `scripts/tawassul-shrink-db.sh` — offline backup → prune → VACUUM → check (refuses a running app) |
+| automation | `scripts/opencode-desktop-iso.sh` — cap gate + 24h cooldown → `scripts/tawassul-prune-events.sh --apply` before exec |
 | boot evidence | `~/.local/share/opencode/log/opencode.log` — runs `81aa841b`, `f5e6bd77`, `9829e20d` |
 | v2 status | REQUIRED: event retention + maintenance fix; re-measure N2 after |
