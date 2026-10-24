@@ -38,7 +38,7 @@ effort.
 | 3 | Tue 2026-10-27 | P1 | Watcher, N2 re-derivation, boot scorecard | done: 10/10 cold boots PASS with `--since`; watcher line per launch; N5 N/A on 2.1.4 |
 | 4 | Wed 2026-10-28 | P1 | S-055 triage batch + quality gates | done: `TRIAGE.md` A–L verdicts; proof-catalog threshold + release smoke green |
 | 5 | Thu 2026-10-29 | P0 | Live dual-generation gate + cutover | done: dual boot + guard matrix recorded; SHARED frozen; one runnable copy |
-| 6 | Fri 2026-10-30 | — | Buffer, docs, handover | clean tree, one install method |
+| 6 | Fri 2026-10-30 | — | Buffer, docs, handover | done: `README.md` shipped; final ci green; clean tree; one install method |
 
 ## Day 1 — State namespace and one setup owner (P0)
 
@@ -228,6 +228,26 @@ Exit: met — cutover log committed, SHARED frozen, one runnable plugin copy.
   the install/bootstrap order.
 - Record the final state-path and HMAC migration note for operators.
 - Final commit; no uncommitted files.
+
+Status 2026-10-24: done. No Day 5 regression required a code fix.
+
+- `README.md` is the operator guide: prerequisites (host 2.1.4, Node 24+,
+  Bun, `@opencode/plugin` 2.1.4), install order (`npm install` →
+  `npm run build` → host loads `.opencode/plugin/tawassul.js`), the pinned
+  launcher, the `verify`/`ci` split, the state + HMAC table, the guard codes,
+  the 42-tool surface, troubleshooting, and the docs map.
+- State and HMAC migration is documented: v2 writes under
+  `~/.config/tawassul-v2/state` (override `TAWASSUL_V2_STATE_DIR`), the
+  legacy `~/.config/tawassyl/state` is a read-only fallback, writes carry
+  `TAWASSUL_V2_HMAC_V1:`, and verification also accepts the legacy
+  `TAWASSUL_HMAC_V1:` / `TAWASSULL_HMAC_V1:` prefixes. The key file stays at
+  `~/.config/tawassul/.tawassul-hmac-key`.
+- `DECOUPLING.md` now records the README as delivered instead of pending.
+- Final `npm run ci` on this tree: see the Day 6 commit message and
+  `/tmp/opencode/ci-day6.log`; release smoke ends with
+  `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`.
+
+Exit: met — clean tree, one install method, docs delivered.
 
 ## P2 backlog (after cutover)
 

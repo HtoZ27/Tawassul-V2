@@ -125,4 +125,5 @@ commit. v1 state under `~/.config/tawassyl` was never modified.
   remains; it reads only when the v2 file is absent and never writes v1.
 - The v1 HMAC key file remains readable at `~/.config/tawassul/.tawassul-hmac-key`;
   v2 writes use `TAWASSUL_V2_HMAC_V1:` and verify both prefixes.
-- Day 6 owns the final README/operator guide and a last full proof run.
+- Day 6 delivered the operator `README.md` (install, state/HMAC migration,
+  guard codes, troubleshooting) and the final full proof run.

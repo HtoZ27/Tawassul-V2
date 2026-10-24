@@ -66,9 +66,10 @@ HMAC key file is the only permitted legacy read.
 
 - `RULES.md` (memory cap 1.5GB, sequential heavy ops) so `AGENTS.md` no
   longer points outside this tree.
-- `README.md` (install + operator guide) is Day 6; the cutover install method
-  is recorded in `CUTOVER.md`: `npm install` → `npm run build` → host loads
-  `.opencode/plugin/tawassul.js`.
+- `README.md` (install + operator guide): delivered in Day 6. It carries the
+  prerequisites, the install order (`npm install` → `npm run build` → host
+  loads `.opencode/plugin/tawassul.js`), the state/HMAC table, the guard
+  codes, and troubleshooting. `CUTOVER.md` keeps the cutover install method.
 
 ## Cutover checklist
 
