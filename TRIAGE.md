@@ -33,7 +33,7 @@ evidence.
 
 | Item | Verdict | Evidence |
 | --- | --- | --- |
-| Vitest coverage thresholds + `test:coverage` | v1-only | v2 has no `tests/` directory, no `vitest` dependency, no `vitest.config.ts`, and no `test:coverage` script. Importing vitest just to set thresholds over an empty suite would be theater. The v2 equivalent is `prove:proof-catalog`: 24 proof files, each referenced by exactly one `prove:` script and wired into `ci`, with a hard minimum count. |
+| Vitest coverage thresholds + `test:coverage` | v1-only | v2 has no `tests/` directory, no `vitest` dependency, no `vitest.config.ts`, and no `test:coverage` script. Importing vitest just to set thresholds over an empty suite would be theater. The v2 equivalent is `prove:proof-catalog`: 25 proof files (24 at Day 4, plus the Day 6 independence proof), each referenced by exactly one `prove:` script and wired into `ci`, with a hard minimum count. |
 | 44 files without direct coverage; Replica pattern; tautological/flaky tests | v1-only | v1 test-suite inventory; v2 has no unit-test suite to repair. |
 | Release gate: host version pin + smoke | apply | `scripts/release-smoke.sh` pins 2.1.4, refuses drift, builds, boots a scratch workspace with an isolated DB, asserts the plugin init line and 42 tools, and calls `health` + `help` directly. Wired as `smoke:release` in `ci`. |
 | CI H1–H5, 16 Medium, 9 Low hardening | v1-only | v2 has no remote; the item is owner-blocked until the first CI exists. The local `ci` chain is the current gate. |
@@ -122,6 +122,6 @@ evidence.
   test suite; the proof catalog is the v2 threshold), and every row marked
   `v1-only` or `dead` above.
 - The Day 4 exit is met by the v2 gates, not by importing the v1 suite:
-  `npm run verify`, `prove:proof-catalog` (24 proofs, every proof wired into
+  `npm run verify`, `prove:proof-catalog` (25 proofs, every proof wired into
   `ci`), `prove:catch-discipline`, `smoke:release` (host 2.1.4 pin, scratch
   boot, 42 tools, health + help), and a green `npm run ci`.

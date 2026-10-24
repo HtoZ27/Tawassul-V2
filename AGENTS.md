@@ -41,6 +41,9 @@ re-open the v1 transfer channel.
 2. **v2 owns this tree.** Only agents working in this folder implement,
    verify (`npm run verify`), and commit code changes.
 3. **One plugin copy.** This tree is the only runnable Tawassul plugin.
+   v2 must not import from, build with, or execute the v1 tree. The only
+   permitted v1-era reads are the documented legacy state fallback and the
+   existing HMAC key file; `npm run prove:independence` enforces this.
 
 ## Porting from v1
 
@@ -59,4 +62,5 @@ re-open the v1 transfer channel.
 - `npm run typecheck` — TypeScript strict
 - `npm run check:rules` — English-only + no-comments
 - `npm run build` — single-file bundle to `dist/index.js` (bun, no splitting)
+- `npm run prove:independence` — no v1 tree reference; one host entry
 - `npm run verify` — all of the above sequentially

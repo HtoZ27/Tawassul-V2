@@ -47,12 +47,28 @@ generation guard, runs DB maintenance at the cap, and logs one
 
 ```
 npm run verify      # rules + shell syntax + typecheck + build
-npm run ci          # verify + config/facts + all 24 proofs + release smoke
+npm run ci          # verify + config/facts + all 25 proofs + release smoke
 ```
 
 `npm run ci` ends with `smoke:release`: host pin check, a scratch workspace
 boot with an isolated `OPENCODE_DB`, 42 registered tools, and direct `health`
 plus `help` calls. A broken plugin cannot pass it.
+
+## Independence
+
+v2 runs from this tree alone: no runtime import, script, or build step references
+`/home/htoz/Desktop/tawassyl`. `npm run prove:independence` enforces that,
+checks that the only legacy name in `src/` is the read-only state fallback,
+and asserts exactly one host entry (`.opencode/plugin/tawassul.js`).
+
+The only v1-era surfaces v2 still touches are read-only:
+
+- the legacy state directory, and only when the v2 file is missing;
+- the existing HMAC key, so previously signed state stays verifiable.
+
+The v1 tree is retired: its plugin bundle and MCP server are renamed
+`.retired-20261024`, every workspace config sets
+`mcp.tawassul.enabled = false`, and the tree is read-only.
 
 ## State and migration
 

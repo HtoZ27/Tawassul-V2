@@ -26,7 +26,7 @@ const ci = scripts["ci"] ?? "";
 const ciParts = ci.split("&&").map((p) => p.trim()).filter(Boolean);
 const ciProves = ciParts.filter((p) => p.startsWith("npm run prove:")).map((p) => p.slice("npm run ".length));
 
-assert(proofFiles.length >= 24, `proof catalog has at least 24 files (found ${proofFiles.length})`);
+assert(proofFiles.length >= 25, `proof catalog has at least 25 files (found ${proofFiles.length})`);
 
 const referenced = new Map<string, string[]>();
 for (const [name, cmd] of proveScripts) {
@@ -54,7 +54,7 @@ for (const part of ciParts) {
   assert(target.length > 0 && typeof scripts[target] === "string", `ci target ${target} exists`);
 }
 
-assert(ciProves.length >= 24, `ci runs at least 24 proofs (found ${ciProves.length})`);
+assert(ciProves.length >= 25, `ci runs at least 25 proofs (found ${ciProves.length})`);
 assert(ciParts.includes("npm run smoke:release"), "ci runs the release smoke gate");
 assert(ciParts.includes("npm run verify"), "ci starts from verify");
 

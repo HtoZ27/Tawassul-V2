@@ -108,7 +108,10 @@ guard never fails open.
 | v1 plugin disabled in active workspaces | 6 files renamed to `tawassul.js.retired-20261024` under `vusial 2`, `vpro`, `vusual`, `athan new vrsion`, `dart22222222`, `ciel-osk-workspace` |
 | v1 reference tree | its `.opencode/plugin/tawassul.js` renamed to `.retired-20261024` |
 | Explicit config entry | `/home/htoz/Desktop/paassss/opencode.json` `plugin` set to `[]` |
+| v1 MCP entries | 9 workspace `opencode.json` files set `mcp.tawassul.enabled = false` (`New Folder`, `athan new vrsion`, `ciel-osk-workspace`, `dart22222222`, `okttob`, `tawassyl`, `vpro`, `vusial 2`, `vusual`) |
+| v1 MCP files | 7 files renamed to `tawassul.mjs.retired-20261024` in the workspaces that carried one, including the reference tree |
 | Remaining auto-loaded `tawassul.js` | only `/home/htoz/Desktop/Tawassul V2/.opencode/plugin/tawassul.js` |
+| Remaining runnable `tawassul.mjs` | none |
 | v1 tree | `chmod -R a-w`; a write probe is refused |
 | v1 git remote | none configured (`git remote -v` empty); nothing to push |
 | Documents config | `/home/htoz/Documents/opencode.json` already has `"plugin": []`; no stale entry to delete, so no owner prompt was needed |
@@ -116,8 +119,10 @@ guard never fails open.
 
 Rollback (only if the owner reopens v1): `chmod -R u+w
 /home/htoz/Desktop/tawassyl`, rename the seven `.retired-20261024` files back
-to `tawassul.js`, restore the `paassss` plugin entry, and revert the freeze
-commit. v1 state under `~/.config/tawassyl` was never modified.
+to `tawassul.js`, rename the seven MCP files back to `tawassul.mjs`, set
+`mcp.tawassul.enabled` back to `true` in the 9 configs, restore the `paassss`
+plugin entry, and revert the freeze commit. v1 state under
+`~/.config/tawassyl` was never modified.
 
 ## 6. Residual notes
 
@@ -125,5 +130,8 @@ commit. v1 state under `~/.config/tawassyl` was never modified.
   remains; it reads only when the v2 file is absent and never writes v1.
 - The v1 HMAC key file remains readable at `~/.config/tawassul/.tawassul-hmac-key`;
   v2 writes use `TAWASSUL_V2_HMAC_V1:` and verify both prefixes.
+- v2 independence is enforced by `scripts/prove-v2-independence.ts`: no v1
+  tree reference in `src/` or the build/launcher, the legacy state name only
+  in `state-paths.ts`, no v1 manifest dependency, and exactly one host entry.
 - Day 6 delivered the operator `README.md` (install, state/HMAC migration,
-  guard codes, troubleshooting) and the final full proof run.
+  guard codes, troubleshooting) and the final full proof run (25 proofs).

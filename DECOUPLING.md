@@ -62,6 +62,15 @@ must not change mtimes under `~/.config/tawassyl` or `~/.config/tawassul`; the
 HMAC key file is the only permitted legacy read.
 
 
+## Independence gate (implemented 2026-10-24)
+
+`scripts/prove-v2-independence.ts` (the 25th proof) fails the gate if `src/`,
+the build script, or the launcher names the v1 tree. It also
+asserts that the legacy state name is confined to `state-paths.ts`, that the
+v2 path is checked before the legacy fallback, and that exactly one host
+entry exists. v1 MCP entries are disabled in every workspace and the MCP
+files are renamed `tawassul.mjs.retired-20261024`; v1 itself stays read-only.
+
 ## In-tree docs (delivered at cut)
 
 - `RULES.md` (memory cap 1.5GB, sequential heavy ops) so `AGENTS.md` no
