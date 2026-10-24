@@ -37,7 +37,7 @@ effort.
 | 2 | Sat 2026-10-24 | P0/P1 | Goal ledger correctness (S-052) | done: counters agree on every close path; cap is loud and proven |
 | 3 | Tue 2026-10-27 | P1 | Watcher, N2 re-derivation, boot scorecard | done: 10/10 cold boots PASS with `--since`; watcher line per launch; N5 N/A on 2.1.4 |
 | 4 | Wed 2026-10-28 | P1 | S-055 triage batch + quality gates | done: `TRIAGE.md` A–L verdicts; proof-catalog threshold + release smoke green |
-| 5 | Thu 2026-10-29 | P0 | Live dual-generation gate + cutover | v1 guard refuses v2 DB; SHARED frozen |
+| 5 | Thu 2026-10-29 | P0 | Live dual-generation gate + cutover | done: dual boot + guard matrix recorded; SHARED frozen; one runnable copy |
 | 6 | Fri 2026-10-30 | — | Buffer, docs, handover | clean tree, one install method |
 
 ## Day 1 — State namespace and one setup owner (P0)
@@ -198,7 +198,29 @@ Exit: met — triage table committed, the v2 threshold gate enforced
 5. Ask the owner before deleting the stale `"plugin": ["tawassul"]` entry in
    `/home/htoz/Documents/opencode.json` (it produces a registry 404 at boot).
 
-Exit: cutover log committed, SHARED frozen, one runnable plugin copy.
+Status 2026-10-24: done; the full evidence is `CUTOVER.md`.
+
+- Clean-tree `npm run ci` on `3379550` returned 0
+  (`/tmp/opencode/ci-day5-clean.log`, release smoke green).
+- Dual boot: the v2 workspace registered 42 tools at 21.54ms init and replied;
+  the v1 workspace registered 42 tools and replied on 2.1.4. Its DB carries
+  `session_v2`, which the v1 guard refuses. The v1 pinned host 1.18.30 is not
+  installed, so the v1 lane has no supported host here. Direct `health` (both)
+  and `help` (v2) calls returned the expected output.
+- Guard matrix: synthetic 1.18 schema → v1 ok / v2 refused; synthetic
+  `tawassul-v2` DB → v2 ok / v1 refused; live v2 DB → v1 refused; live 2.1.4
+  DB → v1 refused (`marker-session_v2`). No fail-open path.
+- Freeze: `SHARED.md` header frozen; `check:shared` and the anchor checker
+  removed; `scripts/port-from-v1.mjs` and `test-utils.ts` deleted;
+  `AGENTS.md` + local `RULES.md` updated; the maintenance comment no longer
+  names v1.
+- Retirement: six active workspaces and the v1 reference tree renamed their
+  plugin bundle to `.retired-20261024`; the `paassss` config entry is now
+  `[]`; only the v2 `.opencode/plugin/tawassul.js` remains auto-loadable; the
+  v1 tree is read-only; it has no git remote; `Documents/opencode.json`
+  already had `"plugin": []`, so no owner prompt was needed.
+
+Exit: met — cutover log committed, SHARED frozen, one runnable plugin copy.
 
 ## Day 6 — Buffer and handover
 

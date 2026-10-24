@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# opencode-db-maintenance.sh — V2 LOCAL COPY (vendored from tawassyl
-# scripts/opencode-db-maintenance.sh @ 29a4f809; V2 defaults point at the
-# tawassul-v2 profile so V2 never touches a V1 path by default).
+# opencode-db-maintenance.sh — V2 LOCAL COPY (vendored maintenance lane;
+# V2 defaults point at the tawassul-v2 profile so V2 never touches a V1 path
+# by default).
 #
 # Prevents the working DB from growing back to tens of GB (23.8 GB observed:
 # 5.8M pages, 971K parts — the root cause of the frozen local server, since

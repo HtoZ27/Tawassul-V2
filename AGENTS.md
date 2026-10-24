@@ -1,7 +1,8 @@
 # Tawassul V2 — Project Rules (English)
 
 This is the standalone OpenCode v2 (Plugin API v2) implementation of Tawassul.
-It lives in its own folder and never overlaps with the v1 implementation.
+It is the only runnable plugin copy after the 2026-10-24 cutover; the v1 tree
+is a retired, read-only reference.
 
 ## Mandatory rules
 
@@ -19,31 +20,27 @@ It lives in its own folder and never overlaps with the v1 implementation.
    TypeScript directive; a glued prefix such as `@ts-ignore-everything` is
    rejected). Enforced by the same checker and proven by `scripts/prove-rule-gate.ts`.
 3. **Gate scope.** The checker parses `.ts`, `.mjs`, and `.json` under `src/`,
-   `scripts/`, `tests/`, plus three root files. Shell, Markdown, and YAML are
+   `scripts/`, `tests/`, plus two root files. Shell, Markdown, and YAML are
    outside its reach, so keep those English and comment-free by review, not by gate.
 
 ## Before any work
 
-1. Read `/home/htoz/Desktop/tawassyl/RULES.md` (memory cap 1.5GB, sequential heavy ops).
-2. Run `npm run verify` after changes: rules + shared anchors + typecheck + build.
+1. Read `RULES.md` (memory cap 1.5GB, sequential heavy ops).
+2. Run `npm run verify` after changes: rules + shell syntax + typecheck + build.
 
-## Shared issues log
+## Shared issues log (frozen)
 
-`SHARED.md` documents problems shared with v1 and their fixes, with code anchors
-in both trees. Anchors are validated by `scripts/check-shared-anchors.mjs`
-(`npm run check:shared`). Add an `S-###` entry whenever a problem recurs across
-versions; do not duplicate the fix in both codebases.
+`SHARED.md` is frozen at the 2026-10-24 cutover. It is a historical record;
+no new `S-###` entries are accepted and its anchors are not gated. Do not
+re-open the v1 transfer channel.
 
-## Ownership boundary (minimal overlap between the two projects)
+## Ownership boundary
 
-1. **v1 side transfers, never edits here.** Problems and proven fix shapes from
-   the v1 tree arrive only as `SHARED.md` entries (`S-###`) with valid v1/v2
-   anchors. No direct code edits from outside this tree.
-2. **v2 agents own this tree.** Only agents working in this folder implement,
-   verify (`npm run verify`), and commit code changes derived from `SHARED.md`
-   entries. Mark the entry implemented; do not edit v1.
-3. **One channel.** `SHARED.md` is the single transfer channel between the
-   projects. No side edits, no duplicated fixes, no cross-tree commits.
+1. **v1 is retired.** Its tree is read-only reference. No transfers, no code
+   edits, no cross-tree commits.
+2. **v2 owns this tree.** Only agents working in this folder implement,
+   verify (`npm run verify`), and commit code changes.
+3. **One plugin copy.** This tree is the only runnable Tawassul plugin.
 
 ## Porting from v1
 
@@ -61,6 +58,5 @@ versions; do not duplicate the fix in both codebases.
 
 - `npm run typecheck` — TypeScript strict
 - `npm run check:rules` — English-only + no-comments
-- `npm run check:shared` — SHARED.md anchors valid in both trees
 - `npm run build` — single-file bundle to `dist/index.js` (bun, no splitting)
 - `npm run verify` — all of the above sequentially

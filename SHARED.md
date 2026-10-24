@@ -1,11 +1,15 @@
 # Shared Issues Log — Tawassul v1 <-> v2
 
+> **FROZEN at cutover, 2026-10-24.** This file is a historical record of
+> problems shared while both trees were live. No new `S-###` entries are
+> accepted, and the anchors are no longer machine-validated. The v1 tree is
+> retired and read-only; only this V2 tree ships a runnable plugin.
+
 Every entry records a problem shared by both versions, how it was fixed, and anchors to the actual code in each version.
 
-Format rules (enforced by `scripts/check-shared-anchors.mjs`):
-- `v1/` prefix anchors into `/home/htoz/Desktop/tawassyl/.opencode/plugins/tawassul/`
+Archival format rules (the checker was removed at cutover):
+- `v1/` prefix anchors into the retired v1 tree
 - bare anchors resolve inside this V2 project
-- every anchor must exist in the referenced file
 - content is English only
 
 ---

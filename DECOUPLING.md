@@ -62,13 +62,13 @@ must not change mtimes under `~/.config/tawassyl` or `~/.config/tawassul`; the
 HMAC key file is the only permitted legacy read.
 
 
-## In-tree docs needed before cut
+## In-tree docs (delivered at cut)
 
-- `RULES.md` (memory cap 1.5GB, sequential heavy ops) so `AGENTS.md` stops
-  pointing outside this tree.
-- `README.md` (install + operator guide): prerequisites (bun, node 24,
-  opencode >= 1.18.30), bootstrap order
-  (`npm install` → `npm run build` → seed → generator `--check`).
+- `RULES.md` (memory cap 1.5GB, sequential heavy ops) so `AGENTS.md` no
+  longer points outside this tree.
+- `README.md` (install + operator guide) is Day 6; the cutover install method
+  is recorded in `CUTOVER.md`: `npm install` → `npm run build` → host loads
+  `.opencode/plugin/tawassul.js`.
 
 ## Cutover checklist
 
@@ -77,10 +77,10 @@ HMAC key file is the only permitted legacy read.
    sandboxed live boot → `npm run ci` green.
 3. Retire the channel: freeze `SHARED.md`, drop `check-shared-anchors`
    from `verify`, delete `scripts/port-from-v1.mjs` + `test-utils.ts`,
-   remove remaining v1 path references.
+   remove remaining v1 path references. **Done 2026-10-24; see `CUTOVER.md`.**
 4. Final commit.
 
-## Transfer protocol until cutover
+## Transfer protocol after cutover
 
-Per the v1 atomic review (2026-09-24): anything touching v2 arrives as a
-`SHARED.md` `S-###` entry with valid v1/v2 anchors. No new entries pending.
+Closed. `SHARED.md` is frozen and v1 is read-only. New work is v2-only and
+goes through `PLAN.md`; do not reopen the cross-tree channel.

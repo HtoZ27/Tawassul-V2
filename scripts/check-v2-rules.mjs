@@ -5,7 +5,7 @@ import ts from "typescript";
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "..", "..");
 const SCAN_DIRS = ["src", "scripts", "tests"];
-const SINGLE_FILES = ["build-v2.mjs", "check-v2-rules.mjs", "check-shared-anchors.mjs"];
+const SINGLE_FILES = ["build-v2.mjs", "check-v2-rules.mjs"];
 const ARABIC_RE = /\p{Script=Arabic}/u;
 const ARABIC_ALLOWED_FILES = [
   "src/hooks/guards/consent-gate-guard.ts",
