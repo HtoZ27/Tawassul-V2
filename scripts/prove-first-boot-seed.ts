@@ -16,7 +16,7 @@ async function proveMinimalContract(): Promise<void> {
     if (!first.created) fail("minimal contract not created in empty project dir");
     const doc = JSON.parse(readFileSync(join(dir, "opencode.json"), "utf-8")) as Record<string, unknown>;
     if (doc["$schema"] !== "https://opencode.ai/config.json") fail("schema missing");
-    if (doc["subagent_depth"] !== 3) fail("subagent_depth missing");
+    if ("subagent_depth" in doc) fail("v1 subagent_depth must not be written");
     if (!doc["agent"] || typeof doc["agent"] !== "object" || Object.keys(doc["agent"] as object).length !== 0) {
       fail("agent container must exist and be empty");
     }

@@ -17,10 +17,19 @@
 #   3. PRUNE old messages+parts (FK-cascade deletes parts; sessions are NEVER
 #      deleted — other tables reference them). Offset is wall-clock, messages
 #      touching fresh sessions are kept, so active work is never emptied.
+#      Also applies host `event` retention when the DB is quiescent: every event
+#      row predates the current run while session history lives in message/part.
 #   4. VACUUM — rebuilds the file, reclaims every freed page (the actual shrink).
 #      Runs ONLY when no process holds the DB (re-checked here); otherwise it is
 #      skipped with a notice — live VACUUM is forbidden under every flag.
 #   5. REPORT before/after sizes. Exit non-zero on any safety refusal.
+#
+# Event retention policy (S-040): the host `event` table is append-only with no
+# retention path; at tens of thousands of rows it freezes the synchronous SQLite
+# server. The launchers enforce the cap (3GiB warning, 4GiB trigger): at/over the
+# cap they run this script with --event-only before exec, then start a background
+# backup+prune. A full run also deletes every event row when nothing holds the
+# DB. Live runs never delete events (a delete mid-run can starve the host).
 #
 # The legacy archive ~/.local/share/opencode/opencode.db is NEVER an implicit
 # target: selecting it requires --allow-archive plus an interactive CONFIRM.
@@ -29,7 +38,8 @@
 #   opencode-db-maintenance.sh [--db PATH] [--prune-days N] [--backup-dir DIR]
 #                              [--keep-backups N] [--check] [--force]
 #                              [--allow-in-use] [--ignore-low-ram]
-#                              [--allow-archive]
+#                              [--allow-archive] [--event-retention all|off]
+#                              [--event-only]
 #
 # Defaults:
 #   --db          WINCOMING order: OPENCODE_DB env → ~/.local/share/tawassul-v2/
@@ -39,11 +49,15 @@
 #   --prune-days  90 (0 disables pruning entirely — backup+VACUUM only)
 #   --backup-dir  ~/.local/share/tawassul-v2/backups
 #   --keep-backups 5 (minimum 1 — 0 would rotate away every backup)
-#   --check       read-only: report sizes (+ prune/vacuum would-be deltas) and
-#                 exit 0 — never touches the DB (immutable reads; the in-use
-#                 refusal does not apply, the RAM floor still does).
+#   --check       read-only: report sizes (+ prune/vacuum/event would-be deltas)
+#                 and exit 0 — never touches the DB (immutable reads; the
+#                 in-use refusal does not apply, the RAM floor still does).
 #   --force       DEPRECATED: equals --allow-in-use --ignore-low-ram.
 #                 Still never authorizes a live VACUUM (always skipped).
+#   --event-retention all|off  delete host event rows before VACUUM when the DB
+#                 is quiescent (default all; off keeps them).
+#   --event-only  delete host event rows and exit (no backup/prune/VACUUM);
+#                 requires a quiescent DB — the launcher path at the cap.
 
 set -euo pipefail
 
@@ -57,6 +71,7 @@ ALLOW_IN_USE=0
 IGNORE_LOW_RAM=0
 ALLOW_ARCHIVE=0
 FORCE_WARN=0
+EVENT_RETENTION="all"
 COOLDOWN_MARK_TO_CLEAR=""
 
 while [ "$#" -gt 0 ]; do
@@ -67,12 +82,14 @@ while [ "$#" -gt 0 ]; do
     --backup-dir) BACKUP_DIR="${2:?--backup-dir needs a path}"; shift 2 ;;
     --keep-backups) KEEP_BACKUPS="${2:?--keep-backups needs a number}"; shift 2 ;;
     --check) MODE="check"; shift ;;
+    --event-only) MODE="event"; shift ;;
+    --event-retention) EVENT_RETENTION="${2:?--event-retention needs all|off}"; shift 2 ;;
     --allow-in-use) ALLOW_IN_USE=1; shift ;;
     --ignore-low-ram) IGNORE_LOW_RAM=1; shift ;;
     --allow-archive) ALLOW_ARCHIVE=1; shift ;;
     --force) ALLOW_IN_USE=1; IGNORE_LOW_RAM=1; FORCE_WARN=1; shift ;; # --force: deprecated alias for both
     --help|-h)
-      sed -n '1,45p' "$0"; exit 0 ;;
+      sed -n '1,/^set -euo pipefail$/{/^set -euo pipefail$/d;p}' "$0"; exit 0 ;;
     *) echo "unknown option: $1" >&2; sed -n '1,20p' "$0" >&2; exit 2 ;;
   esac
 done
@@ -90,6 +107,10 @@ if [ "$KEEP_BACKUPS" -lt 1 ]; then
   echo "❌ --keep-backups must be >= 1 (0 would rotate away every backup)" >&2
   exit 2
 fi
+case "$EVENT_RETENTION" in
+  all|off) ;;
+  *) echo "❌ --event-retention must be all|off (got: $EVENT_RETENTION)" >&2; exit 2 ;;
+esac
 if [ "$FORCE_WARN" = 1 ]; then
   echo "⚠️  --force is deprecated (== --allow-in-use --ignore-low-ram) and never authorizes a live VACUUM." >&2
 fi
@@ -288,6 +309,52 @@ pragma_read() { # $1=pragma $2=timeout_s $3=fallback
   printf '%s' "$out"
 }
 
+table_count() { # $1=target $2=table → count, 0 when absent, "?" when unreadable
+  local target="$1" table="$2" has="" n=""
+  has="$(timeout 60 sqlite3 -readonly "$target" "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='$table';" 2>>"$LOG_FILE")" || { printf '?'; return 0; }
+  if [ "$has" != "1" ]; then printf '0'; return 0; fi
+  n="$(timeout 300 sqlite3 -readonly "$target" "SELECT count(*) FROM \"$table\";" 2>>"$LOG_FILE")" || { printf '?'; return 0; }
+  case "$n" in
+    ''|*[!0-9]*) printf '?' ;;
+    *) printf '%s' "$n" ;;
+  esac
+}
+
+event_count() { # $1=target → event rows, 0 when absent, "?" when unreadable
+  table_count "$1" event
+}
+
+event_present() { # $1=target → 1|0|?
+  local has=""
+  has="$(timeout 60 sqlite3 -readonly "$1" "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='event';" 2>>"$LOG_FILE")" || { printf '?'; return 0; }
+  case "$has" in
+    0|1) printf '%s' "$has" ;;
+    *) printf '?' ;;
+  esac
+}
+
+event_delete() { # $1=db path
+  timeout 1800 sqlite3 "$1" ".timeout 60000" "DELETE FROM event;" 2>>"$LOG_FILE"
+}
+
+_GEN_GUARD="$(cd "$(dirname "$0")" && pwd -P)/guard-db-generation.sh"
+require_v2_generation() { # rc: 0 proven v2 · 2 refused/missing guard
+  local g_rc=0 out=""
+  if [ ! -x "$_GEN_GUARD" ]; then
+    echo "❌ generation guard missing at $_GEN_GUARD — refusing mutations." >&2
+    return 2
+  fi
+  out="$("$_GEN_GUARD" --db "$DB_PATH" --expect v2 2>&1)" || g_rc=$?
+  if [ "$g_rc" -ne 0 ]; then
+    echo "⛔ mutations skipped: generation guard refused (rc=$g_rc) — $DB_PATH" >&2
+    echo "   Prune/event-delete/VACUUM were NOT run: this DB is not proven V2." >&2
+    [ -n "$out" ] && printf '%s\n' "$out" >&2
+    return 2
+  fi
+  echo "→ generation guard: ok (V2) — mutations allowed"
+  return 0
+}
+
 PAGES="$(pragma_read page_count 120 0)"
 PAGESIZE="$(pragma_read page_size 30 4096)"
 FREELIST="$(pragma_read freelist_count 30 0)"
@@ -301,22 +368,67 @@ if [ "$MODE" = "check" ]; then
     CAND="$(timeout 300 $RO "$(RO_DB)" "
       SELECT (SELECT count(*) FROM message
                WHERE time_updated < $CUTOFF
-                 AND session_id IN (SELECT id FROM session
-                                     WHERE id NOT IN (SELECT session_id FROM message
-                                                       WHERE time_updated >= $CUTOFF)))
+                 AND session_id NOT IN (SELECT session_id FROM message
+                                         WHERE time_updated >= $CUTOFF))
            || ' messages + ' ||
            (SELECT count(*) FROM part
              WHERE message_id IN (SELECT id FROM message
                                   WHERE time_updated < $CUTOFF
-                                    AND session_id IN (SELECT id FROM session
-                                                        WHERE id NOT IN (SELECT session_id FROM message
-                                                                          WHERE time_updated >= $CUTOFF))))
+                                    AND session_id NOT IN (SELECT session_id FROM message
+                                                            WHERE time_updated >= $CUTOFF)))
              || ' parts';" 2>/dev/null || echo "UNKNOWN (count query failed — see stderr)")"
     echo "→ ${PRUNE_DAYS} days cutoff (epoch ${CUTOFF}); dry-run only, nothing modified."
     echo "→ would prune now: ${CAND} (VACUUM reclaims the pages they free)"
   else
     echo "→ pruning disabled (--prune-days 0); dry-run only, nothing modified."
   fi
+  EV_ROWS="$(event_count "$(RO_DB)")"
+  case "$EV_ROWS" in
+    0) echo "→ event retention: 0 rows (no event table or empty)." ;;
+    \?) echo "⚠️  event retention: count unavailable — run cannot prove retention (see stderr)." >&2 ;;
+    *) echo "→ event retention: ${EV_ROWS} rows; a quiescent run deletes all of them (--event-retention off keeps them)." ;;
+  esac
+  exit 0
+fi
+
+# ── event-only mode: launcher path at the DB cap ─────────────────────────────
+# Deletes the previous run's host events and exits — no backup, prune, or VACUUM.
+# Requires a proven-quiescent DB (every row predates this run).
+if [ "$MODE" = "event" ]; then
+  if [ "$EVENT_RETENTION" = "off" ]; then
+    echo "→ event retention disabled (--event-retention off) — nothing to do."
+    exit 0
+  fi
+  EV_PRESENT="$(event_present "$DB_PATH")"
+  case "$EV_PRESENT" in
+    0) echo "→ no event table — nothing to do."; exit 0 ;;
+    \?) echo "❌ cannot probe the event table (fail-closed) — refusing." >&2; exit 3 ;;
+  esac
+  if ! command -v fuser >/dev/null 2>&1; then
+    echo "❌ fuser not found (util-linux) — cannot prove the DB is quiescent." >&2
+    exit 3
+  fi
+  EV_HOLDERS=""
+  if ! EV_HOLDERS="$(fuser_holders "$DB_PATH")"; then
+    echo "❌ fuser unreliable — cannot prove the DB is quiescent (fail-closed)." >&2
+    exit 3
+  fi
+  if [ -n "$EV_HOLDERS" ]; then
+    echo "❌ DB is in use by process(es): $(printf '%s' "$EV_HOLDERS" | tail -c 60)" >&2
+    echo "   Event retention only runs pre-launch (close the app first)." >&2
+    exit 3
+  fi
+  require_v2_generation || exit 2
+  EV_BEFORE="$(event_count "$DB_PATH")"
+  case "$EV_BEFORE" in
+    \?) echo "❌ cannot count event rows (fail-closed) — refusing." >&2; exit 3 ;;
+    0) echo "→ event retention: 0 rows."; exit 0 ;;
+  esac
+  if ! event_delete "$DB_PATH"; then
+    echo "❌ event retention failed (see $LOG_FILE)." >&2
+    exit 5
+  fi
+  echo "→ event retention: deleted ${EV_BEFORE} rows (history stays in message/part)."
   exit 0
 fi
 
@@ -339,28 +451,20 @@ fi
 # through the WAL, so comparing against an immutable=1 (WAL-blind) source
 # count aborts every run on a live DB (proven: source=1 backup=2 → exit 4).
 # The backup file itself is static — immutable stays correct there.
-SRC_SESSIONS="$(timeout 300 sqlite3 -readonly "$DB_PATH" "SELECT count(*) FROM session;" 2>>"$LOG_FILE" || echo "?")"
-BKP_SESSIONS="$(timeout 300 sqlite3 -readonly "$(RO_URI "$BACKUP_FILE")" "SELECT count(*) FROM session;" 2>>"$LOG_FILE" || echo "?")"
-if [ "$SRC_SESSIONS" != "$BKP_SESSIONS" ]; then
-  echo "❌ backup session probe mismatch (source=$SRC_SESSIONS backup=$BKP_SESSIONS) — aborting (see $LOG_FILE)." >&2
+# Both session tables are probed: migrated v2 DBs carry session (legacy rows)
+# next to session_v2, and a pure-v2 DB has session_v2 only.
+SRC_V2="$(table_count "$DB_PATH" session_v2)"
+SRC_V1="$(table_count "$DB_PATH" session)"
+BKP_V2="$(table_count "$(RO_URI "$BACKUP_FILE")" session_v2)"
+BKP_V1="$(table_count "$(RO_URI "$BACKUP_FILE")" session)"
+if [ "$SRC_V2" != "$BKP_V2" ] || [ "$SRC_V1" != "$BKP_V1" ] || [ "$SRC_V2" = "?" ] || [ "$SRC_V1" = "?" ]; then
+  echo "❌ backup session probe mismatch (source session_v2=$SRC_V2 session=$SRC_V1 / backup session_v2=$BKP_V2 session=$BKP_V1) — aborting (see $LOG_FILE)." >&2
   exit 4
 fi
-echo "→ backup verified (quick_check=ok, sessions=$BKP_SESSIONS)"
+echo "→ backup verified (quick_check=ok, session_v2=$BKP_V2, session=$BKP_V1)"
 ls -1t "$BACKUP_DIR"/opencode-*.db 2>/dev/null | tail -n +$((KEEP_BACKUPS + 1)) | xargs -r rm -f --
 
-_GEN_GUARD="$(cd "$(dirname "$0")" && pwd -P)/guard-db-generation.sh"
-if [ ! -x "$_GEN_GUARD" ]; then
-  echo "❌ generation guard missing at $_GEN_GUARD — refusing mutations (backup is complete)." >&2
-  exit 2
-fi
-_grc=0; _gout=""
-_gout="$("$_GEN_GUARD" --db "$DB_PATH" --expect v2 2>&1)" || _grc=$?
-if [ "$_grc" -ne 0 ]; then
-  echo "⛔ mutations skipped: generation guard refused (rc=$_grc) — $DB_PATH" >&2
-  echo "   The verified backup above is kept. Prune/VACUUM were NOT run: this DB is not proven V2." >&2
-  exit 2
-fi
-echo "→ generation guard: ok (V2) — mutations allowed"
+require_v2_generation || exit 2
 
 # ── prune old messages+parts (sessions untouched) ─────────────────────────────
 if [ "$PRUNE_DAYS" -gt 0 ]; then
@@ -369,17 +473,56 @@ if [ "$PRUNE_DAYS" -gt 0 ]; then
   # foreign_keys=ON is REQUIRED: the sqlite3 CLI defaults it OFF, and without it
   # the part rows that ON DELETE CASCADE should remove survive as orphans
   # (proven: 4 parts survived a 2-message prune until this pragma was added).
+  # The session join is intentionally absent: v2 sessions live in session_v2,
+  # and a session table join skipped every migrated message.
   timeout 1800 sqlite3 "$DB_PATH" "
     PRAGMA foreign_keys = ON;
     PRAGMA busy_timeout = 60000;
     DELETE FROM message
      WHERE time_updated < $CUTOFF
-       AND session_id IN (
-         SELECT id FROM session WHERE id NOT IN (
-           SELECT session_id FROM message WHERE time_updated >= $CUTOFF
-         )
+       AND session_id NOT IN (
+         SELECT session_id FROM message WHERE time_updated >= $CUTOFF
        );
   " 2>>"$LOG_FILE" || { echo "❌ prune failed (see $LOG_FILE; retry offline or with --allow-in-use)." >&2; exit 5; }
+fi
+
+# ── host event retention (S-040) ──────────────────────────────────────────────
+# Only when the DB is proven quiescent: every event row belongs to a previous
+# run, while session history stays in message/part. A live run skips this (the
+# launcher lane prunes before exec); deleting mid-run can starve the host.
+if [ "$EVENT_RETENTION" = "all" ]; then
+  EV_PRESENT="$(event_present "$DB_PATH")"
+  case "$EV_PRESENT" in
+    0) echo "→ event retention: no event table — skipped." ;;
+    \?) echo "→ event retention: table probe unavailable — skipped (fail-closed)." >&2 ;;
+    1)
+      EV_BEFORE="$(event_count "$DB_PATH")"
+      case "$EV_BEFORE" in
+        \?)
+          echo "→ event retention: count unavailable — skipped (fail-closed)." >&2
+          ;;
+        0)
+          echo "→ event retention: 0 rows."
+          ;;
+        *)
+          EV_LIVE=1
+          if command -v fuser >/dev/null 2>&1 && EV_HOLDERS="$(fuser_holders "$DB_PATH")"; then
+            [ -z "$EV_HOLDERS" ] && EV_LIVE=0
+          fi
+          if [ "$EV_LIVE" = 0 ]; then
+            if event_delete "$DB_PATH"; then
+              echo "→ event retention: deleted ${EV_BEFORE} rows (history stays in message/part)."
+            else
+              echo "❌ event retention failed (see $LOG_FILE)." >&2
+              exit 5
+            fi
+          else
+            echo "→ event retention: skipped — DB is in use or quiescence is unprovable (the launcher prunes pre-exec)." >&2
+          fi
+          ;;
+      esac
+      ;;
+  esac
 fi
 
 # ── vacuum: reclaim every freed page ──────────────────────────────────────────
@@ -429,6 +572,11 @@ FREELIST_A="$(pragma_read freelist_count 30 0)"
 DB_SIZE_AFTER="$(stat -c %s "$DB_PATH")"
 size_report "after " "$PAGES_A" "$PAGESIZE_A" "$FREELIST_A"
 echo "→ Δ file: before $(numfmt --to=iec "$DB_SIZE_BEFORE" 2>/dev/null || echo "$DB_SIZE_BEFORE") → after $(numfmt --to=iec "$DB_SIZE_AFTER" 2>/dev/null || echo "$DB_SIZE_AFTER")"
+EV_AFTER="$(event_count "$DB_PATH")"
+case "$EV_AFTER" in
+  \?) echo "→ event rows after: unavailable" ;;
+  *) echo "→ event rows after: $EV_AFTER" ;;
+esac
 echo "✓ done. Backup: $BACKUP_FILE"
 if [ "${VACUUM_SKIPPED:-0}" = 1 ]; then
   echo "→ note: VACUUM was skipped (DB in use or unverifiable) — file not shrunk; rerun offline."

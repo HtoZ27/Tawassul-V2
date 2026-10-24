@@ -5,7 +5,7 @@ import { logger } from "../utils/logger.ts";
 import { resolveV2Directory } from "./client-shim.ts";
 import type { V2Context, V2ToolContext, V2ToolDefinition } from "./types.ts";
 
-const EMPTY_INPUT_SCHEMA = { type: "object", properties: {} };
+const EMPTY_INPUT_SCHEMA = { type: "object", properties: {}, additionalProperties: true };
 
 export async function collectToolSchemas(
   tools: Record<string, ToolDefinition>,
@@ -25,7 +25,11 @@ export async function collectToolSchemas(
   return schemas;
 }
 
-function buildV1ToolContext(ctx: V2Context, context: V2ToolContext): ToolContext {
+function buildV1ToolContext(
+  ctx: V2Context,
+  context: V2ToolContext,
+  askFactory: AskFactory | undefined,
+): ToolContext {
   const directory = resolveV2Directory(ctx);
   return {
     sessionID: context.sessionID,
@@ -33,33 +37,38 @@ function buildV1ToolContext(ctx: V2Context, context: V2ToolContext): ToolContext
     agent: context.agent,
     directory,
     worktree: directory,
-    abort: new AbortController().signal,
+    abort: context.signal ?? new AbortController().signal,
     metadata: (meta) => context.progress(meta),
-    ask: undefined,
+    ask: askFactory ? askFactory(context) : undefined,
   };
 }
 
-function toV2Result(result: unknown): unknown {
+export function toV2Result(result: unknown): unknown {
   if (typeof result === "string") {
     return { content: [{ type: "text", text: result }] };
   }
   if (result && typeof result === "object") {
-    const rec = result as { output?: unknown; title?: string; metadata?: Record<string, unknown> };
-    if (typeof rec.output === "string") {
-      return { output: rec.output, metadata: rec.metadata, content: [{ type: "text", text: rec.output }] };
+    const rec = result as { output?: unknown; metadata?: Record<string, unknown> };
+    const text = typeof rec.output === "string" ? rec.output : rec.output === undefined ? "" : String(rec.output);
+    const metadata = rec.metadata && typeof rec.metadata === "object" ? rec.metadata : undefined;
+    if (text.length > 0) {
+      return metadata
+        ? { content: [{ type: "text", text }], metadata }
+        : { content: [{ type: "text", text }] };
     }
-    if (rec.output !== undefined) {
-      return { output: rec.output, metadata: rec.metadata };
-    }
+    return metadata ? { content: [], metadata } : { content: [] };
   }
   return { content: [{ type: "text", text: String(result) }] };
 }
+
+export type AskFactory = (context: V2ToolContext) => ToolContext["ask"];
 
 export function makeV2Tool(
   ctx: V2Context,
   name: string,
   def: ToolDefinition,
   schema: Record<string, unknown> | undefined,
+  askFactory?: AskFactory,
 ): V2ToolDefinition {
   return {
     name,
@@ -67,7 +76,7 @@ export function makeV2Tool(
     input: schema && Object.keys(schema).length > 0 ? schema : EMPTY_INPUT_SCHEMA,
     options: { codemode: false },
     execute: async (args: Record<string, unknown>, context: V2ToolContext): Promise<unknown> => {
-      const v1Context = buildV1ToolContext(ctx, context);
+      const v1Context = buildV1ToolContext(ctx, context, askFactory);
       const result = await def.execute(args, v1Context);
       return toV2Result(result);
     },

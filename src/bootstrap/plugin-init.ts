@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { TAWASSUL_TOOL_NAMES, STATELESS_TOOLS } from "../tool-names.ts";
 import { mark, measure, report, reset as perfReset } from "../utils/perf.ts";
-import type { TawassulHooks as Hooks, PluginInput, Config } from "../plugin-types.ts";
+import type { TawassulHooks as Hooks, PluginInput, Config, InitReadyProbe } from "../plugin-types.ts";
+import { INIT_READY } from "../plugin-types.ts";
 import type { ToolDefinition, ToolContext } from "../tool.ts";
 import { setLanguage, t } from "../translations.ts";
 import { applyIterationBudgets } from "../services/iteration-budget.ts";
@@ -62,16 +63,6 @@ export const CONSENT_BLOCKING_TIMEOUT_MS = 25_000;
 async function passiveSelfCheck(projectDir: string, pluginDir: string): Promise<void> {
   try {
     const checks: string[] = [];
-    
-    for (const name of ["opencode.jsonc", "opencode.json"]) {
-      const p = resolve(projectDir, name);
-      if (!existsSync(p)) continue;
-      const raw = readFileSync(p, "utf-8");
-      const m = raw.match(/"subagent_depth"\s*:\s*(\d+(?:\.\d+)?)/);
-      if (!m || Number(m[1]) < 3) checks.push(`subagent_depth<3 in ${name} (will auto-fix)`);
-      break;
-    }
-    
     const distJs = resolve(pluginDir, "dist/index.js");
     const altDistJs = resolve(projectDir, "dist/index.js");
     if (!existsSync(distJs) && !existsSync(altDistJs)) checks.push("dist/index.js missing — run: bun build-v2.mjs or bun --cwd .opencode/plugins/tawassul build.mjs");
@@ -337,6 +328,10 @@ export async function injectTranscriptQuestion(
   await Promise.race([pending, timeout]);
   settled = true;
   clearTimeout(handle);
+}
+
+export function getInitReady(hooks: Hooks): InitReadyProbe | undefined {
+  return hooks[INIT_READY];
 }
 
 export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof TawassulContext }) {
@@ -756,10 +751,15 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   
   const wrappedTools: Record<string, ToolDefinition> = {};
   const toolNames = TAWASSUL_TOOL_NAMES;
+  const liveTool = (n: string): ToolDefinition | undefined => tools[n];
   for (const name of toolNames) {
     const wrapper = (n: string): ToolDefinition => ({
-      description: `[tawassul] ${n} — initializing, retry in a moment`,
-      args: {} as z.ZodRawShape,
+      get description(): string {
+        return liveTool(n)?.description ?? `[tawassul] ${n} — initializing, retry in a moment`;
+      },
+      get args(): z.ZodRawShape {
+        return (liveTool(n)?.args ?? {}) as z.ZodRawShape;
+      },
       execute: async (args: Record<string, unknown>, context: ToolContext) => {
         const status = await ensureReady();
         if (stateless.has(n)) {
@@ -831,6 +831,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
 
   return {
     tool: wrappedTools,
+    [INIT_READY]: ensureReady,
     config: gateHook((async (cfg) => {
       applyDynamicAgentModelFix(cfg);
       ensureTawaToolPermissions(cfg);

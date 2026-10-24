@@ -1,13 +1,16 @@
 import type { TawassulHooks } from "../plugin-types.ts";
-import { initPlugin } from "../bootstrap/plugin-init.ts";
+import { getInitReady, initPlugin } from "../bootstrap/plugin-init.ts";
 import { logger } from "../utils/logger.ts";
 import { collectToolSchemas, makeV2Tool } from "./adapters.ts";
+import { createAskBridge, registerAskPermission } from "./ask.ts";
 import { buildPluginInput } from "./client-shim.ts";
 import { isTaskTool, subagentArgsToV1, toolNameToV1, v1ArgsToSubagent } from "./delegation.ts";
 import { mapV2EventToV1 } from "./event-adapter.ts";
-import type { V2Context, V2SessionEvent } from "./types.ts";
+import { applyV1AfterOutput, resultText } from "./result-bridge.ts";
+import type { V2Context, V2SessionEvent, V2ToolContext, V2ToolHookInput } from "./types.ts";
 
 const MAX_PROCESSED_MESSAGES = 1024;
+const INITIAL_SCHEMA_WAIT_MS = 750;
 
 function toDynamicAgentModel(model: unknown): { providerID: string; modelID: string } | undefined {
   if (typeof model === "string") {
@@ -129,19 +132,37 @@ export function createV2Setup() {
     const wrapped = plugin.tool ?? {};
     const registered: Array<() => Promise<void>> = [];
     const processedMessages = new Set<string>();
+    const readyProbe = getInitReady(plugin);
+    const askRegistration = await registerAskPermission(ctx);
+    if (askRegistration) registered.push(() => askRegistration.dispose());
+    const askEnabled = askRegistration !== undefined;
+    const askFactory = (context: V2ToolContext) => createAskBridge(ctx, context, askEnabled);
 
     let schemas: Map<string, Record<string, unknown>> = new Map();
-    try {
-      schemas = await collectToolSchemas(wrapped);
-    } catch (e) {
-      logger.error("[tawassul] v2 schema collection failed:", e);
+    const refreshSchemas = async (): Promise<void> => {
+      try {
+        schemas = await collectToolSchemas(wrapped);
+      } catch (e) {
+        logger.error("[tawassul] v2 schema collection failed:", e);
+      }
+    };
+
+    if (readyProbe) {
+      const initial = await Promise.race([
+        readyProbe(),
+        new Promise<{ ready: boolean }>((resolve) => {
+          const timer = setTimeout(() => resolve({ ready: false }), INITIAL_SCHEMA_WAIT_MS);
+          if (timer.unref) timer.unref();
+        }),
+      ]);
+      if (initial.ready) await refreshSchemas();
     }
 
     try {
       const toolRegistration = await ctx.tool.transform((editor) => {
         let count = 0;
         for (const [name, def] of Object.entries(wrapped)) {
-          editor.add(makeV2Tool(ctx, name, def, schemas.get(name)));
+          editor.add(makeV2Tool(ctx, name, def, schemas.get(name), askFactory));
           count += 1;
         }
         logger.info(`[tawassul] v2 registered ${count} tools`);
@@ -149,6 +170,24 @@ export function createV2Setup() {
       registered.push(() => toolRegistration.dispose());
     } catch (e) {
       logger.error("[tawassul] v2 tool registration failed:", e);
+    }
+
+    if (readyProbe) {
+      const refresh = (async () => {
+        const status = await readyProbe();
+        if (!status.ready) {
+          logger.warn(`[tawassul] v2 schema refresh skipped: init not ready (${status.error?.message ?? "pending"})`);
+          return;
+        }
+        await refreshSchemas();
+        try {
+          await ctx.tool.reload();
+          logger.info(`[tawassul] v2 tool schemas refreshed after init (${schemas.size} schemas)`);
+        } catch (e) {
+          logger.warn("[tawassul] v2 tool reload failed; placeholders stay until restart:", e);
+        }
+      })();
+      registered.push(() => refresh.catch(() => undefined));
     }
 
     if (plugin["tool.execute.before"]) {
@@ -192,13 +231,7 @@ export function createV2Setup() {
     if (plugin["tool.execute.after"]) {
       try {
         const afterRegistration = await ctx.tool.hook("execute.after", (rawInput) => {
-          const spec = rawInput as {
-            tool: string;
-            sessionID: string;
-            agent: string;
-            id: string;
-            input: unknown;
-          };
+          const spec = rawInput as V2ToolHookInput;
           const v1Input = {
             tool: toolNameToV1(spec.tool),
             agent: spec.agent,
@@ -206,16 +239,40 @@ export function createV2Setup() {
             callID: spec.id,
             args: cloneArgs(spec.input),
           };
-          const v1Output = {
-            title: "",
-            output: "",
-            metadata: {},
-          };
           const bridge = plugin["tool.execute.after"];
           if (!bridge) return;
-          return bridge(v1Input, v1Output).catch((e) => {
-            logger.warn(`[tawassul] v2 execute.after (${spec.tool}) failed:`, e);
-          });
+          const completed = spec.status === "completed" ? spec.result : undefined;
+          const originalText = resultText(completed);
+          const originalMetadata = completed?.metadata;
+          const syntheticStatus = !Object.prototype.hasOwnProperty.call(originalMetadata ?? {}, "status");
+          const v1Output =
+            spec.status === "error"
+              ? {
+                  title: "",
+                  output: spec.error?.message ?? "tool failed",
+                  metadata: {
+                    ...(originalMetadata ?? {}),
+                    status: "error",
+                    error: spec.error?.message ?? "tool failed",
+                  } as Record<string, unknown>,
+                }
+              : {
+                  title: "",
+                  output: originalText,
+                  metadata: { ...(originalMetadata ?? {}), status: "completed" } as Record<string, unknown>,
+                };
+          return bridge(v1Input, v1Output)
+            .then(() => {
+              if (spec.status === "error" || !spec.result) return;
+              try {
+                applyV1AfterOutput(spec.result, originalText, originalMetadata, v1Output, syntheticStatus);
+              } catch (e) {
+                logger.warn(`[tawassul] v2 execute.after write-back (${spec.tool}) failed:`, e);
+              }
+            })
+            .catch((e) => {
+              logger.warn(`[tawassul] v2 execute.after (${spec.tool}) failed:`, e);
+            });
         });
         registered.push(() => afterRegistration.dispose());
       } catch (e) {

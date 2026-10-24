@@ -373,18 +373,6 @@ export async function sleepBootJitter(maxMs = 150): Promise<void> {
 }
 
 
-export function fixSubagentDepth(raw: string): string {
-  const valueMatch = raw.match(/"subagent_depth"\s*:\s*(\d+(?:\.\d+)?)/);
-  if (valueMatch && Number(valueMatch[1]) >= 3) return raw;
-  if (valueMatch) {
-    return raw.replace(/"subagent_depth"\s*:\s*\d+(?:\.\d+)?/, `"subagent_depth": 3`);
-  }
-  const brace = raw.indexOf("{");
-  if (brace === -1) return raw;
-  return raw.slice(0, brace + 1) + `\n  "subagent_depth": 3,` + raw.slice(brace + 1);
-}
-
-
 export function applyBootRepairs(raw: string): { next: string; fixes: string[] } {
   const fixes: string[] = [];
   let next = raw;
@@ -392,11 +380,6 @@ export function applyBootRepairs(raw: string): { next: string; fixes: string[] }
   if (models !== next) {
     next = models;
     fixes.push("dynamic-models");
-  }
-  const depth = fixSubagentDepth(next);
-  if (depth !== next) {
-    next = depth;
-    fixes.push("subagent_depth");
   }
   return { next, fixes };
 }
@@ -490,7 +473,6 @@ export async function ensureMinimalProjectContract(
     }
     const doc: Record<string, unknown> = {
       $schema: "https://opencode.ai/config.json",
-      subagent_depth: 3,
       agent: {},
     };
     if (existsSync(resolve(projectDir, ".opencode", "mcp", "tawassul.mjs"))) {

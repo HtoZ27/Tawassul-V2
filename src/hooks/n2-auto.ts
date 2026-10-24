@@ -29,11 +29,34 @@ export interface N2AutoRecord {
 
 export function createN2AutoHook() {
   let done = false;
+  const assistantMessages = new Set<string>();
+  const rememberAssistant = (id: string): void => {
+    if (assistantMessages.has(id)) return;
+    if (assistantMessages.size >= 512) {
+      const first = assistantMessages.values().next().value;
+      if (first !== undefined) assistantMessages.delete(first);
+    }
+    assistantMessages.add(id);
+  };
   return async function n2AutoHook(input: { event: unknown }): Promise<void> {
     if (done) return;
-    const ev = input?.event as { type?: string; properties?: { part?: unknown } } | undefined;
-    if (!ev || ev.type !== "message.part.updated") return;
-    const part = ev.properties?.part as
+    const ev = input?.event as
+      | {
+          type?: string;
+          properties?: { info?: unknown; part?: unknown; sessionID?: string };
+          data?: { info?: unknown; part?: unknown; sessionID?: string };
+        }
+      | undefined;
+    if (!ev) return;
+    if (ev.type === "message.updated") {
+      const info = (ev.properties?.info ?? ev.data?.info) as { id?: unknown; role?: unknown } | undefined;
+      if (info && info.role === "assistant" && typeof info.id === "string" && info.id) {
+        rememberAssistant(info.id);
+      }
+      return;
+    }
+    if (ev.type !== "message.part.updated") return;
+    const part = (ev.properties?.part ?? ev.data?.part) as
       | {
           type?: string;
           id?: string;
@@ -47,6 +70,7 @@ export function createN2AutoHook() {
     if (!part || part.type !== "text") return;
     if (part.synthetic === true || part.ignored === true) return;
     if (typeof part.text !== "string" || part.text.length === 0) return;
+    if (typeof part.messageID !== "string" || !assistantMessages.has(part.messageID)) return;
     done = true;
 
     const ts = Date.now();

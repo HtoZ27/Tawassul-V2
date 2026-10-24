@@ -6,5 +6,7 @@ timeline/
 metrics.json
 mission-board/
 tool-run-log.json
+cost-transparency.json
+cost-transparency.json.bak.*
 dist/
 node_modules/

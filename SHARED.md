@@ -700,13 +700,13 @@ Fix (v1): track assistant message ids from `message.updated` (`info.role === "as
 
 | anchor | location |
 | --- | --- |
-| v1 hook | `.opencode/plugins/tawassul/hooks/n2-auto.ts:51` — `assistantMessages` set; role gate at the text-part branch |
-| v1 tests | `.opencode/plugins/tawassul/hooks/n2-auto.test.ts` — role-gate drill + announced-assistant fixtures |
+| v1 hook | `v1/hooks/n2-auto.ts:51` — `assistantMessages` set; role gate at the text-part branch |
+| v1 tests | `v1/hooks/n2-auto.test.ts` — role-gate drill + announced-assistant fixtures |
 | v1 build | `ae2cb0ce…` copied to all 8 Desktop workspaces 2026-10-21 |
-| v2 target | `src/hooks/n2-auto.ts` — same missing gate; `src/hooks/n2-auto.test.ts` |
-| v2 status | REQUIRED before any v2 N2 measurement is trusted; v2 `n2-auto.jsonl` records must be re-derived after the gate |
+| v2 target | `src/hooks/n2-auto.ts:32` — role gate; `src/hooks/n2-auto.ts:73` — announced-assistant predicate |
+| v2 status | IMPLEMENTED on v2 2026-10-24: assistant-role gate + `prove:v2-compat` drills (user and unannounced parts are ignored). Existing v2 records predate the gate and still must be re-derived before any N2 claim (S-053). |
 
-## S-040 Desktop session-load freeze is the host `event` table (2.94GB, no retention) — v1 DIAGNOSED (fix pending) — v2 REQUIRED
+## S-040 Desktop session-load freeze is the host `event` table (2.94GB, no retention) — v1 FIXED (shrink 2026-10-23 + cap-gated prune; maintenance quick_check open) — v2 REQUIRED
 The 2026-10-22 "app opened but sessions never loaded" report is not provider latency. The working DB `~/.local/share/opencode/opencode-desktop.db` was 3.47GB (848,540 pages, freelist=0); `dbstat` attributes 2.94GB (85%) to `event`, 316MB to `part`, 179MB to `message`. `event` had 174,758 rows; the top aggregate ids are session ids (`ses_ec148abb…` 42,482, `ses_ebfceb35…` 33,906, `ses_ec151013…` 21,305, `ses_ec14461f…` 17,104), i.e. per-session append-only streams. The shipped host (`/opt/OpenCode/resources/app.asar`) contains `CREATE TABLE event (id, aggregate_id, seq, type, data, FK aggregate_id → event_sequence ON DELETE CASCADE)` and **no `DELETE FROM event` and no retention path** — the table grows without bound. opencode runs better-sqlite3 synchronously on the server event loop, so queries/checkpoints on this file freeze the local server ("sessions don't load" in the UI).
 
 `scripts/opencode-db-maintenance.sh` cannot reclaim it: it prunes `message`/`part` only (90-day cutoff; 0 eligible because all data is recent) and then VACUUMs — `event` is never touched. Worse, the auto-maint aborted 3× (2026-10-14 at 4.2G, 2026-10-15 ×2 at 5.2G) at `backup quick_check failed`, so no prune/VACUUM ever ran; the DB hit 5.2GB before the working DB was replaced on the 2026-10-19 recovery, and the new one regrew to 3.47GB.
@@ -717,6 +717,10 @@ Fix (requires the app closed; VACUUM is forbidden on a live DB): `scripts/tawass
 
 Automation (2026-10-23, user decision: act at the cap, never every boot): `opencode-desktop-iso.sh` already gates on `TAWASSUL_DB_CAP_BYTES` (default 4GiB, 24h cooldown). Inside that gate and before exec it now runs `scripts/tawassul-prune-events.sh --db "$ISO_DB" --apply` (silent, refuses a live app, skips a missing `event` table): every row present pre-launch belongs to a previous run, history stays in `message`/`part`, and freed pages are reused so no VACUUM/user prompt is needed. The manual shrink tool remains for reclaiming disk. Note: the observed freeze was at 3.47GB, below the 4GiB cap — if it recurs, lower `TAWASSUL_DB_CAP_BYTES` (e.g., 3GiB) rather than raising it.
 
+v1 generation guard (2026-10-23): both `scripts/tawassul-prune-events.sh` and `scripts/tawassul-shrink-db.sh` now call `guard-db-generation.sh --expect v1` before any `DELETE`/VACUUM. A v2-marked DB (or a `tawassul-v2` path) is refused with rc=2, and a probe failure is fail-closed with rc=3; the scripts no longer fall through to deleting `event` on a DB that has `session_v2` or `migration.v1-v2`. The v1 regression fixture runs both refusal paths and the v1 deletion path. This is a v1-only safety fix; v2's `event` retention, `session_v2` probe and cutover work remain S-041.
+
+Watcher axis (2026-10-23): D7 reports `rotational-disk` on this host, so the adopted `auto` policy disables the host watcher on the shim path (M0: watcher-off ≤2.1s, 0 subscribe errors). The instance running at 02:24Z had been launched directly (no launcher exports), i.e. watcher-on, and still refreshed cleanly (case 17 pairs 2ms–4.0s, latest 0.5s, N1=0); the old 54–203s stalls did not reproduce after the event-table shrink, so the DB bloat was a confound in the watcher attribution. The launcher now appends one `[launcher] watcher mode=… d7=… decision=… reason=…` line per launch to `~/.local/share/tawassul/tawassul.log`; N1/N5 remain the watcher gate inside the 10/10 protocol.
+
 | anchor | location |
 | --- | --- |
 | v1 evidence | `~/.local/share/opencode/opencode-desktop.db` — `event` 2.94GB / 174,758 rows (2026-10-22) |
@@ -724,5 +728,436 @@ Automation (2026-10-23, user decision: act at the cap, never every boot): `openc
 | maintenance gap | `scripts/opencode-db-maintenance.sh` — message/part prune only; event retention missing |
 | shrink tool | `scripts/tawassul-shrink-db.sh` — offline backup → prune → VACUUM → check (refuses a running app) |
 | automation | `scripts/opencode-desktop-iso.sh` — cap gate + 24h cooldown → `scripts/tawassul-prune-events.sh --apply` before exec |
+| v1 prune guard | `v1/../../../scripts/tawassul-prune-events.sh:32` — `--expect v1` before `DELETE FROM event` (`:64`) |
+| v1 shrink guard | `v1/../../../scripts/tawassul-shrink-db.sh:73` — `--expect v1` before backup/delete (`:128`) |
+| v1 regression | `v1/tests/prune-events-guard.test.ts:1` — v2 refusal + intact rows; v1 delete; shrink refusal + v1 check |
 | boot evidence | `~/.local/share/opencode/log/opencode.log` — runs `81aa841b`, `f5e6bd77`, `9829e20d` |
-| v2 status | REQUIRED: event retention + maintenance fix; re-measure N2 after |
+| v2 status | IMPLEMENTED on v2 2026-10-24: `--event-only` (pre-exec, quiescence-proven), `--event-retention all|off` in the full run, dual `session_v2`+`session` backup probe, message prune no longer joins the legacy `session` table, launcher prunes at the cap before exec; `prove:db-retention` green. N2 re-derivation remains open (S-039/S-053). |
+
+## S-041 pre-cutover coexistence — v1 guard shipped; v2 must complete this before cutover — v2 ACTION REQUIRED
+
+v1 has shipped its side of the coexistence fix (2026-10-23). v1 does not edit v2 code: the v2 owner reads this entry and implements the v2 items in the v2 tree. v2 independence remains scheduled before the end of the month, not now; until cutover both generations share the OpenCode host and the Desktop DB path. The v1 generation guard is the safety boundary and must not be weakened to accommodate v2.
+
+2026-10-24 update: v1 also ships the v2 loader bridge (`plugin.ts` exports `{ id, server, setup }`; `v2/` adapts prompt, compaction, tools, events, config and confirm-ask to the v2.1.4 API), generation-aware install/launchers (`OPENCODE_GENERATION` + `tawassul-v2` DB namespace; binary/pinned mismatch refused), and the deferred-schema readiness handshake (`INIT_READY` → schema mirror → `tool.reload()`). This makes the v1 reference runnable under v2.1.4; it does not close any v2 item below. Live proof: one setup owner per workspace, 42 tools registered, prompt bridge injected status, direct tool call completed, no setup errors. Direct calls also forced a bridge fix for v2's output-schema contract (S-048).
+
+v1 shipped: `tawassul-prune-events.sh` and `tawassul-shrink-db.sh` call `guard-db-generation.sh --expect v1` before any delete/VACUUM; a v2-marked DB is refused with rc=2 and a probe failure is fail-closed rc=3. The v1 regression fixture covers v2 refusal (rows intact), v1 deletion, shrink refusal, and the v1 `--check` path. v1 state/N2 are deliberately untouched, so v2 must own the shared-surface work below.
+
+v2 must do before cutover:
+
+1. DB generation and retention. [DONE 2026-10-24] `--expect v2` remains; the backup/session probe counts both `session_v2` and `session`; the full run deletes host `event` rows when the DB is quiescent (`--event-retention all|off`), the launcher runs `--event-only` pre-exec at the cap, and `message`/`part` are never used as an event substitute. Proof: `npm run prove:db-retention` (dual probe, old-message prune, event-only, refusal, backup integrity).
+2. Namespace the shared surfaces. [OPEN] Six state defaults still point at `~/.config/tawassyl/state`, HMAC is `TAWASSUL_HMAC_V1:`, the lock dir is `tawassul-locks`, the N2 log is `tawassul/n2-auto.jsonl`, and the plugin id is `tawassul`. This is a single atomic change with legacy read fallback (Day 1 of `PLAN.md`).
+3. Apply S-039. [DONE 2026-10-24] Assistant-message role gate is in `src/hooks/n2-auto.ts`; every existing N2 record predates it and must be re-derived (tracked in S-053).
+4. Apply S-040. [DONE 2026-10-24] Event retention + `session_v2` probe are in v2 maintenance; `prove:db-retention` proves them on a constructed v2-state DB.
+5. Launcher. [DONE 2026-10-24] The v1 maintenance fallback is gone (missing v2 script refuses to launch), the binary is pinned to `$HOME/.opencode/bin/opencode` at 2.1.4 (override `TAWASSUL_OPENCODE_VERSION`), and the cap gate runs v2 event retention before exec. Watcher policy remains open (S-053).
+6. Loader/package. [DONE 2026-10-24] `.opencode/package.json` carries only `@opencode/plugin` 2.1.4 (v1 API removed); only the v2 build is loaded.
+7. Gate. [OPEN] `npm run verify` and `ci` green after these changes; a live boot with v1 and v2 workspaces plus a v1-guard refusal still has to run before freezing this log.
+
+| | Anchor |
+| --- | --- |
+| v1 prune guard | `v1/../../../scripts/tawassul-prune-events.sh:32` — guard; delete at `:64` |
+| v1 shrink guard | `v1/../../../scripts/tawassul-shrink-db.sh:73` — guard; delete at `:128` |
+| v1 regression | `v1/tests/prune-events-guard.test.ts:1` |
+| v2 id | `src/index.ts:6` — `id: "tawassul"` |
+| v2 state paths | `src/services/trust-score/types.ts:165`, `src/services/collective-memory/types.ts:275`, `src/services/spec-driven/types.ts:84`, `src/services/cost-transparency/types.ts:194`, `src/services/failure-autopsy/types.ts:209`, `src/services/background-coordinator/types.ts:131` |
+| v2 HMAC | `src/utils/crypto.ts:20` — `TAWASSUL_HMAC_V1:` key surface |
+| v2 locks | `src/services/apply-patch.ts:23` — `tawassul-locks` |
+| v2 N2 log | `src/hooks/n2-auto.ts:15` — `tawassul/n2-auto.jsonl` |
+| v2 maintenance guard | `scripts/opencode-db-maintenance.sh:341` — `require_v2_generation`; full-run call at `:467` |
+| v2 retention | `scripts/opencode-db-maintenance.sh:394` — `--event-only`; `:489` — full-run event retention; `:456` — dual session probe |
+| v2 ISO fallback | `scripts/opencode-v2-iso.sh:60` — no v1 fallback (missing script refuses) |
+| v2 ISO binary | `scripts/opencode-v2-iso.sh:83` — pinned 2.1.4 binary |
+| v2 package | `.opencode/package.json:4` — v2 API only |
+| v2 N2 gate | `src/hooks/n2-auto.ts:32` — assistant role gate |
+| v1 v2 bridge | `v1/plugin.ts:17` — dual `{ id, server, setup }`; `v1/v2/setup.ts:268` — required-domain gate |
+| v1 generation pin | `v1/../../../scripts/install-tawassul.sh:261` — detect; `:342` — `OPENCODE_GENERATION`; `v1/../../../scripts/tawassul-env.sh:259` — detector |
+| v1 launcher guard | `v1/../../../scripts/opencode-desktop-iso.sh:96` — detect; `:170` — bidirectional `--expect`; `v1/../../../scripts/opencode-iso.sh:92` — CLI lane |
+| v1 live v2 boot | one setup owner, 42 tools, prompt bridge injected status, no setup errors (2026-10-24) |
+
+## S-042 v2 loads both plugin discovery paths (one workspace, two setup calls) — v1 guard shipped — v2 ACTION REQUIRED
+
+v2 scans `.opencode/plugin/` and `.opencode/plugins/` and loads both entries. In this workspace that is the built single-file plugin (`.opencode/plugin/tawassul.js`) and the v1 source entry (`.opencode/plugins/tawassul/index.ts`); `opencode plugin list --builtin` prints two local `tawassul` rows, and the host log shows two `loading plugin` lines for the same workspace. Without a guard the second setup registers every tool and hook twice.
+
+v1 bridge: `acquireSetupGuard(directory)` keeps a `Symbol.for("tawassul.v2.setup")` registry keyed by workspace, so exactly one copy owns setup and the second yields (refcounted release on dispose). The yield is now `debug`, not `warn`, because dual discovery is expected in v2; a genuine second instance is still prevented. Live boot: one owner, 42 tools, no duplicate registration.
+
+v2 required: dedupe local plugin entries by realpath/plugin root (or document one canonical entry point and stop scanning the other), and make the loader idempotent by id+directory. The v1 guard is a bridge, not a substitute for loader deduplication.
+
+| | Anchor |
+| --- | --- |
+| v1 guard | `v1/v2/guard.ts:40` — per-directory registry; `:64` — yield |
+| v1 dual export | `v1/plugin.ts:17` — `{ id, server, setup }` |
+| v2 id | `src/index.ts:6` — `id: "tawassul"` |
+| live evidence | `~/.local/share/opencode/log/opencode.log` — two `loading plugin` lines; `~/.local/share/tawassul/tawassul.log` — one `v2 registered 42 tools` |
+| v2 status | ACTION REQUIRED: loader-level dedupe is still absent; only one discovery path exists in this workspace today (`.opencode/plugin/tawassul.js`, no `.opencode/plugins/`), so the v2 setup guard is scheduled with the state-namespace change (Day 1 of `PLAN.md`). |
+
+## S-043 v2 normalizes away v1 keys with warnings (`subagent_depth`, `compaction.prune`) — v1 retained for v1 host — v2 ACTION REQUIRED
+
+A v2.1.4 boot of this project warns `$.subagent_depth kind=unsupported action="omitted unsupported legacy setting"` twice per start. The v2 repo's own `opencode.json` additionally warns on `$.compaction.prune`. Both keys are real v1 settings: v1's boot repair re-adds top-level `subagent_depth: 3` whenever it is missing or `< 3` (the v1 host does not read `experimental.subagent_depth`), and `compaction.prune` is a v1 compaction knob. Removing them from the shared project config would silently break the v1 lane.
+
+v1 bridge: no v2-side config rewrite; the `agent.transform` bridge maps the v1 config hook into v2. The top-level key stays because v1 owns it.
+
+v2 required: accept top-level `subagent_depth` as an alias for `experimental.subagent_depth` (or ignore it silently with a one-line diagnostic), and either migrate or ignore `compaction.prune`. A warning per boot is not a migration path.
+
+| | Anchor |
+| --- | --- |
+| v1 repair | `v1/bootstrap/plugin-init.ts:85` — top-level check; `v1/utils/opencode-config.ts:458` — `fixSubagentDepth` |
+| v1 config bridge | `v1/v2/setup.ts:573` — `agent.transform` |
+| v1 minimal contract | `v1/utils/opencode-config.ts:594` — writes `subagent_depth: 3` |
+| live warning | `opencode --print-logs` — `configuration normalization diagnostic` for `$.subagent_depth` |
+| v2 status | IMPLEMENTED on v2 2026-10-24: both keys are removed from the v2 repo config, boot repair no longer re-adds `subagent_depth`, and the minimal-contract seed writes only v2 keys. No per-boot normalization warning remains. |
+
+## S-044 v2 `ask` is confirm-only (no select/multiselect elicitation) — v1 fail-closed — v2 REQUIRED
+
+v2 exposes `permission.assert`, which resolves on allow and rejects on deny; there is no select/multiselect primitive. The bridge therefore answers only `{ type: "confirm" }`. Any v1 tool that needs a choice (model/agent pickers, multi-option review) gets `undefined` and must use its non-interactive fallback. `ask` is only exposed when the dedicated `tawassul.ask` evaluate hook registers successfully, so a destructive v1 confirmation can never silently become an auto-approval.
+
+v2 required: a first-class elicitation/form API for select and multiselect (the host already has session forms) with the same fail-closed contract: no bridge → no implicit default.
+
+| | Anchor |
+| --- | --- |
+| v1 permission hook | `v1/v2/ask.ts:30` — `registerAskPermission` |
+| v1 confirm bridge | `v1/v2/ask.ts:47` — `createAskBridge`; `:51` — non-confirm returns `undefined` |
+| v1 fallback | `v1/tools/misc-tools.ts` — review gate checks `cctx.ask` before asking |
+| v2 status | PARTIAL: confirm is shipped (forced `ask`, fail-closed when the hook is missing); `select`/`multiselect` return `undefined` until a first-class elicitation/form API exists. |
+
+## S-045 v2 tool schemas are deferred (empty `args` until init) — v1 readiness handshake shipped — v2 ACTION REQUIRED
+
+v1 returns tool wrappers before the deferred service init finishes; under v1 the `tool.definition` hook injects the real schema later. v2 snapshots the tool definition at `tool.transform` time, so the first registration carries `{}` and the model sees no parameters until a reload. v1 now attaches a symbol-keyed `INIT_READY` promise to the hooks object, mirrors the real `description`/`args` onto each wrapper as soon as `buildToolRegistry` completes, and the v2 bridge re-collects schemas and calls `ctx.tool.reload()`. Live boot logs `v2 tool schemas refreshed after init (42 schemas)`.
+
+v2 required: either let `tool.transform` await a schema-ready signal, or make `tool.reload()` the documented contract for deferred plugins (and expose it on every host build). A missing `reload` currently leaves placeholders until restart.
+
+| | Anchor |
+| --- | --- |
+| v1 readiness symbol | `v1/bootstrap/plugin-init.ts:57` — `INIT_READY`; `:59` — `getInitReady` |
+| v1 schema mirror | `v1/bootstrap/plugin-init.ts:778` — copies `description`/`args` |
+| v2 registration | `v1/v2/setup.ts:445` — `tool.transform` |
+| v2 reload | `v1/v2/setup.ts:479` — missing-reload warning; `:485` — `ctx.tool.reload()` |
+| v2 status | IMPLEMENTED on v2 2026-10-24: `INIT_READY` probe + bounded initial wait, real schema collection after init, `ctx.tool.reload()` refresh, and live `description`/`args` getters; live boot logged `v2 tool schemas refreshed after init (42 schemas)`. |
+
+## S-046 v2 `permission.assert` auto-allows unmatched actions — bridge forces `tawassul.ask` — v2 REQUIRED
+
+`permission.assert` resolves when no rule matches. That is the opposite of a confirmation gate: a destructive v1 tool calling `ask()` would be auto-approved. The bridge registers an `evaluate` hook that forces `effect = "ask"` for the dedicated `tawassul.ask` action, and only exposes `ask` when that registration succeeds. If the hook API changes, the bridge disables `ask` and v1 tools fall back to their non-interactive path.
+
+v2 required: define a default policy for unknown actions (`ask` or `deny`), or provide an explicit rule-injection API so a plugin can register its own action without relying on an evaluate hook.
+
+| | Anchor |
+| --- | --- |
+| v1 forced ask | `v1/v2/ask.ts:37` — `evaluation.effect = "ask"` |
+| v1 gate | `v1/v2/ask.ts:31` — requires both `permission.hook` and `permission.assert` |
+| v2 status | IMPLEMENTED on v2 2026-10-24: `permission.evaluate` forces `effect = "ask"` for `tawassul.ask`; `ask` is exposed only when both the hook and `permission.assert` register; unrelated actions are untouched. |
+
+## S-047 v2 lacks tool-output streaming and a native compaction prompt template — v1 approximates — v2 REQUIRED
+
+v1's `tool.execute.after` receives the full result and can stream/annotate; v2's `execute.after` receives `status` plus `content`/`metadata` only, so the bridge translates the final result but cannot reproduce incremental tool output. v1's `experimental.session.compacting` hook receives a mutable prompt/system array; v2's `session.hook("compaction")` exposes a mutable `system` array and an optional replacement summary, but not v1's prompt-template contract. The bridge maps both directions and logs a warning when it cannot.
+
+v2 required: a streaming result-delta API for tools and a documented compaction prompt/template contract (or a stable `system` injection point with ordering guarantees). Until then the bridge is an approximation, not parity.
+
+| | Anchor |
+| --- | --- |
+| v1 execute.after | `v1/v2/setup.ts:524` — result translation |
+| v1 compaction | `v1/v2/setup.ts:562` — `session.hook("compaction")` |
+| v1 tool adapter | `v1/v2/adapters.ts:79` — `makeV2Tool` |
+| v1 schema collection | `v1/v2/adapters.ts:18` — `collectToolSchemas` |
+| v2 status | REQUIRED: streaming deltas + compaction template contract |
+
+## S-048 v2 rejects a tool result carrying `output` unless the tool declares an output schema — v1 bridge fixed — v2 NOTE
+
+Live v2.1.4 run against the pinned v2 DB: a direct `status` call failed with `Tool result declared output without an output schema`; the same tool succeeded through code mode. The host contract is explicit: when `definition.output === undefined`, the execute result must not contain an `output` key; when a schema is declared, the result MUST contain `output` and it is validated. v1 tools declare only an input schema and return `{ title, output: string }` as a display string, so the bridge was emitting an illegal `output` field.
+
+v1 fix: `toV2Result` now delivers every v1 result as `content` text plus `metadata` and never emits `output` (regression assertions added). Direct `health` call completed under the pinned v2 DB; 42 tools still register and code-mode access is unchanged. This is a v1 adapter bug, not a v2 gap — v2's contract is correct.
+
+v2 note: document the input/output schema pairing in the plugin API (or normalize a missing `output` schema to content-only text) so third-party plugins do not hit this at runtime. No v2 code change is required for the v1 bridge.
+
+| | Anchor |
+| --- | --- |
+| v1 result translation | `v1/v2/adapters.ts:55` — content-only |
+| v1 result type contract | `v1/v2/types.ts:16` — output only with a schema |
+| v1 regression test | `v1/v2/v2.test.ts:182` — never emits `output` |
+| live proof | direct `health` call completed on `~/.local/share/opencode/tawassul-v2/opencode.db` (2026-10-24) |
+| v2 status | NOTE: contract is correct; document/normalize for third-party plugins |
+
+## S-049 v2 `execute.after` discarded every v1 output mutation — bridge now writes them back — v1 FIXED
+
+v1 after-hooks mutate `output.output` in place: threat quarantine, privacy redaction, context truncation, and the analyst notice all depend on that. The v2 bridge originally passed a temporary `{ title, output, metadata }` object and never copied it back, so every one of those protections was silently disabled on v2 while the bridge tests still passed (they only asserted the hook ran). This is a real fail-open, not a cosmetic gap.
+
+Host evidence (v2.1.4 bundle): the host builds a mutable result object, triggers `execute.after`, then returns that same object's `result`; mutating `spec.result.content` is effective. The bridge now calls `writeBackV1Output`: it replaces text parts with the single mutated string, preserves non-text parts (images/files) in order, and keeps a legacy string `output` consistent. Real metadata changes are copied back; the synthetic `status` used only to classify success for the v1 hook is stripped and never leaks into tool metadata. Five regression cases cover writeback, non-text preservation, empty success, error status/message, and unchanged text.
+
+v2 note: document that `execute.after` result mutations are read back (they are), and keep host status out of plugin-owned metadata. No v2 code change required for this fix.
+
+| | Anchor |
+| --- | --- |
+| v1 writeback | `v1/v2/setup.ts:117` — `writeBackV1Output` |
+| v1 after bridge | `v1/v2/setup.ts:165` — `runToolAfterBridge` |
+| v1 registration | `v1/v2/setup.ts:525` — `execute.after` hook |
+| v1 regression | `v1/v2/v2.test.ts:219` — five after-bridge cases |
+| host proof | `/opt/OpenCode/resources/opencode-cli` — `execute.after` result is re-read after hooks (2026-10-24) |
+| v2 status | IMPLEMENTED on v2 2026-10-24: after-hook mutations are written back (text replaced once, non-text parts preserved, synthetic status stripped, real metadata copied); `prove:v2-compat` covers write-back and metadata. |
+
+## S-050 v1 budget exhaustion was mislabeled as a verification failure — fixed — v1 FIXED
+
+A live `analyst-deepseek` run was blocked with "Failed to verify iteration budget" after 50 subagent tool calls. Root cause was v1-only: the `try` around `consume()` caught the `ToolBlockedError` thrown by the exhaustion branch and rethrew `budgetCheckFailed`. The budget worked; the message was wrong, and it sent the audit toward a nonexistent verification bug. The block now sits outside the `try`, so exhaustion reports `budgetExhausted` ("agent exhausted iteration budget") and only a genuine `consume()` exception reports `budgetCheckFailed`.
+
+| | Anchor |
+| --- | --- |
+| v1 consume | `v1/hooks/tool-execute.ts:282` — `consume` call |
+| v1 block | `v1/hooks/tool-execute.ts:288` — `budgetExhausted` outside the try |
+| v1 regression | `v1/hooks/tool-execute.test.ts:1410` — exhaustion message test |
+| v2 status | N/A — v1-only path; v2 owns its own budget implementation |
+
+## S-051 Host evidence validates the bridge's `permission.evaluate` mutation and `tool.reload()` re-run — v2 NOTE
+
+Two bridge mechanisms were challenged as unproven. Both are now verified in the v2.1.4 host bundle rather than inferred:
+
+- `permission.assert` computes a base effect, runs the `permission/evaluate` trigger, and returns the mutated `effect`. The host's own `opencode.config.reference` plugin mutates the evaluation object in place (`h.effect = "deny"`). The bridge's `evaluation.effect = "ask"` is therefore the supported pattern, not a guess.
+- `tool.reload()` invalidates tool state and re-runs all registered transform callbacks. The bridge's post-init schema refresh is valid; a live v2 boot logged `42 schemas` after the refresh.
+
+v2 note: promote both to documented public contracts. They are currently observable only by reading the bundle, which makes third-party bridges fragile.
+
+| | Anchor |
+| --- | --- |
+| v1 forced ask | `v1/v2/ask.ts:37` — in-place `effect = "ask"` |
+| v1 schema reload | `v1/v2/setup.ts:485` — `tool.reload()` |
+| host proof | `/opt/OpenCode/resources/opencode-cli` — permission trigger returns mutated effect; `tool.reload` re-runs transforms (2026-10-24) |
+| v2 status | NOTE: verify in host source and document; no behavior change required |
+
+## S-052 v1 goal auto-capture has seven correctness gaps — v2 must port the corrected shape, not the code — v2 ACTION REQUIRED
+
+The v1 Goal Ledger fix in commit `9b9ddf6d` (pre-split `0af80851`) made capture task-scoped (one goal per task, full `todowrite` snapshots), but a code review found seven correctness gaps that remain in the v1 reference. v1 is retiring, so these are transferred as required behavior for the v2 port. Evidence is code-level at v1 `9b9ddf6d` (tree identical to pre-split `0af80851`); no live reproduction was run. The current v1 build is fresh: both `dist/index.js` and `.opencode/plugin/tawassul.js` were rebuilt on 2026-10-24 14:50 and contain `applyReconcileSnapshot`, `lifecycleCounts`, `isLegacyCaptureGoal`, `acquireSetupGuard`, `writeBackV1Output`, and `INIT_READY`. The earlier "dist is from 21 October" observation was true before that rebuild and is resolved for this tree.
+
+1. **Lifecycle counters diverge on auto-complete and vanish on replay.** `applyReconcileSnapshot` increments `lifecycleCounts.completed` when it flips a goal to completed, but reopening the same goal does not decrement it. The count is persisted in meta, so the digest over-reports completions forever. On a meta heal or replay, `load()` credits a completion only when it is followed by a dropped tombstone; an auto-completed goal that is still live contributes zero. The completed count can therefore drop to 0 after a rebuild while the goal remains in memory. v2 must derive counts from the goal set or ledger, not from a mutable counter, or make completion and reopen one symmetric transaction.
+
+2. **Auto-complete bypasses the transition table and the close invariant.** The auto path sets `status = "completed"` directly when `items` is empty and `completedItems` is non-empty. It never checks `ALLOWED_TRANSITIONS` (blocked/stale to completed is illegal) and never checks `checkCloseInvariant` (unmet acceptance criteria are ignored). v2 must route every close, including auto-close, through one gate.
+
+3. **Completed goals leak the cap and stop capture silently.** Auto-completed goals stay in `this.goals` with no physical delete. `create()` and `pickTaskGoal()` compare `this.goals.size` to `maxGoals` (5000), so accumulated completed goals eventually block new capture. `reconcileCapture` returns `{ok:false, reason:"max"}`, `runTodoReconcile` maps that to `{ok:false}`, and the hook logs only exceptions, so no warning reaches the user. v2 must archive or purge completed goals out of the working set, or count only active goals against the cap, and must surface cap exhaustion.
+
+4. **The 5s timeout does not cancel the reconcile.** `Promise.race` returns the timeout branch, but the `reconcileCapture` promise keeps running and can commit after a newer snapshot has already committed. The lock serializes writes, not snapshot order. v2 must pass an abort signal or generation token and drop stale commits.
+
+5. **Goal identity is a title prefix.** `isTaskCaptureGoal()` requires the literal `Task — ` prefix, and `goal(update, title)` can change the title. Renaming a capture goal removes it from candidate selection; the next snapshot creates a new goal and orphans the old one. v2 must use a stable kind or metadata field, not a display string.
+
+6. **Capture can reopen an old completed goal on a generic title.** `pickTaskGoal` scores candidates by title overlap across both `items` and `completedItems`, and completed goals are eligible candidates. A new task containing a generic title such as "Run tests" can match an old completed goal, which the first unfinished item then reopens. v2 must scope continuation to the active task (session, recency, unfinished overlap), not any historical title.
+
+7. **`includeLegacy` is dead.** `buildDigest` accepts `includeLegacy`, but no caller passes it. Removing it requires owner approval under rule 7 of `RULES.md`; it is recorded here, not removed. v2 must not port the option.
+
+The build gate also cannot prove freshness: `check:dist` compares the working artifacts to `HEAD`, not to the sources. A stale build committed next to changed sources passes. The current tree happens to be fresh, but v2 needs a source-input hash or a build-then-compare step.
+
+v2 triage (2026-10-24): gaps 4–7 are already absent from the v2 store — capture is session-scoped (`detail === sessionId`) with no `Task — ` title prefix, only `ACTIVE_STATUSES` are capture candidates (completed goals cannot be reopened by title overlap), there is no `includeLegacy` option, and the hook has no `Promise.race` timeout because reconcile is awaited inline. v2 has no auto-complete path at all, so gap 2 cannot occur. Remaining v2 work: (a) lifecycle counts diverge by path — `update(status:"completed")` leaves `this.goals` and never increments, while `close()` increments and writes a dropped tombstone; derive the digest from events or route both paths through one close gate; (b) `pickCaptureGoal` compares `this.goals.size` to 5000, so completed goals that stayed live count against the cap and `{ok:false,reason:"max"}` is swallowed at debug level; bound the cap to active goals or archive completed ones and surface exhaustion. The freshness gate is not ported: v2 builds to a gitignored `dist/` and has no `check:dist`.
+
+| | Anchor |
+| --- | --- |
+| v2 capture scope | `src/services/goal-store.ts:913` — `pickCaptureGoal` session-scoped candidate |
+| v2 close gate | `src/services/goal-store.ts:640` — transition + invariant + tombstone |
+| v2 update gate | `src/services/goal-store.ts:614` — status write without a count |
+| v2 cap check | `src/services/goal-store.ts:922` — `goals.size >= maxGoals` |
+| v2 silent failure | `src/services/goal-auto.ts:52` — `{ok:false}` returns without a user-visible warning |
+| v2 status | PARTIAL: implement (a) and (b); gaps 2/4/5/6/7 are already satisfied by design and must not be re-ported from v1. |
+
+| | Anchor |
+| --- | --- |
+| counter increment | `v1/services/goal-store.ts:1239` — `lifecycleCounts.completed += 1` |
+| reopen without decrement | `v1/services/goal-store.ts:1241` — completed goal returns to in_progress |
+| replay classification | `v1/services/goal-store.ts:345` — only a dropped tombstone credits a close |
+| meta persistence | `v1/services/goal-store.ts:456` — counts written from memory |
+| auto-close condition | `v1/services/goal-store.ts:1232` — direct status write |
+| transition table | `v1/services/goal-store.ts:128` — `ALLOWED_TRANSITIONS` |
+| close invariant | `v1/services/goal-store.ts:167` — `checkCloseInvariant` |
+| manual close gate | `v1/services/goal-store.ts:703` — update path checks both |
+| create cap | `v1/services/goal-store.ts:535` — `goals.size >= maxGoals` |
+| capture cap | `v1/services/goal-store.ts:1073` — `pickTaskGoal` returns null |
+| cap default | `v1/services/goal-store.ts:97` — 5000 |
+| silent failure | `v1/services/goal-auto.ts:73` — `!res.ok` returns `{ok:false}` |
+| debug-only catch | `v1/hooks/tool-execute.ts:674` — no user-visible warning |
+| uncancelled race | `v1/hooks/tool-execute.ts:658` — `Promise.race` |
+| timeout | `v1/hooks/tool-execute.ts:78` — 5000 ms |
+| reconcile lock | `v1/services/goal-store.ts:1023` — `mutate("reconcile")` |
+| title prefix | `v1/services/goal-store.ts:144` — `Task — ` |
+| prefix predicate | `v1/services/goal-store.ts:152` — `isTaskCaptureGoal` |
+| rename path | `v1/tools/goal.ts:207` — title accepted on update |
+| historical overlap | `v1/services/goal-store.ts:1061` — `completedItems` scored |
+| completed candidate | `v1/services/goal-store.ts:1055` — completed goals eligible |
+| dead option | `v1/services/goal-store.ts:911` — signature; `:918` — only use |
+| dist gate | `v1/scripts/check-dist.mjs:39` — reads HEAD; `:72` — compares to HEAD |
+| v2 status | ACTION REQUIRED: implement the corrected semantics in the v2 port; do not copy the v1 code as-is |
+
+## S-053 v1 retirement transfer — watcher, boot, DB retention, and the unfinished-task census — v2 ACTION REQUIRED before cutover
+
+v1 is retiring and becomes a read-only reference. This entry consolidates every still-open item from S-033 through S-041, plus the file and task census, so nothing is lost when the v1 tree stops moving. The v2 items are the cutover gate; the v1 items are reference defects that must not be copied.
+
+### Watcher
+
+v2 has zero watcher references in `src/` and `scripts/` (grep on 2026-10-24). The v1 D1/D7 policy lives only in the host launchers: env > pinned > auto, a rotational-disk probe, a slow-refresh signal, and forced off on slow storage. A v2 launch on this rotational host therefore runs watcher-on with no guard. v2 must own the policy before cutover, including one `[launcher] watcher mode=… decision=… reason=…` line per launch.
+
+The v2 quiet resolver is env > forced only; it has no `pinned.env` layer. The v2 ISO still falls back to the v1 maintenance script and defaults to the v1 binary name. Both are S-041 item 5. The watcher attribution itself is settled: the 54–203s stalls did not reproduce after the event-table shrink, so the DB bloat was the confound; N1/N5 remain the watcher gate and must not be re-attributed without a fresh case.
+
+### Boot
+
+v2 `n2-auto` still has no assistant-role gate (S-039). Every existing v2 N2 record predates the gate and is untrusted; re-derive the cold-boot cases after the fix. v2 has no boot-scorecard and no cold-boot runner (a filesystem search returns nothing), so the 10/10 protocol cannot be claimed on v2 until they are ported or explicitly declared out of scope.
+
+v2 self-bootstrap and `installationHealth` remain gate-blocked by `scripts/prove-s024.ts:160`; the v2 tree intentionally refuses to port the installer-coupled health probe. That is acceptable only with a documented manual bootstrap step.
+
+The v2 state namespace is still shared: six service defaults point at `~/.config/tawassyl/state/...`, the HMAC key is `TAWASSUL_HMAC_V1:`, the lock dir is `tawassul-locks`, the N2 log is `tawassul/n2-auto.jsonl`, and the plugin id is `tawassul` (S-041 item 2). The v2 `.opencode/package.json` still carries both the v1 and v2 plugin APIs (S-041 item 6). The cutover gate remains: `npm run verify` plus `ci`, one live boot with v1 and v2 workspaces, the v1 guard refuses a v2 DB, then freeze this log (S-041 item 7).
+
+### DB retention
+
+v2 maintenance prunes `message` only; it has no `DELETE FROM event`, no event-retention policy, and no `session_v2` count in the backup/session probe. The measured v2 DB is about 1.4G with `event=0`, `session_v2=188`, `session=177`; the probe must count both session tables. The v1 freeze occurred at 3.47GB, below the 4GiB cap, so v2 must set and prove its own cap rather than inherit the number. The v1 `quick_check` backup failure remains open on the v1 side and is reference-only; do not port the failure.
+
+### v1 reference defects and test gaps
+
+The generation guard's snapshot-copy/WAL/orphan branch is untested. `guard-db-generation.sh` warns on an orphaned `-wal`, copies the DB plus companions on a failed direct probe, and retries there; the v1 test files cover markers, paths, and transient locks only. v2's guard needs a fixture for this branch before it is trusted.
+
+The v1 state still holds 500 duplicate records: 250 copies of one `note` and 250 copies of one `fix`, ids `R-2434`–`R-2933` (verified 2026-10-24 by decoding the `TAWASSUL_HMAC_V1` wrapper; 2 unique keys, 498 redundant copies). All 250 copies of each record share one timestamp from 2026-10-23, so this is one event persisted 250 times, not 500 events — a v1 persistence bug, not history to preserve. They were not cleaned; a backup plus an owner decision is required, and they must not be migrated into v2. Four runtime artifacts are untracked in v1 and are not part of the build: `.opencode/legacy-data/`, `.opencode/tawassul-state.json.quarantine-2026-10-21T04-32-57-559Z`, `SESSION_HANDOVER.md`, and `cost-transparency.json`; decide archive versus delete at retirement.
+
+The v1 plugin still carries a `TODO: remove in v2` marker in collective memory, and `buildDispatchPlanFromHandoffs` has two "not implemented for bulk dispatch" throws. The throws are currently unreachable because only `buildPlan` is called, so record them as a latent trap, not an active bug. The unchecked-task census is three manual/planned items plus four planned security items: pause during a live session, a task longer than 420s, an image-gen 401 retry, confidentiality at rest, user-level rate limiting, shared-memory signing, and deleted-agent persistence. Port them as v2 tests or record them as out of scope. This census was incomplete: it did not include the two consolidated inventories `atomic/REMAINING-ITEMS.md` and `docs/REMAINING-ITEMS.md`; their fix items are transferred in S-055.
+
+| | Anchor |
+| --- | --- |
+| watcher precedence | `v1/../../../scripts/opencode-desktop-iso.sh:291` — env > pinned > auto |
+| watcher auto branch | `v1/../../../scripts/opencode-desktop-iso.sh:305` — legacy flag honored only in auto |
+| watcher pinning | `v1/../../../scripts/install-tawassul.sh:305` — pinned.env write |
+| v2 quiet resolver | `src/utils/quiet.ts:25` — env > forced only |
+| v2 ISO fallback | `scripts/opencode-v2-iso.sh:61` — v1 maintenance fallback |
+| v2 ISO binary | `scripts/opencode-v2-iso.sh:82` — `OPENCODE="${OPENCODE:-opencode}"` |
+| v2 N2 hook | `src/hooks/n2-auto.ts:32` — no assistant-role gate |
+| v2 N2 log | `src/hooks/n2-auto.ts:10` — shared `tawassul` path |
+| v2 bootstrap gate | `scripts/prove-s024.ts:160` — health probe stays unported |
+| v2 state defaults | `src/services/trust-score/types.ts:165`, `src/services/collective-memory/types.ts:275`, `src/services/spec-driven/types.ts:84`, `src/services/cost-transparency/types.ts:194`, `src/services/failure-autopsy/types.ts:209`, `src/services/background-coordinator/types.ts:131` |
+| v2 plugin id | `src/index.ts:6` — `id: "tawassul"` |
+| v2 package | `.opencode/package.json:4` — v1 API; `:5` — v2 API |
+| v2 message-only prune | `scripts/opencode-db-maintenance.sh:375` — `DELETE FROM message` |
+| v2 backup check | `scripts/opencode-db-maintenance.sh:334` — `PRAGMA quick_check` |
+| v2 expect gate | `scripts/opencode-db-maintenance.sh:360` — non-v2 refusal |
+| guard orphan warning | `v1/../../../scripts/guard-db-generation.sh:110` — orphaned `-wal` |
+| guard snapshot copy | `v1/../../../scripts/guard-db-generation.sh:117` — `ensure_snapshot_copy` |
+| guard retry | `v1/../../../scripts/guard-db-generation.sh:175` — failed direct probe retried |
+| v1 TODO | `v1/services/collective-memory/store.ts:73` — remove in v2 |
+| bulk-dispatch trap | `v1/services/parallel-dispatcher.ts:454` — unreachable throw |
+| manual task census | `v1/docs/revision-19-plugins/plans/01-security-governance.md:67`, `v1/docs/revision-19-plugins/plans/03-performance-memory-stability.md:97`, `:98` |
+| security census | `v1/SECURITY.md:177`–`:180` — four planned items |
+| v2 status | PARTIAL 2026-10-24: N2 assistant-role gate (S-039), event retention + dual session probe + launcher pin/no-fallback (S-040/S-041) are done and proven (`prove:db-retention`, `prove:v2-compat`). Still open: watcher policy, boot scorecard/cold-boot runner, state namespace, and the live dual-generation gate. Day-by-day order in `PLAN.md`. |
+
+## S-054 M3.1 frozen boot-scorecard was split out of v1 commit `0af80851` — DECISION MADE
+
+The v1 commit modified two M3.1 frozen files: `scripts/boot-scorecard.sh` and `tests/boot-scorecard.test.ts`. The changes fix two measurement bugs. First, N1 and N4 counted command echoes and evaluated permission patterns as real failures, producing false FAILs; `is_state_failure()` now requires the log envelope and excludes `[bash]` and `pattern=` lines, and N1 requires the `timestamp=… level=ERROR` envelope plus `message="failed to subscribe`. Second, `--n2 auto` derived N2 from a `--hours` window, which cannot identify one boot; it now requires an explicit `--since` and returns INCOMPLETE otherwise. Both changes have regression tests.
+
+The owner chose to split. v1 history is now `9b9ddf6d` (main work, 25 files, no boot-scorecard changes) and `99c13184` (the two M3.1 files: `scripts/boot-scorecard.sh` and `tests/boot-scorecard.test.ts`). The final tree is byte-identical to the pre-split `0af80851` (`git diff --quiet 0af80851 HEAD` returns 0). The split was verified with `npx vitest run tests/boot-scorecard.test.ts` (13 passed) and `npm run check:dist` (dist matches the committed build). The split commit is local and not pushed. The v2 port must include both fixes.
+
+| | Anchor |
+| --- | --- |
+| explicit since flag | `v1/../../../scripts/boot-scorecard.sh:26` — `SINCE_EXPLICIT` |
+| N4 filter | `v1/../../../scripts/boot-scorecard.sh:129` — `is_state_failure` |
+| N2 gate | `v1/../../../scripts/boot-scorecard.sh:246` — auto N2 needs explicit `--since` |
+| echo regression | `v1/tests/boot-scorecard.test.ts:107` — N1/N4 not faked by command echoes |
+| window regression | `v1/tests/boot-scorecard.test.ts:257` — auto N2 without `--since` is INCOMPLETE |
+| v2 status | DECISION MADE: split; v1 `9b9ddf6d` main + `99c13184` M3.1; v2 port must carry both fixes |
+
+## S-055 v1 `docs/` + `atomic/` remaining fix backlog — transferred before retirement — v2 TRIAGE REQUIRED (needs re-proof)
+
+S-053's census was incomplete. It covered the three unchecked manual items, four planned security items, one TODO, and two unreachable throws, but it did not include the two consolidated inventories that replaced 45 deleted files: `atomic/REMAINING-ITEMS.md` (15 sections, 2026-10-08) and `docs/REMAINING-ITEMS.md` (7 sections, same date). Both are the canonical remaining backlog for the v1 tree. This entry transfers only the items that require a fix (code, config, test, or doc). It excludes live measurements owned by the user, pure decisions, intentionally accepted/rejected items, dead-since-written items, and dead links.
+
+Status rule: the inventories are dated 2026-10-08 and explicitly say every August/September item must be re-proven on the current code before execution. They were not re-proven item-by-item on the 2026-10-24 tree. Treat every item below as **needs re-proof** unless the spot-check ledger says otherwise. Do not port a v1 defect into v2; triage each item as "apply to v2", "v1-only, close at retirement", or "already dead".
+
+### A. Reliability and data safety (fix)
+
+- Silent catches: 125–180 sites; register them and fix the ~8 that can lose data. `v1/../../../atomic/REMAINING-ITEMS.md:37`
+- DLQ with a real id + periodic drain; tick-lock; FS-lock; atomicWrite; single-flight; extend `flushSaves`; loud failure + backup for `opencode.json`; merge registry copies instead of wiping; learning queue. Same anchor.
+- The 500 duplicate v1 records (`R-2434`–`R-2933`, 250 `note` + 250 `fix`, 498 redundant) still need a backup + owner decision; they must not migrate. S-053 already records this; do not duplicate the cleanup.
+
+### B. Security (fix)
+
+- M1–M3/M5/M7: enforce `-e`, deny pager/ext-diff, tighten consent, HMAC for persistence, full fail-closed scan, mandatory pipeline. `v1/../../../atomic/REMAINING-ITEMS.md:25`
+- L1–L7: comprehensive quarantine, HMAC returns false, expand redact, `.env2`, restrict `npm run`, binding audit, remove IP.
+- `execSync` injection is dead as a production risk (no `execSync` on runtime paths); `resolveSafePath` + image whitelist + sensitive deny remain the reference. Same anchor.
+
+### C. Performance (fix)
+
+- H1–H5: hoist the join, precompute Levenshtein + cap 20, stringify once, trim-before-scan, delete the timer on launch. `v1/../../../atomic/REMAINING-ITEMS.md:29`
+- M1–M6: one JSON write, dirty-only, memoize, incremental instead of DFS, cache `opencode.json`, map eviction; reduce 17 timers; index the scan; one `getAgents` read.
+
+### D. Tests and release gates (fix)
+
+- Coverage thresholds are absent (confirmed 2026-10-24: `test:coverage` exists, `vitest.config.ts` has `coverage` but no `thresholds`). `v1/../../../atomic/REMAINING-ITEMS.md:15`
+- 44 files without direct coverage (worst `agent-management` 1202 — real `validateAddInput` test); core/lib zero; remove the Replica pattern; fix tautological/flaky/304 `toBeTruthy`/fake-timer tests; add SEC tests; add thresholds + script + location rule. `v1/../../../atomic/REMAINING-ITEMS.md:45`
+- Release gate: warn/refuse on host release + smoke against the last two versions. No such script exists under `scripts/` (confirmed 2026-10-24). `v1/../../../atomic/REMAINING-ITEMS.md:17`
+- CI: H1–H5 (quote `$name/$model`, fix heredoc, real audit + lockfile, Node 24, dist-drift gate), 16 Medium, 9 Low. Hardening is pointless before a remote exists; activate with the first CI. `v1/../../../atomic/REMAINING-ITEMS.md:33`
+
+### E. Dead code and architecture (fix/cleanup)
+
+- Delete 4 schemas (`EnsureAgentModelsResult`, `SpecEvent`×3); freeze `ROLE_BLOCKED`; remove caps or scope them; execute P5 (~60 internal exports). `v1/../../../atomic/REMAINING-ITEMS.md:41`
+- Spot-check: `ROLE_BLOCKED` is absent from the current plugin source — this sub-item is dead; re-prove the rest.
+- Infra layer to break `utils→services/core/context` and the `context→hooks→services→hooks` cycle; shared interfaces in `types/`; decompose `agent-management`/`tool-execute`; group the factory by domain; deps (confbox→devDeps, optional tree-sitter, external/shared zod, raise engines); scope `reset*ForTest` exports. `v1/../../../atomic/REMAINING-ITEMS.md:49`
+- `docs/` backlog: merge StateManager (#1 after #4+#2, separate branch + HMAC/CAS regression), DI for phase D (#3), delete export (#5 phase 2), #7 partial (tool-execute injection only) and #9 (hours), update `codemap.md` after any refactor. `v1/../../../docs/REMAINING-ITEMS.md:33`
+
+### F. i18n, docs, platform, and config (fix)
+
+- 1761 literal lines vs 214 `t()`; delete 55 dead keys; unify 5 contradictory numbers, Node versions, file lists, and paths; archive the `REMAINING v0.8.0` reference. `v1/../../../atomic/REMAINING-ITEMS.md:53`
+- Tag `RULES.md` as Linux-only; unify `TAWASSUL_DEBUG`; document the 14 env vars (the README now lists 15+, so this may already be closed); derive the default permission block instead of repeating it. `v1/../../../atomic/REMAINING-ITEMS.md:57`
+- Spot-check: `TAWASSUL_DEBUG` is duplicated in `v1/../../../.env.example:22` and `v1/../../../.env.example:36` (confirmed); the README still says `1` only. The "×52" permission repetition was not reproduced — 12 agent `.md` files carry a `permission:` block; re-count before acting.
+
+### G. Agent permissions (fix)
+
+- Close whitelist gaps; allow safe pipes (documented, not proven); enrich rejection messages; sync `AGENTS.md` with `READ_ONLY`; explicit list instead of `*tawa*` + golden table; fixes 1–6 in order; replace `calculateRiskScore` with a behavioral tool. `v1/../../../atomic/REMAINING-ITEMS.md:62`
+- Spot-check: `calculateRiskScore` is still exported at `v1/discussion/voting.ts:61`, re-exported at `v1/discussion/discussion-logic.ts:590`, and consumed at `v1/hooks/guards/resource-guards.ts:80` — open.
+
+### H. Dynamic behavior and feature gaps (fix)
+
+- 6 denies (tree/jq/sort/free/ext-diff/pager); fix the `ls|sort` example; memory rescue (timestamps/decay/dedup/PrivacyGuard); session sweep; lower P-M6; re-run the fuzzer (0 bypasses); unify prune + backup cap; clean the 806 backups; pre-HMAC migration message; routing eval-set (M-5: 75% accuracy); M-2 silent state loss; M-6 live E2E 2/14; Top 1–15 unfinished; capability statement; rejection messages + counter; expand the golden set to 60 commands; reduce pipes; Task Unification; the 15-day loop-guard map; `STATE_DIR` spacing and sidecar travel. `v1/../../../atomic/REMAINING-ITEMS.md:67`
+- Spot-check: the 806-backup item is stale — `find ~/.config/tawassyl ~/.local/share/tawassul -name '*.bak'` returns 0 (2026-10-24). The rest needs re-proof.
+
+### I. Hook surface and orchestration gaps (fix)
+
+- v1 hooks do not subscribe to `file.edited`, `permission.asked/replied`, `todo.updated`, `shell.env`, `tui.*`, `lsp.*`, or the `session.*` family (confirmed 2026-10-24: no such subscriptions under `hooks/`; only `session.idle` appears in a test). `v1/../../../docs/REMAINING-ITEMS.md:41`
+- F5: `addagentAvailabilityHint` says "restart the session if it does not appear"; R25 injects conversation text into subagent sessions. Same anchor.
+
+### J. Upgrade, review, skills, and conditional fixes (fix)
+
+- UPGRADE: bump locks to 1.18.30; fix the self-defeating e2e; version guards + 3 tests; SDK sync; v2 port (~1.5–2d); 8 DoD gates. `v1/../../../docs/REMAINING-ITEMS.md:42`
+- REVIEW-09-24: code-state/checkpoint coverage gap (F-46); F-03…F-56 list (each a DoD §13 item or a product decision). `v1/../../../docs/REMAINING-ITEMS.md:43`
+- SKILLS: full `--local` proof; the forge path (`gh/glab/az`) is blocked (not installed); permission-guard gate is mandatory for any move. `v1/../../../docs/REMAINING-ITEMS.md:44`
+- Conditional: PERF batch 1.2 frozen until 5 points + 7 approvals; phases 1.4/3.2/8 conditional on proven impact; §15.3 has no before/after numbers. REVISIONV keep-latest is conditional on the `NEVER_DEDUP_TOOLS` fix (`v1/services/tool-run-log.ts:47` exists now — re-prove), plus the internal Map cap, the purge counter-vs-time decision (120s), and P3 via PERF §17. FOUR-DAY A4-optional (raise `LOCK_ATTEMPTS`), before/after B, 1.3 deferred (leak + consent bypass), F0 pending live-view. `v1/../../../docs/REMAINING-ITEMS.md:37` through line 39.
+- MULTI-PROJECT: resend the pickle report or close it; live MCP check; two-day S7 soak; S0.1-c after the numbers; K10/K11/K6; F8 (no self-upgrade mechanism); K-01 (credential transfer, open but useless). `v1/../../../docs/REMAINING-ITEMS.md:40`
+
+### K. Blocked on the owner (fix, cannot execute yet)
+
+- Build a safe migration tool for 8024 archived sessions (guard: `.backup`/immutable + preflight) or sign a partial-loss memo. `v1/../../../docs/REMAINING-ITEMS.md:22`
+- Cap `events.jsonl` (2.5MB) and `goals` (732KB) — owner decision, no automatic truncation. `v1/../../../docs/REMAINING-ITEMS.md:23`
+- Full v1→v2 conversion + Plugin API v2: deferred to a separate decision + GA; stay on 1.18.30 in production. `v1/../../../docs/REMAINING-ITEMS.md:24`
+- Remote/push/CI: needs account/repo/auth and a history-push decision; the first CI trap is `check:dist` (bun install). `v1/../../../docs/REMAINING-ITEMS.md:25`
+
+### L. Boot-stall plan remainders (fix/verification)
+
+- M2.2: heavy-work deferral and persist-write batching were **not shipped**; revisit only with a measured stall. `v1/../../../docs/BOOT-STALL-FIX-PLAN-2026-10-19.md:67`
+- M2.5/M1: monitor that the host actually consumes `OPENCODE_DISABLE_AUTOUPDATE`; add the D7 per-project recalibration note. `v1/../../../docs/BOOT-STALL-FIX-PLAN-2026-10-19.md:144`
+- M3: final N1/N5 protocol on 10 cold boots; N2 stays manual; update the appendix/status table; optional upstream draft. `v1/../../../docs/BOOT-STALL-FIX-PLAN-2026-10-19.md:146`
+- A8: automated import stays deferred/experimental; use `opencode import` on a copy only. `v1/../../../docs/BOOT-STALL-FIX-PLAN-2026-10-19.md:219`
+- D2 Stage 2 (first-install self-bootstrap) stays closed until N1–N5 pass on diverse devices. `v1/../../../docs/BOOT-STALL-FIX-PLAN-2026-10-19.md:170`
+- Cleanup of 87 test dirs + `git worktree prune` remains deferred by owner order; out of plan scope. `v1/../../../docs/BOOT-STALL-FIX-PLAN-2026-10-19.md:84`
+
+### Explicitly not transferred (not fixes)
+
+- Live measurements owned by the user: heap-prof RSS 537→824MB, last-write-wins, clean install + first handoff, memory-pollution sample, vortex protocol 5×3. `v1/../../../atomic/REMAINING-ITEMS.md:21`
+- Time windows: D3 closes 12 October, log freeze, D7 20 cold boots, first V2 launch. `v1/../../../docs/REMAINING-ITEMS.md:15` (D7 runner is S-053; the others are verification/owner actions, not code fixes).
+- The intentionally accepted/rejected items (concurrent pins race, prune exit 5, manual macOS/Windows maintenance, no `Promise.all`, no `Map<projectKey>`, no TTL heap, chars/4, synthetic orphan/ports, sibling `LOG_FILE`). `v1/../../../docs/REMAINING-ITEMS.md:29`
+- Dead sub-items inside live sections: `tawassul-agent-cli.sh` is already archived (section 11); the 3/5/5 thresholds and the `rg|jq`/`cat|grep` pipes are done (`55012f7d`/`6ac92f1f`, section 12). Do not re-open.
+- The v2 program itself (core port, hooks adapter, config v2 branch, tests) is already the subject of S-042…S-048 and S-053; it is not duplicated here. `v1/../../../docs/REMAINING-ITEMS.md:45`
+- Dead-since-written sections: `v1/../../../atomic/REMAINING-ITEMS.md:69` and `v1/../../../docs/REMAINING-ITEMS.md:47`. Do not re-open.
+- Dead links left intentionally: `CHANGELOG.md` line 25, `v1/docs/ATOMIC-AUDIT-REGISTER.md:503`, and `.opencode/plans/consolidated-atomic-evaluation-report.md` lines 145/168. `v1/../../../docs/REMAINING-ITEMS.md:51`
+- Orphan test comment referencing the deleted `atomic/18-pending-for-main-session.md §5` — no functional break. `v1/../../../atomic/REMAINING-ITEMS.md:75`
+
+### Spot-check ledger (2026-10-24, disk-proven)
+
+| Claim | Verdict | Evidence |
+| --- | --- | --- |
+| Coverage thresholds absent | confirmed open | `vitest.config.ts` has `coverage` but no `thresholds`; `test:coverage` exists |
+| Release gate absent | confirmed open | no release/smoke/verify script under `scripts/` |
+| `ROLE_BLOCKED` still live | dead | no `ROLE_BLOCKED` in plugin `*.ts` |
+| 806 backup files | stale | `find` over both state dirs returns 0 `.bak` |
+| Hooks surface gap | confirmed open | no `file.edited`/`permission.asked`/`todo.updated`/`shell.env`/`tui.*`/`lsp.*`/`session.*` subscriptions under `hooks/` |
+| `calculateRiskScore` removed | open | still exported at `v1/discussion/voting.ts:61` and consumed at `v1/hooks/guards/resource-guards.ts:80` |
+| `TAWASSUL_DEBUG` duplication | confirmed open | `v1/../../../.env.example:22` and `v1/../../../.env.example:36` |
+| Permission block ×52 | needs re-count | 12 agent `.md` files carry `permission:` |
+| `NEVER_DEDUP_TOOLS` fix pending | needs re-proof | set exists at `v1/services/tool-run-log.ts:47` |
+| 500 duplicate records | confirmed open | S-053; do not migrate |
+
+### v2 status
+
+TRIAGE REQUIRED before cutover. These are v1 reference defects, not a v2 implementation order: for each item decide "apply to v2", "v1-only, close at retirement", or "already dead". The clearest v2-relevant candidates are the silent-catch discipline, the hook-surface gap, the release/CI gates, coverage thresholds, and the boot-stall remainders. Do not copy the v1 state, backups, or duplicate records.
+
+Triage is scheduled as Day 4 of `PLAN.md` (2026-10-28). The first pass keeps only items that are re-proven on the current v2 code; every rejected item must carry one line of evidence.
+

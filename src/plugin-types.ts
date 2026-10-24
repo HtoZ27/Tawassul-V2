@@ -1,5 +1,11 @@
 import type { ToolDefinition } from "./tool.ts";
 
+export const INIT_READY = Symbol.for("tawassul.v2.initReady");
+
+export type InitReadiness = { ready: boolean; error?: Error };
+
+export type InitReadyProbe = () => Promise<InitReadiness>;
+
 export type PluginInput = {
   client: Record<string, unknown>;
   directory: string;
@@ -30,6 +36,7 @@ export interface Config {
 }
 
 export type TawassulHooks = {
+  [INIT_READY]?: InitReadyProbe;
   dispose?: () => Promise<void>;
   event?: (input: { event: unknown }) => Promise<void>;
   config?: (input: Config) => Promise<void>;

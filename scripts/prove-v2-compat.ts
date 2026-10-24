@@ -1,0 +1,169 @@
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { applyV1AfterOutput, resultText, writeBackV1Output } from "../src/v2/result-bridge.ts";
+import { toV2Result } from "../src/v2/adapters.ts";
+import { createN2AutoHook } from "../src/hooks/n2-auto.ts";
+import { createAskBridge, registerAskPermission } from "../src/v2/ask.ts";
+import { getInitReady } from "../src/bootstrap/plugin-init.ts";
+import { INIT_READY, type InitReadyProbe } from "../src/plugin-types.ts";
+
+function fail(msg: string): never {
+  console.error(`PROOF FAIL: ${msg}`);
+  process.exitCode = 1;
+  throw new Error(msg);
+}
+
+function assert(cond: boolean, name: string): void {
+  if (!cond) fail(name);
+  console.log(`ok ${name}`);
+}
+
+type V2ResultShape = {
+  content?: unknown;
+  metadata?: Record<string, unknown>;
+  output?: unknown;
+};
+
+function shape(value: unknown): V2ResultShape {
+  assert(value !== null && typeof value === "object", "result is an object");
+  return value as V2ResultShape;
+}
+
+const stringResult = shape(toV2Result("plain text"));
+assert(!("output" in stringResult), "string result has no output key");
+assert(JSON.stringify(stringResult.content) === JSON.stringify([{ type: "text", text: "plain text" }]), "string result is content text");
+
+const legacyResult = shape(toV2Result({ title: "t", output: "body", metadata: { k: 1 } }));
+assert(!("output" in legacyResult), "legacy output is not forwarded as output");
+assert(JSON.stringify(legacyResult.content) === JSON.stringify([{ type: "text", text: "body" }]), "legacy output becomes content text");
+assert(legacyResult.metadata?.k === 1, "legacy metadata is preserved");
+
+const nonStringOutput = shape(toV2Result({ output: { a: 1 } }));
+assert(!("output" in nonStringOutput), "non-string output key is dropped");
+
+const emptyResult = shape(toV2Result({ metadata: { only: true } }));
+assert(!("output" in emptyResult), "metadata-only result has no output key");
+assert(emptyResult.metadata?.only === true, "metadata-only result keeps metadata");
+
+const writeTarget: V2ResultShape = {
+  content: [
+    { type: "text", text: "first" },
+    { type: "file", uri: "file:///a.png", mime: "image/png" },
+    { type: "text", text: "second" },
+  ],
+  metadata: { status: "completed", keep: 1 },
+};
+writeBackV1Output(writeTarget as never, resultText(writeTarget as never), "redacted");
+assert(
+  JSON.stringify(writeTarget.content) ===
+    JSON.stringify([
+      { type: "text", text: "redacted" },
+      { type: "file", uri: "file:///a.png", mime: "image/png" },
+    ]),
+  "write-back replaces text once and keeps non-text parts",
+);
+
+const unchanged: V2ResultShape = { content: [{ type: "text", text: "same" }] };
+writeBackV1Output(unchanged as never, "same", "same");
+assert(JSON.stringify(unchanged.content) === JSON.stringify([{ type: "text", text: "same" }]), "unchanged text is untouched");
+
+const afterTarget: V2ResultShape = { content: [{ type: "text", text: "raw" }], metadata: { keep: 1 } };
+applyV1AfterOutput(
+  afterTarget as never,
+  "raw",
+  { keep: 1 },
+  { title: "", output: "raw", metadata: { keep: 1, status: "completed", added: 2 } },
+  true,
+);
+assert(afterTarget.metadata?.status === undefined, "synthetic status is stripped from metadata");
+assert(afterTarget.metadata?.added === 2 && afterTarget.metadata?.keep === 1, "real metadata mutations are copied back");
+
+const dir = mkdtempSync(join(tmpdir(), "tawassul-n2-"));
+const logPath = join(dir, "n2-auto.jsonl");
+process.env.TAWASSUL_N2_LOG = logPath;
+const hook = createN2AutoHook();
+const readLog = (): string => (existsSync(logPath) ? readFileSync(logPath, "utf8").trim() : "");
+await hook({ event: { type: "message.part.updated", properties: { part: { type: "text", id: "p1", sessionID: "s1", messageID: "m-user", text: "hello" } } } });
+assert(!readLog(), "user text part is ignored");
+await hook({ event: { type: "message.part.updated", properties: { part: { type: "text", id: "p2", sessionID: "s1", messageID: "m-unknown", text: "hello" } } } });
+assert(!readLog(), "unannounced message part is ignored");
+await hook({ event: { type: "message.updated", properties: { info: { id: "m-user", role: "user" } } } });
+assert(!readLog(), "user message announcement does not open the gate");
+await hook({ event: { type: "message.part.updated", properties: { part: { type: "text", id: "p3", sessionID: "s1", messageID: "m-user", text: "hello" } } } });
+assert(!readLog(), "announced user message still does not record");
+await hook({ event: { type: "message.updated", properties: { info: { id: "m-assistant", role: "assistant" } } } });
+await hook({ event: { type: "message.part.updated", properties: { part: { type: "text", id: "p4", sessionID: "s1", messageID: "m-assistant", text: "answer" } } } });
+const recorded = readLog().split("\n").filter(Boolean);
+assert(recorded.length === 1, "first assistant text part records once");
+const record = JSON.parse(recorded[0] ?? "{}") as { message_id?: string; len?: number };
+assert(record.message_id === "m-assistant" && record.len === 6, "record carries the assistant message id");
+await hook({ event: { type: "message.part.updated", properties: { part: { type: "text", id: "p5", sessionID: "s1", messageID: "m-assistant", text: "second" } } } });
+assert(readLog().split("\n").filter(Boolean).length === 1, "later parts are not recorded");
+delete process.env.TAWASSUL_N2_LOG;
+rmSync(dir, { recursive: true, force: true });
+
+let probeCalls = 0;
+const probe: InitReadyProbe = async () => {
+  probeCalls += 1;
+  return { ready: true };
+};
+assert(getInitReady({ [INIT_READY]: probe }) === probe, "readiness probe is discoverable by symbol");
+assert(getInitReady({}) === undefined, "hooks without the symbol have no probe");
+await probe();
+assert(probeCalls === 1, "probe invocation counts");
+
+const repo = dirname(fileURLToPath(import.meta.url));
+const initSource = readFileSync(join(repo, "..", "src", "bootstrap", "plugin-init.ts"), "utf8");
+const setupSource = readFileSync(join(repo, "..", "src", "v2", "setup.ts"), "utf8");
+assert(initSource.includes("[INIT_READY]: ensureReady"), "initPlugin attaches the readiness probe");
+assert(setupSource.includes("ctx.tool.reload()"), "setup reloads tool schemas after init");
+assert(setupSource.includes("applyV1AfterOutput"), "setup writes after-hook mutations back");
+
+const noPermissionCtx = { session: {}, tool: {}, event: {} } as never;
+assert((await registerAskPermission(noPermissionCtx)) === undefined, "ask is disabled without a permission domain");
+
+let evaluateHook: ((input: unknown) => void | Promise<void>) | undefined;
+const asserted: Array<Record<string, unknown>> = [];
+let denyNext = false;
+const permissionCtx = {
+  session: {},
+  tool: {},
+  event: {},
+  permission: {
+    hook: async (_name: string, callback: (input: unknown) => void | Promise<void>) => {
+      evaluateHook = callback;
+      return { dispose: async () => undefined };
+    },
+    assert: async (input: Record<string, unknown>) => {
+      asserted.push(input);
+      if (denyNext) throw new Error("rejected by user");
+    },
+  },
+} as never;
+const askRegistration = await registerAskPermission(permissionCtx);
+assert(askRegistration !== undefined && typeof evaluateHook === "function", "ask registers the evaluate hook");
+const evaluation: Record<string, unknown> = { action: "tawassul.ask", effect: "allow", metadata: { title: "Delete files?" } };
+await evaluateHook?.(evaluation);
+assert(evaluation.effect === "ask" && evaluation.message === "Delete files?", "evaluate hook forces ask and carries the title");
+const other: Record<string, unknown> = { action: "bash", effect: "allow" };
+await evaluateHook?.(other);
+assert(other.effect === "allow", "evaluate hook leaves unrelated actions alone");
+const toolContext = {
+  sessionID: "ses_ask",
+  messageID: "msg_ask",
+  agent: "tawa",
+  id: "call_ask",
+  progress: async () => undefined,
+} as never;
+const ask = createAskBridge(permissionCtx, toolContext, askRegistration !== undefined);
+assert(typeof ask === "function", "confirm bridge is exposed when the hook is active");
+assert((await ask?.("Delete files?", { type: "confirm", default: false })) === true, "confirm resolves true when allowed");
+assert(asserted.length === 1 && asserted[0]?.action === "tawassul.ask", "confirm asserts the dedicated action");
+denyNext = true;
+assert((await ask?.("Delete files?", { type: "confirm", default: false })) === false, "confirm resolves false when rejected");
+assert((await ask?.("Pick one", { type: "select", options: ["a", "b"] })) === undefined, "select falls back to undefined");
+assert(createAskBridge(permissionCtx, toolContext, false) === undefined, "inactive registration exposes no ask");
+
+console.log("PROOF PASS: v2 host compatibility contract");
