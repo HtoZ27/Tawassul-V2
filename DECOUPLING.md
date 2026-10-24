@@ -23,13 +23,42 @@ After the cutover the v1 tree becomes a read-only reference; no new
 | `.opencode/tawassul-state.json` | runtime (HMAC-signed envelope) | untracked; created on first boot |
 | HMAC key | runtime (`src/utils/crypto.ts` key code) | machine-local; fresh key per machine |
 
-## Namespace renames (decision 2)
+## Namespace renames (decision 2, implemented 2026-10-24)
 
-`~/.config/tawassyl/state/...` defaults in `src/services/trust-score/types.ts`,
-`src/services/background-coordinator/types.ts`, `src/services/spec-driven/types.ts`,
-`src/services/collective-memory/types.ts`, `src/services/cost-transparency/types.ts`,
-`src/services/failure-autopsy/types.ts` move to a v2-specific path.
-Audit at implementation time: HMAC key dir, FS-lock dir, `tawassul-*` tmp prefixes.
+State root: `src/utils/state-paths.ts` resolves `TAWASSUL_V2_STATE_DIR` first,
+then `~/.config/tawassul-v2/state` (XDG-aware; when the launcher already pins
+`XDG_CONFIG_HOME` to the v2 profile it uses `<profile>/state`, not a nested
+copy). A read falls back to `~/.config/tawassyl/state/<file>` only while the
+namespaced file is absent; legacy files are never deleted, rewritten, or
+migrated automatically. `TAWASSUL_V2_LEGACY_STATE_DIR` overrides the legacy
+root for relocated v1 trees and for the proof.
+
+| Surface | v2 location | Legacy read |
+| --- | --- | --- |
+| six service defaults | `~/.config/tawassul-v2/state/*.json` | yes, via `hmacReadFile` / coordinator `load` |
+| predictive router | `~/.config/tawassul-v2/state/predictive-router.json` | yes, via `stateReadPath` |
+| HMAC prefix | `TAWASSUL_V2_HMAC_V1:` | verifies `TAWASSUL_HMAC_V1:` and `TAWASSULL_HMAC_V1:` |
+| HMAC key file | unchanged `~/.config/tawassul/.tawassul-hmac-key` | shared for one release so legacy signatures verify |
+| patch locks | `$TMPDIR/tawassul-v2-locks` | no |
+| FS lock shards | `$TMPDIR/.tawassul-v2-file-locks-<uid>` | no |
+| N2 log | `~/.local/share/tawassul-v2/n2-auto.jsonl` | no; old file untouched |
+| code-state cache | `~/.cache/tawassul-v2/code-state` | copy-only migration in `migrateLegacy` |
+| web fetch cache | `~/.cache/tawassul-v2/web-cache` | no; rebuildable cache |
+| global runtime state | `~/.config/opencode/tawassul-v2-state` | no; v2 was never globally installed with data |
+| setup seat | `Symbol.for("tawassul.v2.setup")` | v1's registry is never read or written |
+| plugin id | `tawassul` (unchanged) | host identity is the entry path; the id labels roster/permission keys (`tawassul.ask`), so renaming would break user configs |
+
+Remaining shared surfaces, deferred with a reason: the HMAC key file (above),
+the OS keyring service name `tawassul` (renaming would orphan stored secrets),
+the per-project `.opencode/tawassul-sessions` registry (workspace-local; v1 is
+disabled per workspace at cutover), and `db-isolation.ts`'s key-derived DB path
+(unused at runtime while the ISO launcher pins `OPENCODE_DB`; revisit before
+any boot that does not set it).
+
+Proof: `npm run prove:state-namespace` (in `npm run ci`). Exit check: a boot
+must not change mtimes under `~/.config/tawassyl` or `~/.config/tawassul`; the
+HMAC key file is the only permitted legacy read.
+
 
 ## In-tree docs needed before cut
 

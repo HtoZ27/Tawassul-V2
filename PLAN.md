@@ -33,7 +33,7 @@ effort.
 | Day | Date | Priority | Theme | Exit condition |
 | --- | --- | --- | --- | --- |
 | 0 | Sat 2026-10-24 | P0 | Host compatibility + DB retention | done: verify + proofs green |
-| 1 | Sun 2026-10-25 | P0 | State namespace + setup dedupe | no writes to v1 state; one setup owner per workspace |
+| 1 | Sat 2026-10-24 | P0 | State namespace + setup dedupe | done: helper + proof green; boot mtime snapshot folded into Day 3 |
 | 2 | Mon 2026-10-26 | P0/P1 | Goal ledger correctness (S-052) | counters agree on every close path; cap is loud |
 | 3 | Tue 2026-10-27 | P1 | Watcher, N2 re-derivation, boot scorecard | 10 cold boots measured with `--since`; watcher line per launch |
 | 4 | Wed 2026-10-28 | P1 | S-055 triage batch + quality gates | triage table + thresholds + release gate |
@@ -41,6 +41,13 @@ effort.
 | 6 | Fri 2026-10-30 | — | Buffer, docs, handover | clean tree, one install method |
 
 ## Day 1 — State namespace and one setup owner (P0)
+
+Status 2026-10-24: items 1–3 and 5–6 are implemented and proven; item 4 is
+decided, not renamed. Exit is partially met: `typecheck`, `check:rules`,
+`check:shared`, and `prove:state-namespace` are green; the file-mtime boot
+snapshot needs a live boot and is folded into Day 3's cold-boot protocol.
+Extra shared surfaces found during the audit were folded into the same change:
+`predictive-router.json`, the file-lock shard dir, and the code-state cache.
 
 Why: v2 still writes shared surfaces that v1 also owns. A cutover that leaves
 the same paths in place can corrupt v1 state or make a rollback ambiguous.
@@ -72,7 +79,10 @@ the same paths in place can corrupt v1 state or make a rollback ambiguous.
 
 Exit: `npm run verify` plus the new proof green; a file-mtime snapshot shows
 no writes under `~/.config/tawassyl` or `~/.config/tawassul` during a boot.
-Rollback: revert the helper commit; legacy files were never modified.
+The one allowed exception is the shared HMAC key file, which is created only
+when absent and never rewritten (item 3 keeps it readable for legacy
+signatures). Rollback: revert the helper commit; legacy files were never
+modified.
 
 ## Day 2 — Goal ledger correctness (P0/P1)
 

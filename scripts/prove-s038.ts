@@ -1,6 +1,6 @@
 import { claimCoexistence, isCoexistenceOwner, releaseCoexistence } from "../src/core/install-scope.ts";
 
-const KEY = Symbol.for("tawassul.plugin.warmedup");
+const KEY = Symbol.for("tawassul.v2.setup");
 
 function fail(msg: string): never {
   console.error(`PROOF FAIL: ${msg}`);

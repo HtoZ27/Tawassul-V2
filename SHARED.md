@@ -745,7 +745,7 @@ v1 shipped: `tawassul-prune-events.sh` and `tawassul-shrink-db.sh` call `guard-d
 v2 must do before cutover:
 
 1. DB generation and retention. [DONE 2026-10-24] `--expect v2` remains; the backup/session probe counts both `session_v2` and `session`; the full run deletes host `event` rows when the DB is quiescent (`--event-retention all|off`), the launcher runs `--event-only` pre-exec at the cap, and `message`/`part` are never used as an event substitute. Proof: `npm run prove:db-retention` (dual probe, old-message prune, event-only, refusal, backup integrity).
-2. Namespace the shared surfaces. [OPEN] Six state defaults still point at `~/.config/tawassyl/state`, HMAC is `TAWASSUL_HMAC_V1:`, the lock dir is `tawassul-locks`, the N2 log is `tawassul/n2-auto.jsonl`, and the plugin id is `tawassul`. This is a single atomic change with legacy read fallback (Day 1 of `PLAN.md`).
+2. Namespace the shared surfaces. [DONE 2026-10-24] Six state defaults now resolve through `src/utils/state-paths.ts` (`~/.config/tawassul-v2/state` with a read-only legacy fallback), HMAC writes use `TAWASSUL_V2_HMAC_V1:` (both legacy prefixes still verify), locks are `tawassul-v2-locks`/`.tawassul-v2-file-locks-<uid>`, the N2 log is `tawassul-v2/n2-auto.jsonl`, the seat key is `Symbol.for("tawassul.v2.setup")`, and the plugin id stays `tawassul` by decision (host identity is the entry path; renaming would break `tawassul.ask` and roster keys). Details, rollback, and the proof are in S-056.
 3. Apply S-039. [DONE 2026-10-24] Assistant-message role gate is in `src/hooks/n2-auto.ts`; every existing N2 record predates it and must be re-derived (tracked in S-053).
 4. Apply S-040. [DONE 2026-10-24] Event retention + `session_v2` probe are in v2 maintenance; `prove:db-retention` proves them on a constructed v2-state DB.
 5. Launcher. [DONE 2026-10-24] The v1 maintenance fallback is gone (missing v2 script refuses to launch), the binary is pinned to `$HOME/.opencode/bin/opencode` at 2.1.4 (override `TAWASSUL_OPENCODE_VERSION`), and the cap gate runs v2 event retention before exec. Watcher policy remains open (S-053).
@@ -758,10 +758,10 @@ v2 must do before cutover:
 | v1 shrink guard | `v1/../../../scripts/tawassul-shrink-db.sh:73` — guard; delete at `:128` |
 | v1 regression | `v1/tests/prune-events-guard.test.ts:1` |
 | v2 id | `src/index.ts:6` — `id: "tawassul"` |
-| v2 state paths | `src/services/trust-score/types.ts:165`, `src/services/collective-memory/types.ts:275`, `src/services/spec-driven/types.ts:84`, `src/services/cost-transparency/types.ts:194`, `src/services/failure-autopsy/types.ts:209`, `src/services/background-coordinator/types.ts:131` |
-| v2 HMAC | `src/utils/crypto.ts:20` — `TAWASSUL_HMAC_V1:` key surface |
-| v2 locks | `src/services/apply-patch.ts:23` — `tawassul-locks` |
-| v2 N2 log | `src/hooks/n2-auto.ts:15` — `tawassul/n2-auto.jsonl` |
+| v2 state paths | `src/utils/state-paths.ts:11` — namespaced defaults with legacy read fallback |
+| v2 HMAC | `src/utils/crypto.ts:20` — `TAWASSUL_V2_HMAC_V1:` (legacy prefixes verify) |
+| v2 locks | `src/services/apply-patch.ts:23` — `tawassul-v2-locks` |
+| v2 N2 log | `src/hooks/n2-auto.ts:15` — `tawassul-v2/n2-auto.jsonl` |
 | v2 maintenance guard | `scripts/opencode-db-maintenance.sh:341` — `require_v2_generation`; full-run call at `:467` |
 | v2 retention | `scripts/opencode-db-maintenance.sh:394` — `--event-only`; `:489` — full-run event retention; `:456` — dual session probe |
 | v2 ISO fallback | `scripts/opencode-v2-iso.sh:60` — no v1 fallback (missing script refuses) |
@@ -992,7 +992,7 @@ v2 `n2-auto` still has no assistant-role gate (S-039). Every existing v2 N2 reco
 
 v2 self-bootstrap and `installationHealth` remain gate-blocked by `scripts/prove-s024.ts:160`; the v2 tree intentionally refuses to port the installer-coupled health probe. That is acceptable only with a documented manual bootstrap step.
 
-The v2 state namespace is still shared: six service defaults point at `~/.config/tawassyl/state/...`, the HMAC key is `TAWASSUL_HMAC_V1:`, the lock dir is `tawassul-locks`, the N2 log is `tawassul/n2-auto.jsonl`, and the plugin id is `tawassul` (S-041 item 2). The v2 `.opencode/package.json` still carries both the v1 and v2 plugin APIs (S-041 item 6). The cutover gate remains: `npm run verify` plus `ci`, one live boot with v1 and v2 workspaces, the v1 guard refuses a v2 DB, then freeze this log (S-041 item 7).
+The v2 state namespace is now separate (S-056, 2026-10-24): service defaults resolve through `src/utils/state-paths.ts`, HMAC writes use `TAWASSUL_V2_HMAC_V1:`, locks and the N2 log are `tawassul-v2`-scoped, and the setup seat is `Symbol.for("tawassul.v2.setup")`. The plugin id stays `tawassul` by decision. The v2 `.opencode/package.json` carries only the v2 plugin API (S-041 item 6). The cutover gate remains: `npm run verify` plus `ci`, one live boot with v1 and v2 workspaces, the v1 guard refuses a v2 DB, then freeze this log (S-041 item 7).
 
 ### DB retention
 
@@ -1161,3 +1161,55 @@ TRIAGE REQUIRED before cutover. These are v1 reference defects, not a v2 impleme
 
 Triage is scheduled as Day 4 of `PLAN.md` (2026-10-28). The first pass keeps only items that are re-proven on the current v2 code; every rejected item must carry one line of evidence.
 
+
+## S-056 v2 shared v1 state, HMAC, lock, seat, and N2 surfaces — namespaced in one change — v2 IMPLEMENTED (v1 untouched)
+
+v2 inherited v1's writable surfaces verbatim: the six service defaults wrote `~/.config/tawassyl/state/<file>`, signed with the `TAWASSUL_HMAC_V1:` prefix, used the shared `tawassul-locks` temp dir and the shared `tawassul/n2-auto.jsonl` log, and claimed the process-wide `Symbol.for("tawassul.plugin.warmedup")` seat. A dual-generation host could therefore have both copies writing the same files, and v2 could silently yield its workspace to a v1 copy that won the seat first. The v1 tree keeps every one of those surfaces; v2 moves its own writes in a single change and never deletes or rewrites a legacy file.
+
+Fix: `src/utils/state-paths.ts` resolves `TAWASSUL_V2_STATE_DIR` or `~/.config/tawassul-v2/state`, and `legacyFallbackFor` maps a namespaced path back to `~/.config/tawassyl/state` for reads only when the new file is absent. The six service defaults plus the predictive-router file use it, and `hmacReadFile` (plus the background coordinator's plain-JSON loader) performs the read fallback without materializing the new file. Global-scope runtime state also moves from `~/.config/opencode/tawassul-state` to `tawassul-v2-state`. The HMAC prefix is now `TAWASSUL_V2_HMAC_V1:` while both `TAWASSUL_HMAC_V1:` and `TAWASSULL_HMAC_V1:` still verify; the key file itself stays in place so legacy signatures remain readable. Locks move to `tawassul-v2-locks`, N2 moves to `tawassul-v2/n2-auto.jsonl`, the FS lock shard moves to `.tawassul-v2-file-locks-<uid>`, and the code-state and web caches move to `tawassul-v2/*` (code-state copies, never deletes, the legacy store). The seat registry is now `Symbol.for("tawassul.v2.setup")`, leaving v1's registry untouched, and a losing second v2 copy yields at debug instead of warning. Plugin id stays `tawassul`: the host identifies an entry by path, the id only labels our roster/permission namespace, and renaming would break existing `tawassul.ask` permission configs and agent config without a host-side collision to solve.
+
+Rollback: revert the helper commit; no legacy file was modified, so the previous defaults read their original data. Proof: `prove:state-namespace` asserts the default and override paths, legacy read fallback with no write, dual-prefix HMAC verification, legacy-file preservation, and one seat owner per workspace while v1's registry is ignored.
+
+| | Anchor |
+| --- | --- |
+| v1 shared defaults | `v1/services/trust-score/types.ts:186` — `~/.config/tawassyl/state/trust-scores.json` |
+| v1 HMAC surface | `v1/utils/crypto.ts:57` — `TAWASSUL_HMAC_V1:` |
+| v1 read path | `v1/services/persist-utils.ts:162` — `hmacReadFile` has no legacy mapping |
+| v1 lock dir | `v1/services/apply-patch.ts:23` — `tawassul-locks` |
+| v1 N2 log | `v1/hooks/n2-auto.ts:34` — `tawassul/n2-auto.jsonl` |
+| v1 seat key | `v1/core/install-scope.ts:48` — `Symbol.for("tawassul.plugin.warmedup")` |
+| v2 state helper | `src/utils/state-paths.ts:11` — `stateDir` |
+| v2 read fallback | `src/utils/state-paths.ts:41` — `legacyFallbackFor` |
+| v2 global state | `src/utils/path-resolver.ts:99` — `tawassul-v2-state` |
+| v2 signed read | `src/services/persist-utils.ts:121` — `hmacReadFile` falls back once |
+| v2 HMAC prefix | `src/utils/crypto.ts:20` — `TAWASSUL_V2_HMAC_V1:` |
+| v2 lock dir | `src/services/apply-patch.ts:23` — `tawassul-v2-locks` |
+| v2 N2 log | `src/hooks/n2-auto.ts:15` — `tawassul-v2/n2-auto.jsonl` |
+| v2 seat key | `src/core/install-scope.ts:22` — `Symbol.for("tawassul.v2.setup")` |
+| v2 proof | `scripts/prove-state-namespace.ts:1` — 32 assertions, cleanup in `finally` |
+| v2 status | IMPLEMENTED 2026-10-24; `npm run prove:state-namespace` green and `npm run ci` includes it. |
+
+## S-057 addagent model advisory reads the static catalog instead of the provider (false "outside catalog" warnings)
+
+The add path decides whether a requested model is real by testing it against `MODEL_CATALOG`, a hard-coded curated list, and emits `addagentUnverifiedModel` when the id is absent. The plugin already ships a provider-aware token reader in the same module (`getAllProviderModelTokens`, reading `~/.cache/opencode/models.json`), but the advisory never consults it. Result: every model the provider serves but the curated list does not name is reported as unverified.
+
+The provider is the single source of truth for model availability. The curated list may still drive alias and suffix derivation, but it must not decide whether a model exists.
+
+Observed on v2 while adding three analyst variants: `opencode/glm-5.3-flash-free`, `opencode/beam-free`, and `opencode/nemotron-3.5-super-vl-free` each produced `⚠️ Model … is outside the known catalog — accepted fail-open`, although all three were `active` in the provider listing and present in the provider models cache. The warning is fail-open, so the agents were created correctly, but three false warnings train the operator to ignore the fourth one — the case that actually matters, where a typo is accepted and only fails at first spawn.
+
+Required fix shape in both trees: consult the provider cache before warning. Emit the advisory only when the id is absent from the static catalog and unresolved against the provider model list. Keep the fail-open behavior and the existing message for genuine unknowns.
+
+Related parser gap in the same workflow: `addagent` accepts a bare base plus model and derives the variant tag, while `kick` consumes the specs as written, so the same phrasing resolves to the protected base role instead of the variant. The operator has to restate the exact tag. Both tools are documented side by side, so the asymmetry is worth closing in the same pass.
+
+| | Anchor |
+| --- | --- |
+| v1 advisory | `v1/tools/agent-management.ts:756` — `inCatalog` from `MODEL_CATALOG` only |
+| v1 registry | `v1/core/model-registry.ts:27` — curated static entries |
+| v1 provider reader | `v1/core/model-registry.ts:243` — `getAllProviderModelTokens` present, unused by the advisory |
+| v1 kick consumption | `v1/tools/agent-management.ts:1298` — specs consumed as written, no variant derivation |
+| v2 advisory | `src/tools/agent-management.ts:594` — `inCatalog` from `MODEL_CATALOG` only |
+| v2 registry | `src/core/model-registry.ts:10` — nine hard-coded entries |
+| v2 provider reader | `src/core/model-registry.ts:152` — `getAllProviderModelTokens` |
+| v2 message | `src/i18n/en.json:46` — `addagentUnverifiedModel` |
+| v2 kick consumption | `src/tools/agent-management.ts:1034` — per-spec loop over the removal set |
+| v2 status | NOT implemented — reported 2026-10-24; the open fix session owns the change and must keep `npm run verify` green |

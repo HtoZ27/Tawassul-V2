@@ -7,6 +7,7 @@ import { wrapWithHmac, unwrapWithHmac } from "../utils/crypto.ts";
 import { getWriteBlockReason } from "./isolation.ts";
 import { logger } from "../utils/logger.ts";
 import { atomicWriteFile } from "../utils/atomic.ts";
+import { legacyFallbackFor } from "../utils/state-paths.ts";
 
 
 
@@ -118,25 +119,34 @@ async function preserveRejectedState(filePath: string, raw: string): Promise<voi
 
 
 export async function hmacReadFile<T>(filePath: string): Promise<T | null> {
+  let source = filePath;
   try {
-    await access(filePath, constants.F_OK);
+    await access(source, constants.F_OK);
   } catch {
-    return null;
+    const legacy = legacyFallbackFor(filePath);
+    if (legacy === undefined) return null;
+    try {
+      await access(legacy, constants.F_OK);
+    } catch {
+      return null;
+    }
+    logger.info(`[persist] reading legacy state file ${legacy} (namespaced file absent)`);
+    source = legacy;
   }
   try {
-    const raw = await readFile(filePath, "utf-8");
+    const raw = await readFile(source, "utf-8");
     const json = unwrapWithHmac(raw);
     if (json === null) {
       
       
       
-      await preserveRejectedState(filePath, raw);
-      logger.warn(`Invalid signature for ${filePath}, treating as empty`);
+      await preserveRejectedState(source, raw);
+      logger.warn(`Invalid signature for ${source}, treating as empty`);
       return null;
     }
     return JSON.parse(json) as T;
   } catch (err) {
-    logger.warn(`Failed to read ${filePath}:`, err);
+    logger.warn(`Failed to read ${source}:`, err);
     return null;
   }
 }

@@ -385,7 +385,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   const coexistenceToken = fileURLToPath(import.meta.url);
   const coexistence = claimCoexistence(coexistenceScope, coexistenceToken, ctx.directory);
   if (!coexistence.shouldRegister) {
-    logger.warn(`[tawassul] ⚠️ Duplicate plugin instance detected: ${coexistence.reason}`);
+    logger.debug(`[tawassul] v2 setup yielded to another copy: ${coexistence.reason}`);
     return {};
   }
   

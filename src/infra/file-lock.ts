@@ -32,7 +32,7 @@ const USER_UID = (() => {
     return "unknown";
   }
 })();
-const FS_LOCK_DIR = resolve(tmpdir(), `.tawassul-file-locks-${USER_UID}`);
+const FS_LOCK_DIR = resolve(tmpdir(), `.tawassul-v2-file-locks-${USER_UID}`);
 
 
 

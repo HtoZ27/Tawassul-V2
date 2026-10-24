@@ -12,7 +12,7 @@ export function n2AutoLogPath(): string {
   if (override) return override;
   const data = process.env.XDG_DATA_HOME;
   const base = data && data.startsWith("/") ? data : join(homedir(), ".local", "share");
-  return join(base, "tawassul", "n2-auto.jsonl");
+  return join(base, "tawassul-v2", "n2-auto.jsonl");
 }
 
 export interface N2AutoRecord {

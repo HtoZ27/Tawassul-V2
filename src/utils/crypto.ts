@@ -17,8 +17,8 @@ import { resolve } from "node:path";
 import { logger } from "./logger.ts";
 import { globalConfigBaseDir, globalConfigDir, evaluateIsolationSync } from "./path-resolver.ts";
 
-export const HMAC_PREFIX = "TAWASSUL_HMAC_V1:";
-const OLD_HMAC_PREFIXES = ["TAWASSULL_HMAC_V1:"];
+export const HMAC_PREFIX = "TAWASSUL_V2_HMAC_V1:";
+const LEGACY_HMAC_PREFIXES = ["TAWASSUL_HMAC_V1:", "TAWASSULL_HMAC_V1:"];
 const KEY_LENGTH = 32;
 const HMAC_ALGORITHM = "sha256";
 const HMAC_KEY_FILE = ".tawassul-hmac-key";
@@ -397,7 +397,7 @@ export function wrapWithHmac(jsonPayload: string): string {
 
 
 export function isHmacSigned(signedData: string): boolean {
-  return signedData.startsWith(HMAC_PREFIX) || OLD_HMAC_PREFIXES.some((p) => signedData.startsWith(p));
+  return signedData.startsWith(HMAC_PREFIX) || LEGACY_HMAC_PREFIXES.some((p) => signedData.startsWith(p));
 }
 
 
@@ -427,7 +427,7 @@ function unwrapWithHmacImpl(signedData: string, readOnly: boolean): string | nul
   }
 
   
-  for (const oldPrefix of OLD_HMAC_PREFIXES) {
+  for (const oldPrefix of LEGACY_HMAC_PREFIXES) {
     if (signedData.startsWith(oldPrefix)) {
       const rest = signedData.slice(oldPrefix.length);
       const colonIdx = rest.indexOf(":");

@@ -1,6 +1,7 @@
 
 
 import { z } from 'zod';
+import { statePath } from '../../utils/state-paths.ts';
 
 
 
@@ -191,7 +192,7 @@ export const CostTransparencyConfigSchema = z.object({
   retentionMs: z.number().int().min(86400000).default(7776000000),
   
   
-  storagePath: z.string().default('~/.config/tawassyl/state/cost-transparency.json'),
+  storagePath: z.string().default(statePath('cost-transparency.json')),
   
   
   showRealTimeCost: z.boolean().default(true),

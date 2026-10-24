@@ -19,7 +19,7 @@ export function detectInstallScope(metaUrl?: string): InstallScope {
 }
 
 
-const COEXISTENCE_KEY = Symbol.for("tawassul.plugin.warmedup");
+const COEXISTENCE_KEY = Symbol.for("tawassul.v2.setup");
 
 interface CoexistenceEntry {
   scope: InstallScope;

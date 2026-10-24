@@ -1,6 +1,7 @@
 
 
 import { z } from "zod";
+import { statePath } from "../../utils/state-paths.ts";
 
 
 
@@ -162,7 +163,7 @@ export const TrustConfigSchema = z.object({
   })),
 
   
-  storagePath: z.string().default("~/.config/tawassyl/state/trust-scores.json"),
+  storagePath: z.string().default(statePath("trust-scores.json")),
 
   
   retentionMs: z.number().int().min(86400000).default(7776000000),

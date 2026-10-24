@@ -68,7 +68,8 @@ import type { TawassulEvent } from "../services/event-hub.ts";
 import { createHandoffEntry } from "../services/handoff-entry.ts";
 import { logger } from "../utils/logger.ts";
 import { t } from "../translations.ts";
-import { resolveRuntimeStateDir, safeHomedir } from "../utils/path-resolver.ts";
+import { resolveRuntimeStateDir } from "../utils/path-resolver.ts";
+import { statePath, stateReadPath } from "../utils/state-paths.ts";
 
 
 
@@ -235,17 +236,19 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   
   let routerStatePath: string | null = null;
+  let routerReadPath: string | null = null;
   try {
-    routerStatePath = join(safeHomedir(), ".config", "tawassul", "state", "predictive-router.json");
+    routerStatePath = statePath("predictive-router.json");
+    routerReadPath = stateReadPath("predictive-router.json");
   } catch {
     logger.warn(`[tawassul] ${t("bootNoHome")}`);
   }
   const predictiveRouter = new PredictiveRouter(undefined, tawaCtx.eventHub);
   
-  if (routerStatePath) {
+  if (routerReadPath) {
     try {
-      if (existsSync(routerStatePath)) {
-        predictiveRouter.importData(readFileSync(routerStatePath, "utf8"));
+      if (existsSync(routerReadPath)) {
+        predictiveRouter.importData(readFileSync(routerReadPath, "utf8"));
       }
     } catch (e) {
       logger.warn(`[tawassul] ${t("bootPredictLoadFail", { err: String(e) })}`);

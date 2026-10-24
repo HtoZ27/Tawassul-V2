@@ -66,7 +66,7 @@ export interface CodeStateStatus {
 
 
 function resolveCodeStateRoot(): string {
-  return join(globalCacheBaseDir(), "tawassul", "code-state");
+  return join(globalCacheBaseDir(), "tawassul-v2", "code-state");
 }
 
 

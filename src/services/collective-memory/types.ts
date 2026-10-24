@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import type { ExecutionReport } from "../../types/plan.types.ts";
+import { statePath } from "../../utils/state-paths.ts";
 
 
 
@@ -272,7 +273,7 @@ export const MemoryConfigSchema = z.object({
   minConfidenceThreshold: z.number().min(0).max(1).default(0.1),
 
   
-  storagePath: z.string().default("~/.config/tawassyl/state/collective-memory.json"),
+  storagePath: z.string().default(statePath("collective-memory.json")),
 
   
   retentionMs: z.number().int().min(86400000).default(2592000000),

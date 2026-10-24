@@ -3,10 +3,10 @@ import { tool } from "../tool.ts";
 import { mkdir, writeFile, readFile, readdir, unlink, stat, rename, rmdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { homedir } from "node:os";
 import { createHash, randomBytes } from "node:crypto";
 import { unlinkSync } from "node:fs";
 import { withTimeout } from "../utils/with-timeout.ts";
+import { globalCacheBaseDir } from "../utils/path-resolver.ts";
 import { CircuitBreaker } from "../services/circuit-breaker.ts";
 
 
@@ -144,7 +144,7 @@ function isClientError(e: unknown): boolean {
 
 
 export function cacheDir(): string {
-  return process.env.TAWASSUL_WEB_CACHE_DIR ?? join(homedir(), ".cache", "tawassul", "web-cache");
+  return process.env.TAWASSUL_WEB_CACHE_DIR ?? join(globalCacheBaseDir(), "tawassul-v2", "web-cache");
 }
 
 const SSRF_BLOCKED_HOSTS = ["169.254.169.254", "127.0.0.1", "127.0.1.1", "0.0.0.0", "localhost", "::1"];

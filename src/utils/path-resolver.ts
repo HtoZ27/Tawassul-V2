@@ -96,7 +96,7 @@ export function homeOpenCodeDir(): string {
 
 
 export function resolveRuntimeStateDir(stateDir: string, scope?: InstallScope): string {
-  if (scope === "global") return resolve(globalConfigDir(), "tawassul-state");
+  if (scope === "global") return resolve(globalConfigDir(), "tawassul-v2-state");
   return stateDir;
 }
 

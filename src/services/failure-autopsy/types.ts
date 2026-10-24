@@ -1,6 +1,7 @@
 
 
 import { z } from 'zod';
+import { statePath } from '../../utils/state-paths.ts';
 
 
 
@@ -206,7 +207,7 @@ export const FailureAutopsyConfigSchema = z.object({
   patternThreshold: z.number().int().min(2).default(3),
   
   
-  storagePath: z.string().default('~/.config/tawassyl/state/failure-autopsy.json'),
+  storagePath: z.string().default(statePath('failure-autopsy.json')),
 });
 
 export type FailureAutopsyConfig = z.infer<typeof FailureAutopsyConfigSchema>;

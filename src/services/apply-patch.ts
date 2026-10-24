@@ -20,7 +20,7 @@ export interface PatchResult {
 
 const TRAVERSAL_PATTERN = /\.\.\//;
 const URL_ENCODED_TRAVERSAL = /%2e%2e[/%2f]/i;
-const LOCK_DIR = path.join(os.tmpdir(), "tawassul-locks");
+const LOCK_DIR = path.join(os.tmpdir(), "tawassul-v2-locks");
 
 async function acquireLock(lockPath: string): Promise<boolean> {
   try {

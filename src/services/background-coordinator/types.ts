@@ -1,6 +1,7 @@
 
 
 import { z } from "zod";
+import { statePath } from "../../utils/state-paths.ts";
 
 
 
@@ -128,7 +129,7 @@ export const BackgroundCoordinatorConfigSchema = z.object({
   retentionMs: z.number().int().min(3600000).default(604800000),
 
   
-  storagePath: z.string().default("~/.config/tawassyl/state/background-coordinator.json"),
+  storagePath: z.string().default(statePath("background-coordinator.json")),
 
   
   autoStart: z.boolean().default(true),

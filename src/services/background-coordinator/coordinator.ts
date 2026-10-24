@@ -7,6 +7,7 @@ import { logger } from "../../utils/logger.ts";
 import { withTimeout } from "../../utils/with-timeout.ts";
 import { TimeoutError } from "../../utils/errors.ts";
 import { isIsolationActiveSync } from "../isolation.ts";
+import { legacyFallbackFor } from "../../utils/state-paths.ts";
 import type { BackgroundJob, BackgroundTaskResult, BackgroundCoordinatorConfig, BackgroundEvent } from "./types.js";
 import type { TimerManagerLike } from "../../types/timer-types.ts";
 import {
@@ -474,14 +475,23 @@ export class BackgroundCoordinator {
 
   
   async load(): Promise<void> {
+    let source = this.storagePath;
     try {
-      await access(this.storagePath, constants.F_OK);
+      await access(source, constants.F_OK);
     } catch {
-      return;
+      const legacy = legacyFallbackFor(this.storagePath);
+      if (legacy === undefined) return;
+      try {
+        await access(legacy, constants.F_OK);
+      } catch {
+        return;
+      }
+      logger.info(`[background-coordinator] reading legacy state file ${legacy} (namespaced file absent)`);
+      source = legacy;
     }
 
     try {
-      const raw = await readFile(this.storagePath, "utf-8");
+      const raw = await readFile(source, "utf-8");
       const data = JSON.parse(raw);
 
       if (data.jobs && Array.isArray(data.jobs)) {

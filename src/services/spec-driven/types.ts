@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { z } from "zod";
+import { statePath } from "../../utils/state-paths.ts";
 
 export const TaskSpecSchema = z.object({
   id: z.string().uuid(),
@@ -81,7 +82,7 @@ export const SpecDrivenConfigSchema = z.object({
   mandatory: z.boolean().default(false),
   maxTemplates: z.number().int().min(10).default(100),
   maxSpecs: z.number().int().min(10).default(500),
-  storagePath: z.string().default("~/.config/tawassyl/state/spec-driven.json"),
+  storagePath: z.string().default(statePath("spec-driven.json")),
   useCollectiveMemory: z.boolean().default(true),
   showDetailedErrors: z.boolean().default(true),
   minCriteriaScore: z.number().min(0).max(1).default(0.8),
