@@ -53,7 +53,12 @@ export async function runTodoReconcile(input: TodoCaptureInput): Promise<TodoCap
       sessionId: input.sessionId,
       todos,
     });
-    if (!res.ok) return { ok: false };
+    if (!res.ok) {
+      if (res.reason === "max") {
+        logger.warn("[goal-auto] active goal cap reached — todo capture skipped until a goal is closed or dropped");
+      }
+      return { ok: false };
+    }
     const digest = input.store.buildDigest().text.slice(0, DIGEST_MAX_CHARS);
     return { ok: true, goalId: res.goal.id, digest };
   } catch (e) {

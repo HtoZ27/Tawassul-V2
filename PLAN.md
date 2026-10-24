@@ -34,7 +34,7 @@ effort.
 | --- | --- | --- | --- | --- |
 | 0 | Sat 2026-10-24 | P0 | Host compatibility + DB retention | done: verify + proofs green |
 | 1 | Sat 2026-10-24 | P0 | State namespace + setup dedupe | done: helper + proof green; boot mtime snapshot folded into Day 3 |
-| 2 | Mon 2026-10-26 | P0/P1 | Goal ledger correctness (S-052) | counters agree on every close path; cap is loud |
+| 2 | Sat 2026-10-24 | P0/P1 | Goal ledger correctness (S-052) | done: counters agree on every close path; cap is loud and proven |
 | 3 | Tue 2026-10-27 | P1 | Watcher, N2 re-derivation, boot scorecard | 10 cold boots measured with `--since`; watcher line per launch |
 | 4 | Wed 2026-10-28 | P1 | S-055 triage batch + quality gates | triage table + thresholds + release gate |
 | 5 | Thu 2026-10-29 | P0 | Live dual-generation gate + cutover | v1 guard refuses v2 DB; SHARED frozen |
@@ -85,6 +85,15 @@ signatures). Rollback: revert the helper commit; legacy files were never
 modified.
 
 ## Day 2 — Goal ledger correctness (P0/P1)
+
+Status 2026-10-24: implemented and proven. `close()` and a terminal
+`update()` share `finishLocked` (transition check, close invariant, one
+closed event, one tombstone, one count); `deleteGoal` and a drop count the
+prior status; the digest adds live terminal goals to the replayed counters so
+a meta heal or ledger replay agrees with live state; the cap counts only
+active goals, prints a cap-exhaustion line, and `runTodoReconcile` logs the
+cap warning. `prove:goal-capture` is in `npm run ci`. The manual digest check
+is folded into Day 3's boot scorecard so the counts are read from a live boot.
 
 Why: v2 already avoids five of the seven v1 capture defects, but two
 correctness gaps remain and are user-visible.

@@ -940,14 +940,18 @@ The build gate also cannot prove freshness: `check:dist` compares the working ar
 
 v2 triage (2026-10-24): gaps 4–7 are already absent from the v2 store — capture is session-scoped (`detail === sessionId`) with no `Task — ` title prefix, only `ACTIVE_STATUSES` are capture candidates (completed goals cannot be reopened by title overlap), there is no `includeLegacy` option, and the hook has no `Promise.race` timeout because reconcile is awaited inline. v2 has no auto-complete path at all, so gap 2 cannot occur. Remaining v2 work: (a) lifecycle counts diverge by path — `update(status:"completed")` leaves `this.goals` and never increments, while `close()` increments and writes a dropped tombstone; derive the digest from events or route both paths through one close gate; (b) `pickCaptureGoal` compares `this.goals.size` to 5000, so completed goals that stayed live count against the cap and `{ok:false,reason:"max"}` is swallowed at debug level; bound the cap to active goals or archive completed ones and surface exhaustion. The freshness gate is not ported: v2 builds to a gitignored `dist/` and has no `check:dist`.
 
+Fixed 2026-10-24: (a) `close` and a terminal `update` share `finishLocked` (transition, invariant, one closed event, one tombstone, one count), `deleteGoal` and a drop count the prior status, and the digest adds live terminal goals to the replayed counters so meta heal and replay agree; (b) the cap counts only `ACTIVE_STATUSES`, the digest prints a cap-exhaustion line, and `runTodoReconcile` warns on `reason === "max"`. Proof: `npm run prove:goal-capture` (close/update parity, verified parity, meta-heal replay, legacy live-completed delete, drop replay, freed-slot cap, real 5000 boundary).
+
 | | Anchor |
 | --- | --- |
-| v2 capture scope | `src/services/goal-store.ts:913` — `pickCaptureGoal` session-scoped candidate |
-| v2 close gate | `src/services/goal-store.ts:640` — transition + invariant + tombstone |
-| v2 update gate | `src/services/goal-store.ts:614` — status write without a count |
-| v2 cap check | `src/services/goal-store.ts:922` — `goals.size >= maxGoals` |
-| v2 silent failure | `src/services/goal-auto.ts:52` — `{ok:false}` returns without a user-visible warning |
-| v2 status | PARTIAL: implement (a) and (b); gaps 2/4/5/6/7 are already satisfied by design and must not be re-ported from v1. |
+| v2 capture scope | `src/services/goal-store.ts:927` — `pickCaptureGoal` session-scoped candidate |
+| v2 close gate | `src/services/goal-store.ts:658` — `close` routes to `finishLocked` |
+| v2 shared close gate | `src/services/goal-store.ts:674` — invariant + one tombstone + one count |
+| v2 update gate | `src/services/goal-store.ts:636` — terminal status routes through `finishLocked` |
+| v2 cap check | `src/services/goal-store.ts:936` — `activeCount() >= maxGoals` |
+| v2 silent failure | `src/services/goal-auto.ts:56` — cap warning is logged, not swallowed |
+| v2 proof | `scripts/prove-goal-capture.ts:1` — close/update parity, replay heal, cap boundary |
+| v2 status | IMPLEMENTED 2026-10-24: both close paths share one gate and one tombstone, replay and live counts agree, completed goals no longer consume the cap, and cap exhaustion is logged and shown in the digest. Gaps 2/4/5/6/7 are already satisfied by design and must not be re-ported from v1. |
 
 | | Anchor |
 | --- | --- |

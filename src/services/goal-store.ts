@@ -371,6 +371,28 @@ export class GoalStore {
   }
 
   
+  private activeCount(): number {
+    let n = 0;
+    for (const goal of this.goals.values()) {
+      if ((ACTIVE_STATUSES as readonly string[]).includes(goal.status)) n += 1;
+    }
+    return n;
+  }
+
+  private countStatus(status: GoalStatus): number {
+    let n = 0;
+    for (const goal of this.goals.values()) {
+      if (goal.status === status) n += 1;
+    }
+    return n;
+  }
+
+  private bumpTerminal(prior: GoalStatus): void {
+    if (prior === "completed") this.lifecycleCounts.completed += 1;
+    else if (prior === "verified") this.lifecycleCounts.verified += 1;
+    else this.lifecycleCounts.dropped += 1;
+  }
+
   private async persistMeta(): Promise<void> {
     await this.dirReady;
     const meta: GoalMeta = {
@@ -440,16 +462,16 @@ export class GoalStore {
     if (blocked) return blocked;
     const title = input.title?.trim() ?? "";
     if (!title) return { ok: false, reason: "required" };
-    if (!this.warned && this.goals.size >= Math.floor(this.maxGoals * WARN_THRESHOLD)) {
+    if (!this.warned && this.activeCount() >= Math.floor(this.maxGoals * WARN_THRESHOLD)) {
       this.warned = true;
-      logger.warn(`[goal-store] goal count near cap (${this.goals.size}/${this.maxGoals})`);
+      logger.warn(`[goal-store] active goal count near cap (${this.activeCount()}/${this.maxGoals})`);
     }
     const now = new Date().toISOString();
     
     
     
     return this.mutate("create", async (): Promise<GoalWriteResult> => {
-      if (this.goals.size >= this.maxGoals) return { ok: false as const, reason: "max" };
+      if (this.activeCount() >= this.maxGoals) return { ok: false as const, reason: "max" };
       this.seq += 1;
       const id = `G-${String(this.seq).padStart(3, "0")}`;
       const items = (input.items ?? []).map((t, n) => ({
@@ -615,19 +637,15 @@ export class GoalStore {
         if (!ALLOWED_TRANSITIONS[next.status].includes(patch.status)) {
           return { ok: false, reason: "transition", missing: [`${next.status}→${patch.status}`] };
         }
-        if (patch.status === "completed" || patch.status === "verified") {
-          const check = checkCloseInvariant(next);
-          if (!check.ok) return { ok: false, reason: "invariant", missing: check.missing };
-        }
         next.status = patch.status;
       }
       next.progressPct = deriveProgress(next);
       next.updatedAt = now;
-      if (next.status === "dropped") {
-        
-        
-        
-        this.lifecycleCounts.dropped += 1;
+      if (patch.status === "completed" || patch.status === "verified") {
+        return this.finishLocked(next, patch.status, "");
+      }
+      if (patch.status === "dropped") {
+        this.bumpTerminal(fresh.status);
         await this.commit(next, { remove: true });
         return { ok: true, goal: next };
       }
@@ -643,57 +661,48 @@ export class GoalStore {
     const goal = this.goals.get(id);
     if (!goal) return { ok: false, reason: "not-found" };
     const target: GoalStatus = verify ? "verified" : "completed";
-    
-    
-    
-    
-    
     return this.mutate(id, async (): Promise<GoalWriteResult> => {
       const fresh = this.goals.get(id);
       if (!fresh) return { ok: false, reason: "not-found" };
-      if (!ALLOWED_TRANSITIONS[fresh.status].includes(target)) {
+      if (fresh.status !== target && !ALLOWED_TRANSITIONS[fresh.status].includes(target)) {
         return { ok: false, reason: "transition", missing: [`${fresh.status}→${target}`] };
       }
-      const check = checkCloseInvariant(fresh);
-      if (!check.ok) return { ok: false, reason: "invariant", missing: check.missing };
-      if (verify && fresh.evidence.length === 0) {
-        
-        
-        return {
-          ok: false,
-          reason: "invariant",
-          missing: ["verified requires at least one goal-level evidence entry"],
-        };
-      }
-      const now = new Date().toISOString();
-      const next = structuredClone(fresh);
-      
-      
-      for (let i = next.items.length - 1; i >= 0; i--) {
-        const item = next.items[i];
-        if (item && item.state === "done") {
-          next.completedItems.push({ id: item.id, title: item.title, completedAt: now, evidence: [...item.evidence] });
-          next.items.splice(i, 1);
-        }
-      }
-      next.status = target;
-      if (verify) next.verifiedBy = by;
-      next.progressPct = deriveProgress(next);
-      next.updatedAt = now;
-      const closed = structuredClone(next); 
-      
-      await this.writeEvent(closed);
-      
-      
-      
-      if (target === "verified") this.lifecycleCounts.verified += 1;
-      else this.lifecycleCounts.completed += 1;
-      const tomb = structuredClone(closed);
-      tomb.status = "dropped";
-      tomb.updatedAt = new Date().toISOString();
-      await this.commit(tomb, { remove: true });
-      return { ok: true, goal: closed };
+      return this.finishLocked(fresh, target, by);
     });
+  }
+
+  private async finishLocked(base: Goal, target: "completed" | "verified", by: string): Promise<GoalWriteResult> {
+    const check = checkCloseInvariant(base);
+    if (!check.ok) return { ok: false, reason: "invariant", missing: check.missing };
+    if (target === "verified" && base.evidence.length === 0) {
+      return {
+        ok: false,
+        reason: "invariant",
+        missing: ["verified requires at least one goal-level evidence entry"],
+      };
+    }
+    const now = new Date().toISOString();
+    const next = structuredClone(base);
+    for (let i = next.items.length - 1; i >= 0; i--) {
+      const item = next.items[i];
+      if (item && item.state === "done") {
+        next.completedItems.push({ id: item.id, title: item.title, completedAt: now, evidence: [...item.evidence] });
+        next.items.splice(i, 1);
+      }
+    }
+    next.status = target;
+    if (target === "verified" && by) next.verifiedBy = by;
+    next.progressPct = deriveProgress(next);
+    next.updatedAt = now;
+    const closed = structuredClone(next);
+    await this.writeEvent(closed);
+    if (target === "verified") this.lifecycleCounts.verified += 1;
+    else this.lifecycleCounts.completed += 1;
+    const tomb = structuredClone(closed);
+    tomb.status = "dropped";
+    tomb.updatedAt = new Date().toISOString();
+    await this.commit(tomb, { remove: true });
+    return { ok: true, goal: closed };
   }
 
   
@@ -709,8 +718,7 @@ export class GoalStore {
       const tomb = structuredClone(fresh);
       tomb.status = "dropped";
       tomb.updatedAt = now;
-      
-      this.lifecycleCounts.dropped += 1;
+      this.bumpTerminal(fresh.status);
       await this.commit(tomb, { remove: true });
       return { ok: true, goal: tomb };
     });
@@ -842,9 +850,10 @@ export class GoalStore {
     }
     
     
-    const done = this.lifecycleCounts.completed;
-    const verified = this.lifecycleCounts.verified;
+    const done = this.lifecycleCounts.completed + this.countStatus("completed");
+    const verified = this.lifecycleCounts.verified + this.countStatus("verified");
     const dropped = this.lifecycleCounts.dropped;
+    const activeNow = this.activeCount();
     const lines = [
       `🎯 ${active.length} open · ✅ ${done} completed · ✔ ${verified} verified · 🗑 ${dropped} dropped`,
       `🚧 ATTENTION (${attention.length}):`,
@@ -853,6 +862,11 @@ export class GoalStore {
       ...roster,
     ];
     if (overflow > 0) lines.push(`+ ${overflow} more (goal(board) for the full list)`);
+    if (activeNow >= this.maxGoals) {
+      lines.push(
+        `⛔ active goal cap reached (${activeNow}/${this.maxGoals}) — close or drop a goal before creating another`,
+      );
+    }
     return {
       text: lines.join("\n"),
       attention: attention.length,
@@ -919,7 +933,7 @@ export class GoalStore {
     const capture = [...this.goals.values()].find((g) => g.owner === owner && g.detail === sessionId && !g.pinned);
     if (capture) return capture;
     
-    if (this.goals.size >= this.maxGoals) return null;
+    if (this.activeCount() >= this.maxGoals) return null;
     this.seq += 1;
     const id = `G-${String(this.seq).padStart(3, "0")}`;
     const goal: Goal = {
