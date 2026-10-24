@@ -7,6 +7,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { unlinkSync } from "node:fs";
 import { withTimeout } from "../utils/with-timeout.ts";
 import { globalCacheBaseDir } from "../utils/path-resolver.ts";
+import { v2NamespaceRoot } from "../utils/state-paths.ts";
 import { CircuitBreaker } from "../services/circuit-breaker.ts";
 
 
@@ -144,7 +145,7 @@ function isClientError(e: unknown): boolean {
 
 
 export function cacheDir(): string {
-  return process.env.TAWASSUL_WEB_CACHE_DIR ?? join(globalCacheBaseDir(), "tawassul-v2", "web-cache");
+  return process.env.TAWASSUL_WEB_CACHE_DIR ?? join(v2NamespaceRoot(globalCacheBaseDir()), "web-cache");
 }
 
 const SSRF_BLOCKED_HOSTS = ["169.254.169.254", "127.0.0.1", "127.0.1.1", "0.0.0.0", "localhost", "::1"];

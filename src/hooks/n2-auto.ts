@@ -2,6 +2,7 @@ import { appendFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { logger } from "../utils/logger.ts";
+import { v2NamespaceRoot } from "../utils/state-paths.ts";
 
 const MAX_BYTES = 512 * 1024;
 const KEEP_LINES = 200;
@@ -12,7 +13,7 @@ export function n2AutoLogPath(): string {
   if (override) return override;
   const data = process.env.XDG_DATA_HOME;
   const base = data && data.startsWith("/") ? data : join(homedir(), ".local", "share");
-  return join(base, "tawassul-v2", "n2-auto.jsonl");
+  return join(v2NamespaceRoot(base), "n2-auto.jsonl");
 }
 
 export interface N2AutoRecord {

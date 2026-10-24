@@ -44,6 +44,7 @@ root for relocated v1 trees and for the proof.
 | N2 log | `~/.local/share/tawassul-v2/n2-auto.jsonl` | no; old file untouched |
 | code-state cache | `~/.cache/tawassul-v2/code-state` | copy-only migration in `migrateLegacy` |
 | web fetch cache | `~/.cache/tawassul-v2/web-cache` | no; rebuildable cache |
+| profile XDG roots | `v2NamespaceRoot` appends `tawassul-v2` once, including under the ISO launcher's pinned quad | — |
 | global runtime state | `~/.config/opencode/tawassul-v2-state` | no; v2 was never globally installed with data |
 | setup seat | `Symbol.for("tawassul.v2.setup")` | v1's registry is never read or written |
 | plugin id | `tawassul` (unchanged) | host identity is the entry path; the id labels roster/permission keys (`tawassul.ask`), so renaming would break user configs |

@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { secureId } from "../utils/crypto.ts";
 import { globalCacheBaseDir, safeHomedir } from "../utils/path-resolver.ts";
+import { v2NamespaceRoot } from "../utils/state-paths.ts";
 import { logger } from "../utils/logger.ts";
 
 const execFileAsync = promisify(execFile);
@@ -66,7 +67,7 @@ export interface CodeStateStatus {
 
 
 function resolveCodeStateRoot(): string {
-  return join(globalCacheBaseDir(), "tawassul-v2", "code-state");
+  return join(v2NamespaceRoot(globalCacheBaseDir()), "code-state");
 }
 
 

@@ -8,12 +8,16 @@ export const STATE_DIR_NAME = "tawassul-v2";
 export const LEGACY_STATE_DIR_NAME = "tawassyl";
 export const STATE_SUBDIR = "state";
 
+export function v2NamespaceRoot(base: string): string {
+  const resolved = resolve(base);
+  if (basename(resolved) === STATE_DIR_NAME) return resolved;
+  return resolve(resolved, STATE_DIR_NAME);
+}
+
 export function stateDir(): string {
   const override = process.env[STATE_DIR_ENV]?.trim();
   if (override) return resolve(override);
-  const base = globalConfigBaseDir();
-  if (basename(base) === STATE_DIR_NAME) return resolve(base, STATE_SUBDIR);
-  return resolve(base, STATE_DIR_NAME, STATE_SUBDIR);
+  return resolve(v2NamespaceRoot(globalConfigBaseDir()), STATE_SUBDIR);
 }
 
 export function legacyStateDir(): string {

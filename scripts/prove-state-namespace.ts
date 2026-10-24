@@ -12,7 +12,8 @@ import {
   unwrapWithHmac,
   wrapWithHmac,
 } from "../src/utils/crypto.ts";
-import { legacyStateDir, legacyStatePath, STATE_DIR_NAME, stateDir, statePath, stateReadPath } from "../src/utils/state-paths.ts";
+import { legacyStateDir, legacyStatePath, STATE_DIR_NAME, stateDir, statePath, stateReadPath, v2NamespaceRoot } from "../src/utils/state-paths.ts";
+import { n2AutoLogPath } from "../src/hooks/n2-auto.ts";
 
 function fail(msg: string): never {
   console.error(`PROOF FAIL: ${msg}`);
@@ -51,6 +52,18 @@ try {
   process.env.XDG_CONFIG_HOME = profileHome;
   assert(stateDir() === resolve(profileHome, "state"), "v2 profile home does not double-nest the state dir");
   process.env.XDG_CONFIG_HOME = configHome;
+
+  assert(v2NamespaceRoot(join(root, "cache")) === join(root, "cache", STATE_DIR_NAME), "namespace root appends once");
+  assert(v2NamespaceRoot(profileHome) === profileHome, "namespace root keeps an existing v2 profile");
+  const dataHome = join(root, "data");
+  process.env.XDG_DATA_HOME = join(dataHome, STATE_DIR_NAME);
+  assert(n2AutoLogPath() === join(dataHome, STATE_DIR_NAME, "n2-auto.jsonl"), "N2 log does not double-nest under the profile");
+  process.env.XDG_DATA_HOME = dataHome;
+  assert(n2AutoLogPath() === join(dataHome, STATE_DIR_NAME, "n2-auto.jsonl"), "N2 log namespaces a plain data home");
+  process.env.TAWASSUL_N2_LOG = join(root, "custom-n2.jsonl");
+  assert(n2AutoLogPath() === join(root, "custom-n2.jsonl"), "N2 log override wins");
+  delete process.env.TAWASSUL_N2_LOG;
+  delete process.env.XDG_DATA_HOME;
 
   mkdirSync(legacyStateDir(), { recursive: true });
   writeFileSync(legacyStatePath("seed.json"), "legacy-seed", "utf-8");
@@ -124,6 +137,8 @@ try {
   delete (globalThis as Record<symbol, unknown>)[V2_SEAT];
   delete process.env.TAWASSUL_HMAC_KEY_DIR;
   delete process.env.TAWASSUL_V2_LEGACY_STATE_DIR;
+  delete process.env.TAWASSUL_N2_LOG;
+  delete process.env.XDG_DATA_HOME;
   delete process.env.XDG_CONFIG_HOME;
 
   console.log("PROOF PASS: v2 state namespace isolated from v1");
