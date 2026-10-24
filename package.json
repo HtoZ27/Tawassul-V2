@@ -36,8 +36,11 @@
     "prove:boot-gate": "bun scripts/prove-boot-gate.ts",
     "prove:v2-compat": "bun scripts/prove-v2-compat.ts",
     "prove:rules": "bun scripts/prove-rule-gate.ts",
-    "ci": "npm run verify && npm run check:config && npm run check:facts && npm run prove:gen-lock && npm run prove:gen-merge && npm run prove:roster-boundary && npm run prove:event-trust && npm run prove:web-ssrf && npm run prove:first-boot && npm run prove:disclosure && npm run prove:s020 && npm run prove:s021 && npm run prove:resurrection && npm run prove:goal-capture && npm run prove:early-exit && npm run prove:priming && npm run prove:s024 && npm run prove:rules && npm run prove:s028 && npm run prove:s029 && npm run prove:s038 && npm run prove:state-namespace && npm run prove:boot-gate && npm run prove:db-retention && npm run prove:v2-compat",
-    "verify": "npm run check:rules && npm run check:shared && npm run check:sh && npm run typecheck && npm run build"
+    "ci": "npm run verify && npm run check:config && npm run check:facts && npm run prove:gen-lock && npm run prove:gen-merge && npm run prove:roster-boundary && npm run prove:event-trust && npm run prove:web-ssrf && npm run prove:first-boot && npm run prove:disclosure && npm run prove:s020 && npm run prove:s021 && npm run prove:resurrection && npm run prove:goal-capture && npm run prove:early-exit && npm run prove:priming && npm run prove:s024 && npm run prove:rules && npm run prove:s028 && npm run prove:s029 && npm run prove:s038 && npm run prove:state-namespace && npm run prove:boot-gate && npm run prove:db-retention && npm run prove:v2-compat && npm run prove:catch-discipline && npm run prove:proof-catalog && npm run smoke:release",
+    "verify": "npm run check:rules && npm run check:shared && npm run check:sh && npm run typecheck && npm run build",
+    "prove:catch-discipline": "bun scripts/prove-catch-discipline.ts",
+    "prove:proof-catalog": "bun scripts/prove-proof-catalog.ts",
+    "smoke:release": "bash scripts/release-smoke.sh"
   },
   "devDependencies": {
     "@opencode/plugin": "^2.1.4",

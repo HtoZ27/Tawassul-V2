@@ -112,8 +112,8 @@ async function preserveRejectedState(filePath: string, raw: string): Promise<voi
     logger.warn(
       `[tawassul] M-2: rejected state preserved for recovery at ${dest} — review and restore manually if needed`,
     );
-  } catch {
-
+  } catch (e) {
+    logger.warn(`[tawassul] M-2: rejected state could not be preserved for ${filePath}:`, e);
   }
 }
 

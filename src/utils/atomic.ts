@@ -29,8 +29,8 @@ async function pruneOldBackups(filePath: string): Promise<void> {
       
       await unlink(join(dir, stale)).catch(() => undefined);
     }
-  } catch {
-
+  } catch (e) {
+    logger.debug(`atomicWriteFile: backup prune skipped for ${filePath}:`, e);
   }
 }
 
@@ -50,8 +50,8 @@ export async function atomicWriteFile(
   let originalMode: number | null = null;
   try {
     originalMode = (await stat(filePath)).mode & 0o777;
-  } catch {
-
+  } catch (e) {
+    logger.debug(`atomicWriteFile: mode read skipped for ${filePath}:`, e);
   }
 
   if (backup) {
@@ -66,8 +66,9 @@ export async function atomicWriteFile(
         await bfh.close();
       }
       replaced = true;
-    } catch {
-      backupPath = null; 
+    } catch (e) {
+      backupPath = null;
+      logger.warn(`atomicWriteFile: backup requested but not created for ${filePath}:`, e);
     }
   }
 
@@ -77,8 +78,8 @@ export async function atomicWriteFile(
   if (originalMode !== null) {
     try {
       await chmod(filePath, originalMode);
-    } catch {
-
+    } catch (e) {
+      logger.debug(`atomicWriteFile: mode restore skipped for ${filePath}:`, e);
     }
   }
 

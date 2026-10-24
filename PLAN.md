@@ -36,7 +36,7 @@ effort.
 | 1 | Sat 2026-10-24 | P0 | State namespace + setup dedupe | done: helper + proof green; boot mtime snapshot folded into Day 3 |
 | 2 | Sat 2026-10-24 | P0/P1 | Goal ledger correctness (S-052) | done: counters agree on every close path; cap is loud and proven |
 | 3 | Tue 2026-10-27 | P1 | Watcher, N2 re-derivation, boot scorecard | done: 10/10 cold boots PASS with `--since`; watcher line per launch; N5 N/A on 2.1.4 |
-| 4 | Wed 2026-10-28 | P1 | S-055 triage batch + quality gates | triage table + thresholds + release gate |
+| 4 | Wed 2026-10-28 | P1 | S-055 triage batch + quality gates | done: `TRIAGE.md` A–L verdicts; proof-catalog threshold + release smoke green |
 | 5 | Thu 2026-10-29 | P0 | Live dual-generation gate + cutover | v1 guard refuses v2 DB; SHARED frozen |
 | 6 | Fri 2026-10-30 | — | Buffer, docs, handover | clean tree, one install method |
 
@@ -160,14 +160,29 @@ items. Triage first, then implement only what is proven on v2.
    First candidates to apply: silent-catch discipline (the subset that can
    lose data), hook-surface subscriptions with real behavior, coverage
    thresholds, and a release/smoke gate against the pinned host version.
-2. Add `vitest` coverage thresholds and make the existing `test:coverage`
-   fail below them.
-3. Add `scripts/release-smoke.sh`: pin the host version, boot a scratch
-   workspace, call `health` and one direct tool, refuse on version drift.
-4. Record every rejected item with one line of evidence.
+2. Coverage thresholds: v2 carries no `vitest`, no `tests/`, and no
+   `test:coverage`, so the v1 item is rejected rather than imported as an
+   empty suite. The v2 equivalent is a proof-catalog threshold:
+   `prove:proof-catalog` requires 24 proof files, exactly one `prove:` script
+   per file, every proof wired into `ci`, and the release smoke present.
+3. Add `scripts/release-smoke.sh`: pin the host version, build, boot a
+   scratch workspace with an isolated `OPENCODE_DB` and temp plugin state,
+   assert the plugin init line + 42-tool registration, then call `health`
+   and `help` directly; refuse on version drift or boot failure.
+4. Record every rejected item with one line of evidence in `TRIAGE.md`.
 
-Exit: triage table committed, thresholds enforced, release smoke green, and
-`npm run ci` green end to end.
+Status 2026-10-24: done. `TRIAGE.md` carries all A–L rows with a verdict
+(`apply` / `v1-only` / `dead`) and one line of evidence each. Applied:
+release smoke, catch discipline over the shared persistence path
+(`persist-utils.ts`, `atomic.ts`, including the M-2 quarantine warning), and
+the proof catalog. Rejected with evidence: the v1 vitest coverage thresholds
+(no v2 suite to measure), the hook-surface expansion (v2 already subscribes
+to the whole host stream; mappings without consumers would be noise), and
+every `v1-only`/`dead` row. The smoke is green against host v2.1.4
+(`SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`).
+
+Exit: met — triage table committed, the v2 threshold gate enforced
+(`prove:proof-catalog`), release smoke green, `npm run ci` green end to end.
 
 ## Day 5 — Cutover gate (P0)
 

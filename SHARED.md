@@ -1167,9 +1167,31 @@ Status rule: the inventories are dated 2026-10-08 and explicitly say every Augus
 
 ### v2 status
 
-TRIAGE REQUIRED before cutover. These are v1 reference defects, not a v2 implementation order: for each item decide "apply to v2", "v1-only, close at retirement", or "already dead". The clearest v2-relevant candidates are the silent-catch discipline, the hook-surface gap, the release/CI gates, coverage thresholds, and the boot-stall remainders. Do not copy the v1 state, backups, or duplicate records.
+TRIAGED on v2 2026-10-24 (Day 4 of `PLAN.md`); the full A–L table with one
+line of evidence per row is `TRIAGE.md`.
 
-Triage is scheduled as Day 4 of `PLAN.md` (2026-10-28). The first pass keeps only items that are re-proven on the current v2 code; every rejected item must carry one line of evidence.
+Applied to v2: (1) catch discipline over the shared persistence path —
+`src/services/persist-utils.ts:116` now logs a loud warning when quarantine
+fails instead of swallowing it, and `src/utils/atomic.ts:33` logs backup
+prune, mode read/restore, and backup-creation failures; (2) an automated
+proof for that subset, `scripts/prove-catch-discipline.ts:1`; (3) a
+proof-catalog threshold, `scripts/prove-proof-catalog.ts:1` — 24 proof files,
+exactly one `prove:` script each, every proof wired into `ci`, release smoke
+present; (4) the release gate, `scripts/release-smoke.sh:1` — host pin 2.1.4,
+scratch workspace with isolated `OPENCODE_DB` and temp plugin state, 42-tool
+registration, direct `health` + `help` calls, refusal on drift.
+
+Rejected with evidence: the v1 vitest coverage thresholds and `test:coverage`
+item (v2 has no `vitest`, no `tests/`, no `test:coverage`; importing an empty
+suite would be theater — the proof catalog is the v2 threshold), the
+hook-surface gap (`src/v2/setup.ts:309` subscribes to the whole host stream;
+unconsumed mappings are noise), and every row marked `v1-only` or `dead` in
+`TRIAGE.md` (the v1 defects do not exist in this tree; `ROLE_BLOCKED`,
+`execSync`, and `.env.example` are absent here, and the 806-backup claim is
+stale on disk).
+
+No v1 state, backups, or duplicate records are copied. Remaining v1 reference
+items stay closed at v1 retirement; only a re-proven v2 defect reopens a row.
 
 
 ## S-056 v2 shared v1 state, HMAC, lock, seat, and N2 surfaces — namespaced in one change — v2 IMPLEMENTED (v1 untouched)
