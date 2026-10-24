@@ -18,6 +18,11 @@ export function measure(start: string, end: string, label: string): void {
   marks.set(`${LABEL_PREFIX}${label}`, endTime - startTime);
 }
 
+export function sample(label: string): number | null {
+  const value = marks.get(`${LABEL_PREFIX}${label}`);
+  return typeof value === "number" ? value : null;
+}
+
 export function report(): string | null {
   const entries: string[] = [];
   for (const [key, value] of marks) {

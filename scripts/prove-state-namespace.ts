@@ -12,7 +12,7 @@ import {
   unwrapWithHmac,
   wrapWithHmac,
 } from "../src/utils/crypto.ts";
-import { legacyStateDir, legacyStatePath, STATE_DIR_NAME, stateDir, statePath, stateReadPath, v2NamespaceRoot } from "../src/utils/state-paths.ts";
+import { legacyStateDir, legacyStatePath, STATE_DIR_NAME, stateDir, statePath, stateReadPath, v2DataRoot, v2NamespaceRoot } from "../src/utils/state-paths.ts";
 import { n2AutoLogPath } from "../src/hooks/n2-auto.ts";
 
 function fail(msg: string): never {
@@ -57,8 +57,10 @@ try {
   assert(v2NamespaceRoot(profileHome) === profileHome, "namespace root keeps an existing v2 profile");
   const dataHome = join(root, "data");
   process.env.XDG_DATA_HOME = join(dataHome, STATE_DIR_NAME);
+  assert(v2DataRoot() === join(dataHome, STATE_DIR_NAME), "data root keeps a v2 profile single-nested");
   assert(n2AutoLogPath() === join(dataHome, STATE_DIR_NAME, "n2-auto.jsonl"), "N2 log does not double-nest under the profile");
   process.env.XDG_DATA_HOME = dataHome;
+  assert(v2DataRoot() === join(dataHome, STATE_DIR_NAME), "data root namespaces a plain data home");
   assert(n2AutoLogPath() === join(dataHome, STATE_DIR_NAME, "n2-auto.jsonl"), "N2 log namespaces a plain data home");
   process.env.TAWASSUL_N2_LOG = join(root, "custom-n2.jsonl");
   assert(n2AutoLogPath() === join(root, "custom-n2.jsonl"), "N2 log override wins");

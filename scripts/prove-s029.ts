@@ -104,14 +104,26 @@ function runLoggerChild(extraEnv: Record<string, string>, dropKeys: string[] = [
 }
 {
   const home = join(root, "fakehome");
-  assert(runLoggerChild({ HOME: home }, ["TAWASSUL_LOG_FILE"]) === 0, "logger child exits clean with default path");
-  const def = join(home, ".local", "share", "tawassul", "tawassul.log");
-  assert(existsSync(def) && readFileSync(def, "utf8").includes("s029-probe"), "default-on safe path receives the probe");
+  assert(runLoggerChild({ HOME: home }, ["TAWASSUL_LOG_FILE", "XDG_DATA_HOME"]) === 0, "logger child exits clean with default path");
+  const def = join(home, ".local", "share", "tawassul-v2", "tawassul", "tawassul.log");
+  assert(existsSync(def) && readFileSync(def, "utf8").includes("s029-probe"), "default-on v2 path receives the probe");
+}
+{
+  const data = join(root, "plain-data");
+  assert(runLoggerChild({ XDG_DATA_HOME: data }, ["TAWASSUL_LOG_FILE"]) === 0, "logger child exits clean with XDG data");
+  const def = join(data, "tawassul-v2", "tawassul", "tawassul.log");
+  assert(existsSync(def) && readFileSync(def, "utf8").includes("s029-probe"), "XDG data home namespaces the log once");
+}
+{
+  const profile = join(root, "profile", "tawassul-v2");
+  assert(runLoggerChild({ XDG_DATA_HOME: profile }, ["TAWASSUL_LOG_FILE"]) === 0, "logger child exits clean in the v2 profile");
+  const def = join(profile, "tawassul", "tawassul.log");
+  assert(existsSync(def) && readFileSync(def, "utf8").includes("s029-probe"), "v2 profile log is not double-nested");
 }
 {
   const home = join(root, "fakehome2");
-  assert(runLoggerChild({ TAWASSUL_LOG_FILE: "", HOME: home }) === 0, "logger child exits clean when opted out");
-  assert(!existsSync(join(home, ".local", "share", "tawassul", "tawassul.log")), "empty variable opts the sink out");
+  assert(runLoggerChild({ TAWASSUL_LOG_FILE: "", HOME: home }, ["XDG_DATA_HOME"]) === 0, "logger child exits clean when opted out");
+  assert(!existsSync(join(home, ".local", "share", "tawassul-v2", "tawassul", "tawassul.log")), "empty variable opts the sink out");
 }
 
 console.log(`PROOF PASS: s029 pins, dispatch precedence, dynamic suffix, log default, retire census (${passed} assertions)`);

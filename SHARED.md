@@ -527,7 +527,7 @@ path. Proven by `scripts/prove-s029.ts` (21 assertions).
 | suffix v1 fix | `v1/scripts/gen-opencode-config.ts:640` — dotted suffixes accepted for versioned provider ids |
 | suffix v2 port | `src/scripts/gen-opencode-config.ts:384` — same character class (plus a one-word export of `isKnownDynamicAgent` at `:377` for the proof) |
 | logpath v1 fix | `v1/utils/logger.ts:118` — default-on safe path under user-owned tree, empty string opts out |
-| logpath v2 port | `src/utils/logger.ts:100` — same default and opt-out semantics |
+| logpath v2 port | `src/utils/logger.ts:100` — default under `v2DataRoot()` (`tawassul-v2/tawassul/tawassul.log`, single-nested in the ISO profile), same empty-string opt-out |
 | skipped | V1 vitest files (addagent-pins and the rest) — mirrored in the bun proof instead; docs consolidation (44 reports into inventories), `tawassul-pins.json` runtime state, d3-report eval harness, launcher flags, workspace `engines`, dist/mcp bundles — V1-host or build artifacts |
 | review | all 84 commit files dispositioned one by one: the 8 vitest files reviewed case-by-case (addagent-pins mirrored; logger default/opt-out covered hermetically; gen pins fixture is runtime state; scheduled/d3, launch-cap, bidi-guard, lifecycle-census, summary-SCOPED are V1-harness or already satisfied — iso `--backup-dir` predates at `scripts/opencode-v2-iso.sh:63`, db-isolation census delta is intentional with zero silent catches in V2, FACTS green via `check:facts`, no SCOPED roster exists in V2) |
 
@@ -704,7 +704,7 @@ Fix (v1): track assistant message ids from `message.updated` (`info.role === "as
 | v1 tests | `v1/hooks/n2-auto.test.ts` — role-gate drill + announced-assistant fixtures |
 | v1 build | `ae2cb0ce…` copied to all 8 Desktop workspaces 2026-10-21 |
 | v2 target | `src/hooks/n2-auto.ts:32` — role gate; `src/hooks/n2-auto.ts:73` — announced-assistant predicate |
-| v2 status | IMPLEMENTED on v2 2026-10-24: assistant-role gate + `prove:v2-compat` drills (user and unannounced parts are ignored). Existing v2 records predate the gate and still must be re-derived before any N2 claim (S-053). |
+| v2 status | IMPLEMENTED on v2 2026-10-24: assistant-role gate + `prove:v2-compat` drills (user and unannounced parts are ignored). N2 re-derived 2026-10-24 on the post-gate records: 10 cold boots measured 4.9–6.1s with an explicit `--since` (S-053). |
 
 ## S-040 Desktop session-load freeze is the host `event` table (2.94GB, no retention) — v1 FIXED (shrink 2026-10-23 + cap-gated prune; maintenance quick_check open) — v2 REQUIRED
 The 2026-10-22 "app opened but sessions never loaded" report is not provider latency. The working DB `~/.local/share/opencode/opencode-desktop.db` was 3.47GB (848,540 pages, freelist=0); `dbstat` attributes 2.94GB (85%) to `event`, 316MB to `part`, 179MB to `message`. `event` had 174,758 rows; the top aggregate ids are session ids (`ses_ec148abb…` 42,482, `ses_ebfceb35…` 33,906, `ses_ec151013…` 21,305, `ses_ec14461f…` 17,104), i.e. per-session append-only streams. The shipped host (`/opt/OpenCode/resources/app.asar`) contains `CREATE TABLE event (id, aggregate_id, seq, type, data, FK aggregate_id → event_sequence ON DELETE CASCADE)` and **no `DELETE FROM event` and no retention path** — the table grows without bound. opencode runs better-sqlite3 synchronously on the server event loop, so queries/checkpoints on this file freeze the local server ("sessions don't load" in the UI).
@@ -1017,6 +1017,10 @@ The v1 plugin still carries a `TODO: remove in v2` marker in collective memory, 
 | watcher pinning | `v1/../../../scripts/install-tawassul.sh:305` — pinned.env write |
 | v2 quiet resolver | `src/utils/quiet.ts:25` — env > forced only |
 | v2 ISO fallback | `scripts/opencode-v2-iso.sh:61` — v1 maintenance fallback |
+| watcher v2 port | `scripts/opencode-v2-iso.sh:156` — env > pinned > auto; `:176` — rotational probe; `:209` — one launcher line |
+| watcher flag v2 port | `scripts/opencode-v2-iso.sh:62` — build-advertised flag only, no blind export |
+| boot scorecard v2 port | `scripts/boot-scorecard-v2.sh:1` — N1–N5 with v2 paths |
+| boot gate v2 proof | `scripts/prove-boot-gate.ts:1` — launcher policy + scorecard assertions |
 | v2 ISO binary | `scripts/opencode-v2-iso.sh:82` — `OPENCODE="${OPENCODE:-opencode}"` |
 | v2 N2 hook | `src/hooks/n2-auto.ts:32` — no assistant-role gate |
 | v2 N2 log | `src/hooks/n2-auto.ts:10` — shared `tawassul` path |
@@ -1034,7 +1038,7 @@ The v1 plugin still carries a `TODO: remove in v2` marker in collective memory, 
 | bulk-dispatch trap | `v1/services/parallel-dispatcher.ts:454` — unreachable throw |
 | manual task census | `v1/docs/revision-19-plugins/plans/01-security-governance.md:67`, `v1/docs/revision-19-plugins/plans/03-performance-memory-stability.md:97`, `:98` |
 | security census | `v1/SECURITY.md:177`–`:180` — four planned items |
-| v2 status | PARTIAL 2026-10-24: N2 assistant-role gate (S-039), event retention + dual session probe + launcher pin/no-fallback (S-040/S-041) are done and proven (`prove:db-retention`, `prove:v2-compat`). Still open: watcher policy, boot scorecard/cold-boot runner, state namespace, and the live dual-generation gate. Day-by-day order in `PLAN.md`. |
+| v2 status | DONE on v2 2026-10-24: watcher policy, boot scorecard, N2 re-derivation, state namespace, and the 10/10 cold-boot protocol are implemented and proven (`prove:boot-gate`, `prove:v2-compat`, `prove:state-namespace`). Remaining cutover gate: the live dual-generation boot (v1 guard refuses a v2 DB) and the v1 guard orphan/WAL fixture; day-by-day order in `PLAN.md`. |
 
 ## S-054 M3.1 frozen boot-scorecard was split out of v1 commit `0af80851` — DECISION MADE
 
@@ -1049,7 +1053,9 @@ The owner chose to split. v1 history is now `9b9ddf6d` (main work, 25 files, no 
 | N2 gate | `v1/../../../scripts/boot-scorecard.sh:246` — auto N2 needs explicit `--since` |
 | echo regression | `v1/tests/boot-scorecard.test.ts:107` — N1/N4 not faked by command echoes |
 | window regression | `v1/tests/boot-scorecard.test.ts:257` — auto N2 without `--since` is INCOMPLETE |
-| v2 status | DECISION MADE: split; v1 `9b9ddf6d` main + `99c13184` M3.1; v2 port must carry both fixes |
+| v2 port | `scripts/boot-scorecard-v2.sh:30` — `SINCE_EXPLICIT`; `:134` — `is_state_failure`; `:177` — N5 N/A detection |
+| v2 proof | `scripts/prove-boot-gate.ts:1` — launcher + scorecard assertions, cleanup in `finally` |
+| v2 status | DECISION MADE: split; v1 `9b9ddf6d` main + `99c13184` M3.1. v2 port DONE 2026-10-24: `scripts/boot-scorecard-v2.sh` carries both fixes (`--n2 auto` needs `--since`, N1/N4 envelope filter), N5 is N/A when the host log has no refresh signal, and `prove:boot-gate` proves all gates. |
 
 ## S-055 v1 `docs/` + `atomic/` remaining fix backlog — transferred before retirement — v2 TRIAGE REQUIRED (needs re-proof)
 
@@ -1190,7 +1196,7 @@ Rollback: revert the helper commit; no legacy file was modified, so the previous
 | v2 lock dir | `src/services/apply-patch.ts:23` — `tawassul-v2-locks` |
 | v2 N2 log | `src/hooks/n2-auto.ts:15` — `tawassul-v2/n2-auto.jsonl` |
 | v2 seat key | `src/core/install-scope.ts:22` — `Symbol.for("tawassul.v2.setup")` |
-| v2 proof | `scripts/prove-state-namespace.ts:1` — 37 assertions, cleanup in `finally` |
+| v2 proof | `scripts/prove-state-namespace.ts:1` — 39 assertions, cleanup in `finally` |
 | v2 status | IMPLEMENTED 2026-10-24; `npm run prove:state-namespace` green and `npm run ci` includes it. |
 
 ## S-057 addagent model advisory reads the static catalog instead of the provider (false "outside catalog" warnings)

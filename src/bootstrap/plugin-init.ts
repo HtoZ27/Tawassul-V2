@@ -5,7 +5,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { TAWASSUL_TOOL_NAMES, STATELESS_TOOLS } from "../tool-names.ts";
-import { mark, measure, report, reset as perfReset } from "../utils/perf.ts";
+import { mark, measure, report, reset as perfReset, sample } from "../utils/perf.ts";
 import type { TawassulHooks as Hooks, PluginInput, Config, InitReadyProbe } from "../plugin-types.ts";
 import { INIT_READY } from "../plugin-types.ts";
 import type { ToolDefinition, ToolContext } from "../tool.ts";
@@ -802,6 +802,8 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
 
   mark("initPlugin:return");
   measure("initPlugin:start", "initPlugin:return", "initPlugin() total");
+  const initTotal = sample("initPlugin() total");
+  if (initTotal !== null) logger.info(`[tawassul:perf] initPlugin=${initTotal.toFixed(2)}ms`);
   const perfReport = report();
   if (perfReport) logger.debug(perfReport);
   perfReset();

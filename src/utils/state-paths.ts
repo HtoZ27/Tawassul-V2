@@ -20,6 +20,14 @@ export function stateDir(): string {
   return resolve(v2NamespaceRoot(globalConfigBaseDir()), STATE_SUBDIR);
 }
 
+export function v2DataRoot(): string {
+  const xdg = process.env.XDG_DATA_HOME?.trim();
+  if (xdg && isAbsolute(xdg)) return v2NamespaceRoot(xdg);
+  const home = process.env.HOME?.trim();
+  if (!home || home === "/") return "";
+  return v2NamespaceRoot(resolve(home, ".local", "share"));
+}
+
 export function legacyStateDir(): string {
   const override = process.env[LEGACY_STATE_DIR_ENV]?.trim();
   if (override) return resolve(override);

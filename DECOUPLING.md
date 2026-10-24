@@ -42,6 +42,7 @@ root for relocated v1 trees and for the proof.
 | patch locks | `$TMPDIR/tawassul-v2-locks` | no |
 | FS lock shards | `$TMPDIR/.tawassul-v2-file-locks-<uid>` | no |
 | N2 log | `~/.local/share/tawassul-v2/n2-auto.jsonl` | no; old file untouched |
+| plugin log sink | `~/.local/share/tawassul-v2/tawassul/tawassul.log` (`TAWASSUL_LOG_FILE` override, empty = off) | no; old v1 log untouched |
 | code-state cache | `~/.cache/tawassul-v2/code-state` | copy-only migration in `migrateLegacy` |
 | web fetch cache | `~/.cache/tawassul-v2/web-cache` | no; rebuildable cache |
 | profile XDG roots | `v2NamespaceRoot` appends `tawassul-v2` once, including under the ISO launcher's pinned quad | — |

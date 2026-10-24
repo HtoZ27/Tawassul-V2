@@ -97,10 +97,23 @@ await hook({ event: { type: "message.updated", properties: { info: { id: "m-assi
 await hook({ event: { type: "message.part.updated", properties: { part: { type: "text", id: "p4", sessionID: "s1", messageID: "m-assistant", text: "answer" } } } });
 const recorded = readLog().split("\n").filter(Boolean);
 assert(recorded.length === 1, "first assistant text part records once");
-const record = JSON.parse(recorded[0] ?? "{}") as { message_id?: string; len?: number };
+const record = JSON.parse(recorded[0] ?? "{}") as { message_id?: string; len?: number; role_gate?: boolean };
 assert(record.message_id === "m-assistant" && record.len === 6, "record carries the assistant message id");
+assert(record.role_gate === true, "record carries the post-gate marker");
 await hook({ event: { type: "message.part.updated", properties: { part: { type: "text", id: "p5", sessionID: "s1", messageID: "m-assistant", text: "second" } } } });
 assert(readLog().split("\n").filter(Boolean).length === 1, "later parts are not recorded");
+
+const v2Log = join(dir, "n2-v2.jsonl");
+process.env.TAWASSUL_N2_LOG = v2Log;
+const v2Hook = createN2AutoHook();
+await v2Hook({ event: { type: "session.text.started", data: { sessionID: "s2", assistantMessageID: "m-v2", ordinal: 0 } } });
+const v2Lines = (): string[] => (existsSync(v2Log) ? readFileSync(v2Log, "utf8").trim() : "").split("\n").filter(Boolean);
+assert(v2Lines().length === 1, "v2 session text start records once");
+const v2Record = JSON.parse(v2Lines()[0] ?? "{}") as { source?: string; len?: number; message_id?: string; role_gate?: boolean };
+assert(v2Record.source === "event:session.text.started" && v2Record.message_id === "m-v2" && v2Record.len === 1, "v2 record carries the started event");
+assert(v2Record.role_gate === true, "v2 record carries the post-gate marker");
+await v2Hook({ event: { type: "session.text.delta", data: { sessionID: "s2", assistantMessageID: "m-v2", ordinal: 0, delta: "later" } } });
+assert(v2Lines().length === 1, "later v2 deltas are not recorded");
 delete process.env.TAWASSUL_N2_LOG;
 rmSync(dir, { recursive: true, force: true });
 

@@ -35,7 +35,7 @@ effort.
 | 0 | Sat 2026-10-24 | P0 | Host compatibility + DB retention | done: verify + proofs green |
 | 1 | Sat 2026-10-24 | P0 | State namespace + setup dedupe | done: helper + proof green; boot mtime snapshot folded into Day 3 |
 | 2 | Sat 2026-10-24 | P0/P1 | Goal ledger correctness (S-052) | done: counters agree on every close path; cap is loud and proven |
-| 3 | Tue 2026-10-27 | P1 | Watcher, N2 re-derivation, boot scorecard | 10 cold boots measured with `--since`; watcher line per launch |
+| 3 | Tue 2026-10-27 | P1 | Watcher, N2 re-derivation, boot scorecard | done: 10/10 cold boots PASS with `--since`; watcher line per launch; N5 N/A on 2.1.4 |
 | 4 | Wed 2026-10-28 | P1 | S-055 triage batch + quality gates | triage table + thresholds + release gate |
 | 5 | Thu 2026-10-29 | P0 | Live dual-generation gate + cutover | v1 guard refuses v2 DB; SHARED frozen |
 | 6 | Fri 2026-10-30 | — | Buffer, docs, handover | clean tree, one install method |
@@ -123,9 +123,10 @@ no watcher policy on a rotational host.
 
 1. Port the watcher policy into `scripts/opencode-v2-iso.sh`:
    env > pinned > auto, rotational-disk probe, legacy flag honored only in
-   auto, supported-flag check before exporting
-   `OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER`, and one
-   `[launcher] watcher mode=… d7=… decision=… reason=…` line per launch.
+   auto, and one `[launcher] watcher mode=… d7=… decision=… reason=…` line
+   per launch. The flag is resolved against the build, never exported blind:
+   2.1.4 advertises `OPENCODE_DISABLE_FILEWATCHER`; the experimental name is
+   only an alias, and a build that advertises neither gets a loud refusal.
 2. Re-derive N2 from the post-S-039 hook: every cold boot measured with an
    explicit `--since`; records that predate the role gate are discarded.
 3. Port the boot scorecard with both S-054 fixes: `--n2 auto` without
@@ -133,8 +134,22 @@ no watcher policy on a rotational host.
    exclude `[bash]` / `pattern=` lines.
 4. Run the 10-cold-boot protocol; record N1–N5 per boot in the scorecard.
 
-Exit: 10 rows, each identified by an explicit boot timestamp, watcher decision
-logged for each launch, no INCOMPLETE rows accepted as PASS.
+Status 2026-10-24: done. Cases 2–11 (10 cold boots, one explicit `--since`
+each) are all PASS: N1 0 subscribe errors, N2 4.9–6.1s (auto, role-gated),
+N3 init p95 21–23ms, N4 0 state failures, N5 N/A. N5 is N/A because the
+2.1.4 host log contains no `project copy refresh` string at all — the v1
+watcher metric was retired, so the watcher gate is the launcher line plus N1;
+a host that logs the signal but has no in-window pair stays INCOMPLETE.
+The auto watcher decision on this host is `d7=rotational-disk → off`, logged
+once per launch. One extra snapshot boot (case 12) reported N2=22.1s from a
+21s gap with no plugin or host activity (`step_start`→`text` 13ms, init
+21ms); a clean re-run of the same case passed at 7.3s, so the row is recorded
+as transient provider latency, not a plugin stall. The same boot changed
+nothing under `~/.config/tawassyl` or `~/.config/tawassul` (file mtime/size
+snapshot before and after).
+
+Exit: met — 10 rows, each identified by an explicit boot timestamp, watcher
+decision logged for each launch, no INCOMPLETE row counted as PASS.
 
 ## Day 4 — S-055 triage and quality gates (P1)
 
