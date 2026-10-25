@@ -222,12 +222,19 @@ write state and agents into that workspace, and touch the legacy global
 paths that the v2 legacy fallback reads. It also violates D-00 and the
 "one plugin copy" rule.
 
-Next: owner decides how to neutralize the reference tree without losing it
-(rename `index.ts` to `index.ts.retired-20261025`, remove the package
-directory, or add a guard). Then add a doctor/release scan for
+Attempted neutralization (2026-10-25, approved): failed. `git mv` and plain
+`mv` both refuse permission. `/home/htoz/Desktop/tawassyl`,
+`.opencode/plugins`, and `.opencode/plugins/tawassul` are mode `0555` owned by
+`htoz`, `index.ts` is mode `0444`, and `.git/index.lock` is not writable
+either. The reference tree was deliberately locked read-only at retirement,
+so the entry cannot be renamed or removed from this side.
+
+Next: the owner either runs the fix in that tree (`chmod -R u+w`, then rename
+`index.ts` to `index.ts.retired-20261025`, or delete the tree), or accepts
+G-08's detection scan as the non-invasive mitigation. Until then, do not open
+`/home/htoz/Desktop/tawassyl` in a v2 host. Also add a doctor/release scan for
 `plugin(s)/*/index.{ts,js}` and a proof that a v1-shaped or reference-tree
-entry is refused. Do not open `/home/htoz/Desktop/tawassyl` in a v2 host
-until then.
+entry is refused.
 
 ---
 
@@ -670,11 +677,13 @@ baseline.
 
 ## Pending owner decisions
 
-1. **H-09:** neutralize the retired tree's bootable entry
-   `/home/htoz/Desktop/tawassyl/.opencode/plugins/tawassul/index.ts`
+1. **H-09 (blocked on permissions):** neutralize the retired tree's bootable
+   entry `/home/htoz/Desktop/tawassyl/.opencode/plugins/tawassul/index.ts`
    (rename it to `index.ts.retired-20261025`, remove the package directory, or
-   add a guard). Until then, do not open that folder in a v2 host. This is
-   the one item that can execute retired-tree code.
+   add a guard). The tree is deliberately read-only (`0555` dirs, `0444`
+   files), so the rename failed from this side and needs an owner-run fix.
+   Until then, do not open that folder in a v2 host. This is the one item
+   that can execute retired-tree code.
 2. **P-07:** with approval, rename the v1-only `index.ts` entries in
    `/home/htoz/Desktop/gtttt/.opencode/plugins/tawassul/` and
    `/home/htoz/Desktop/paassss/.opencode/plugins/tawassul/` (or remove the
@@ -687,7 +696,8 @@ baseline.
    (20 MB), `global-e2e` (23 MB), `pkg-probe` (8.7 MB),
    `build-global-test` (2.2 MB), `build-self` (3.0 MB), `bundled-probe`
    (404 KB), `pkg-shape-probe`, `gtttt-probe`, `v1tree-probe`,
-   `name-shape-probe`, `parse-test.ts`, and `ci-full.log`; also the older `smoke-probe`
+   `v1tree-verify`, `name-shape-probe`, `parse-test.ts`, and `ci-full.log`; also
+   the older `smoke-probe`
    (orphan stopped, port 38335 closed), the dangling
    `opencode-v1-bun-symlink-20261025`, and
    `global-config-v1-backup-20261025`. The `~/.opencode` tree was already
