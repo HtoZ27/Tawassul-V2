@@ -117,7 +117,7 @@ Next: remove the v1 dependency from the global config (owner approval), or
 leave it intentionally unused and documented. `~/.cache/opencode` is shared
 with the Desktop and must not be removed.
 
-### H-07 Bun global still installs a v1 binary — blocked (owner approval)
+### H-07 Bun global still installs a v1 binary — done
 
 Evidence (2026-10-25):
 
@@ -127,15 +127,19 @@ Evidence (2026-10-25):
   after `~/.opencode` was removed this became the only `opencode` a shell
   could resolve.
 - The symlink was quarantined to
-  `/tmp/opencode/opencode-v1-bun-symlink-20261025`; a new login shell now
-  reports no `opencode`, and the launcher and smoke fall back to the Desktop
+  `/tmp/opencode/opencode-v1-bun-symlink-20261025`; a new login shell then
+  reported no `opencode`, and the launcher and smoke fell back to the Desktop
   CLI.
-- `~/.bun/install/global/package.json` still pins `opencode-ai: ^1.17.14`, and
-  the package tree remains under `~/.bun/install/global/node_modules`.
+- With owner approval, `bun remove -g opencode-ai` removed the package
+  (`1 package removed`). `~/.bun/install/global/package.json` is now `{}`,
+  `~/.bun/install/global/node_modules/opencode-ai` is absent, and
+  `~/.bun/bin/opencode` no longer exists.
+- A scan of `~/.bun/bin`, `~/.opencode/bin`, `~/.local/bin`, `/usr/local/bin`,
+  and `/usr/bin` finds no `opencode` binary; `npm ls -g` shows none either.
+  Doctor now reports `no 'opencode' on PATH` with no Bun warning.
 
-Next: with owner approval, run `bun remove -g opencode-ai` so the package and
-its manifest entry are gone. Until then, do not recreate the symlink and do
-not add the package back.
+The quarantined symlink under `/tmp/opencode` is now dangling and can be
+deleted with the other approved temp cleanup.
 
 ---
 
@@ -258,16 +262,17 @@ root. They are untracked and need owner approval before deletion.
 
 ## Pending owner decisions
 
-1. Remove the bun-installed v1 binary: `bun remove -g opencode-ai` (H-07). The
-   symlink is already quarantined, so PATH is clean; the package tree and the
-   `~/.bun/install/global/package.json` entry remain.
-2. Remove the v1 SDK dependency from `~/.config/opencode` (H-06). Without it,
-   no global config can pull v1 back in.
-3. Delete `/tmp/opencode/smoke-probe` (orphan stopped, port 38335 closed), the
-   quarantined v1 symlink and `~/.opencode` backup under `/tmp/opencode`, and
-   the 12 `tawassul.js.pre-refresh-*` plus 7 `.retired-20261024` copies.
-4. Choose one `OPENCODE_DB` for the Desktop sidecar (D-01).
-5. Keep or drop the untracked `scripts/check-shared-anchors.mjs`,
+1. Remove the v1 SDK dependency from `~/.config/opencode` (H-06). The global
+   `opencode.jsonc` has no plugin entry, so the dependency is inert; without it
+   no global config can pull v1 back in. v2 is unaffected: it loads from
+   `.opencode/plugin/tawassul.js` in each project.
+2. Delete `/tmp/opencode/smoke-probe` (orphan stopped, port 38335 closed), the
+   dangling quarantined v1 symlink, the `~/.opencode` backup under
+   `/tmp/opencode`, and the 12 `tawassul.js.pre-refresh-*` plus 7
+   `.retired-20261024` copies.
+3. Resolve D-01: name the sidecar DB canonical, the shared DB legacy read-only,
+   and the launcher DB test-only. No file is deleted.
+4. Keep or drop the untracked `scripts/check-shared-anchors.mjs`,
    `scripts/port-from-v1.mjs`, and `test-utils.ts`, plus the root
    `collective-memory*` files.
 
