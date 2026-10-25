@@ -503,7 +503,7 @@ Next: add an opt-in `doctor-v2.sh --scan-desktop` that enumerates
 dual `setup` exports, and prints a count per workspace. Add a fixture proof
 for one v1-only package entry and one dual entry.
 
-### G-09 The smoke gate fails on a provider quota refusal — open (P1)
+### G-09 The smoke gate fails on a provider quota refusal — done (2026-10-25)
 
 `scripts/release-smoke.sh` treats a non-zero boot exit as a gate failure unless
 it is a timeout or a transport-shaped error (`ECONNRESET`, `ETIMEDOUT`,
@@ -518,12 +518,18 @@ Root cause is partly self-inflicted: the smoke links
 exist on this host (credentials live in the sidecar `credential` table), so the
 scratch boot always uses the anonymous free endpoint.
 
-Next: add `provider\.` and `FreeUsageLimitError` (and a 429 pattern) to the
-tolerated-error branch, reword the message to "model reply unavailable
-(provider) — plugin boot verified, continuing", and correct the register's
-baseline claim that only transport errors are accepted. Optionally allow
-`TAWASSUL_SMOKE_AUTH_SRC` to point at a resolved credential so the smoke can
-pick a provider that is not quota-bound.
+Resolution (2026-10-25): the tolerated-error branch now accepts a provider
+refusal (`provider.<name>`, `FreeUsageLimitError`, a 429 status, or the free-limit
+text) and prints "model reply unavailable (provider refused — quota or auth) —
+plugin boot verified, continuing". The missing `AUTH_SRC` file no longer fails
+silently: the smoke warns that the scratch boot runs on the anonymous free
+endpoint so a quota refusal is expected.
+
+Verified with the quota actually exhausted: `npm run gate:smoke` and then the
+full `npm run ci` both pass, with `INIT_AUDIT health: healthy`, 42 registered
+tools, and health + help executed. Remaining nit: the smoke cannot pick a
+quota-free provider because no `auth.json` exists on this host; that needs an
+owner decision on where the real credential source lives.
 
 ---
 
@@ -773,10 +779,9 @@ baseline.
 
 ## Verification baseline (for regression)
 
-Known open defect at baseline time: `gate:smoke` fails with rc=3 whenever the
-provider's free-tier quota is exhausted, because the smoke only tolerates
-transport-shaped errors and not `provider.*` refusals (see G-09). The plugin
-boot itself is healthy in those runs (`initPlugin`, 42 tools, `INIT_AUDIT`).
+Known open defect at baseline time: `gate:smoke` used to fail with rc=3
+whenever the provider's free-tier quota was exhausted; fixed 2026-10-25 (G-09).
+Both `gate:smoke` and the full `ci` now pass with the quota exhausted.
 
 - `npm run verify`: `gate:fast` plus the build (`dist/index.js` and `dist/global.js`).
 - `npm run gate:fast`: 6 steps, about 11.7 s.
