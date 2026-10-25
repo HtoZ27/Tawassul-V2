@@ -17,10 +17,11 @@ State: `open`, `in_progress`, `blocked`, `done`.
   active flat `tawassul.js` entry (this tree); the six other workspaces and
   the v1 tree have `.retired-20261024` markers and no active `tawassul.js`.
   Correction (2026-10-25): that scan matched flat files only. Three
-  directories also carry `plugins/tawassul/index.ts`: `gtttt` and `paassss`
-  export a v1-only shape and fail the v2 plugin schema, while the v1 tree
-  `tawassyl` exports `{ id, server, setup }` and boots a v2 plugin in a v2
-  host (H-09, P-07). The decision stands; the scan was incomplete.
+  directories also carried `plugins/tawassul/index.ts`: `gtttt` and `paassss`
+  export a v1-only shape and fail the v2 plugin schema (P-07, still open),
+  while the v1 tree `tawassul` exported `{ id, server, setup }` and booted a
+  v2 plugin in a v2 host — the owner renamed that entry the same day (H-09,
+  done). The decision stands; the scan was incomplete and G-08 fixes it.
 
 ---
 
@@ -196,11 +197,11 @@ the function symbol through the runtime wasm. `npm run prove:global-install`
 asserts the layout, self-containment, hashes, scope, refusal paths, repair,
 and purge.
 
-### H-09 The retired v1 tree still boots a v2 plugin — open (P0, latent)
+### H-09 The retired v1 tree still boots a v2 plugin — done (2026-10-25)
 
 The v1 tree `/home/htoz/Desktop/tawassyl` is a read-only reference, but its
-`.opencode/plugins/tawassul/index.ts` exports `{ tawassul, default }`;
-`plugin.ts` default is
+package exposed `.opencode/plugins/tawassul/index.ts` exporting
+`{ tawassul, default }`; `plugin.ts` default was
 `{ id: "tawassul", server: tawassul, setup: createV2Setup() }`. Its
 `v2/setup.ts` is a full v2 bridge with no runtime `@opencode/plugin` import,
 so the v2 host can load it without the v1 SDK. The v1 tree's `opencode.json`
@@ -209,7 +210,7 @@ has no `plugin` key, so auto-discovery applies.
 Evidence (2026-10-25, isolated copy of the package plus its parent
 `node_modules`, isolated HOME, host v2.1.4):
 
-- Host log: two `loading plugin` lines for
+- Host log: three `loading plugin` lines for
   `.../plugins/tawassul/index.ts`; no `failed to load plugin`.
 - It created 16 files in the scratch project's `.opencode/agents` (8 agents
   plus 8 backups), plus `tawassul-state.json`, `tool-run-log.json`,
@@ -219,22 +220,30 @@ Evidence (2026-10-25, isolated copy of the package plus its parent
 
 Why P0: opening the folder in the Desktop would execute retired-tree code,
 write state and agents into that workspace, and touch the legacy global
-paths that the v2 legacy fallback reads. It also violates D-00 and the
+paths that the v2 legacy fallback reads. It also violated D-00 and the
 "one plugin copy" rule.
 
-Attempted neutralization (2026-10-25, approved): failed. `git mv` and plain
+Attempted neutralization from this side (2026-10-25) failed: `git mv` and plain
 `mv` both refuse permission. `/home/htoz/Desktop/tawassyl`,
 `.opencode/plugins`, and `.opencode/plugins/tawassul` are mode `0555` owned by
-`htoz`, `index.ts` is mode `0444`, and `.git/index.lock` is not writable
-either. The reference tree was deliberately locked read-only at retirement,
-so the entry cannot be renamed or removed from this side.
+`htoz`, `index.ts` was mode `0444`, and `.git/index.lock` is not writable
+either. The reference tree was deliberately locked read-only at retirement.
 
-Next: the owner either runs the fix in that tree (`chmod -R u+w`, then rename
-`index.ts` to `index.ts.retired-20261025`, or delete the tree), or accepts
-G-08's detection scan as the non-invasive mitigation. Until then, do not open
-`/home/htoz/Desktop/tawassyl` in a v2 host. Also add a doctor/release scan for
-`plugin(s)/*/index.{ts,js}` and a proof that a v1-shaped or reference-tree
-entry is refused.
+Resolution (2026-10-25, owner-run): the file is now `index.ts.retired-20261025`
+— same size (4336 bytes), same mode (`0444`), and the same original mtime
+(Oct 21 07:14), so it is a rename, not a rewrite. The package directory still
+holds the rest of the v1 source and `dist/`, and both plugin boards are
+unchanged otherwise.
+
+Verification (2026-10-25): an isolated boot of a copy of the final tree shows
+zero `loading plugin` and zero `failed to load plugin` lines for
+`plugins/tawassul`, zero agents created, and no `tawassul-state.json`,
+`tool-run-log.json`, `activity-metrics.json`, `vector-index.json`, or
+`feature-index.json`. rc=1 came from the provider free limit, not the plugin.
+The package directory is now as inert as the six `dist`-only ones.
+
+Remaining follow-up (not blocking): add a doctor/release scan for
+`plugin(s)/*/index.{ts,js}` (G-08) so a rename is never the only defense.
 
 ---
 
@@ -550,15 +559,17 @@ owner approval (pending decision 6).
   `opencode.json` plugin/mcp keys and `plugin(s)/*/index.*`, follow symlinks,
   scan every tracked file, and assert one effective host entry. P1.
 - **P-05** Residue across six workspaces: 12 `tawassul.js.pre-refresh-*`
-  copies and 7 `tawassul.js.retired-20261024` files (the six plus the v1
-  tree). A name probe proved these are not loadable: only files whose suffix
-  is exactly `.js`/`.ts` load, and both `.opencode/plugin` and
-  `.opencode/plugins` are scanned. Nine package directories also exist at
-  `.opencode/plugins/tawassul/` (the six plus `gtttt`, `paassss`, and the v1
-  tree): six contain only `dist/index.js` and are not discovered; `gtttt` and
-  `paassss` carry a v1-only `index.ts` and are discovered (P-07); the v1 tree
-  carries a bootable dual export (H-09). Deletion or neutralization needs
-  owner approval (pending decision 3).
+  copies and 14 `*.retired-20261024` files (7 `tawassul.js` plus 7
+  `tawassul.mjs`, across the six workspaces and the v1 tree). A name probe
+  proved these are not loadable: only files whose suffix is exactly
+  `.js`/`.ts` load, and both `.opencode/plugin` and `.opencode/plugins` are
+  scanned. Nine package directories also exist at `.opencode/plugins/tawassul/`
+  (the six plus `gtttt`, `paassss`, and the v1 tree): six contain only
+  `dist/index.js` and are not discovered; `gtttt` and `paassss` carry a
+  v1-only `index.ts` and are discovered (P-07); the v1 tree's `index.ts` was
+  renamed to `index.ts.retired-20261025` on 2026-10-25 (H-09, done) and is now
+  inert like the six. Deletion or neutralization needs owner approval
+  (pending decision 3).
 - **P-06** Legacy global config `~/.config/opencode/package.json` pinned
   `@opencode-ai/plugin@1.17.14`; done — H-06 removed the v1 SDK pin and the
   file is now `{}` with no `node_modules`.
@@ -677,19 +688,16 @@ baseline.
 
 ## Pending owner decisions
 
-1. **H-09 (blocked on permissions):** neutralize the retired tree's bootable
-   entry `/home/htoz/Desktop/tawassyl/.opencode/plugins/tawassul/index.ts`
-   (rename it to `index.ts.retired-20261025`, remove the package directory, or
-   add a guard). The tree is deliberately read-only (`0555` dirs, `0444`
-   files), so the rename failed from this side and needs an owner-run fix.
-   Until then, do not open that folder in a v2 host. This is the one item
-   that can execute retired-tree code.
+1. ~~H-09~~ — done 2026-10-25. The owner renamed
+   `/home/htoz/Desktop/tawassyl/.opencode/plugins/tawassul/index.ts` to
+   `index.ts.retired-20261025`; an isolated boot of the final tree loads no
+   plugin and writes no state.
 2. **P-07:** with approval, rename the v1-only `index.ts` entries in
    `/home/htoz/Desktop/gtttt/.opencode/plugins/tawassul/` and
    `/home/htoz/Desktop/paassss/.opencode/plugins/tawassul/` (or remove the
    package dirs). Both are discovered and fail to load on every boot.
-3. Delete the 12 `tawassul.js.pre-refresh-*` copies, the 7
-   `.retired-20261024` copies, and the six inert `dist`-only
+3. Delete the 12 `tawassul.js.pre-refresh-*` copies, the 14
+   `*.retired-20261024` files, and the six inert `dist`-only
    `.opencode/plugins/tawassul/` package dirs (`athan new vrsion`,
    `ciel-osk-workspace`, `dart22222222`, `vpro`, `vusial 2`, `vusual`).
 4. Delete the `/tmp/opencode` artifacts from this work: `global-probe`
@@ -743,5 +751,11 @@ baseline.
   loaded, while `flat-ok.js.pre-refresh-20261020` and
   `flat-ok.js.retired-20261024` did not. Both the singular `plugin/` and the
   plural `plugins/` directories are scanned, and suffixed copies are inert.
+- H-09 closure (2026-10-25): after the owner renamed
+  `tawassyl/.opencode/plugins/tawassul/index.ts` to
+  `index.ts.retired-20261025`, an isolated boot of a copy of the final tree
+  shows zero plugin-load lines for `plugins/tawassul`, zero agents, and no
+  state files. The v1 tree package directory is now inert. `gtttt` and
+  `paassss` still expose a v1-only `index.ts` (P-07, open).
 - The smoke accepts a provider transport error only after `initPlugin` and
   `v2 registered 42 tools` are confirmed; a missing plugin boot fails.
