@@ -12,7 +12,9 @@ State: `open`, `in_progress`, `blocked`, `done`.
 - **D-00 (2026-10-25): v1 is retired permanently.** It will not work in any
   project again. It is not a compatibility target: any v1 plugin entry, v1
   host, or v1 global dependency is a defect. v2 is the only plugin. Two hosts
-  run only in isolated tests.
+  run only in isolated tests. Evidence: a Desktop-wide scan finds exactly one
+  active plugin entry (this tree); the six other workspaces and the v1 tree
+  have `.retired-20261024` markers and no active `tawassul.js`.
 
 ---
 
@@ -199,10 +201,14 @@ root. They are untracked and need owner approval before deletion.
   re-process an old message.
 - **P-04** Independence is proven statically; a real boot with the v1 tree
   renamed is still missing.
-- **P-05** `tawassul.js.pre-refresh-*` copies exist in six workspaces and need
-  owner approval before deletion.
+- **P-05** Six workspaces hold 12 inert `tawassul.js.pre-refresh-*` copies and
+  one `tawassul.js.retired-20261024` each (`vusial 2`, `vpro`, `vusual`,
+  `athan new vrsion`, `dart22222222`, `ciel-osk-workspace`), plus the v1 tree.
+  No project loads a v1 plugin: a Desktop-wide scan finds exactly one active
+  entry, `/home/htoz/Desktop/Tawassul V2/.opencode/plugin/tawassul.js`. The
+  copies need owner approval before deletion.
 - **P-06** Legacy global config `~/.config/opencode/package.json` still pins
-  `@opencode-ai/plugin@1.17.14`; it is unused but stale.
+  `@opencode-ai/plugin@1.17.14`; it is unused but stale (see H-06).
 
 ---
 
@@ -223,6 +229,7 @@ root. They are untracked and need owner approval before deletion.
 ## Verification baseline (for regression)
 
 - `npm run verify`: rules, shell syntax, `tsc --noEmit`, single-file build.
-- `npm run ci`: rc=0, 25 `PROOF PASS`, `SMOKE PASS: host v2.1.4, 42 tools`.
+- `npm run ci` at `79d8e31`: rc=0, 25 `PROOF PASS`,
+  `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`.
 - Bundles identical: `dist/index.js` and `.opencode/plugin/tawassul.js`
-  (1,858,356 bytes at `4316793`).
+  (1,858,356 bytes).
