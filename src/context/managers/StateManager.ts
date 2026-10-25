@@ -88,7 +88,7 @@ export class StateManager {
   
   recordIndex: Map<string, RecordEntry> = new Map();
 
-  static MAX_BACKUPS = 3;
+  static MAX_BACKUPS = 1;
   static MAX_BACKUP_FILE_SIZE = 5 * 1024 * 1024;
 
   

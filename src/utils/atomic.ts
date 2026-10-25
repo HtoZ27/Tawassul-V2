@@ -6,7 +6,7 @@ import { randomBytes } from "node:crypto";
 import { atomicWriteFile as atomicWriteFs } from "../infra/disk-utils.ts";
 import { logger } from "./logger.ts";
 
-const MAX_BACKUPS = 5;
+const MAX_BACKUPS = 2;
 
 export interface AtomicWriteResult {
   path: string;
