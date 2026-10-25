@@ -642,7 +642,7 @@ export class GoalStore {
       next.progressPct = deriveProgress(next);
       next.updatedAt = now;
       if (patch.status === "completed" || patch.status === "verified") {
-        return this.finishLocked(next, patch.status, "");
+        return this.finishLocked(next, patch.status, "goal.update");
       }
       if (patch.status === "dropped") {
         this.bumpTerminal(fresh.status);
@@ -664,6 +664,7 @@ export class GoalStore {
     return this.mutate(id, async (): Promise<GoalWriteResult> => {
       const fresh = this.goals.get(id);
       if (!fresh) return { ok: false, reason: "not-found" };
+      if (fresh.status === target) return { ok: true, goal: fresh };
       if (fresh.status !== target && !ALLOWED_TRANSITIONS[fresh.status].includes(target)) {
         return { ok: false, reason: "transition", missing: [`${fresh.status}→${target}`] };
       }

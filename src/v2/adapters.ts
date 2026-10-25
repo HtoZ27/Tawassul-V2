@@ -38,7 +38,11 @@ function buildV1ToolContext(
     directory,
     worktree: directory,
     abort: context.signal ?? new AbortController().signal,
-    metadata: (meta) => context.progress(meta),
+    metadata: (meta) => {
+      const update = meta as { metadata?: Record<string, unknown> } | undefined;
+      const payload = update?.metadata ?? (update as Record<string, unknown> | undefined) ?? {};
+      return context.progress(payload as Record<string, unknown>);
+    },
     ask: askFactory ? askFactory(context) : undefined,
   };
 }
@@ -49,7 +53,13 @@ export function toV2Result(result: unknown): unknown {
   }
   if (result && typeof result === "object") {
     const rec = result as { output?: unknown; metadata?: Record<string, unknown> };
-    const text = typeof rec.output === "string" ? rec.output : rec.output === undefined ? "" : String(rec.output);
+    const text = typeof rec.output === "string"
+      ? rec.output
+      : rec.output === undefined
+        ? ""
+        : typeof rec.output === "object"
+          ? JSON.stringify(rec.output)
+          : String(rec.output);
     const metadata = rec.metadata && typeof rec.metadata === "object" ? rec.metadata : undefined;
     if (text.length > 0) {
       return metadata

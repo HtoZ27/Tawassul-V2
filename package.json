@@ -32,6 +32,8 @@
     "prove:s028": "bun scripts/prove-s028.ts",
     "prove:s029": "bun scripts/prove-s029.ts",
     "prove:s038": "bun scripts/prove-s038.ts",
+    "pin:env": "bash scripts/pin-v2-env.sh",
+    "sweep:state": "bun scripts/sweep-state-retired-pins.ts",
     "prove:state-namespace": "bun scripts/prove-state-namespace.ts",
     "prove:boot-gate": "bun scripts/prove-boot-gate.ts",
     "prove:v2-compat": "bun scripts/prove-v2-compat.ts",

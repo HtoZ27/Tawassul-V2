@@ -1,12 +1,14 @@
 import { existsSync } from "node:fs";
-import { basename, isAbsolute, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { globalConfigBaseDir, safeHomedir, type InstallScope } from "./path-resolver.ts";
 
 export const STATE_DIR_ENV = "TAWASSUL_V2_STATE_DIR";
 export const LEGACY_STATE_DIR_ENV = "TAWASSUL_V2_LEGACY_STATE_DIR";
 export const STATE_DIR_NAME = "tawassul-v2";
 export const LEGACY_STATE_DIR_NAME = "tawassyl";
+export const LEGACY_ROUTER_DIR_NAME = "tawassul";
 export const STATE_SUBDIR = "state";
+export const QUARANTINE_SUBDIR = "quarantine";
 
 export function v2NamespaceRoot(base: string): string {
   const resolved = resolve(base);
@@ -34,6 +36,24 @@ export function legacyStateDir(): string {
   return resolve(safeHomedir(), ".config", LEGACY_STATE_DIR_NAME, STATE_SUBDIR);
 }
 
+function legacyStateCandidateDirs(): string[] {
+  const override = process.env[LEGACY_STATE_DIR_ENV]?.trim();
+  if (override) return [resolve(override)];
+  const home = safeHomedir();
+  return [
+    resolve(home, ".config", LEGACY_STATE_DIR_NAME, STATE_SUBDIR),
+    resolve(home, ".config", LEGACY_ROUTER_DIR_NAME, STATE_SUBDIR),
+  ];
+}
+
+function legacyStateCandidates(fileName: string): string[] {
+  return legacyStateCandidateDirs().map((dir) => resolve(dir, fileName));
+}
+
+export function quarantinePath(fileName: string): string {
+  return resolve(stateDir(), QUARANTINE_SUBDIR, fileName);
+}
+
 export function statePath(fileName: string): string {
   try {
     return resolve(stateDir(), fileName);
@@ -48,7 +68,8 @@ export function scopedStatePath(base: string, scope: InstallScope | undefined, f
 }
 
 export function legacyStatePath(fileName: string): string {
-  return resolve(legacyStateDir(), fileName);
+  const candidates = legacyStateCandidates(fileName);
+  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0] ?? resolve(legacyStateDir(), fileName);
 }
 
 export function stateReadPath(fileName: string): string {
@@ -62,7 +83,13 @@ export function stateReadPath(fileName: string): string {
 export function legacyFallbackFor(filePath: string): string | undefined {
   const target = resolve(filePath);
   const rel = relative(stateDir(), target);
-  if (!rel || rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return undefined;
-  const legacy = resolve(legacyStateDir(), rel);
-  return legacy === target ? undefined : legacy;
+  if (rel !== "" && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel)) {
+    const hit = legacyStateCandidates(rel).find((candidate) => candidate !== target && existsSync(candidate));
+    return hit ?? undefined;
+  }
+  const parent = dirname(target);
+  if (basename(parent) !== ".opencode") return undefined;
+  const rootCandidate = resolve(dirname(parent), basename(target));
+  if (rootCandidate === target || !existsSync(rootCandidate)) return undefined;
+  return rootCandidate;
 }

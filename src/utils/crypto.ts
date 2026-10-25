@@ -245,12 +245,6 @@ function loadOrCreateHmacKey(): Buffer {
       
       _cachedHmacKey = createKeyExclusive(hmacKeyFile, legacyKey);
       logger.debug(`Migrated HMAC key from legacy location: ${legacyHmacKeyFile} → ${hmacKeyFile}`);
-      
-      try {
-        rmSync(legacyHmacKeyFile);
-      } catch {
-
-      }
       return _cachedHmacKey;
     } catch {
 

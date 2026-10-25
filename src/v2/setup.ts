@@ -1,5 +1,8 @@
+import { createHash } from "node:crypto";
 import type { TawassulHooks } from "../plugin-types.ts";
 import { getInitReady, initPlugin } from "../bootstrap/plugin-init.ts";
+import { ToolBlockedError } from "../hooks/tool-execute.ts";
+import { BLOCKED_TOOLS } from "../security-policy.ts";
 import { logger } from "../utils/logger.ts";
 import { collectToolSchemas, makeV2Tool } from "./adapters.ts";
 import { createAskBridge, registerAskPermission } from "./ask.ts";
@@ -11,6 +14,8 @@ import type { V2Context, V2SessionEvent, V2ToolContext, V2ToolHookInput } from "
 
 const MAX_PROCESSED_MESSAGES = 1024;
 const INITIAL_SCHEMA_WAIT_MS = 750;
+const SCHEMA_RETRY_ATTEMPTS = 20;
+const SCHEMA_RETRY_DELAY_MS = 500;
 
 function toDynamicAgentModel(model: unknown): { providerID: string; modelID: string } | undefined {
   if (typeof model === "string") {
@@ -48,6 +53,18 @@ function toV1MessageID(messageID: string): string {
   return messageID.startsWith("msg") ? messageID : `msg_${messageID}`;
 }
 
+function isBlockError(error: unknown): boolean {
+  const name = error instanceof Error ? error.name : "";
+  return name === "ToolBlockedError" || name === "ConsentBlockedError";
+}
+
+function isBlockedForAgent(agent: unknown, tool: string): boolean {
+  if (typeof agent !== "string") return false;
+  const id = agent.trim().toLowerCase();
+  const isTawa = id === "tawa" || id.endsWith(":tawa") || id.endsWith("/tawa");
+  return isTawa && BLOCKED_TOOLS.includes(toolNameToV1(tool));
+}
+
 async function runChatMessageBridge(
   plugin: TawassulHooks,
   event: V2SessionEvent,
@@ -61,8 +78,11 @@ async function runChatMessageBridge(
   if (role !== "user" && role !== "assistant") return;
   const sessionID = event.sessionID;
   if (typeof sessionID !== "string" || !sessionID) return;
-  const messageID = last["id"];
-  if (typeof messageID !== "string" || !messageID) return;
+  const rawId = last["id"];
+  const messageID =
+    typeof rawId === "string" && rawId.length > 0
+      ? rawId
+      : `synth_${createHash("sha1").update(`${sessionID}:${role}:${JSON.stringify(last["content"] ?? null)}`).digest("hex").slice(0, 16)}`;
 
   const dedupeKey = `${sessionID}:${messageID}:${role}`;
   if (rememberProcessed(processed, dedupeKey)) return;
@@ -173,21 +193,39 @@ export function createV2Setup() {
     }
 
     if (readyProbe) {
+      let stopRefresh = false;
       const refresh = (async () => {
-        const status = await readyProbe();
-        if (!status.ready) {
-          logger.warn(`[tawassul] v2 schema refresh skipped: init not ready (${status.error?.message ?? "pending"})`);
-          return;
-        }
-        await refreshSchemas();
-        try {
-          await ctx.tool.reload();
-          logger.info(`[tawassul] v2 tool schemas refreshed after init (${schemas.size} schemas)`);
-        } catch (e) {
-          logger.warn("[tawassul] v2 tool reload failed; placeholders stay until restart:", e);
+        for (let attempt = 0; attempt < SCHEMA_RETRY_ATTEMPTS; attempt++) {
+          if (stopRefresh) return;
+          const status = await readyProbe();
+          if (status.ready) {
+            await refreshSchemas();
+            try {
+              await ctx.tool.reload();
+              logger.info(
+                `[tawassul] v2 tool schemas refreshed after init (${schemas.size} schemas, attempt ${attempt + 1})`,
+              );
+            } catch (e) {
+              logger.warn("[tawassul] v2 tool reload failed; placeholders stay until restart:", e);
+            }
+            return;
+          }
+          if (attempt === SCHEMA_RETRY_ATTEMPTS - 1) {
+            logger.warn(
+              `[tawassul] v2 schema refresh gave up after ${SCHEMA_RETRY_ATTEMPTS} attempts: init not ready (${status.error?.message ?? "pending"})`,
+            );
+            return;
+          }
+          await new Promise<void>((resolve) => {
+            const timer = setTimeout(resolve, SCHEMA_RETRY_DELAY_MS);
+            if (timer.unref) timer.unref();
+          });
         }
       })();
-      registered.push(() => refresh.catch(() => undefined));
+      registered.push(async () => {
+        stopRefresh = true;
+        void refresh.catch(() => undefined);
+      });
     }
 
     if (plugin["tool.execute.before"]) {
@@ -212,9 +250,15 @@ export function createV2Setup() {
           const bridge = plugin["tool.execute.before"];
           if (!bridge) return;
           return (async () => {
+            if (isBlockedForAgent(spec.agent, spec.tool)) {
+              throw new ToolBlockedError(
+                `[tawassul] ${spec.tool} is denied for agent ${spec.agent}`,
+              );
+            }
             try {
               await bridge(v1Input, v1Output);
             } catch (e) {
+              if (isBlockError(e)) throw e;
               logger.warn(`[tawassul] v2 execute.before (${spec.tool}) failed:`, e);
             }
             if (v1Output.args && typeof v1Output.args === "object") {
@@ -329,7 +373,9 @@ export function createV2Setup() {
     }
 
     if (plugin.config) {
-      logger.debug("[tawassul] v2: config hook not bridged (no config channel on the v2 host)");
+      logger.info(
+        "[tawassul] v2: config hook has no host channel; models are baked at config generation and the tawa deny list is enforced in execute.before",
+      );
     }
 
     return async () => {

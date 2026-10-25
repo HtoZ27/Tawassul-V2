@@ -55,6 +55,18 @@ cp "$ENTRY" "$WORK/.opencode/plugin/tawassul.js"
 cp "$REPO/dist/index.js" "$WORK/dist/index.js"
 ln -s "$REPO/.opencode/node_modules" "$WORK/.opencode/node_modules"
 
+mkdir -p "$WORK/home/.config" "$WORK/home/.local/share" "$WORK/home/.local/state" "$WORK/home/.cache"
+AUTH_SRC="${TAWASSUL_SMOKE_AUTH_SRC:-$HOME/.local/share/opencode/auth.json}"
+export XDG_CONFIG_HOME="$WORK/home/.config"
+export XDG_DATA_HOME="$WORK/home/.local/share"
+export XDG_STATE_HOME="$WORK/home/.local/state"
+export XDG_CACHE_HOME="$WORK/home/.cache"
+if [ -f "$AUTH_SRC" ]; then
+  mkdir -p "$XDG_DATA_HOME/opencode"
+  ln -s "$AUTH_SRC" "$XDG_DATA_HOME/opencode/auth.json"
+fi
+
+export TAWASSUL_HMAC_KEY_DIR="$WORK/hmac"
 export TAWASSUL_V2_STATE_DIR="$WORK/state"
 export TAWASSUL_LOG_FILE="$WORK/tawassul.log"
 export TAWASSUL_N2_LOG="$WORK/n2.jsonl"

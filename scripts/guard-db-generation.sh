@@ -237,6 +237,13 @@ case "$MARK" in
       GEN="v1"
     else
       GEN="v1"
+      TABLES="$(probe_any "SELECT count(*) FROM sqlite_master WHERE type='table';")"
+      case "$TABLES" in
+        0) GEN="empty" ;;
+        '') fail_probe "table census returned no value" ;;
+        *[!0-9]*) fail_probe "table census $TABLES" ;;
+        *) refuse "marker-v1-content" "V2 lane refuses a DB with V1 content (no session_v2 marker): $DB_PATH" ;;
+      esac
     fi
     ;;
   *)

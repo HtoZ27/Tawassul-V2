@@ -241,7 +241,7 @@ export const consentGateGuard: ValidationStage = {
       throw new ConsentBlockedError(t("consentNoChannel", p));
     }
 
-    if (askChannel) {
+    if (askChannel && !hasHostAsk) {
       if (!isRootLikeAgent(input.agent) && !askChannel.currentSessionOverride) {
         logger.warn(
           "[consent] no-root-binding: subagent consent from session without a known root - question cannot reach the user",

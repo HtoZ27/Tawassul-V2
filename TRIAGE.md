@@ -10,7 +10,7 @@ evidence.
 
 | Item | Verdict | Evidence |
 | --- | --- | --- |
-| Silent catches: register and fix the data-loss subset | apply (subset) | v2 has 315 `catch {` sites; the shared persistence path is now loud (`src/services/persist-utils.ts`, `src/utils/atomic.ts`) and gated by `prove:catch-discipline`. A full census of the remaining sites is a follow-up, not a cutover gate. |
+| Silent catches: register and fix the data-loss subset | apply (subset) | v2 has 309 `catch {` sites (census 2026-10-25); the shared persistence path is now loud (`src/services/persist-utils.ts`, `src/utils/atomic.ts`) and gated by `prove:catch-discipline`. A full census of the remaining sites is a follow-up, not a cutover gate. |
 | DLQ, tick-lock, FS-lock, atomicWrite, single-flight, flushSaves, `opencode.json` backup, merge registry, learning queue | v1-only | v2 already has a DLQ (`src/services/event-hub.ts:8`), FS lock (`src/infra/file-lock.ts`), atomic write (`src/utils/atomic.ts`), flush (`src/services/persist-utils.ts`), merge guards (`prove:gen-merge-guards`), and config seeding (`ensureMinimalProjectContract`). Tick-lock/single-flight/learning queue have no v2 behavior and no measured loss. |
 | 500 duplicate v1 records (`R-2434`–`R-2933`) | v1-only | S-053: one v1 persistence bug, not history. Must not migrate; owner decides the backup at v1 retirement. |
 
@@ -27,7 +27,7 @@ evidence.
 | Item | Verdict | Evidence |
 | --- | --- | --- |
 | H1–H5: join, Levenshtein, stringify, trim, timer cleanup | v1-only | These are v1 code paths; the v2 boot measured 21–24ms init p95 across 10 cold boots (Day 3) and reproduced no stall. |
-| M1–M6: one JSON write, dirty-only, memoize, incremental scan, config cache, map eviction, fewer timers | v1-only | v2 has 47 `setInterval` sites but no measured stall or memory failure; the item is a v1 implementation detail, not a v2 cutover gate. Revisit only with a measured v2 stall. |
+| M1–M6: one JSON write, dirty-only, memoize, incremental scan, config cache, map eviction, fewer timers | v1-only | v2 has 29 `setInterval` sites (census 2026-10-25) but no measured stall or memory failure; the item is a v1 implementation detail, not a v2 cutover gate. Revisit only with a measured v2 stall. |
 
 ## D. Tests and release gates
 
@@ -50,7 +50,7 @@ evidence.
 
 | Item | Verdict | Evidence |
 | --- | --- | --- |
-| 1761 literal lines vs 214 `t()`, dead keys, contradictory numbers | v1-only | v2 is English-only by project rule and has no i18n layer or Arabic dictionary; there is nothing to translate or unify. |
+| 1761 literal lines vs 214 `t()`, dead keys, contradictory numbers | v1-only | v2 is English-only by project rule; `src/i18n/en.json` plus `src/translations.ts` hold the single English dictionary, so there is no Arabic dictionary to translate or unify. |
 | RULES Linux-only, `TAWASSUL_DEBUG` unify, env docs, derive permission block | v1-only | v2 uses `TAWASSUL_DEBUG` consistently in two files (`src/services/event-hub.ts:7`, `src/utils/logger.ts:2`), has no `.env.example`, and derives tool permissions in `src/security-policy.ts`. |
 | `TAWASSUL_DEBUG` duplicated in `.env.example` | dead | v1-only file; v2 has no `.env.example`. |
 

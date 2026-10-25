@@ -55,20 +55,22 @@ export async function atomicWriteFile(
   }
 
   if (backup) {
+    const candidate = `${filePath}.bak.${Date.now()}.${randomBytes(6).toString("hex")}`;
     try {
-      backupPath = `${filePath}.bak.${Date.now()}.${randomBytes(6).toString("hex")}`;
-      
-      
-      const bfh = await open(backupPath, "w", 0o600);
+      const bfh = await open(candidate, "w", 0o600);
       try {
         await bfh.writeFile(await readFile(filePath));
       } finally {
         await bfh.close();
       }
+      backupPath = candidate;
       replaced = true;
     } catch (e) {
+      await unlink(candidate).catch(() => undefined);
       backupPath = null;
-      logger.warn(`atomicWriteFile: backup requested but not created for ${filePath}:`, e);
+      const code = (e as NodeJS.ErrnoException)?.code;
+      if (code === "ENOENT") logger.debug(`atomicWriteFile: no prior file to back up for ${filePath}`);
+      else logger.warn(`atomicWriteFile: backup requested but not created for ${filePath}:`, e);
     }
   }
 

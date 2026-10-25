@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,7 +20,7 @@ function walk(dir: string, suffix: string): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) out.push(...walk(full, suffix));
-    else if (entry.isFile() && entry.name.endsWith(suffix)) out.push(full);
+    else if ((entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith(suffix)) out.push(full);
   }
   return out;
 }
@@ -66,13 +66,44 @@ const launcher = text(join(repo, "scripts", "opencode-v2-iso.sh"));
 assert(launcher.includes('GUARD="$V2_REPO/scripts/guard-db-generation.sh"'), "launcher uses the local guard");
 assert(!/tawassyl/i.test(launcher), "launcher has no v1 reference");
 
+const foreignRef = /Desktop\/tawassyl|\.\.\/tawassyl|plugins\/tawassul\//;
+const transferTools = new Set(["scripts/check-shared-anchors.mjs", "scripts/port-from-v1.mjs"]);
+const scriptFiles = [...walk(join(repo, "scripts"), ".ts"), ...walk(join(repo, "scripts"), ".sh")];
+const scriptHits = scriptFiles.filter((file) => !transferTools.has(rel(file)) && foreignRef.test(text(file)));
+assert(
+  scriptHits.length === 0,
+  `shipped scripts have no v1 tree reference (found ${scriptHits.map(rel).join(", ") || "none"})`,
+);
+
+for (const bundle of ["dist/index.js", ".opencode/plugin/tawassul.js"]) {
+  const bundlePath = join(repo, bundle);
+  if (!existsSync(bundlePath)) continue;
+  assert(!foreignRef.test(text(bundlePath)), `${bundle} has no v1 tree reference`);
+}
+
+const configCandidates = [join(repo, "opencode.json"), join(repo, ".opencode", "opencode.json")].filter(existsSync);
+assert(configCandidates.length > 0, "a host config is present");
+for (const configPath of configCandidates) {
+  const parsed = JSON.parse(text(configPath)) as Record<string, unknown>;
+  const pluginEntries = Array.isArray(parsed.plugin) ? parsed.plugin : [];
+  assert(
+    !pluginEntries.some((entry) => typeof entry === "string" && /tawassul/i.test(entry)),
+    `${rel(configPath)} has no tawassul plugin entry`,
+  );
+  const mcp = parsed.mcp;
+  assert(
+    !mcp || typeof mcp !== "object" || !("tawassul" in (mcp as Record<string, unknown>)),
+    `${rel(configPath)} has no tawassul mcp entry`,
+  );
+}
+
 const bundles: string[] = [];
 function walkAll(dir: string): void {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "dist") continue;
     const full = join(dir, entry.name);
     if (entry.isDirectory()) walkAll(full);
-    else if (entry.isFile() && entry.name === "tawassul.js") bundles.push(rel(full));
+    else if ((entry.isFile() || entry.isSymbolicLink()) && entry.name === "tawassul.js") bundles.push(rel(full));
   }
 }
 walkAll(repo);

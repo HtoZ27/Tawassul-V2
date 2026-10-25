@@ -9,10 +9,10 @@ is a retired, read-only reference.
 1. **English only.** All code, strings, tool descriptions, and docs are English.
    Arabic is forbidden. Enforced by `scripts/check-v2-rules.mjs` (`npm run check:rules`).
    Seven paths carry functional Arabic matchers or user-facing Arabic prompts and
-   are exempt by exact path (`ARABIC_ALLOWED_FILES`): the three rejection/phrase
-   matchers, `agent-add-helpers.ts`, `agent-management.ts`, `ask-channel-parse.ts`,
-   `consent-gate-guard.ts`, and `i18n/en.json`. Any new file needs an explicit
-   entry plus a reason; a global word allow-list is forbidden.
+   are exempt by exact path (`ARABIC_ALLOWED_FILES`): `consent-gate-guard.ts`,
+   `task-rejection-guard.ts`, `message-updated.ts`, `i18n/en.json`,
+   `ask-channel-parse.ts`, `agent-add-helpers.ts`, and `agent-management.ts`.
+   Any new file needs an explicit entry plus a reason; a global word allow-list is forbidden.
 2. **No comments in code.** Comments are forbidden, including JSDoc and empty
    comments. Only these exact directive shapes are permitted: `// @ts-expect-error`,
    `// @ts-ignore`, `/* eslint-disable ... */`, `// eslint-disable-next-line ... */`,

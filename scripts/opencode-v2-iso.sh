@@ -146,7 +146,7 @@ if ! command -v "$OPENCODE_BIN" >/dev/null 2>&1; then
   echo "opencode-v2-iso: host binary not found: $OPENCODE_BIN (set OPENCODE or install it)." >&2
   exit 2
 fi
-_OPENCODE_ACTUAL="$("$OPENCODE_BIN" --version 2>/dev/null | awk '{print $2}' | sed 's/^v//')"
+_OPENCODE_ACTUAL="$("$OPENCODE_BIN" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)"
 if [ "$_OPENCODE_ACTUAL" != "$OPENCODE_VERSION_PIN" ]; then
   echo "opencode-v2-iso: refusing binary ${_OPENCODE_ACTUAL:-unknown} at $OPENCODE_BIN — pinned v$OPENCODE_VERSION_PIN (override: TAWASSUL_OPENCODE_VERSION)." >&2
   exit 2

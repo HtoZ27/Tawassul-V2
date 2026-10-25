@@ -2,7 +2,7 @@
 
 import { readFile, mkdir, access } from "node:fs/promises";
 import { constants } from "node:fs";
-import { basename, dirname, resolve } from "node:path";
+import { basename, dirname } from "node:path";
 import { wrapWithHmac, unwrapWithHmac } from "../utils/crypto.ts";
 import { getWriteBlockReason } from "./isolation.ts";
 import { logger } from "../utils/logger.ts";
@@ -103,11 +103,13 @@ async function preserveRejectedState(filePath: string, raw: string): Promise<voi
   if (raw.trim().length < 2) return;
   try {
     const { readdir, writeFile } = await import("node:fs/promises");
-    const dir = dirname(filePath);
+    const { quarantinePath } = await import("../utils/state-paths.ts");
     const base = basename(filePath);
-    const siblings = await readdir(dir);
+    const dest = quarantinePath(`${base}.rejected.${Date.now()}`);
+    const qdir = dirname(dest);
+    await mkdir(qdir, { recursive: true });
+    const siblings = await readdir(qdir);
     if (siblings.some((f) => f.startsWith(`${base}.rejected.`))) return;
-    const dest = resolve(dir, `${base}.rejected.${Date.now()}`);
     await writeFile(dest, raw, "utf-8");
     logger.warn(
       `[tawassul] M-2: rejected state preserved for recovery at ${dest} — review and restore manually if needed`,

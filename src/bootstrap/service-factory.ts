@@ -19,8 +19,8 @@ import { ParallelDispatcher } from "../services/parallel-dispatcher.ts";
 import { PredictiveRouter } from "../features/predictive-router.ts";
 import { AgentAvailabilityManager } from "../services/agent-availability.ts";
 import crypto from "node:crypto";
-import { join, dirname } from "node:path";
-import { existsSync, readFileSync, copyFileSync, renameSync, rmSync } from "node:fs";
+import { join, dirname, resolve } from "node:path";
+import { existsSync, readFileSync, copyFileSync, renameSync, rmSync, mkdirSync } from "node:fs";
 import { getWriteBlockReason } from "../services/isolation.ts";
 import { schedulePersist } from "../services/persist-utils.ts";
 
@@ -151,16 +151,18 @@ export interface ServiceFactoryResult {
 
 
 export function migrateLegacyCollectiveMemory(
-  runtimeStateDir: string,
+  newStateDir: string,
+  legacyStateDir: string,
   memFile: string,
   projectKey: string | undefined,
 ): "migrated" | "skipped" {
-  const newMemFile = join(runtimeStateDir, memFile);
-  const legacyMemFile = join(runtimeStateDir, "collective-memory.json");
+  const newMemFile = join(newStateDir, memFile);
+  const legacyMemFile = join(legacyStateDir, "collective-memory.json");
   if (!projectKey || newMemFile === legacyMemFile || existsSync(newMemFile) || !existsSync(legacyMemFile)) {
     return "skipped";
   }
   try {
+    mkdirSync(newStateDir, { recursive: true });
     copyFileSync(legacyMemFile, newMemFile);
     renameSync(legacyMemFile, `${legacyMemFile}.bak`);
     logger.info("[tawassul] migrated legacy collective-memory.json to per-project store (backup kept)");
@@ -190,6 +192,8 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   
   const runtimeStateDir = resolveRuntimeStateDir(tawaCtx.stateDir, tawaCtx.scope);
+  const projectStateDir = tawaCtx.scope === "global" ? runtimeStateDir : resolve(runtimeStateDir, ".opencode");
+  const stateFile = (fileName: string): string => join(projectStateDir, fileName);
   const healthCfg = tawaCtx.config.health ?? {};
   const healthTracker = new HealthTracker(healthCfg.stuckTimeoutMs, undefined, tawaCtx.eventHub, tawaCtx.timerManager);
   const circuitBreaker = new CircuitBreaker(
@@ -308,26 +312,26 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
     enabled: isInnovationOn("collectiveMemory"),
     maxPatterns: 10000,
     maxMemories: 50000,
-    storagePath: join(runtimeStateDir, memFile),
+    storagePath: stateFile(memFile),
     projectKey: pk,
   });
   const trustScore = getTrustScoreCalculator({
     enabled: isInnovationOn("trustScore"),
-    storagePath: join(runtimeStateDir, "trust-score.json"),
+    storagePath: stateFile("trust-score.json"),
   });
   const failureAutopsy = getFailureAutopsyAnalyzer({
     enabled: isInnovationOn("failureAutopsy"),
     maxFailures: 1000,
-    storagePath: join(runtimeStateDir, "failure-autopsy.json"),
+    storagePath: stateFile("failure-autopsy.json"),
   });
   const costTransparency = getCostTransparencyTracker({
     enabled: isInnovationOn("costTransparency"),
-    storagePath: join(runtimeStateDir, "cost-transparency.json"),
+    storagePath: stateFile("cost-transparency.json"),
   });
   const specDriven = getSpecDrivenManager({
     enabled: isInnovationOn("specDrivenPhase"),
     mandatory: false,
-    storagePath: join(runtimeStateDir, "spec-driven.json"),
+    storagePath: stateFile("spec-driven.json"),
   });
 
   
@@ -351,7 +355,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   
   if (isInnovationOn("collectiveMemory")) {
-    migrateLegacyCollectiveMemory(runtimeStateDir, memFile, pk);
+    migrateLegacyCollectiveMemory(projectStateDir, runtimeStateDir, memFile, pk);
     loadPromises.push(collectiveMemory.load());
   }
   if (isInnovationOn("trustScore")) loadPromises.push(trustScore.load());
@@ -472,7 +476,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   if (isInnovationOn("backgroundCoordinator")) {
     const backgroundCoordinator = getBackgroundCoordinator(
       {
-        storagePath: join(runtimeStateDir, "background-coordinator.json"),
+        storagePath: stateFile("background-coordinator.json"),
       },
       tawaCtx.timerManager,
     );

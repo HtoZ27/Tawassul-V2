@@ -55,7 +55,7 @@ const SILENT_CATCH_INVENTORY: Record<string, number> = {
   "tools/image-gen.ts": 1,
   "tools/project-map.ts": 2,
   "tools/web.ts": 6,
-  "utils/crypto.ts": 10,
+  "utils/crypto.ts": 9,
   "utils/logger.ts": 1,
   "utils/opencode-config.ts": 5,
   "utils/path-resolver.ts": 1,
