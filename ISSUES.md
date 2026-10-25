@@ -1,6 +1,7 @@
 # Tawassul V2 — Issue Register
 
 Status date: 2026-10-25 · Gate: `npm run ci` rc=0 (3 isolated stages, 26 proof files, smoke pass)
+Real global install: not performed (opt-in; see I-01).
 
 Purpose: one durable place for open issues, evidence, and the next action, so
 development context survives session loss. Severity: P0 (can corrupt state or
@@ -13,12 +14,17 @@ State: `open`, `in_progress`, `blocked`, `done`.
   project again. It is not a compatibility target: any v1 plugin entry, v1
   host, or v1 global dependency is a defect. v2 is the only plugin. Two hosts
   run only in isolated tests. Evidence: a Desktop-wide scan finds exactly one
-  active plugin entry (this tree); the six other workspaces and the v1 tree
-  have `.retired-20261024` markers and no active `tawassul.js`.
+  active flat `tawassul.js` entry (this tree); the six other workspaces and
+  the v1 tree have `.retired-20261024` markers and no active `tawassul.js`.
+  Correction (2026-10-25): that scan matched flat files only. Three
+  directories also carry `plugins/tawassul/index.ts`: `gtttt` and `paassss`
+  export a v1-only shape and fail the v2 plugin schema, while the v1 tree
+  `tawassyl` exports `{ id, server, setup }` and boots a v2 plugin in a v2
+  host (H-09, P-07). The decision stands; the scan was incomplete.
 
 ---
 
-## Host copies and processes (P0 — complete)
+## Host copies, processes, and retired-tree hazards (P0)
 
 ### H-01 Orphan terminal server survives uninstall — done
 
@@ -162,9 +168,16 @@ Evidence (2026-10-25): OpenCode v2 discovers a direct `.js` file under
 dependencies and does not install from `~/.config/opencode/package.json`. A
 probe importing `zod` failed with `Cannot find package 'zod' imported from
 …/plugins/probe.js`; adding a config-root `package.json` created no
-`node_modules` and changed nothing. A package directory is not installed
-either. v1 worked only because its OpenCode ran `bun install` from the config
-root, which v2 dropped.
+`node_modules` and changed nothing. A package directory's dependencies are
+not installed either. v1 worked only because its OpenCode ran `bun install`
+from the config root, which v2 dropped.
+
+Discovery is a separate rule: the host loads `plugins/<dir>/index.ts`,
+`plugins/<dir>/index.js`, or a direct `plugins/<name>.js`, but ignores
+`<dir>/dist/index.js` alone. A v1-shaped default export is rejected with
+"Plugin must export a default definition with an id and an effect or setup
+function" (P-07); a dual `{ id, server, setup }` export boots the v2 half
+(H-09).
 
 Resolution: the global install is one self-contained file,
 `~/.config/opencode/plugins/tawassul.js`, built from `dist/global.js`. It
@@ -182,6 +195,161 @@ creates the global roster and agents, and `astquery` on `sample.ts` returns
 the function symbol through the runtime wasm. `npm run prove:global-install`
 asserts the layout, self-containment, hashes, scope, refusal paths, repair,
 and purge.
+
+### H-09 The retired v1 tree still boots a v2 plugin — open (P0, latent)
+
+The v1 tree `/home/htoz/Desktop/tawassyl` is a read-only reference, but its
+`.opencode/plugins/tawassul/index.ts` exports `{ tawassul, default }`;
+`plugin.ts` default is
+`{ id: "tawassul", server: tawassul, setup: createV2Setup() }`. Its
+`v2/setup.ts` is a full v2 bridge with no runtime `@opencode/plugin` import,
+so the v2 host can load it without the v1 SDK. The v1 tree's `opencode.json`
+has no `plugin` key, so auto-discovery applies.
+
+Evidence (2026-10-25, isolated copy of the package plus its parent
+`node_modules`, isolated HOME, host v2.1.4):
+
+- Host log: two `loading plugin` lines for
+  `.../plugins/tawassul/index.ts`; no `failed to load plugin`.
+- It created 16 files in the scratch project's `.opencode/agents` (8 agents
+  plus 8 backups), plus `tawassul-state.json`, `tool-run-log.json`,
+  `activity-metrics.json`, `vector-index.json`, and `feature-index.json`.
+- It created `~/.config/tawassul`, `~/.local/share/tawassul`, and
+  `~/.cache/tawassul` in the isolated HOME.
+
+Why P0: opening the folder in the Desktop would execute retired-tree code,
+write state and agents into that workspace, and touch the legacy global
+paths that the v2 legacy fallback reads. It also violates D-00 and the
+"one plugin copy" rule.
+
+Next: owner decides how to neutralize the reference tree without losing it
+(rename `index.ts` to `index.ts.retired-20261025`, remove the package
+directory, or add a guard). Then add a doctor/release scan for
+`plugin(s)/*/index.{ts,js}` and a proof that a v1-shaped or reference-tree
+entry is refused. Do not open `/home/htoz/Desktop/tawassyl` in a v2 host
+until then.
+
+---
+
+## Global install follow-ups (P2 unless noted)
+
+The flat self-contained install is implemented and proven at the file level
+(H-08). The items below are the remaining gaps; none of them blocks the
+project install, which stays the default.
+
+### I-01 Real global install is not performed — blocked (owner opt-in)
+
+State of this machine (2026-10-25): `~/.config/opencode/` contains
+`opencode.jsonc`, `package.json` (`{}`), `package-lock.json`, `service.json`,
+and `.gitignore`; there is no `plugins/`, no `tawassul-runtime/`, and no
+`tawassul-v2/`. The only live host is the Desktop sidecar, and it loads the
+project bundle.
+
+Why blocked: the owner asked that a real machine-wide install not run until
+explicitly requested.
+
+Next: on request, run `npm run build`, `npm run install:global`,
+`npm run verify:global`, then boot the Desktop (or an isolated HOME) and
+confirm one `loading plugin` line for the flat file, 42 tools, and a working
+`astquery`.
+
+### I-02 Installer host discovery is Linux-only — open
+
+`hostCandidates()` splits `PATH` on `":"` (`scripts/install-global.ts:128`),
+looks only for `opencode` (no `opencode.cmd` or `opencode.exe`), and hardcodes
+the Linux Desktop CLI path
+`~/.config/ai.opencode.desktop/cli/<ver>/opencode-cli`. On Windows the `PATH`
+separator is `";"` and the executable suffix differs; on macOS the Desktop
+CLI location differs.
+
+Next: use `delimiter` from `node:path`, probe `opencode`, `opencode.cmd`,
+and `opencode.exe`, add the macOS Desktop path, and add a unit proof with a
+fake `PATH`. No cross-platform CI exists.
+
+### I-03 `--purge` keeps global agent files — open
+
+`purge()` removes global state files but deliberately keeps
+`~/.config/opencode/agent/*.md` and prints "remove them manually"
+(`scripts/install-global.ts:377-382`). The README lists
+`uninstall:global -- --purge` without saying that the roster survives.
+
+Next: either move the agent files to a timestamped backup and remove them, or
+state the exception in README and `--help`, and assert the chosen behavior in
+`prove-global-install`.
+
+### I-04 Stale wasm files are not pruned on upgrade — open
+
+`install()` writes the four current assets but never removes files under
+`tawassul-runtime/wasm/` that are absent from `VERSION`. A package or asset
+rename leaves dead files behind; `verify` ignores them.
+
+Next: after writing the current assets, walk `WASM_DIR`, remove files not in
+the marker manifest, prune empty directories, and cover it in the proof.
+
+### I-05 `--force` overwrites an unmarked file without a backup — open
+
+When `plugins/tawassul.js` exists with no Tawassul marker, `install()` fails
+unless `--force`; with `--force`, `writeAtomic` replaces the file in place and
+keeps no copy. A user file at that name is lost.
+
+Next: before a forced replacement, rename the existing file to
+`tawassul.js.pre-force-<timestamp>`; document how to remove it, or include it
+in `--purge`.
+
+### I-06 Missing-wasm auto `npm install` is untested — open
+
+`resolveAssets(true)` runs `npm install --no-audit --no-fund` in the repo when
+an asset is missing. That mutates the working tree, needs network access, and
+is not exercised by the proof (the proof always finds the local wasm files).
+
+Next: either drop the auto-install and fail with the exact `npm install`
+command, or add a proof that injects an empty asset root and asserts the
+install path, with no network in CI.
+
+### I-07 No bundle freshness check — open (P1)
+
+The installer only checks that `dist/global.js` exists and scans it for bare
+imports. It cannot tell whether the file matches the current `src/` or the
+current git commit, so an old build can be installed and then marked with the
+current package version.
+
+Next: embed the git SHA (or a source hash) at build time, compare it with
+`git rev-parse HEAD` (or a build stamp) in the installer, and record it in
+`VERSION`.
+
+### I-08 Global bundle boot cost is unmeasured — open (P1)
+
+The project bundle boot is measured (`initPlugin` 8-23 ms, 350-550 ms to 42
+tools). The global bundle is larger (2,296,549 bytes vs 1,858,782) and adds
+runtime wasm loading from `~/.config/opencode/tawassul-runtime/wasm/`, but
+its boot time has not been recorded.
+
+Next: run an isolated-HOME boot with the flat global file and record
+`loading plugin` to `registered 42 tools`; compare with the project bundle.
+Fold the result into B-05/G-04.
+
+### I-09 Project-over-global priority is only a unit proof — open (P1)
+
+`prove-global-install` calls `claimCoexistence` and `isCoexistenceOwner` with
+a global token and a project token and asserts that the project supersedes.
+It does not boot a host with both `~/.config/opencode/plugins/tawassul.js`
+and `<workspace>/.opencode/plugin/tawassul.js` present.
+
+Next: in an isolated HOME, install the global file, add the project file,
+boot once, and assert the host log shows one effective plugin (no duplicate
+tool registration, project scope wins). This is the live counterpart of the
+unit claim.
+
+### I-10 The successful host boot is manual, not in CI — open (P1)
+
+The flat-file boot evidence (global roster, agents, `astquery` through runtime
+wasm) was produced by hand in an isolated HOME. `prove-global-install` runs
+the installer and inspects files; the smoke stage boots the project bundle,
+not the installed global file.
+
+Next: add an opt-in slow proof (or a release checklist with the transcript
+path) that runs the Desktop CLI with `HOME`/`XDG_*` isolated, the flat global
+file installed, and asserts `loading plugin`, 42 tools, and one tool call.
 
 ---
 
@@ -217,11 +385,12 @@ remove older ones.
 ### B-05 Tool schema payload is unmeasured — open
 
 42 tool schemas are sent with every request and may dominate session load.
-Measure total schema bytes and estimated tokens before changing anything.
+Next: measure total schema bytes and estimated tokens before changing
+anything; pair the result with G-04's boot budget.
 
 ---
 
-## Verification gate (P1)
+## Verification gate (P1 unless noted)
 
 ### G-01 CI spawns about 35 separate npm/bun processes — done
 
@@ -255,11 +424,58 @@ Nothing fails when boot time regresses. The smoke records `initPlugin` and
 `registered 42 tools` but does not enforce a budget. Next: `prove:boot-budget`
 with a measured budget (candidate 150 ms from init to 42 tools).
 
+### G-05 No live blocked-tool proof — open (P1)
+
+`isBlockError` rethrows `ToolBlockedError` and `isBlockedForAgent` denies the
+tawa list (`src/v2/setup.ts:56-67`), but no proof runs a blocked tool through
+a live host and asserts the run fails. The proofs never mention
+`ToolBlockedError` or `BLOCKED_TOOLS`.
+
+Next: in an isolated host run, ask tawa to call `bash` (or trigger the dedup
+guard) and assert a tool error and no side effect; add a unit test that
+`isBlockError` rethrows both error names.
+
+### G-06 Guard matrix has no v2-content regression proof — open (P1)
+
+`--expect v2` now refuses v1 content with `marker-v1-content`, but
+`CUTOVER.md` section 3 has no row for it. The only generation-guard proof is
+the `non-v2-path` refusal in `prove-db-retention.ts:82`; the
+`marker-v1-content` path is untested. `prove-v2-independence.ts:66` only
+checks the launcher's guard string.
+
+Next: add the row to `CUTOVER.md` and a proof that builds a synthetic v1 DB
+at a `tawassul-v2` path, runs `--expect v2`, and asserts rc=2 and
+`reason=marker-v1-content`; add the reverse `--expect v1` row too.
+
+### G-07 SDK pins are not asserted in CI — open (P2)
+
+The pins agree today (E-09), but nothing fails when `package.json`,
+`.opencode/package.json`, the lockfile, and the installed package diverge.
+The host pin (`2.1.4`) is checked by the global installer and `verify:global`
+but not by the fast gate.
+
+Next: a fast check that reads all four versions plus the host pin and fails on
+disagreement, wired into `gate:fast`.
+
+### G-08 No Desktop-wide plugin-entry census — open (P2)
+
+`doctor-v2.sh` checks this project's entry and the global install, but it does
+not enumerate other workspaces. The 2026-10-25 scan that found "exactly one
+active entry" matched flat `tawassul.js` files only and missed three
+`plugins/tawassul/index.ts` entries (H-09, P-07).
+
+Next: add an opt-in `doctor-v2.sh --scan-desktop` that enumerates
+`plugin(s)/*.{js,ts}` and `plugin(s)/*/index.{js,ts}`, flags v1 shapes and
+dual `setup` exports, and prints a count per workspace. Add a fixture proof
+for one v1-only package entry and one dual entry.
+
 ---
 
 ## Data and state (P1)
 
 ### D-01 Three database paths — deferred by owner (2026-10-25)
+
+Re-raised by evaluation finding E-08; the decision below is unchanged.
 
 - Desktop sidecar: `~/.local/share/opencode/tawassul-v2/opencode.db`
   (21 MB + 9.5 MB WAL, written continuously; `OPENCODE_DB` is set by
@@ -279,49 +495,208 @@ Recommendation (not adopted): sidecar DB canonical, shared DB legacy read-only
 for the D-02 import, launcher DB test-only. Nothing would be deleted or moved.
 Owner deferred the decision; the three paths stay as they are.
 
+Next: the owner names the three roles (pending decision 5). Until then this
+issue has no engineering action.
+
 ### D-02 Old sessions are not imported — open
 
 Source: `/home/htoz/Videos/New Folder/` (old DBs, storage, snapshots).
-Import only after D-01 is decided, with a backup and a generation guard.
+Next: import only after D-01 is decided (pending decision 5), with a backup
+and a generation guard, and keep the import read-only.
 
 ### D-03 Project state moved to `.opencode` but root leftovers remain — open
 
-`collective-memory-515c5c5d.json` and its empty `.bak` remain in the project
-root. They are untracked and need owner approval before deletion.
+E-06 fixed the write path: `stateFile` is
+`join(projectStateDir, fileName)` in `src/bootstrap/service-factory.ts:196`,
+so new state lands under `<project>/.opencode`. The root
+`collective-memory-515c5c5d.json` and its empty `.bak` are old leftovers;
+they are untracked and need owner approval before deletion. A scan for other
+root `collective-memory*`, `trust-score*`, `cost-transparency*`, and
+`background-coordinator*` files is still missing.
+
+Next: run that scan, keep anything v2 still reads, and delete the rest with
+owner approval (pending decision 6).
 
 ---
 
-## Product gaps (P2)
+## Product gaps (P2 unless noted)
 
 - **P-01** `select`/`input` elicitation: host `permission.assert` returns only
-  confirm; the design decision is still open.
+  confirm; `src/v2/ask.ts:40` returns `undefined` for every other type. In
+  addition, `isNoReply` maps AskChannel's `noReply: true` to
+  `delivery: "queue"` (`src/v2/client-shim.ts:47,55`), so a consent question
+  becomes a real queued user turn and burns a model turn. Next: bridge or
+  fail closed, and render the question without a queued turn. P1 per E-03.
 - **P-02** A goal closed from `completed` writes a `dropped` tombstone; the
-  digest counts stay correct, the label is cosmetic.
+  digest counts stay correct, the label is cosmetic. Next: accept the label as
+  cosmetic, or write `completed` for a `completed`-origin close; no data is at
+  risk either way.
 - **P-03** N2 assistant dedup set is capped at 512; long sessions can
-  re-process an old message.
+  re-process an old message. Next: raise the cap or evict by age, and measure
+  a 500-message session for the current miss rate first.
 - **P-04** Independence is proven statically; a real boot with the v1 tree
-  renamed is still missing.
-- **P-05** Six workspaces hold 12 inert `tawassul.js.pre-refresh-*` copies and
-  one `tawassul.js.retired-20261024` each (`vusial 2`, `vpro`, `vusual`,
-  `athan new vrsion`, `dart22222222`, `ciel-osk-workspace`), plus the v1 tree.
-  No project loads a v1 plugin: a Desktop-wide scan finds exactly one active
-  entry, `/home/htoz/Desktop/Tawassul V2/.opencode/plugin/tawassul.js`. The
-  copies need owner approval before deletion.
+  renamed is still missing. `scripts/prove-v2-independence.ts` scans
+  `src/**/*.ts` and the launcher, matches a literal plugin filename, and skips
+  `scripts/*.sh`, `tests/`, `.opencode/`, `dist/`, and dynamically built
+  paths. It does not inspect the v1 tree's bootable package entry (H-09).
+  Next: boot a scratch workspace with the v1 tree renamed, census
+  `opencode.json` plugin/mcp keys and `plugin(s)/*/index.*`, follow symlinks,
+  scan every tracked file, and assert one effective host entry. P1.
+- **P-05** Residue across six workspaces: 12 `tawassul.js.pre-refresh-*`
+  copies and 7 `tawassul.js.retired-20261024` files (the six plus the v1
+  tree). A name probe proved these are not loadable: only files whose suffix
+  is exactly `.js`/`.ts` load, and both `.opencode/plugin` and
+  `.opencode/plugins` are scanned. Nine package directories also exist at
+  `.opencode/plugins/tawassul/` (the six plus `gtttt`, `paassss`, and the v1
+  tree): six contain only `dist/index.js` and are not discovered; `gtttt` and
+  `paassss` carry a v1-only `index.ts` and are discovered (P-07); the v1 tree
+  carries a bootable dual export (H-09). Deletion or neutralization needs
+  owner approval (pending decision 3).
 - **P-06** Legacy global config `~/.config/opencode/package.json` pinned
   `@opencode-ai/plugin@1.17.14`; done — H-06 removed the v1 SDK pin and the
   file is now `{}` with no `node_modules`.
+- **P-07** Two full v1 source trees, `gtttt` and `paassss`, expose
+  `.opencode/plugins/tawassul/index.ts` with a v1-only `{ id, server }`
+  default and `.opencode/node_modules/@opencode-ai/{plugin,sdk}` 1.18.25. The
+  v2 host discovers `plugins/<dir>/index.ts` (proved with a synthetic plugin)
+  and logs `failed to load plugin`: "Plugin must export a default definition
+  with an id and an effect or setup function." The run continues, but every
+  boot in those workspaces logs a failure and D-00 is violated. Next: with
+  owner approval, rename the two `index.ts` files to
+  `index.ts.retired-20261025` (or remove the package dirs), and add the G-08
+  doctor scan. P1.
+
+---
+
+## Evaluation report triage (feat-bc3edbad, round 1)
+
+Source: independent audits of `94ccda8..ef566e8`, 10 findings. Triaged against
+HEAD `d740865` on 2026-10-25. "Fixed" means the code changed and a check
+exists; "stale" means the finding no longer matches the tree.
+
+### E-01 execute.before swallowed ToolBlockedError — fixed; proof gap in G-05
+
+Original severity: critical. `src/v2/setup.ts:56-59` adds `isBlockError`
+and rethrows `ToolBlockedError` / `ConsentBlockedError`; the bridge catches
+only other errors. The seven `blockTool()` sites in
+`src/hooks/tool-execute.ts:185-266` now reach the host.
+
+Remaining: no proof that a blocked tool actually fails a live run (G-05).
+
+### E-02 v1 config hook is not bridged — open (partially mitigated)
+
+Original severity: critical. `plugin.config` is only logged at
+`src/v2/setup.ts:377-381`; it is not called. The dynamic model fix and the
+tawa/addagent permission repair (`src/bootstrap/plugin-init.ts:85-126`,
+wired at `plugin-init.ts:838-840`) therefore never run on the v2 host.
+Mitigations: `gen-opencode-config` bakes models and permissions into
+`opencode.json`, and `execute.before` denies `BLOCKED_TOOLS` for tawa via
+`isBlockedForAgent` (`setup.ts:62-67`). Risk: a hand-edited or stale config,
+or a roster changed after generation, is not repaired at boot.
+
+Next: apply the three helpers from the v2 boot path (a config writer or a
+`ctx.app`/`ctx.permission` bridge), then prove a denied tawa tool fails and
+addagent permissions are present. This is the live half of G-05.
+
+### E-03 noReply queues a user turn; select/input unbridged — open (P-01)
+
+Original severity: major. `isNoReply` maps `body.noReply === true` to
+`delivery: "queue"` (`src/v2/client-shim.ts:47,55`). AskChannel injects the
+question with `noReply: true` (`src/bootstrap/plugin-init.ts:308`), so every
+consent question becomes a queued user turn instead of a transcript-only
+render. `src/v2/ask.ts:40` handles only `type === "confirm"`; select/input
+return `undefined`.
+
+Next: route AskChannel through `permission.assert`, fall back to `ctx.ask`,
+and either bridge select/input or fail closed with a visible error. Tracked
+as P-01; this entry keeps the evaluation evidence.
+
+### E-04 Legacy state path and quarantine — fixed
+
+Original severity: major. `legacyStateCandidateDirs()` now includes both
+`~/.config/tawassyl/state` and `~/.config/tawassul/state`
+(`src/utils/state-paths.ts:39-47`), and `legacyFallbackFor` resolves both the
+v2 state dir and a project `.opencode` parent (`state-paths.ts:83-95`).
+Rejected files go to `quarantinePath()` under the v2 state dir
+(`src/services/persist-utils.ts:106-112`), not into the legacy tree.
+
+### E-05 `--expect v2` accepted v1 content — fixed; matrix/proof gap in G-06
+
+Original severity: major. `scripts/guard-db-generation.sh:236-243` now
+refuses `marker-v1-content` when the v2 lane finds a non-empty DB with no
+`session_v2` marker. The `--expect v2` + v1-content row is missing from
+`CUTOVER.md` section 3, and the `marker-v1-content` path has no proof; the
+only guard proof covers `non-v2-path` (G-06).
+
+### E-06 Project state written to the repo root — fixed; leftovers in D-03
+
+Original severity: major. `service-factory.ts:196` defines `stateFile` as
+`join(projectStateDir, fileName)`, so collective memory, trust score, cost
+transparency, and background coordinator state land in
+`<project>/.opencode`. The root `collective-memory-515c5c5d.json` and its
+empty `.bak` are leftovers (D-03).
+
+### E-07 Independence proof is static — open (P-04)
+
+Original severity: major. `scripts/prove-v2-independence.ts` scans
+`src/**/*.ts` plus the launcher for v1 paths/imports and matches a literal
+host filename. It skips `scripts/*.sh`, `tests/`, `.opencode/`, `dist/`, and
+dynamic paths, and never boots with the v1 tree unreachable. It also misses
+the v1 tree's bootable package entry (H-09). Next: the expanded action is
+P-04; this entry adds the H-09 case to it.
+
+### E-08 Three database paths — deferred by owner (D-01)
+
+Original severity: major. Unchanged. The evaluation cites the 2026-10-25
+"cannot find this session" incident (`RECOVERY-20261025.md`). D-01 keeps the
+recommendation without moving files; the action is pending decision 5.
+
+### E-09 SDK pin mismatch — fixed; agreement check in G-07
+
+Original severity: major. Current pins: root `devDependencies` `^2.1.4`,
+`.opencode/package.json` `2.1.4`, root `node_modules` `2.1.4`,
+`.opencode/node_modules` `2.1.4`, lockfile `2.1.4`. No CI assertion keeps
+them in agreement (G-07).
+
+### E-10 Reverted working tree / tsc failure — stale
+
+Original severity: minor. `git status` is clean apart from five known
+untracked files; `tsc --noEmit` passes and `npm run ci` is green at
+`d740865`. The finding described an intermediate working-tree state, not
+HEAD. Next: none; the entry stays closed and only documents the audit's
+baseline.
 
 ---
 
 ## Pending owner decisions
 
-1. Delete `/tmp/opencode/smoke-probe` (orphan stopped, port 38335 closed), the
-   dangling quarantined v1 symlink, the `~/.opencode` backup under
-   `/tmp/opencode`, the global-config backup, and the 12
-   `tawassul.js.pre-refresh-*` plus 7 `.retired-20261024` copies.
-2. D-01: name the sidecar DB canonical, the shared DB legacy read-only, and the
+1. **H-09:** neutralize the retired tree's bootable entry
+   `/home/htoz/Desktop/tawassyl/.opencode/plugins/tawassul/index.ts`
+   (rename it to `index.ts.retired-20261025`, remove the package directory, or
+   add a guard). Until then, do not open that folder in a v2 host. This is
+   the one item that can execute retired-tree code.
+2. **P-07:** with approval, rename the v1-only `index.ts` entries in
+   `/home/htoz/Desktop/gtttt/.opencode/plugins/tawassul/` and
+   `/home/htoz/Desktop/paassss/.opencode/plugins/tawassul/` (or remove the
+   package dirs). Both are discovered and fail to load on every boot.
+3. Delete the 12 `tawassul.js.pre-refresh-*` copies, the 7
+   `.retired-20261024` copies, and the six inert `dist`-only
+   `.opencode/plugins/tawassul/` package dirs (`athan new vrsion`,
+   `ciel-osk-workspace`, `dart22222222`, `vpro`, `vusial 2`, `vusual`).
+4. Delete the `/tmp/opencode` artifacts from this work: `global-probe`
+   (20 MB), `global-e2e` (23 MB), `pkg-probe` (8.7 MB),
+   `build-global-test` (2.2 MB), `build-self` (3.0 MB), `bundled-probe`
+   (404 KB), `pkg-shape-probe`, `gtttt-probe`, `v1tree-probe`,
+   `name-shape-probe`, `parse-test.ts`, and `ci-full.log`; also the older `smoke-probe`
+   (orphan stopped, port 38335 closed), the dangling
+   `opencode-v1-bun-symlink-20261025`, and
+   `global-config-v1-backup-20261025`. The `~/.opencode` tree was already
+   deleted in H-02; there is no backup of it under `/tmp/opencode` (the
+   earlier pending text was wrong). `v1-retire-backup` (six old
+   `opencode.json` copies) needs a separate keep/delete decision.
+5. D-01: name the sidecar DB canonical, the shared DB legacy read-only, and the
    launcher DB test-only. No file is deleted. Deferred on 2026-10-25.
-3. Keep or drop the untracked `scripts/check-shared-anchors.mjs`,
+6. Keep or drop the untracked `scripts/check-shared-anchors.mjs`,
    `scripts/port-from-v1.mjs`, and `test-utils.ts`, plus the root
    `collective-memory*` files.
 
@@ -338,5 +713,25 @@ root. They are untracked and need owner approval before deletion.
 - Bundles identical: `dist/index.js` and `.opencode/plugin/tawassul.js`
   (1,858,782 bytes). The opt-in global bundle is `dist/global.js`
   (2,296,549 bytes, self-contained).
+- `prove-global-install` is one of the 25 proof steps: flat layout, bundle
+  hash, four wasm assets, `VERSION` marker, scope detection, v1/legacy
+  refusal, unmarked target refusal, `--force`, tamper repair, coexistence
+  unit claim, uninstall, dry run, purge, and verify-missing.
+- Isolated-HOME host boot of the flat global file (manual, host v2.1.4):
+  `loading plugin` for `plugins/tawassul.js`, global roster plus agents
+  created, `astquery sample.ts` returned the function symbol through
+  `tawassul-runtime/wasm/`, no `failed to load plugin`.
+- Real machine state: `~/.config/opencode/` has no `plugins/`, no
+  `tawassul-runtime/`, and no `tawassul-v2/`; the real global install is not
+  performed (I-01).
+- Shape probe (host v2.1.4): `plugins/a-dist/dist/index.js` was not
+  discovered; `plugins/b-index-ts/index.ts` and `plugins/c-index-js/index.js`
+  were. A v1-only `{ id, server }` export failed with "Plugin must export a
+  default definition with an id and an effect or setup function"; a dual
+  `{ id, server, setup }` export booted (H-09).
+- Name probe (host v2.1.4): `plugins/flat-ok.js` and `plugin/singular.js`
+  loaded, while `flat-ok.js.pre-refresh-20261020` and
+  `flat-ok.js.retired-20261024` did not. Both the singular `plugin/` and the
+  plural `plugins/` directories are scanned, and suffixed copies are inert.
 - The smoke accepts a provider transport error only after `initPlugin` and
   `v2 registered 42 tools` are confirmed; a missing plugin boot fails.
