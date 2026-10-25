@@ -3,6 +3,10 @@ import type { ToolDefinition } from "../../tool.ts";
 import type { TawassulContext } from "../../context.ts";
 import { countPendingPersists } from "../../services/persist-utils.ts";
 import { logger } from "../../utils/logger.ts";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { defaultKeyFile, isolatedDbPathFor, isSharedDbPath } from "../../bootstrap/db-isolation.ts";
+import { scopedStatePath, statePath } from "../../utils/state-paths.ts";
 
 const LAG_WARN_THRESHOLD_MS = 500;
 const LAG_SPIKE_CAP = 20;
@@ -54,7 +58,7 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
   const pendingFlushes = deps.pendingFlushes ?? countPendingPersists;
   return tool({
     description: [
-      "Report plugin health — event-loop lag, RSS, active timers, DB isolation, pending flushes.",
+      "Report plugin health — event-loop lag, RSS, active timers, DB isolation, install scope, state paths, pending flushes.",
       "Read-only; no state changes.",
       "",
       "EXAMPLES:",
@@ -66,7 +70,15 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
       recordLagSpike(lagMs);
       const rss = rssMb();
       const activeTimers = ctx.timerManager?.activeCount ?? 0;
-      const dbIsolated = Boolean(process.env.OPENCODE_DB?.trim());
+      const dbEnv = process.env.OPENCODE_DB?.trim() ?? "";
+      const dbShared = dbEnv ? isSharedDbPath(dbEnv) : false;
+      const dbIsolated = Boolean(dbEnv) && !dbShared;
+      const keyFile = defaultKeyFile();
+      const keyPresent = existsSync(keyFile);
+      const expectedDb = keyPresent ? isolatedDbPathFor(ctx.stateDir, keyFile) : null;
+      const dbMatches = dbEnv && expectedDb ? resolve(dbEnv) === resolve(expectedDb) : null;
+      const routerFile = scopedStatePath(ctx.stateDir, ctx.scope, "predictive-router.json");
+      const legacyRouterFile = statePath("predictive-router.json");
       const flushes = pendingFlushes();
       return {
         title: "Health",
@@ -76,6 +88,15 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
           `- RSS: ${rss} MiB`,
           `- Active timers: ${activeTimers}`,
           `- DB: ${dbIsolated ? "isolated" : "shared"}`,
+          `- DB path: ${dbEnv || "(unset)"}`,
+          `- DB expected: ${expectedDb ?? "(no HMAC key)"}`,
+          `- DB matches isolation: ${dbMatches === null ? "unknown" : dbMatches ? "yes" : "no"}`,
+          `- Scope: ${ctx.scope}`,
+          `- State dir: ${ctx.stateDir}`,
+          `- State file: ${ctx.statePath()}`,
+          `- Router file: ${routerFile} (${existsSync(routerFile) ? "exists" : "missing"})`,
+          `- Router legacy: ${legacyRouterFile} (${existsSync(legacyRouterFile) ? "exists" : "missing"})`,
+          `- HMAC key: ${keyFile} (${keyPresent ? "present" : "missing"})`,
           `- Pending flushes: ${flushes}`,
         ].join("\n"),
       };

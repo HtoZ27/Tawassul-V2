@@ -69,7 +69,7 @@ import { createHandoffEntry } from "../services/handoff-entry.ts";
 import { logger } from "../utils/logger.ts";
 import { t } from "../translations.ts";
 import { resolveRuntimeStateDir } from "../utils/path-resolver.ts";
-import { statePath, stateReadPath } from "../utils/state-paths.ts";
+import { scopedStatePath, stateReadPath } from "../utils/state-paths.ts";
 
 
 
@@ -238,8 +238,8 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   let routerStatePath: string | null = null;
   let routerReadPath: string | null = null;
   try {
-    routerStatePath = statePath("predictive-router.json");
-    routerReadPath = stateReadPath("predictive-router.json");
+    routerStatePath = scopedStatePath(runtimeStateDir, tawaCtx.scope, "predictive-router.json");
+    routerReadPath = existsSync(routerStatePath) ? routerStatePath : stateReadPath("predictive-router.json");
   } catch {
     logger.warn(`[tawassul] ${t("bootNoHome")}`);
   }

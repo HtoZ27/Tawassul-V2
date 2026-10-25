@@ -47,6 +47,7 @@ generation guard, runs DB maintenance at the cap, and logs one
 
 ```
 npm run verify      # rules + shell syntax + typecheck + build
+npm run doctor      # per-project scope, DB isolation, router files, orphan servers
 npm run ci          # verify + config/facts + all 25 proofs + release smoke
 ```
 
@@ -74,15 +75,43 @@ The v1 tree is retired: its plugin bundle and MCP server are renamed
 
 | Surface | Path | Rule |
 | --- | --- | --- |
-| Plugin state | `~/.config/tawassul-v2/state` | override `TAWASSUL_V2_STATE_DIR` |
+| Plugin state | `<project>/.opencode/tawassul-state.json` (project) or `~/.config/tawassul-v2/state` (global) | override `TAWASSUL_V2_STATE_DIR` |
+| Predictive router | `<project>/.opencode/predictive-router.json` (project) or `~/.config/tawassul-v2/state/predictive-router.json` (global) | falls back to the global file while the project file is absent |
+| Goals, boards, timeline | `<project>/goals`, `<project>/mission-board`, `<project>/timeline` | project scope only |
 | Legacy read fallback | `~/.config/tawassyl/state` | read-only, only when the v2 file is absent; never written |
 | Data root | `~/.local/share/tawassul-v2` | log at `tawassul/tawassul.log`; N2 at `n2-auto.jsonl` |
-| Host DB | `~/.local/share/tawassul-v2/opencode-v2.db` | v2 lane only |
+| Launcher DB | `~/.local/share/tawassul-v2/opencode-v2.db` | v2 lane only |
+| Desktop sidecar DB | `~/.local/share/opencode/tawassul-v2/opencode.db` | owned by the desktop host |
+| Bare-host DB | `~/.local/share/opencode/opencode.db` | shared; avoid running several projects against it |
 | HMAC key | `~/.config/tawassul/.tawassul-hmac-key` | 32 bytes, readable during migration |
 
 Writes use `TAWASSUL_V2_HMAC_V1:`. Verification also accepts the legacy
 `TAWASSUL_HMAC_V1:` and `TAWASSULL_HMAC_V1:` prefixes, so old state remains
 readable. Legacy files are never modified.
+
+## Multiple projects
+
+A local install is project-scoped by default: `detectInstallScope` sees the
+host entry inside the project, so state, goals, boards, timeline, metrics, and
+the predictive router stay inside that project. Two projects therefore do not
+share writable plugin state. The remaining shared surfaces are the log, the
+read-only HMAC key, and the host database.
+
+- Keep one real copy of `.opencode/plugin/tawassul.js` per project. A symlink
+  into the global config makes the module resolve globally, flips the scope,
+  and sends `addagent`/`kick` writes to `~/.config/opencode`.
+- Never point two live projects at the same `OPENCODE_DB`. Use
+  `scripts/opencode-v2-iso.sh` (HMAC-keyed per-project DB) or the desktop
+  sidecar. A bare host falls back to the shared database and risks
+  `SQLITE_BUSY`.
+- The predictive router is per project; a global-scope instance keeps writing
+  the global file. `npm run doctor` reports both files and warns when the
+  global one is newer.
+- `health` prints the install scope, state file, router files, `OPENCODE_DB`,
+  the HMAC-expected DB, and whether they match.
+- `npm run doctor` also snapshots every known DB and reports how many sessions
+  belong to this project, so a "missing session" is visible as a DB split
+  instead of data loss.
 
 The v1 state is frozen reference. Do not copy it, do not point v1 at a
 `tawassul-v2` path, and do not point v2 at a v1 or shared DB. The guard is the
@@ -101,7 +130,7 @@ rollback procedure.
 Every tool is callable directly; `help` lists the catalog and each tool carries
 its own description. Common entry points:
 
-- `health` — event-loop lag, RSS, timers, DB mode, pending flushes
+- `health` — event-loop lag, RSS, timers, DB mode and paths, scope, state paths, pending flushes
 - `help` — available tools
 - `goal` — goal ledger, board, evidence, close gate
 - `handoff` / `fasttrack` — task transfer between agents
@@ -119,12 +148,16 @@ its own description. Common entry points:
 | Boot has no watcher line | Use `scripts/opencode-v2-iso.sh`; a bare host binary skips the launcher policy. |
 | Plugin log is empty | `TAWASSUL_LOG_FILE` is unset or set to empty (empty disables the sink). Default is under the data root. |
 | State looks stale | Read `health` and the plugin log; do not copy v1 state. |
+| Desktop session is "not found" | The desktop sidecar DB differs from the shared DB; `npm run doctor` prints the DB path and per-DB session counts. See `RECOVERY-20261025.md`. |
+| Two projects fight over routing data | Rebuild so the router lands in `<project>/.opencode/predictive-router.json`; `npm run doctor` reports both router files. |
+| Writes land in the global config | `.opencode/plugin/tawassul.js` is a symlink; replace it with the built file and rerun `npm run doctor`. |
 
 ## Docs map
 
 - `PLAN.md` — priority plan and day-by-day history
 - `CUTOVER.md` — dual-generation evidence, freeze, retirement, rollback
 - `TRIAGE.md` — S-055 A–L verdicts with evidence
+- `RECOVERY-20261025.md` — desktop DB split, session merge, multi-project hardening
 - `DECOUPLING.md` — namespace and shared-surface decisions
 - `SHARED.md` — frozen historical cross-tree issues log
 - `RULES.md` — memory cap and sequential heavy-work rules

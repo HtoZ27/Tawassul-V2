@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { basename, isAbsolute, relative, resolve, sep } from "node:path";
-import { globalConfigBaseDir, safeHomedir } from "./path-resolver.ts";
+import { globalConfigBaseDir, safeHomedir, type InstallScope } from "./path-resolver.ts";
 
 export const STATE_DIR_ENV = "TAWASSUL_V2_STATE_DIR";
 export const LEGACY_STATE_DIR_ENV = "TAWASSUL_V2_LEGACY_STATE_DIR";
@@ -40,6 +40,11 @@ export function statePath(fileName: string): string {
   } catch {
     return `~/.config/${STATE_DIR_NAME}/${STATE_SUBDIR}/${fileName}`;
   }
+}
+
+export function scopedStatePath(base: string, scope: InstallScope | undefined, fileName: string): string {
+  if (scope === "global") return statePath(fileName);
+  return resolve(base, ".opencode", fileName);
 }
 
 export function legacyStatePath(fileName: string): string {

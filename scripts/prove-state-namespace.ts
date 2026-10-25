@@ -12,7 +12,7 @@ import {
   unwrapWithHmac,
   wrapWithHmac,
 } from "../src/utils/crypto.ts";
-import { legacyStateDir, legacyStatePath, STATE_DIR_NAME, stateDir, statePath, stateReadPath, v2DataRoot, v2NamespaceRoot } from "../src/utils/state-paths.ts";
+import { legacyStateDir, legacyStatePath, scopedStatePath, STATE_DIR_NAME, stateDir, statePath, stateReadPath, v2DataRoot, v2NamespaceRoot } from "../src/utils/state-paths.ts";
 import { n2AutoLogPath } from "../src/hooks/n2-auto.ts";
 
 function fail(msg: string): never {
@@ -80,6 +80,17 @@ try {
   assert(stateDir() === resolve(overrideDir), "TAWASSUL_V2_STATE_DIR overrides the state dir");
   assert(statePath("x.json") === resolve(overrideDir, "x.json"), "override applies to every state file");
   delete process.env.TAWASSUL_V2_STATE_DIR;
+
+  const projectRoot = join(root, "project");
+  assert(
+    scopedStatePath(projectRoot, "project", "predictive-router.json") ===
+      join(projectRoot, ".opencode", "predictive-router.json"),
+    "project scope keeps the router inside the project",
+  );
+  assert(
+    scopedStatePath(projectRoot, "global", "predictive-router.json") === statePath("predictive-router.json"),
+    "global scope keeps the router in the namespaced state dir",
+  );
 
   mkdirSync(keyDir, { recursive: true });
   const keyBytes = randomBytes(32);

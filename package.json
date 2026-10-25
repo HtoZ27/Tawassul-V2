@@ -13,6 +13,7 @@
     "check:sh": "for f in scripts/*.sh; do bash -n \"$f\" || exit 1; done && echo \"sh syntax OK\"",
     "check:config": "bun src/scripts/gen-opencode-config.ts --check",
     "check:facts": "bun src/scripts/facts.ts check",
+    "doctor": "bash scripts/doctor-v2.sh",
     "prove:gen-lock": "bun scripts/prove-gen-lock-contention.ts",
     "prove:gen-merge": "bun scripts/prove-gen-merge-guards.ts",
     "prove:roster-boundary": "bun scripts/prove-roster-boundary.ts",

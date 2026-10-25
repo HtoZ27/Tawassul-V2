@@ -1,4 +1,5 @@
 import type { EventHub } from "./event-hub.ts";
+import { join } from "node:path";
 import { TaskOrchestrator } from "./task-orchestrator.ts";
 import { ResultEngine } from "./result-engine.ts";
 import { SelfHealEngine } from "./self-heal-engine.ts";
@@ -26,6 +27,7 @@ export interface ServiceIndexOptions {
   strategyDispatcher?: StrategyDispatcher;
   trustScore?: TrustScoreCalculator;
   costTracker?: CostTransparencyTracker;
+  storageDir?: string;
 }
 
 export class ServiceIndex {
@@ -46,8 +48,16 @@ export class ServiceIndex {
     this.selfHealEngine = opts?.selfHealEngine ?? new SelfHealEngine(eventHub);
     this.missionBoard = opts?.missionBoard ?? new MissionBoard(eventHub);
     this.strategyDispatcher = opts?.strategyDispatcher ?? new StrategyDispatcher();
-    this.trustScore = opts?.trustScore ?? new TrustScoreCalculator();
-    this.costTracker = opts?.costTracker ?? new CostTransparencyTracker();
+    this.trustScore =
+      opts?.trustScore ??
+      new TrustScoreCalculator(
+        opts?.storageDir ? { storagePath: join(opts.storageDir, "trust-score.json") } : undefined,
+      );
+    this.costTracker =
+      opts?.costTracker ??
+      new CostTransparencyTracker(
+        opts?.storageDir ? { storagePath: join(opts.storageDir, "cost-transparency.json") } : undefined,
+      );
   }
 
   getStatus(): SystemStatus {

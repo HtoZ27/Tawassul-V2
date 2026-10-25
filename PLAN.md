@@ -258,6 +258,34 @@ Status 2026-10-24: done. No Day 5 regression required a code fix.
 
 Exit: met — clean tree, one install method, docs delivered.
 
+## Day 7 — 2026-10-25 desktop DB split and multi-project hardening
+
+Why: two desktop tabs returned "cannot find this session", and a local install
+per project could still contend on one global router file.
+
+- Root cause was a DB split, not data loss: the desktop reads
+  `~/.local/share/opencode/tawassul-v2/opencode.db`, while the sessions lived in
+  `~/.local/share/opencode/opencode.db`. Backups were taken first, then both
+  sessions (942 messages) were merged into the sidecar with `BEGIN IMMEDIATE`
+  and explicit column lists. `quick_check` returned `ok`; the live API returned
+  200 for both sessions and their messages.
+- Multi-project hardening: `scopedStatePath` moves the predictive router to
+  `<project>/.opencode/predictive-router.json` with a global read fallback; the
+  `ServiceIndex` fallback trust/cost stores use `resolveRuntimeStateDir`;
+  `health` reports scope, state, router, and DB paths; `npm run doctor` checks
+  symlink, scope, DB isolation, per-DB project session counts, and orphan
+  servers; `README.md` documents the model.
+- Verification: `npm run verify`, `npm run smoke:release` (42 tools),
+  `npm run prove:state-namespace` (two new router assertions),
+  `npm run prove:independence`, `npm run prove:proof-catalog`, and
+  `npm run doctor` (0 failures, one orphan-process warning).
+- The desktop service stayed live: `opencode reload` rebuilt the plugin
+  (`42 schemas`, `42 tools`, `INIT_AUDIT health=healthy`) without stopping
+  pid `704051`.
+
+Exit: met — sessions restored, per-project router live, doctor and health cover
+the failure mode. Full write-up: `RECOVERY-20261025.md`.
+
 ## P2 backlog (after cutover)
 
 - S-044 select/multiselect elicitation with the same fail-closed contract.

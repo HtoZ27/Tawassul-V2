@@ -4,6 +4,7 @@ import type { TawassulContext } from "../context.ts";
 import type { ToolDefinition } from "../tool.ts";
 import type { ServiceFactoryResult } from "./service-factory.ts";
 import { ServiceIndex } from "../services/service-index.ts";
+import { resolveRuntimeStateDir } from "../utils/path-resolver.ts";
 import { getImageRouter } from "../services/image-router/index.ts";
 import {
   buildDiscussionTool,
@@ -63,9 +64,9 @@ export function buildToolRegistry(
   tawaCtx: TawassulContext,
   services: ServiceFactoryResult | undefined,
 ): ToolRegistryResult {
-  const serviceIndex = new ServiceIndex(
-    tawaCtx.eventHub,
-    services
+  const serviceIndex = new ServiceIndex(tawaCtx.eventHub, {
+    storageDir: resolveRuntimeStateDir(tawaCtx.stateDir, tawaCtx.scope),
+    ...(services
       ? {
           taskOrchestrator: services.taskOrchestrator,
           resultEngine: services.resultEngine,
@@ -75,8 +76,8 @@ export function buildToolRegistry(
           trustScore: services.trustScore,
           costTracker: services.costTracker,
         }
-      : undefined,
-  );
+      : {}),
+  });
   const discussionManager = tawaCtx.discussionManager;
 
   const rawTools: Record<string, ToolDefinition> = {
