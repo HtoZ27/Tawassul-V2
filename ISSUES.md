@@ -392,11 +392,29 @@ the host shows placeholder schemas. Next: readiness event or 6 attempts
 array with `JSON.stringify(..., null, 2)` and rewrites the file. Next:
 append-only JSONL with rotation at 2000 entries and a compact save.
 
-### B-04 Backups accumulate without a cap — open
+### B-04 Backups exceeded the owner cap — done (2026-10-25)
 
-`predictive-router.json.bak.*`: 5 files in 25 minutes (one per 5-minute save),
-about 288 per day. Next: keep the newest 3 per file and let `sweep:state`
-remove older ones.
+Owner requirement: at most 2 backups per state file. Two mechanisms existed
+and they disagreed with each other and with the register:
+
+- `src/utils/atomic.ts` had `MAX_BACKUPS = 5` and prunes to that count, so the
+  timestamped scheme `.bak.<ts>.<hex>` kept 5 per file.
+- `src/context/managers/StateManager.ts` had `MAX_BACKUPS = 3` with a rotation
+  that actually keeps `MAX_BACKUPS + 1` files (`.bak.0` through `.bak.N`), so
+  the numbered scheme kept 4.
+- `ISSUES.md` itself said 3, and the two code sites disagreed with each other.
+
+Resolution: `atomic.ts` is now 2, and `StateManager.MAX_BACKUPS` is 1 so its
+rotation also ends at 2 files. Verified by an isolated probe (6 consecutive
+writes of one file leave exactly 2 backups) and by the built bundle containing
+both new constants.
+
+Cleanup on this machine (2026-10-25, owner approved): 41 redundant files
+removed — 33 `.bak.*` pruned to 2 per base across `.opencode/`, the project
+root, the global v2 state dir, and the legacy v1 state dir, plus 75 stale
+`*.tmp` write leftovers in `~/.config/tawassul/state`. Measured before: 35
+live backups plus 5 new ones in a single hour (288/day rate for the router);
+measured after: at most 2 per base everywhere.
 
 ### B-05 Tool schema payload is unmeasured — open
 
@@ -485,6 +503,28 @@ Next: add an opt-in `doctor-v2.sh --scan-desktop` that enumerates
 dual `setup` exports, and prints a count per workspace. Add a fixture proof
 for one v1-only package entry and one dual entry.
 
+### G-09 The smoke gate fails on a provider quota refusal — open (P1)
+
+`scripts/release-smoke.sh` treats a non-zero boot exit as a gate failure unless
+it is a timeout or a transport-shaped error (`ECONNRESET`, `ETIMEDOUT`,
+`timed out`, `timeout`). A provider refusal such as `provider.free-limit`
+(status 429, `FreeUsageLimitError`) is not tolerated, so the smoke fails even
+though the plugin boot is healthy. Observed 2026-10-25: `initPlugin=7.20ms`,
+`v2 registered 42 tools` three times, `INIT_AUDIT health: healthy`, schemas
+refreshed — and the gate still exited 3 on the 429.
+
+Root cause is partly self-inflicted: the smoke links
+`$HOME/.local/share/opencode/auth.json` as `AUTH_SRC`, but that file does not
+exist on this host (credentials live in the sidecar `credential` table), so the
+scratch boot always uses the anonymous free endpoint.
+
+Next: add `provider\.` and `FreeUsageLimitError` (and a 429 pattern) to the
+tolerated-error branch, reword the message to "model reply unavailable
+(provider) — plugin boot verified, continuing", and correct the register's
+baseline claim that only transport errors are accepted. Optionally allow
+`TAWASSUL_SMOKE_AUTH_SRC` to point at a resolved credential so the smoke can
+pick a provider that is not quota-bound.
+
 ---
 
 ## Data and state (P1)
@@ -492,6 +532,13 @@ for one v1-only package entry and one dual entry.
 ### D-01 Three database paths — deferred by owner (2026-10-25)
 
 Re-raised by evaluation finding E-08; the decision below is unchanged.
+
+Owner instruction (2026-10-25): this plugin ships to end users. A missing
+session is data the user cannot recover, so the defect must be removed
+structurally rather than mitigated by documentation. Acceptable shapes are a
+single deterministic write path plus fail-closed detection of a second
+project database, or an automatic move with a verified backup. A warning the
+user never reads is not acceptable.
 
 - Desktop sidecar: `~/.local/share/opencode/tawassul-v2/opencode.db`
   (21 MB + 9.5 MB WAL, written continuously; `OPENCODE_DB` is set by
@@ -710,8 +757,14 @@ baseline.
    `opencode-v1-bun-symlink-20261025`, and
    `global-config-v1-backup-20261025`. The `~/.opencode` tree was already
    deleted in H-02; there is no backup of it under `/tmp/opencode` (the
-   earlier pending text was wrong). `v1-retire-backup` (six old
+   earlier pending text was wrong). `schema-payload` was deleted on
+   2026-10-25 after the quota diagnosis. `v1-retire-backup` (six old
    `opencode.json` copies) needs a separate keep/delete decision.
+7. Legacy state residue (done 2026-10-25): the 75 stale `*.tmp` files and the
+   extra `.bak.*` files under `~/.config/tawassul/state/` were removed with the
+   B-04 cleanup; the single remaining router file stays as the permitted
+   read-only legacy fallback. Its root-level siblings (`cost-transparency.json`,
+   `collective-memory-515c5c5d.json`) are still pending under item 6.
 5. D-01: name the sidecar DB canonical, the shared DB legacy read-only, and the
    launcher DB test-only. No file is deleted. Deferred on 2026-10-25.
 6. Keep or drop the untracked `scripts/check-shared-anchors.mjs`,
@@ -719,6 +772,11 @@ baseline.
    `collective-memory*` files.
 
 ## Verification baseline (for regression)
+
+Known open defect at baseline time: `gate:smoke` fails with rc=3 whenever the
+provider's free-tier quota is exhausted, because the smoke only tolerates
+transport-shaped errors and not `provider.*` refusals (see G-09). The plugin
+boot itself is healthy in those runs (`initPlugin`, 42 tools, `INIT_AUDIT`).
 
 - `npm run verify`: `gate:fast` plus the build (`dist/index.js` and `dist/global.js`).
 - `npm run gate:fast`: 6 steps, about 11.7 s.
