@@ -36,14 +36,18 @@ re-open the v1 transfer channel.
 
 ## Ownership boundary
 
-1. **v1 is retired.** Its tree is read-only reference. No transfers, no code
-   edits, no cross-tree commits.
+1. **v1 is retired permanently.** Its tree is read-only reference. It must not
+   load in any project, and any v1 plugin entry or v1 host is a defect, not a
+   compatibility target. No transfers, no code edits, no cross-tree commits.
 2. **v2 owns this tree.** Only agents working in this folder implement,
    verify (`npm run verify`), and commit code changes.
 3. **One plugin copy.** This tree is the only runnable Tawassul plugin.
    v2 must not import from, build with, or execute the v1 tree. The only
    permitted v1-era reads are the documented legacy state fallback and the
    existing HMAC key file; `npm run prove:independence` enforces this.
+4. **One host in production.** The Desktop and its sidecar are the supported
+   host. Two hosts run only in isolated tests (`XDG_*`, `OPENCODE_DB`, and
+   state separated), never on the same workspace at the same time.
 
 ## Porting from v1
 

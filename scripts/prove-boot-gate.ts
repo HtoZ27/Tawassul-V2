@@ -54,6 +54,15 @@ function unsupportedBinary(dir: string, name: string): string {
   return path;
 }
 
+function argsBinary(dir: string, name: string): string {
+  const path = join(dir, name);
+  writeExecutable(
+    path,
+    "#!/usr/bin/env bash\nif [ \"${1:-}\" = \"--version\" ]; then echo \"opencode v2.1.4\"; exit 0; fi\nprintf 'ARGS=%s\\n' \"$*\"\n",
+  );
+  return path;
+}
+
 function launcherLines(home: string): string[] {
   const log = join(home, ".local", "share", "tawassul-v2", "tawassul", "tawassul.log");
   if (!existsSync(log)) return [];
@@ -61,7 +70,15 @@ function launcherLines(home: string): string[] {
 }
 
 function runLauncher(home: string, extra: Record<string, string> = {}): { status: number; stdout: string; stderr: string } {
-  const res = spawnSync("/bin/bash", [launcher, "run"], { env: cleanEnv(home, extra), encoding: "utf8", timeout: 60000 });
+  return runLauncherArgs(home, ["run"], extra);
+}
+
+function runLauncherArgs(
+  home: string,
+  args: string[],
+  extra: Record<string, string> = {},
+): { status: number; stdout: string; stderr: string } {
+  const res = spawnSync("/bin/bash", [launcher, ...args], { env: cleanEnv(home, extra), encoding: "utf8", timeout: 60000 });
   return { status: res.status ?? -1, stdout: res.stdout ?? "", stderr: res.stderr ?? "" };
 }
 
@@ -144,6 +161,27 @@ try {
     assert(explicit.stderr.includes("does not advertise a watcher flag"), "TAWASSUL_OPENCODE_BIN wins over OPENCODE");
     const bad = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: "/nope/opencode" });
     assert(bad.status === 2 && bad.stderr.includes("host binary not found"), "missing explicit binary refuses with rc 2");
+  }
+
+  {
+    const dHome = tempHome("desktop-cli");
+    const dDir = join(dHome, ".config", "ai.opencode.desktop", "cli", "2.1.4-x64");
+    mkdirSync(dDir, { recursive: true });
+    argsBinary(dDir, "opencode-cli");
+    const res = runLauncherArgs(dHome, ["run"]);
+    assert(res.status === 0, "launcher runs the Desktop CLI when the terminal copy is absent");
+    assert(res.stdout.includes("ARGS=run --standalone"), "run gets --standalone in isolated mode");
+    assert(res.stderr.includes("isolated client mode"), "isolation injection is announced");
+    assert(!existsSync(join(dHome, ".opencode")), "no terminal install was required");
+    const explicit = runLauncherArgs(dHome, ["run", "--standalone"]);
+    assert(explicit.stdout.includes("ARGS=run --standalone"), "explicit --standalone is not duplicated");
+    const serve = runLauncherArgs(dHome, ["serve", "--port", "0"]);
+    assert(serve.stdout.includes("ARGS=serve --port 0"), "serve is never forced into standalone");
+    assert(!serve.stderr.includes("isolated client mode"), "serve skips the isolation notice");
+    const tui = runLauncherArgs(dHome, []);
+    assert(tui.stdout.includes("ARGS=--standalone"), "bare TUI gets a private server");
+    const missing = runLauncherArgs(tempHome("no-host"), ["run"]);
+    assert(missing.status === 2 && missing.stderr.includes("host binary not found"), "no host anywhere refuses with rc 2");
   }
 
   {

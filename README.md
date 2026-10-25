@@ -138,10 +138,43 @@ its own description. Common entry points:
 - `checkpoint` / `codestate` — code snapshots and undo
 - `pause` / `resume` / `panic` — workflow control
 
+## Host process model
+
+OpenCode 2.1.4 is a client plus a background service:
+
+- The Desktop app (`/opt/OpenCode/ai.opencode`) starts its own engine:
+  `~/.config/ai.opencode.desktop/cli/2.1.4-x64/opencode-cli serve --service`.
+  That process is expected and must not be killed.
+- The engine writes `~/.local/state/opencode/service.json` (URL, PID,
+  password). Every `opencode` client that shares that state directory attaches
+  to the same service, so it runs the same plugin instance and the same
+  database.
+- `opencode pair` only prints one-time links for a running service. A browser
+  or another app is a client; the plugin still runs inside the service.
+- Any `~/.opencode/bin/opencode serve` process is a separate host. It uses its
+  own `XDG_*` profile and database and is not registered in the Desktop
+  descriptor.
+
+Rules:
+
+1. Production uses one host: the Desktop plus its sidecar.
+2. `scripts/opencode-v2-iso.sh` resolves the host as `TAWASSUL_OPENCODE_BIN`,
+   `OPENCODE`, `~/.opencode/bin/opencode`, then the Desktop-bundled CLI. The
+   terminal copy is optional.
+3. For `run`, `mini`, and the bare TUI the launcher injects `--standalone`, so
+   a dev run never attaches to the live desktop service and never leaves a
+   detached background host. An explicit `--server`, `--url`, or
+   `--standalone` wins.
+4. Two hosts at once are for tests only, each with isolated `XDG_*`,
+   `OPENCODE_DB`, and state, and never on the same workspace.
+
 ## Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
+| A CLI server appears after opening Desktop | It is the desktop sidecar: `opencode-cli serve --service` on `127.0.0.1`. `npm run doctor` classifies every host. |
+| A stray `opencode serve` keeps running | It is a separate host, not the sidecar. `npm run doctor` fails on `~/.opencode/bin/opencode serve`; stop that PID. |
+| Terminal `opencode` still resolves after uninstall | `~/.opencode/bin` is still on PATH (`~/.bashrc`). `opencode uninstall` also stops the shared service, so do not run it while the Desktop is open. |
 | `generation guard refused` | The DB belongs to the other generation; use the v2 DB or a fresh file. |
 | `refusing host vX — pinned v2.1.4` | Install 2.1.4 or set `TAWASSUL_OPENCODE_VERSION` deliberately. |
 | Plugin registered 0 tools | Run `npm run build`; confirm `.opencode/plugin/tawassul.js` exists. |
@@ -155,6 +188,7 @@ its own description. Common entry points:
 ## Docs map
 
 - `PLAN.md` — priority plan and day-by-day history
+- `ISSUES.md` — live issue register (hosts, runtime cost, gate, data)
 - `CUTOVER.md` — dual-generation evidence, freeze, retirement, rollback
 - `TRIAGE.md` — S-055 A–L verdicts with evidence
 - `RECOVERY-20261025.md` — desktop DB split, session merge, multi-project hardening

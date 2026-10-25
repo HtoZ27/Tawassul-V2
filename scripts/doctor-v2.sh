@@ -156,6 +156,37 @@ else
   if [ -n "$expected" ] && [ "$db" != "$expected" ]; then count_db "$expected" "hmac-isolated"; fi
 fi
 
+section "hosts"
+SERVICE_DESC="${XDG_STATE_HOME:-$HOME_DIR/.local/state}/opencode/service.json"
+if [ -f "$SERVICE_DESC" ]; then
+  svc_url="$(sed -n 's/.*"url":"\([^"]*\)".*/\1/p' "$SERVICE_DESC" 2>/dev/null)"
+  svc_pid="$(sed -n 's/.*"pid":\([0-9]*\).*/\1/p' "$SERVICE_DESC" 2>/dev/null)"
+  if [ -n "$svc_pid" ] && kill -0 "$svc_pid" 2>/dev/null; then
+    pass "active service: ${svc_url:-unknown URL} (pid $svc_pid)"
+  else
+    warn "service descriptor points at pid ${svc_pid:-unknown}, which is not running: $SERVICE_DESC"
+  fi
+else
+  info "no service descriptor at $SERVICE_DESC (no background host)"
+fi
+
+resolved="$(command -v opencode 2>/dev/null || true)"
+case "$resolved" in
+  "") info "no 'opencode' on PATH" ;;
+  "$HOME_DIR/.opencode/bin/opencode") warn "terminal CLI copy on PATH: $resolved (the Desktop does not need it)" ;;
+  *) info "opencode on PATH: $resolved" ;;
+esac
+if [ -x "$HOME_DIR/.opencode/bin/opencode" ]; then
+  warn "terminal CLI install present at $HOME_DIR/.opencode (about 240 MB); the launcher falls back to the Desktop CLI when it is gone"
+fi
+if grep -qs "\.opencode/bin" "$HOME_DIR/.bashrc" 2>/dev/null; then
+  warn "$HOME_DIR/.bashrc exports ~/.opencode/bin into PATH"
+fi
+for candidate in "$HOME_DIR/.config/ai.opencode.desktop/cli/"*/opencode-cli; do
+  [ -x "$candidate" ] || continue
+  info "desktop-bundled CLI: $candidate ($("$candidate" --version 2>/dev/null | head -n1 || printf 'version unavailable'))"
+done
+
 section "processes"
 pids="$(pgrep -f 'opencode(-cli)? (serve|run)' 2>/dev/null || true)"
 if [ -z "$pids" ]; then
@@ -167,6 +198,8 @@ else
     cwd="$(readlink "/proc/$pid/cwd" 2>/dev/null || printf '?')"
     case "$cmd" in
       *"opencode-cli serve --service"*) info "pid $pid: desktop service (cwd $cwd)" ;;
+      *".opencode/bin/opencode serve"*) fail "pid $pid: terminal host is running (cwd $cwd) — stop it; the Desktop already runs its own service" ;;
+      *"ai.opencode.desktop/cli/"*"serve"*) info "pid $pid: desktop-bundled CLI host (cwd $cwd)" ;;
       *)
         if [ "$cwd" = "$ROOT" ]; then
           info "pid $pid: serve for this project (cwd $cwd)"

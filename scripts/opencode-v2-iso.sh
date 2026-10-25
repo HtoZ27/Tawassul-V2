@@ -10,7 +10,13 @@
 # Env:   TAWASSUL_OPENCODE_BIN — explicit host CLI to exec (wins).
 #        OPENCODE — host CLI, used only when it resolves to a command. The
 #        host exports OPENCODE=1 into tool shells, so a non-command value is
-#        ignored; the default is "$HOME/.opencode/bin/opencode".
+#        ignored.
+#        Resolution order: explicit env → ~/.opencode/bin/opencode → the
+#        Desktop-bundled CLI (the same pinned engine) → error. Removing the
+#        terminal copy does not break this launcher.
+#        Interactive/run/mini commands default to --standalone so a dev run
+#        never attaches to the live Desktop service; explicit --server,
+#        --url, or --standalone wins.
 #        TAWASSUL_WATCHER=on|off|auto (env > pinned.env > auto)
 #        TW_DISABLE_FILEWATCHER=1 (legacy; honored in auto mode only)
 
@@ -133,14 +139,45 @@ if [ "${TAWASSUL_AUTO_MAINTAIN:-1}" != "0" ] && [ -f "$V2_DB" ]; then
   fi
 fi
 
+# Resolve the host CLI: explicit env, terminal install, then the Desktop CLI.
+# The Desktop ships the same pinned engine under cli/<version>-<arch>/, so the
+# launcher keeps working after the terminal copy is removed.
+launcher_host_bin() {
+  local candidate="" dir="" best="" version=""
+  if [ -n "${TAWASSUL_OPENCODE_BIN:-}" ]; then
+    printf '%s' "$TAWASSUL_OPENCODE_BIN"
+    return 0
+  fi
+  if [ -n "${OPENCODE:-}" ] && command -v "$OPENCODE" >/dev/null 2>&1; then
+    printf '%s' "$OPENCODE"
+    return 0
+  fi
+  candidate="$HOME/.opencode/bin/opencode"
+  if [ -x "$candidate" ]; then
+    printf '%s' "$candidate"
+    return 0
+  fi
+  for dir in "$HOME/.config/ai.opencode.desktop/cli/"*/; do
+    [ -d "$dir" ] || continue
+    [ -x "$dir/opencode-cli" ] || continue
+    version="$(basename "$dir")"
+    if [ -z "$best" ] || [ "$(printf '%s\n%s\n' "$best" "$version" | sort -V | tail -n1)" = "$version" ]; then
+      best="$version"
+    fi
+  done
+  if [ -n "$best" ]; then
+    printf '%s' "$HOME/.config/ai.opencode.desktop/cli/$best/opencode-cli"
+    return 0
+  fi
+  return 1
+}
+
 # Pin the host binary version: a v1/mismatched CLI must not open a v2 DB.
 OPENCODE_VERSION_PIN="${TAWASSUL_OPENCODE_VERSION:-2.1.4}"
-if [ -n "${TAWASSUL_OPENCODE_BIN:-}" ]; then
-  OPENCODE_BIN="$TAWASSUL_OPENCODE_BIN"
-elif [ -n "${OPENCODE:-}" ] && command -v "$OPENCODE" >/dev/null 2>&1; then
-  OPENCODE_BIN="$OPENCODE"
-else
-  OPENCODE_BIN="$HOME/.opencode/bin/opencode"
+OPENCODE_BIN="$(launcher_host_bin)" || OPENCODE_BIN=""
+if [ -z "$OPENCODE_BIN" ]; then
+  echo "opencode-v2-iso: host binary not found (set TAWASSUL_OPENCODE_BIN or install OpenCode)." >&2
+  exit 2
 fi
 if ! command -v "$OPENCODE_BIN" >/dev/null 2>&1; then
   echo "opencode-v2-iso: host binary not found: $OPENCODE_BIN (set OPENCODE or install it)." >&2
@@ -213,4 +250,29 @@ printf '%s [launcher] watcher mode=%s d7=%s decision=%s reason=%s\n' \
 
 # V2 runs from its own repo; default to it unless the caller is elsewhere.
 if [ "${PWD:-$V2_REPO}" = "$HOME" ]; then cd "$V2_REPO"; fi
+
+# Isolation default: TUI, run, and mini get a private server, so a dev run
+# never attaches to the live Desktop service (whose DB and state would win)
+# and never leaves a detached background host behind. An explicit --server,
+# --url, or --standalone disables the injection.
+_ISOLATE=1
+case "${1:-}" in
+  ""|run|mini) ;;
+  *) _ISOLATE=0 ;;
+esac
+if [ "$_ISOLATE" = 1 ]; then
+  for _arg in "$@"; do
+    case "$_arg" in
+      --standalone|--server|--server=*|--url|--url=*) _ISOLATE=0 ;;
+    esac
+  done
+fi
+if [ "$_ISOLATE" = 1 ]; then
+  case "${1:-}" in
+    "") set -- --standalone ;;
+    run|mini) _sub="$1"; shift; set -- "$_sub" --standalone "$@" ;;
+  esac
+  echo "opencode-v2-iso: isolated client mode (--standalone) — the live Desktop service is not used." >&2
+fi
+
 exec "$OPENCODE_BIN" "$@"
