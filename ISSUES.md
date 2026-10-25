@@ -18,9 +18,7 @@ State: `open`, `in_progress`, `blocked`, `done`.
 
 ---
 
----
-
-## Host copies and processes (P0 — current work)
+## Host copies and processes (P0)
 
 ### H-01 Orphan terminal server survives uninstall — done
 
@@ -40,41 +38,43 @@ Evidence (2026-10-25):
 Root cause: a detached `serve` from an isolated probe outlived its parent.
 `opencode uninstall` removes binaries, not running processes.
 
-### H-02 Terminal CLI duplicate — blocked (final manual removal)
+### H-02 Terminal CLI duplicate — done
 
 Outcome (2026-10-25):
 
 - `opencode uninstall` completed. Its scope is cache, service descriptor, and
-  the background service: `~/.cache/opencode` is now empty (8 KB, empty
-  `bin`), the shared service was stopped, and
-  `~/.local/state/opencode/service.json` was removed.
-- The uninstaller deliberately leaves the binary as **manual removal**:
-  `~/.opencode/bin/opencode` is still present (240,416,944 bytes), so
-  `command -v opencode` still resolves and `~/.bashrc:139` still exports
-  `~/.opencode/bin` into `PATH`.
+  the background service: `~/.cache/opencode` became empty, the shared service
+  was stopped, and `~/.local/state/opencode/service.json` was removed.
+- The uninstaller deliberately leaves binaries as **manual removal**. With
+  owner approval, `~/.opencode` (230 MB) was moved out and then deleted, and
+  `~/.bashrc:139` (`export PATH=/home/htoz/.opencode/bin:$PATH`) was removed.
+  `~/.bashrc` still parses, and a new login shell reports no `opencode`.
 - The Desktop restarted its sidecar after the uninstall. The descriptor was
   recreated (`pid 805568`, `http://127.0.0.1:49374`), the plugin booted, and
   `v2 registered 42 tools` with `INIT_AUDIT ... "health":"healthy"` and no
   plugin errors. Port 36923 is no longer listening; only 49374 listens, and
   the UI returns HTTP 200. That is the current single-host shape, not a
   defect.
-- `scripts/release-smoke.sh` now resolves explicit env → `OPENCODE` →
+- `scripts/release-smoke.sh` resolves explicit env → `OPENCODE` →
   `~/.opencode/bin/opencode` → the Desktop-bundled CLI, so the gate survives
-  the final removal. Tested with a temporary HOME that has no `~/.opencode`.
+  the removal. Confirmed live: it resolves
+  `~/.config/ai.opencode.desktop/cli/2.1.4-x64/opencode-cli`.
+- `scripts/doctor-v2.sh` now warns when a non-pinned `opencode` appears on
+  PATH, when the v1 Bun global package is installed, when Bun exposes an
+  `opencode` binary, and when the global config pins the v1 plugin SDK.
 
-Remaining action: remove `~/.opencode` and the `PATH` line with owner
-approval. Do not rerun `opencode uninstall` while the Desktop is open: it
-stops the shared service and removes the shared cache again.
+Remaining hazard: the bun-installed v1 binary (H-07). Do not rerun
+`opencode uninstall` while the Desktop is open: it stops the shared service
+and removes the shared cache again.
 
 Evidence:
 
-- `~/.opencode/bin/opencode` (240 MB) + `~/.opencode/bin/opencode2` wrapper.
-- `~/.bashrc:139` exports `~/.opencode/bin` into `PATH`.
+- `~/.opencode` absent; `~/.bashrc` has no `~/.opencode/bin` export; a fresh
+  login shell finds no `opencode`.
+- Launcher prints `opencode v2.1.4`; smoke resolves the Desktop CLI.
+- Full `npm run ci` after removal: rc=0, 25 `PROOF PASS`, `SMOKE PASS`.
 - `dpkg -l opencode` is the **Desktop app** (`/opt/OpenCode`), not the CLI;
   removing that package would delete the Desktop app.
-- `opencode uninstall --dry-run` lists the binary as manual removal, plus the
-  shared service and `~/.cache/opencode`. Running it while the Desktop is
-  open is unsafe.
 
 ### H-03 Launcher can attach to the live Desktop service — done
 
@@ -116,6 +116,26 @@ inert, but it is exactly the leftover that lets v1 load again.
 Next: remove the v1 dependency from the global config (owner approval), or
 leave it intentionally unused and documented. `~/.cache/opencode` is shared
 with the Desktop and must not be removed.
+
+### H-07 Bun global still installs a v1 binary — blocked (owner approval)
+
+Evidence (2026-10-25):
+
+- `~/.bun/bin/opencode` was a symlink to
+  `../install/global/node_modules/opencode-ai/bin/opencode.exe`, and that
+  binary reports `1.17.14`. `~/.bun/bin` is on `PATH` (`~/.bashrc:123`), so
+  after `~/.opencode` was removed this became the only `opencode` a shell
+  could resolve.
+- The symlink was quarantined to
+  `/tmp/opencode/opencode-v1-bun-symlink-20261025`; a new login shell now
+  reports no `opencode`, and the launcher and smoke fall back to the Desktop
+  CLI.
+- `~/.bun/install/global/package.json` still pins `opencode-ai: ^1.17.14`, and
+  the package tree remains under `~/.bun/install/global/node_modules`.
+
+Next: with owner approval, run `bun remove -g opencode-ai` so the package and
+its manifest entry are gone. Until then, do not recreate the symlink and do
+not add the package back.
 
 ---
 
@@ -238,27 +258,29 @@ root. They are untracked and need owner approval before deletion.
 
 ## Pending owner decisions
 
-1. Remove `~/.opencode` (240 MB) and the `PATH` line. `opencode uninstall`
-   already completed its own scope; the binary remains by design as manual
-   removal. Ready now: the launcher and `release-smoke.sh` fall back to the
-   Desktop-bundled CLI. Do not rerun `opencode uninstall` while the Desktop is
-   open.
-2. Delete `/tmp/opencode/smoke-probe` (orphan stopped, port 38335 closed).
-3. Delete the six `tawassul.js.pre-refresh-*` copies and the root
-   `collective-memory*` files.
+1. Remove the bun-installed v1 binary: `bun remove -g opencode-ai` (H-07). The
+   symlink is already quarantined, so PATH is clean; the package tree and the
+   `~/.bun/install/global/package.json` entry remain.
+2. Remove the v1 SDK dependency from `~/.config/opencode` (H-06). Without it,
+   no global config can pull v1 back in.
+3. Delete `/tmp/opencode/smoke-probe` (orphan stopped, port 38335 closed), the
+   quarantined v1 symlink and `~/.opencode` backup under `/tmp/opencode`, and
+   the 12 `tawassul.js.pre-refresh-*` plus 7 `.retired-20261024` copies.
 4. Choose one `OPENCODE_DB` for the Desktop sidecar (D-01).
 5. Keep or drop the untracked `scripts/check-shared-anchors.mjs`,
-   `scripts/port-from-v1.mjs`, and `test-utils.ts`.
-6. Remove the v1 SDK dependency from `~/.config/opencode` (H-06).
+   `scripts/port-from-v1.mjs`, and `test-utils.ts`, plus the root
+   `collective-memory*` files.
 
 ## Verification baseline (for regression)
 
 - `npm run verify`: `gate:fast` plus the single-file build.
-- `npm run gate:fast`: 6 steps, about 11.2 s.
-- `npm run gate:proofs`: 24 proofs, one child each, about 21.1 s.
-- `npm run gate:smoke`: build + release smoke, about 11.6 s.
+- `npm run gate:fast`: 6 steps, about 11.8 s.
+- `npm run gate:proofs`: 24 proofs, one child each, about 21.4 s.
+- `npm run gate:smoke`: build + release smoke, about 13.5 s.
 - `npm run ci`: rc=0, 25 `PROOF PASS`, `SMOKE PASS: host v2.1.4, scratch
-  boot, 42 tools, health + help`, about 44 s.
+  boot, 42 tools, health + help`, about 47 s.
+- The baseline above was measured with no `opencode` on PATH: the launcher and
+  smoke both resolve the Desktop-bundled CLI.
 - Bundles identical: `dist/index.js` and `.opencode/plugin/tawassul.js`
   (1,858,356 bytes).
 - The smoke accepts a provider transport error only after `initPlugin` and

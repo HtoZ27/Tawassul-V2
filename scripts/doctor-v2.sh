@@ -182,6 +182,25 @@ fi
 if grep -qs "\.opencode/bin" "$HOME_DIR/.bashrc" 2>/dev/null; then
   warn "$HOME_DIR/.bashrc exports ~/.opencode/bin into PATH"
 fi
+if [ -n "$resolved" ] && [ -x "$resolved" ]; then
+  cli_version="$("$resolved" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)"
+  expected="${TAWASSUL_OPENCODE_VERSION:-2.1.4}"
+  if [ -n "$cli_version" ] && [ "$cli_version" != "$expected" ]; then
+    warn "opencode on PATH is v$cli_version; the pinned host is v$expected (v1 hosts must not run)"
+  fi
+fi
+BUN_GLOBAL="$HOME_DIR/.bun/install/global/node_modules/opencode-ai"
+if [ -d "$BUN_GLOBAL" ]; then
+  bun_version="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$BUN_GLOBAL/package.json" 2>/dev/null | head -n1)"
+  warn "v1 Bun global package present: $BUN_GLOBAL (version ${bun_version:-unknown}); remove with bun remove -g opencode-ai"
+fi
+if [ -e "$HOME_DIR/.bun/bin/opencode" ] || [ -L "$HOME_DIR/.bun/bin/opencode" ]; then
+  warn "Bun exposes opencode on PATH: $HOME_DIR/.bun/bin/opencode"
+fi
+GLOBAL_PKG="$HOME_DIR/.config/opencode/package.json"
+if [ -f "$GLOBAL_PKG" ] && grep -qs '@opencode-ai/plugin' "$GLOBAL_PKG"; then
+  warn "global config pins the v1 plugin SDK: $GLOBAL_PKG (H-06)"
+fi
 for candidate in "$HOME_DIR/.config/ai.opencode.desktop/cli/"*/opencode-cli; do
   [ -x "$candidate" ] || continue
   info "desktop-bundled CLI: $candidate ($("$candidate" --version 2>/dev/null | head -n1 || printf 'version unavailable'))"
