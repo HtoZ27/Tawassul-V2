@@ -79,6 +79,8 @@ export XDG_CACHE_HOME="$WORK/home/.cache"
 if [ -f "$AUTH_SRC" ]; then
   mkdir -p "$XDG_DATA_HOME/opencode"
   ln -s "$AUTH_SRC" "$XDG_DATA_HOME/opencode/auth.json"
+else
+  echo "release-smoke: no auth source at $AUTH_SRC — the scratch boot runs on the anonymous free endpoint, so a provider quota refusal is expected (set TAWASSUL_SMOKE_AUTH_SRC to a real auth.json)" >&2
 fi
 
 export TAWASSUL_HMAC_KEY_DIR="$WORK/hmac"
@@ -95,8 +97,16 @@ if grep -q 'initPlugin=' "$WORK/tawassul.log" 2>/dev/null && grep -q 'v2 registe
   PLUGIN_BOOT=1
 fi
 if [ "$BOOT_RC" -ne 0 ]; then
-  if [ "$PLUGIN_BOOT" = "1" ] && { [ "$BOOT_RC" -eq 124 ] || grep -qE 'ECONNRESET|Transport:|socket connection|ETIMEDOUT|timed out|timeout' "$WORK/run.out" "$WORK/run.err" 2>/dev/null; }; then
-    echo "release-smoke: model reply unavailable (host transport) — plugin boot verified, continuing" >&2
+  PROVIDER_REFUSAL=0
+  if [ "$PLUGIN_BOOT" = "1" ] && grep -qE 'provider\.[a-z-]+|FreeUsageLimitError|"status": *429|Free usage limit' "$WORK/run.out" "$WORK/run.err" 2>/dev/null; then
+    PROVIDER_REFUSAL=1
+  fi
+  if [ "$PLUGIN_BOOT" = "1" ] && { [ "$PROVIDER_REFUSAL" = "1" ] || [ "$BOOT_RC" -eq 124 ] || grep -qE 'ECONNRESET|Transport:|socket connection|ETIMEDOUT|timed out|timeout' "$WORK/run.out" "$WORK/run.err" 2>/dev/null; }; then
+    if [ "$PROVIDER_REFUSAL" = "1" ]; then
+      echo "release-smoke: model reply unavailable (provider refused — quota or auth) — plugin boot verified, continuing" >&2
+    else
+      echo "release-smoke: model reply unavailable (host transport) — plugin boot verified, continuing" >&2
+    fi
   else
     echo "release-smoke: scratch boot failed (rc=$BOOT_RC)." >&2
     tail -5 "$WORK/run.err" >&2
