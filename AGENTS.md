@@ -66,10 +66,13 @@ re-open the v1 transfer channel.
 
 - `npm run typecheck` — TypeScript strict
 - `npm run check:rules` — English-only + no-comments
-- `npm run build` — single-file bundle to `dist/index.js` (bun, no splitting)
+- `npm run build` — `dist/index.js` plus the self-contained `dist/global.js` (bun, no splitting)
+- `npm run install:global` — opt-in flat-file global install (build first)
+- `npm run verify:global` — hashes, host pin, scope, wasm integrity
+- `npm run uninstall:global` — remove the global file and runtime (`-- --purge` for state)
 - `npm run prove:independence` — no v1 tree reference; one host entry
 - `npm run gate:fast` — rules, shell syntax, typecheck, config, facts, catalog
-- `npm run gate:proofs` — 24 proofs, one isolated child process each
+- `npm run gate:proofs` — 25 proofs, one isolated child process each
 - `npm run gate:smoke` — build + release smoke
 - `npm run ci` — all three stages sequentially, each in its own process
 - `npm run verify` — `gate:fast` plus the build

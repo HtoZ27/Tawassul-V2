@@ -21,7 +21,7 @@ function loadTreeSitter(): Promise<TreeSitterModule | null> {
       (e) => {
         logger.warn(
           `[tawassul] ⚠️ web-tree-sitter is not available — astquery/depmap features are disabled for this session. ` +
-            `Fix: cd .opencode/plugins/tawassul && npm install, then restart opencode (${e?.message ?? e})`,
+            `Fix: install web-tree-sitter and the tree-sitter language packs, then restart opencode (${e?.message ?? e})`,
         );
         return null;
       },
@@ -43,7 +43,21 @@ function findNodeModules(startDir: string): string {
   }
   return resolvePath(startDir, "..", "node_modules");
 }
-const NODE_MODULES = findNodeModules(_dirname);
+
+function findWasmRoot(startDir: string): string {
+  const candidates = [
+    resolvePath(startDir, "..", "tawassul-runtime", "wasm"),
+    resolvePath(startDir, "tawassul-runtime", "wasm"),
+    resolvePath(startDir, "tawassul-wasm"),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(resolvePath(candidate, "web-tree-sitter", "web-tree-sitter.wasm"))) {
+      return candidate;
+    }
+  }
+  return findNodeModules(startDir);
+}
+const WASM_ROOT = findWasmRoot(_dirname);
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 type LanguageId = "typescript" | "tsx" | "javascript";
@@ -132,7 +146,7 @@ export class AstService {
         try {
           await wts.Parser.init({
             locateFile(script: string) {
-              return `${NODE_MODULES}/web-tree-sitter/${script}`;
+              return `${WASM_ROOT}/web-tree-sitter/${script}`;
             },
           });
           this._ready = true;
@@ -154,7 +168,7 @@ export class AstService {
     if (cached) return cached;
 
     try {
-      const wasmPath = resolvePath(NODE_MODULES, WASM_PATHS[langId]!);
+      const wasmPath = resolvePath(WASM_ROOT, WASM_PATHS[langId]!);
       const lang = await wts.Language.load(wasmPath);
       this._languages.set(langId, lang);
 

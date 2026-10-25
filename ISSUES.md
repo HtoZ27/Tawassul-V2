@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-25 · Gate: `npm run ci` rc=0 (3 isolated stages, 25 proofs, smoke pass)
+Status date: 2026-10-25 · Gate: `npm run ci` rc=0 (3 isolated stages, 26 proof files, smoke pass)
 
 Purpose: one durable place for open issues, evidence, and the next action, so
 development context survives session loss. Severity: P0 (can corrupt state or
@@ -155,6 +155,34 @@ Evidence (2026-10-25):
 The quarantined symlink under `/tmp/opencode` is now dangling and can be
 deleted with the other approved temp cleanup.
 
+### H-08 Global install assumed a package directory the host never installs — done
+
+Evidence (2026-10-25): OpenCode v2 discovers a direct `.js` file under
+`~/.config/opencode/plugins/`, but it does not install that file's
+dependencies and does not install from `~/.config/opencode/package.json`. A
+probe importing `zod` failed with `Cannot find package 'zod' imported from
+…/plugins/probe.js`; adding a config-root `package.json` created no
+`node_modules` and changed nothing. A package directory is not installed
+either. v1 worked only because its OpenCode ran `bun install` from the config
+root, which v2 dropped.
+
+Resolution: the global install is one self-contained file,
+`~/.config/opencode/plugins/tawassul.js`, built from `dist/global.js`. It
+carries `zod`, the `web-tree-sitter` JS, and the real `Plugin.define` resolved
+to `@opencode/plugin/promise/plugin` (an identity function), so no host module
+resolution is needed. The four tree-sitter wasm files live under
+`~/.config/opencode/tawassul-runtime/wasm/`, and
+`~/.config/opencode/tawassul-runtime/VERSION` records the bundle/wasm hashes,
+version, and host pin. `scripts/install-global.ts` writes that layout, refuses
+v1 artifacts and the retired package directory, and never edits
+`opencode.json(c)`.
+
+Proof: in an isolated HOME the host logs `loading plugin` for the flat file,
+creates the global roster and agents, and `astquery` on `sample.ts` returns
+the function symbol through the runtime wasm. `npm run prove:global-install`
+asserts the layout, self-containment, hashes, scope, refusal paths, repair,
+and purge.
+
 ---
 
 ## Runtime cost (P1)
@@ -201,8 +229,8 @@ Resolution: `npm run ci` is now `bun scripts/gate.ts all`. It spawns three
 stage processes sequentially (`fast`, `proofs`, `smoke`) and each proof is one
 `bun` child inside the proof stage. The old 30-command `&&` chain is gone.
 
-Measured 2026-10-25: fast 11.2 s (6 steps), proofs 21.1 s (24 proofs), smoke
-11.6 s (2 steps), total about 44 s. The smoke keeps the plugin-boot evidence
+Measured 2026-10-25: fast 11.7 s (6 steps), proofs 21.3 s (25 proofs), smoke
+13.8 s (2 steps), total about 47 s. The smoke keeps the plugin-boot evidence
 when the model provider returns a transport error and only fails when
 `initPlugin` or 42 registered tools are missing.
 
@@ -279,8 +307,9 @@ root. They are untracked and need owner approval before deletion.
   No project loads a v1 plugin: a Desktop-wide scan finds exactly one active
   entry, `/home/htoz/Desktop/Tawassul V2/.opencode/plugin/tawassul.js`. The
   copies need owner approval before deletion.
-- **P-06** Legacy global config `~/.config/opencode/package.json` still pins
-  `@opencode-ai/plugin@1.17.14`; it is unused but stale (see H-06).
+- **P-06** Legacy global config `~/.config/opencode/package.json` pinned
+  `@opencode-ai/plugin@1.17.14`; done — H-06 removed the v1 SDK pin and the
+  file is now `{}` with no `node_modules`.
 
 ---
 
@@ -298,15 +327,16 @@ root. They are untracked and need owner approval before deletion.
 
 ## Verification baseline (for regression)
 
-- `npm run verify`: `gate:fast` plus the single-file build.
-- `npm run gate:fast`: 6 steps, about 11.8 s.
-- `npm run gate:proofs`: 24 proofs, one child each, about 21.4 s.
-- `npm run gate:smoke`: build + release smoke, about 13.5 s.
-- `npm run ci`: rc=0, 25 `PROOF PASS`, `SMOKE PASS: host v2.1.4, scratch
-  boot, 42 tools, health + help`, about 47 s.
+- `npm run verify`: `gate:fast` plus the build (`dist/index.js` and `dist/global.js`).
+- `npm run gate:fast`: 6 steps, about 11.7 s.
+- `npm run gate:proofs`: 25 proofs, one child each, about 21.3 s.
+- `npm run gate:smoke`: build + release smoke, about 13.8 s.
+- `npm run ci`: rc=0, 26 `PROOF PASS` (25 proof steps plus the catalog),
+  `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`, about 47 s.
 - The baseline above was measured with no `opencode` on PATH: the launcher and
   smoke both resolve the Desktop-bundled CLI.
 - Bundles identical: `dist/index.js` and `.opencode/plugin/tawassul.js`
-  (1,858,356 bytes).
+  (1,858,782 bytes). The opt-in global bundle is `dist/global.js`
+  (2,296,549 bytes, self-contained).
 - The smoke accepts a provider transport error only after `initPlugin` and
   `v2 registered 42 tools` are confirmed; a missing plugin boot fails.

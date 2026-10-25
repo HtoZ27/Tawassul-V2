@@ -121,6 +121,10 @@
     {
       "name": "independence",
       "cmd": ["bun", "scripts/prove-v2-independence.ts"]
+    },
+    {
+      "name": "global-install",
+      "cmd": ["bun", "scripts/prove-global-install.ts"]
     }
   ],
   "smoke": [

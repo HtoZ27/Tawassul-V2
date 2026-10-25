@@ -52,6 +52,46 @@ if (existsSync(dtsTarget)) {
 
 console.log(`Build complete: ${join(outdir, "index.js")}`);
 
+const globalShim = `import { define } from "@opencode/plugin/promise/plugin";\nexport const Plugin = { define };\n`;
+const globalResult = await build({
+  outdir,
+  target: "node",
+  format: "esm",
+  sourcemap: "none",
+  splitting: false,
+  entrypoints: ["./src/index.ts"],
+  naming: { entry: "global.js" },
+  external: [],
+  plugins: [
+    {
+      name: "tawassul-global-define",
+      setup(pluginBuild) {
+        pluginBuild.onResolve({ filter: /^@opencode\/plugin$/ }, () => ({
+          path: "plugin-shim",
+          namespace: "tawassul-global",
+        }));
+        pluginBuild.onLoad(
+          { filter: /^plugin-shim$/, namespace: "tawassul-global" },
+          () => ({ contents: globalShim, loader: "js" }),
+        );
+      },
+    },
+  ],
+});
+
+if (!globalResult.success) {
+  console.error("Global build failed:", globalResult.logs);
+  process.exit(1);
+}
+
+const globalText = readFileSync(join(outdir, "global.js"), "utf8");
+const runtimeDependency = globalText.match(/from\s+"(?:@opencode|zod|web-tree-sitter|effect)[^"]*"/);
+if (runtimeDependency) {
+  console.error(`Global build is not self-contained: ${runtimeDependency[0]}`);
+  process.exit(1);
+}
+console.log(`Global build complete: ${join(outdir, "global.js")}`);
+
 const pluginDir = join(".opencode", "plugin");
 mkdirSync(pluginDir, { recursive: true });
 copyFileSync(join(outdir, "index.js"), join(pluginDir, "tawassul.js"));

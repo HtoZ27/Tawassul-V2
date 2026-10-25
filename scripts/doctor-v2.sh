@@ -206,6 +206,38 @@ for candidate in "$HOME_DIR/.config/ai.opencode.desktop/cli/"*/opencode-cli; do
   info "desktop-bundled CLI: $candidate ($("$candidate" --version 2>/dev/null | head -n1 || printf 'version unavailable'))"
 done
 
+section "global install"
+GLOBAL_PLUGIN_DIR="$CONFIG_BASE/opencode/plugins/tawassul"
+GLOBAL_PLUGIN_FLAT="$CONFIG_BASE/opencode/plugins/tawassul.js"
+GLOBAL_RUNTIME="$CONFIG_BASE/opencode/tawassul-runtime"
+GLOBAL_MARKER="$GLOBAL_RUNTIME/VERSION"
+GLOBAL_WASM="$GLOBAL_RUNTIME/wasm"
+if [ -d "$GLOBAL_PLUGIN_DIR" ]; then
+  warn "legacy global package directory present: $GLOBAL_PLUGIN_DIR (remove it; the global install is a flat file)"
+fi
+if [ -f "$GLOBAL_PLUGIN_FLAT" ]; then
+  if [ -f "$GLOBAL_MARKER" ]; then
+    global_version="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$GLOBAL_MARKER" | head -n1)"
+    global_hash="$(sed -n 's/.*"sha256": *"\([^"]*\)".*/\1/p' "$GLOBAL_MARKER" | head -n1)"
+    installed_hash="$(sha256sum "$GLOBAL_PLUGIN_FLAT" 2>/dev/null | cut -d' ' -f1)"
+    info "global plugin install: $GLOBAL_PLUGIN_FLAT (version ${global_version:-unknown})"
+    if [ -f "$ROOT/dist/global.js" ] && [ -n "$global_hash" ] && [ "$installed_hash" != "$(sha256sum "$ROOT/dist/global.js" | cut -d' ' -f1)" ]; then
+      warn "global plugin differs from dist/global.js — run npm run install:global"
+    fi
+    missing_wasm=0
+    for wasm in web-tree-sitter/web-tree-sitter.wasm tree-sitter-javascript/tree-sitter-javascript.wasm tree-sitter-typescript/tree-sitter-typescript.wasm tree-sitter-typescript/tree-sitter-tsx.wasm; do
+      [ -f "$GLOBAL_WASM/$wasm" ] || missing_wasm=$((missing_wasm + 1))
+    done
+    if [ "$missing_wasm" -gt 0 ]; then
+      warn "global runtime is missing $missing_wasm wasm asset(s) under $GLOBAL_WASM — run npm run install:global"
+    fi
+  else
+    warn "global plugin file has no runtime marker: $GLOBAL_PLUGIN_FLAT (reinstall or remove it)"
+  fi
+else
+  info "no global plugin install (project install only)"
+fi
+
 section "processes"
 pids="$(pgrep -f 'opencode(-cli)? (serve|run)' 2>/dev/null || true)"
 if [ -z "$pids" ]; then

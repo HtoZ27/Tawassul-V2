@@ -19,9 +19,10 @@ npm install
 npm run build
 ```
 
-`npm run build` writes `dist/index.js` and the host entry
-`.opencode/plugin/tawassul.js`. The host auto-loads that file for this
-workspace. A fresh clone needs no config edit for the plugin itself.
+`npm run build` writes `dist/index.js`, the self-contained `dist/global.js`,
+and the host entry `.opencode/plugin/tawassul.js`. The host auto-loads that
+file for this workspace. A fresh clone needs no config edit for the plugin
+itself.
 
 If the host runs with a restricted module resolver, install the plugin peer
 once inside the workspace:
@@ -43,11 +44,38 @@ The launcher pins the host, refuses a binary that is not 2.1.4, applies the
 generation guard, runs DB maintenance at the cap, and logs one
 `[launcher] watcher mode=… decision=…` line per launch.
 
+### Opt-in global install
+
+A project install stays the default and wins when both exist. A machine-wide
+install is a single self-contained file plus a runtime asset folder, and the
+installer never edits `opencode.json(c)`:
+
+```
+npm run build
+npm run install:global          # flat file plus wasm assets and VERSION marker
+npm run verify:global           # hashes, host pin, scope, wasm integrity
+npm run uninstall:global        # keeps the global roster and state
+npm run uninstall:global -- --purge
+```
+
+| Path | Contents |
+| --- | --- |
+| `~/.config/opencode/plugins/tawassul.js` | self-contained bundle (`dist/global.js`) |
+| `~/.config/opencode/tawassul-runtime/wasm/…` | web-tree-sitter and language wasm files |
+| `~/.config/opencode/tawassul-runtime/VERSION` | bundle/wasm hashes, version, host pin |
+
+OpenCode v2 loads a direct `.js` file from the global plugins directory but
+does not install its dependencies. The global bundle therefore carries `zod`,
+`web-tree-sitter` JS, and the real `Plugin.define`, while the wasm files are
+copied beside it. The installer refuses v1 artifacts and the retired
+package-directory layout. `--dry-run` reports the planned writes; `--force`
+replaces an unmarked file.
+
 ## Verify
 
 ```
 npm run gate:fast    # rules + shell syntax + typecheck + config + facts + catalog
-npm run gate:proofs  # 24 proofs, one isolated child process each
+npm run gate:proofs  # 25 proofs, one isolated child process each
 npm run gate:smoke   # build + release smoke (one scratch boot)
 npm run ci           # all three stages, sequentially, each in its own process
 npm run verify       # gate:fast + build
