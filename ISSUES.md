@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-25 · HEAD: post-H-01..H-05 · Gate: `npm run ci` rc=0 (25 proofs, smoke pass)
+Status date: 2026-10-25 · Gate: `npm run ci` rc=0 (3 isolated stages, 25 proofs, smoke pass)
 
 Purpose: one durable place for open issues, evidence, and the next action, so
 development context survives session loss. Severity: P0 (can corrupt state or
@@ -40,7 +40,31 @@ Evidence (2026-10-25):
 Root cause: a detached `serve` from an isolated probe outlived its parent.
 `opencode uninstall` removes binaries, not running processes.
 
-### H-02 Terminal CLI duplicate — blocked (owner consent)
+### H-02 Terminal CLI duplicate — blocked (final manual removal)
+
+Outcome (2026-10-25):
+
+- `opencode uninstall` completed. Its scope is cache, service descriptor, and
+  the background service: `~/.cache/opencode` is now empty (8 KB, empty
+  `bin`), the shared service was stopped, and
+  `~/.local/state/opencode/service.json` was removed.
+- The uninstaller deliberately leaves the binary as **manual removal**:
+  `~/.opencode/bin/opencode` is still present (240,416,944 bytes), so
+  `command -v opencode` still resolves and `~/.bashrc:139` still exports
+  `~/.opencode/bin` into `PATH`.
+- The Desktop restarted its sidecar after the uninstall. The descriptor was
+  recreated (`pid 805568`, `http://127.0.0.1:49374`), the plugin booted, and
+  `v2 registered 42 tools` with `INIT_AUDIT ... "health":"healthy"` and no
+  plugin errors. Port 36923 is no longer listening; only 49374 listens, and
+  the UI returns HTTP 200. That is the current single-host shape, not a
+  defect.
+- `scripts/release-smoke.sh` now resolves explicit env → `OPENCODE` →
+  `~/.opencode/bin/opencode` → the Desktop-bundled CLI, so the gate survives
+  the final removal. Tested with a temporary HOME that has no `~/.opencode`.
+
+Remaining action: remove `~/.opencode` and the `PATH` line with owner
+approval. Do not rerun `opencode uninstall` while the Desktop is open: it
+stops the shared service and removes the shared cache again.
 
 Evidence:
 
@@ -48,14 +72,9 @@ Evidence:
 - `~/.bashrc:139` exports `~/.opencode/bin` into `PATH`.
 - `dpkg -l opencode` is the **Desktop app** (`/opt/OpenCode`), not the CLI;
   removing that package would delete the Desktop app.
-- `opencode uninstall --dry-run` removes the binary **and stops the shared
-  background service** (the Desktop sidecar) and deletes
-  `~/.local/state/opencode/service.json`. It also removes `~/.cache/opencode`,
-  which the Desktop shares. Running it while the Desktop is open is unsafe.
-
-Decision: Desktop-only is the target. Do not use `opencode uninstall` here.
-After the launcher fallback landed, remove only `~/.opencode` and the `PATH`
-line, with owner approval. The launcher now runs on the Desktop-bundled CLI.
+- `opencode uninstall --dry-run` lists the binary as manual removal, plus the
+  shared service and `~/.cache/opencode`. Running it while the Desktop is
+  open is unsafe.
 
 ### H-03 Launcher can attach to the live Desktop service — done
 
@@ -138,32 +157,37 @@ Measure total schema bytes and estimated tokens before changing anything.
 
 ## Verification gate (P1)
 
-### G-01 CI spawns about 35 separate npm/bun processes — open
+### G-01 CI spawns about 35 separate npm/bun processes — done
 
-`ci` chains `verify` (4 sub-commands), 5 checks, 25 proofs, and the smoke gate.
-Samples: `prove:state-namespace` 232 ms, `prove:v2-compat` 416 ms,
-`prove:disclosure` 2042 ms, `prove:goal-capture` 3363 ms. Process startup is a
-large share of the small proofs.
+Resolution: `npm run ci` is now `bun scripts/gate.ts all`. It spawns three
+stage processes sequentially (`fast`, `proofs`, `smoke`) and each proof is one
+`bun` child inside the proof stage. The old 30-command `&&` chain is gone.
 
-Next: one `scripts/gate.mjs` runner with a manifest, `bun` child processes,
-`--tier fast|full`, `--only`, `--timings`, and one summary.
+Measured 2026-10-25: fast 11.2 s (6 steps), proofs 21.1 s (24 proofs), smoke
+11.6 s (2 steps), total about 44 s. The smoke keeps the plugin-boot evidence
+when the model provider returns a transport error and only fails when
+`initPlugin` or 42 registered tools are missing.
 
-### G-02 No fast tier — open
+### G-02 No fast tier — done
 
-The full gate is the only entry point, so it competes with live work
-(1.5 GB memory cap in `RULES.md`). Next: `npm run gate` fast tier (rules,
-shell syntax, typecheck, config, facts, catalog) and `npm run gate -- full`.
+Resolution: `npm run gate:fast` runs rules, shell syntax, typecheck, config,
+facts, and the proof catalog. `npm run gate:proofs` and
+`npm run gate:smoke` are separate commands. `npm run gate:proofs -- --only
+s028 --timings` runs one proof with per-step durations. Each stage is its own
+OS process, so the heavy stages cannot corrupt the fast checks.
 
-### G-03 Catalog parses the CI string — open
+### G-03 Catalog parses the CI string — done
 
-`prove-proof-catalog` requires each proof to appear in the `ci` string. After
-the runner lands, the manifest becomes the source of truth and the catalog
-validates the manifest instead.
+Resolution: `scripts/gate-manifest.json` is the source of truth.
+`prove-proof-catalog` validates the manifest (every `prove-*.ts` file wired
+exactly once, every target exists, `ci` is the umbrella with no `&&`, and
+`verify` remains `gate:fast` plus the build). It runs in the fast stage.
 
 ### G-04 No boot budget proof — open
 
-Nothing fails when boot time regresses. Next: `prove:boot-budget` with a
-measured budget (candidate 150 ms from init to 42 tools).
+Nothing fails when boot time regresses. The smoke records `initPlugin` and
+`registered 42 tools` but does not enforce a budget. Next: `prove:boot-budget`
+with a measured budget (candidate 150 ms from init to 42 tools).
 
 ---
 
@@ -214,10 +238,11 @@ root. They are untracked and need owner approval before deletion.
 
 ## Pending owner decisions
 
-1. Remove `~/.opencode` (240 MB) and the `PATH` line. Ready now: the launcher
-   falls back to the Desktop-bundled CLI. Do not run `opencode uninstall`
-   while the Desktop is open (it stops the shared service and removes the
-   shared cache).
+1. Remove `~/.opencode` (240 MB) and the `PATH` line. `opencode uninstall`
+   already completed its own scope; the binary remains by design as manual
+   removal. Ready now: the launcher and `release-smoke.sh` fall back to the
+   Desktop-bundled CLI. Do not rerun `opencode uninstall` while the Desktop is
+   open.
 2. Delete `/tmp/opencode/smoke-probe` (orphan stopped, port 38335 closed).
 3. Delete the six `tawassul.js.pre-refresh-*` copies and the root
    `collective-memory*` files.
@@ -228,8 +253,13 @@ root. They are untracked and need owner approval before deletion.
 
 ## Verification baseline (for regression)
 
-- `npm run verify`: rules, shell syntax, `tsc --noEmit`, single-file build.
-- `npm run ci` at `79d8e31`: rc=0, 25 `PROOF PASS`,
-  `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`.
+- `npm run verify`: `gate:fast` plus the single-file build.
+- `npm run gate:fast`: 6 steps, about 11.2 s.
+- `npm run gate:proofs`: 24 proofs, one child each, about 21.1 s.
+- `npm run gate:smoke`: build + release smoke, about 11.6 s.
+- `npm run ci`: rc=0, 25 `PROOF PASS`, `SMOKE PASS: host v2.1.4, scratch
+  boot, 42 tools, health + help`, about 44 s.
 - Bundles identical: `dist/index.js` and `.opencode/plugin/tawassul.js`
   (1,858,356 bytes).
+- The smoke accepts a provider transport error only after `initPlugin` and
+  `v2 registered 42 tools` are confirmed; a missing plugin boot fails.

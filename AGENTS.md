@@ -26,7 +26,8 @@ is a retired, read-only reference.
 ## Before any work
 
 1. Read `RULES.md` (memory cap 1.5GB, sequential heavy ops).
-2. Run `npm run verify` after changes: rules + shell syntax + typecheck + build.
+2. Run `npm run verify` after changes: fast gate + build (`npm run ci` for
+   proofs and smoke).
 
 ## Shared issues log (frozen)
 
@@ -67,4 +68,8 @@ re-open the v1 transfer channel.
 - `npm run check:rules` — English-only + no-comments
 - `npm run build` — single-file bundle to `dist/index.js` (bun, no splitting)
 - `npm run prove:independence` — no v1 tree reference; one host entry
-- `npm run verify` — all of the above sequentially
+- `npm run gate:fast` — rules, shell syntax, typecheck, config, facts, catalog
+- `npm run gate:proofs` — 24 proofs, one isolated child process each
+- `npm run gate:smoke` — build + release smoke
+- `npm run ci` — all three stages sequentially, each in its own process
+- `npm run verify` — `gate:fast` plus the build

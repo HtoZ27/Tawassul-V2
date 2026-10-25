@@ -46,14 +46,26 @@ generation guard, runs DB maintenance at the cap, and logs one
 ## Verify
 
 ```
-npm run verify      # rules + shell syntax + typecheck + build
-npm run doctor      # per-project scope, DB isolation, router files, orphan servers
-npm run ci          # verify + config/facts + all 25 proofs + release smoke
+npm run gate:fast    # rules + shell syntax + typecheck + config + facts + catalog
+npm run gate:proofs  # 24 proofs, one isolated child process each
+npm run gate:smoke   # build + release smoke (one scratch boot)
+npm run ci           # all three stages, sequentially, each in its own process
+npm run verify       # gate:fast + build
+npm run doctor       # per-project scope, DB isolation, router files, orphan servers
 ```
 
-`npm run ci` ends with `smoke:release`: host pin check, a scratch workspace
-boot with an isolated `OPENCODE_DB`, 42 registered tools, and direct `health`
-plus `help` calls. A broken plugin cannot pass it.
+Each stage is a separate process, so a failure in one stage cannot leave
+another stage in a partial state. `npm run ci` runs the three stage processes
+in order instead of chaining the proof commands. Use
+`npm run gate:proofs -- --only s028 --timings` for one proof and per-step
+durations. The manifest is `scripts/gate-manifest.json`;
+`prove-proof-catalog` fails when a proof file is missing from it.
+
+The smoke stage builds once, then boots a scratch workspace with an isolated
+`OPENCODE_DB` and checks `initPlugin`, 42 registered tools, and direct `health`
+plus `help` calls. A broken plugin cannot pass it. If the model provider is
+unreachable, the smoke keeps the plugin-boot evidence and reports the reply as
+skipped; a missing plugin boot still fails.
 
 ## Independence
 

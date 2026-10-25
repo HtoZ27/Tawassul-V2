@@ -1,0 +1,139 @@
+{
+  "fast": [
+    {
+      "name": "source-rules",
+      "cmd": ["node", "scripts/check-v2-rules.mjs"]
+    },
+    {
+      "name": "shell-syntax",
+      "cmd": ["bash", "-c", "for f in scripts/*.sh; do bash -n \"$f\" || exit 1; done"]
+    },
+    {
+      "name": "typecheck",
+      "cmd": ["./node_modules/.bin/tsc", "--noEmit"]
+    },
+    {
+      "name": "config",
+      "cmd": ["bun", "src/scripts/gen-opencode-config.ts", "--check"]
+    },
+    {
+      "name": "facts",
+      "cmd": ["bun", "src/scripts/facts.ts", "check"]
+    },
+    {
+      "name": "proof-catalog",
+      "cmd": ["bun", "scripts/prove-proof-catalog.ts"]
+    }
+  ],
+  "proofs": [
+    {
+      "name": "gen-lock",
+      "cmd": ["bun", "scripts/prove-gen-lock-contention.ts"]
+    },
+    {
+      "name": "gen-merge",
+      "cmd": ["bun", "scripts/prove-gen-merge-guards.ts"]
+    },
+    {
+      "name": "roster-boundary",
+      "cmd": ["bun", "scripts/prove-roster-boundary.ts"]
+    },
+    {
+      "name": "event-trust",
+      "cmd": ["bun", "scripts/prove-event-trust-p1.ts"]
+    },
+    {
+      "name": "web-ssrf",
+      "cmd": ["bun", "scripts/prove-web-ssrf.ts"]
+    },
+    {
+      "name": "first-boot",
+      "cmd": ["bun", "scripts/prove-first-boot-seed.ts"]
+    },
+    {
+      "name": "disclosure",
+      "cmd": ["bun", "scripts/prove-disclosure.ts"]
+    },
+    {
+      "name": "s020",
+      "cmd": ["bun", "scripts/prove-s020.ts"]
+    },
+    {
+      "name": "s021",
+      "cmd": ["bun", "scripts/prove-s021.ts"]
+    },
+    {
+      "name": "resurrection",
+      "cmd": ["bun", "scripts/prove-goal-resurrection.ts"]
+    },
+    {
+      "name": "goal-capture",
+      "cmd": ["bun", "scripts/prove-goal-capture.ts"]
+    },
+    {
+      "name": "early-exit",
+      "cmd": ["bun", "scripts/prove-pipeline-early-exit.ts"]
+    },
+    {
+      "name": "priming",
+      "cmd": ["bun", "scripts/prove-store-priming.ts"]
+    },
+    {
+      "name": "s024",
+      "cmd": ["bun", "scripts/prove-s024.ts"]
+    },
+    {
+      "name": "rules",
+      "cmd": ["bun", "scripts/prove-rule-gate.ts"]
+    },
+    {
+      "name": "s028",
+      "cmd": ["bun", "scripts/prove-s028.ts"]
+    },
+    {
+      "name": "s029",
+      "cmd": ["bun", "scripts/prove-s029.ts"]
+    },
+    {
+      "name": "s038",
+      "cmd": ["bun", "scripts/prove-s038.ts"]
+    },
+    {
+      "name": "state-namespace",
+      "cmd": ["bun", "scripts/prove-state-namespace.ts"]
+    },
+    {
+      "name": "boot-gate",
+      "cmd": ["bun", "scripts/prove-boot-gate.ts"]
+    },
+    {
+      "name": "db-retention",
+      "cmd": ["bun", "scripts/prove-db-retention.ts"]
+    },
+    {
+      "name": "v2-compat",
+      "cmd": ["bun", "scripts/prove-v2-compat.ts"]
+    },
+    {
+      "name": "catch-discipline",
+      "cmd": ["bun", "scripts/prove-catch-discipline.ts"]
+    },
+    {
+      "name": "independence",
+      "cmd": ["bun", "scripts/prove-v2-independence.ts"]
+    }
+  ],
+  "smoke": [
+    {
+      "name": "build",
+      "cmd": ["bun", "build-v2.mjs"]
+    },
+    {
+      "name": "release-smoke",
+      "cmd": ["bash", "scripts/release-smoke.sh"],
+      "env": {
+        "TAWASSUL_SMOKE_SKIP_BUILD": "1"
+      }
+    }
+  ]
+}
