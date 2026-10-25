@@ -18,7 +18,7 @@ State: `open`, `in_progress`, `blocked`, `done`.
 
 ---
 
-## Host copies and processes (P0)
+## Host copies and processes (P0 — complete)
 
 ### H-01 Orphan terminal server survives uninstall — done
 
@@ -106,16 +106,30 @@ Resolution: `AGENTS.md` ownership boundary item 4 and `README.md` "Host
 process model" state that production uses the Desktop plus its sidecar, and
 that two hosts are test-only with isolated `XDG_*`, `OPENCODE_DB`, and state.
 
-### H-06 Global config still installs the v1 plugin SDK — open
+### H-06 Global config still installs the v1 plugin SDK — done
 
-Evidence: `~/.config/opencode/package.json` depends on
-`@opencode-ai/plugin@1.17.14`, and `~/.config/opencode/node_modules` still
-contains the v1 package. The global config has no plugin entry today, so it is
-inert, but it is exactly the leftover that lets v1 load again.
+Evidence before removal: `~/.config/opencode/package.json` depended on
+`@opencode-ai/plugin@1.17.14`, and `~/.config/opencode/node_modules` held the
+v1 package plus 26 transitive dependencies. The global config had no plugin
+entry (`opencode.jsonc` contains only `$schema`), so it was inert, but it was
+exactly the leftover that lets v1 load again.
 
-Next: remove the v1 dependency from the global config (owner approval), or
-leave it intentionally unused and documented. `~/.cache/opencode` is shared
-with the Desktop and must not be removed.
+Removal (2026-10-25, owner approval):
+
+- Backed up `package.json` and `package-lock.json` to
+  `/tmp/opencode/global-config-v1-backup-20261025/`.
+- `npm uninstall @opencode-ai/plugin` removed 27 packages;
+  `package.json` is now `{}`, the lock has zero packages, and the empty
+  `node_modules` directory was removed.
+- `grep -rn "opencode-ai/plugin\|1.17.14" ~/.config/opencode` finds nothing.
+- Doctor now reports no warning, and the live sidecar still answers HTTP 200.
+
+Why v2 is unaffected: v2 is not a global dependency. It is the built bundle
+`.opencode/plugin/tawassul.js` (1.8 MB) plus `.opencode/package.json`
+(`@opencode/plugin 2.1.4`), auto-discovered from the project's `.opencode/plugin`
+directory. The project config has no `plugin` key and still boots 42 tools.
+
+`~/.cache/opencode` is shared with the Desktop and must not be removed.
 
 ### H-07 Bun global still installs a v1 binary — done
 
@@ -217,15 +231,25 @@ with a measured budget (candidate 150 ms from init to 42 tools).
 
 ## Data and state (P1)
 
-### D-01 Three database paths — open
+### D-01 Three database paths — deferred by owner (2026-10-25)
 
 - Desktop sidecar: `~/.local/share/opencode/tawassul-v2/opencode.db`
-- Shared CLI DB: `~/.local/share/opencode/opencode.db`
-- Launcher DB: `~/.local/share/tawassul-v2/opencode-v2.db`
+  (21 MB + 9.5 MB WAL, written continuously; `OPENCODE_DB` is set by
+  `~/.config/tawassul/launchers/opencode-desktop-iso.sh` for the v2 lane).
+- Shared CLI DB: `~/.local/share/opencode/opencode.db` (24 MB, last write
+  2026-10-25 04:35; no live process holds it).
+- Launcher DB: `~/.local/share/tawassul-v2/opencode-v2.db` (13 MB, dev and
+  smoke runs only).
 
 The Desktop descriptor points every client at the sidecar, so the CLI and
 launcher paths are only used by isolated runs. Unifying them needs an explicit
 decision because it touches live sessions.
+
+Measured on 2026-10-25, the sidecar already uses the dedicated DB, and the
+three files carry three different roles rather than three competing choices.
+Recommendation (not adopted): sidecar DB canonical, shared DB legacy read-only
+for the D-02 import, launcher DB test-only. Nothing would be deleted or moved.
+Owner deferred the decision; the three paths stay as they are.
 
 ### D-02 Old sessions are not imported — open
 
@@ -262,17 +286,13 @@ root. They are untracked and need owner approval before deletion.
 
 ## Pending owner decisions
 
-1. Remove the v1 SDK dependency from `~/.config/opencode` (H-06). The global
-   `opencode.jsonc` has no plugin entry, so the dependency is inert; without it
-   no global config can pull v1 back in. v2 is unaffected: it loads from
-   `.opencode/plugin/tawassul.js` in each project.
-2. Delete `/tmp/opencode/smoke-probe` (orphan stopped, port 38335 closed), the
+1. Delete `/tmp/opencode/smoke-probe` (orphan stopped, port 38335 closed), the
    dangling quarantined v1 symlink, the `~/.opencode` backup under
-   `/tmp/opencode`, and the 12 `tawassul.js.pre-refresh-*` plus 7
-   `.retired-20261024` copies.
-3. Resolve D-01: name the sidecar DB canonical, the shared DB legacy read-only,
-   and the launcher DB test-only. No file is deleted.
-4. Keep or drop the untracked `scripts/check-shared-anchors.mjs`,
+   `/tmp/opencode`, the global-config backup, and the 12
+   `tawassul.js.pre-refresh-*` plus 7 `.retired-20261024` copies.
+2. D-01: name the sidecar DB canonical, the shared DB legacy read-only, and the
+   launcher DB test-only. No file is deleted. Deferred on 2026-10-25.
+3. Keep or drop the untracked `scripts/check-shared-anchors.mjs`,
    `scripts/port-from-v1.mjs`, and `test-utils.ts`, plus the root
    `collective-memory*` files.
 
