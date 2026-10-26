@@ -30,6 +30,7 @@ import { atomicWriteFile } from "../utils/atomic.ts";
 import type { TawassulContext } from "../context.ts";
 import type { ToolDefinition, ToolContext } from "../tool.ts";
 import { tool } from "../tool.ts";
+import { ASK_UNAVAILABLE } from "../services/ask-channel.ts";
 import { ALL_AGENTS } from "../agent-templates.ts";
 import { defaultAgentModelForRole, getDynamicFallbackChainForRole } from "../services/proxy-fallback-chains.ts";
 import { isGeneratedVariant, RETIRED_MODEL_IDS } from "../core/variant-names.ts";
@@ -995,6 +996,10 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
           }
           try {
             const reply = await channel.askForRoot(title, { type: "confirm", default: false }, cctx.sessionID);
+            if (reply === ASK_UNAVAILABLE) {
+              logger.warn("[kick] bulk confirm could not reach the user — failing closed");
+              return { output: t("kickBulkConfirmRequired") };
+            }
             if (reply !== true) {
               return { output: t("kickCancelled") };
             }
@@ -1007,7 +1012,11 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
               type: "confirm",
               default: false,
             });
-            if (!confirmed) {
+            if (confirmed === ASK_UNAVAILABLE) {
+              logger.warn("[kick] bulk confirm could not reach the user — failing closed");
+              return { output: t("kickBulkConfirmRequired") };
+            }
+            if (confirmed !== true) {
               return { output: t("kickCancelled") };
             }
           } catch {

@@ -7,6 +7,10 @@ export type { AskReply, AskKind } from "./ask-channel-parse.ts";
 
 export const ASK_PENDING = Symbol("tawassul-ask-pending");
 
+export const ASK_UNAVAILABLE = Symbol("tawassul-ask-unavailable");
+
+export type AskOutcome = AskReply | typeof ASK_UNAVAILABLE;
+
 
 export const DEFERRED_TIMEOUT_MS = 60_000;
 
@@ -28,7 +32,7 @@ export interface AskSlot {
   sessionID: string;
   title: string;
   kind: AskKind;
-  resolve: (v: AskReply | typeof ASK_PENDING) => void;
+  resolve: (v: AskOutcome | typeof ASK_PENDING) => void;
   reject: (e: Error) => void;
   timer: ReturnType<typeof setTimeout>;
   settled: boolean;
@@ -79,18 +83,18 @@ export class AskChannel {
   }
 
   
-  ask(title: string, kind: AskKind): Promise<AskReply> {
-    return this._register(title, kind, "blocking", this.currentSessionID()) as Promise<AskReply>;
+  ask(title: string, kind: AskKind): Promise<AskOutcome> {
+    return this._register(title, kind, "blocking", this.currentSessionID()) as Promise<AskOutcome>;
   }
 
   
-  askForSession(title: string, kind: AskKind, sessionID: string): Promise<AskReply> {
-    return this._register(title, kind, "blocking", sessionID) as Promise<AskReply>;
+  askForSession(title: string, kind: AskKind, sessionID: string): Promise<AskOutcome> {
+    return this._register(title, kind, "blocking", sessionID) as Promise<AskOutcome>;
   }
 
   
-  askForRoot(title: string, kind: AskKind, toolSessionID: string): Promise<AskReply> {
-    return this._register(title, kind, "blocking", this.rootTarget(toolSessionID)) as Promise<AskReply>;
+  askForRoot(title: string, kind: AskKind, toolSessionID: string): Promise<AskOutcome> {
+    return this._register(title, kind, "blocking", this.rootTarget(toolSessionID)) as Promise<AskOutcome>;
   }
 
   
@@ -170,7 +174,7 @@ export class AskChannel {
     this.disposed = true;
     for (const slot of this.slots.values()) {
       this.deps.timers.clear(slot.timer);
-      if (!slot.settled) this._settle(slot, defaultFor(slot.kind));
+      if (!slot.settled) this._settle(slot, ASK_UNAVAILABLE);
     }
     this.slots.clear();
     this.perSession.clear();
@@ -190,12 +194,35 @@ export class AskChannel {
     return this.sessionOverride || toolSessionID;
   }
 
-  private _capacityOk(sessionID?: string): boolean {
+  private _capacity(sessionID?: string): "ok" | "global-cap" | "session-cap" {
     const sid = sessionID ?? this.currentSessionID();
     const queue = this.perSession.get(sid) ?? [];
     const maxPending = this.deps.maxPending ?? 100;
     const maxPerSession = this.deps.maxPerSession ?? 8;
-    return this.slots.size < maxPending && queue.length < maxPerSession;
+    if (this.slots.size >= maxPending) return "global-cap";
+    if (queue.length >= maxPerSession) return "session-cap";
+    return "ok";
+  }
+
+  private _capacityOk(sessionID?: string): boolean {
+    return this._capacity(sessionID) === "ok";
+  }
+
+  private _unavailable(reason: "disposed" | "global-cap" | "session-cap", sessionID: string, kind: AskKind): typeof ASK_UNAVAILABLE {
+    logger.warn(
+      `AskChannel: ask refused (${reason}) for ${sessionID} — no answer assumed (${this.slots.size} pending)`,
+    );
+    try {
+      logger.audit("ASK_UNAVAILABLE", {
+        reason,
+        kind: kind.type,
+        sessionID,
+        pending: this.slots.size,
+      });
+    } catch {
+      void 0;
+    }
+    return ASK_UNAVAILABLE;
   }
 
   private _register(
@@ -205,20 +232,19 @@ export class AskChannel {
     sessionID: string,
     onResolve?: AskResolveCallback,
     onTimeout?: () => void,
-  ): Promise<AskReply | typeof ASK_PENDING> | typeof ASK_PENDING {
-    if (this.disposed) return Promise.resolve(defaultFor(kind));
+  ): Promise<AskOutcome | typeof ASK_PENDING> | typeof ASK_PENDING {
+    if (this.disposed) return Promise.resolve(this._unavailable("disposed", sessionID, kind));
 
     const id = `ask-${Date.now().toString(36)}-${++askCounter}`;
 
-    
-    if (!this._capacityOk(sessionID)) {
-      logger.warn(`AskChannel: cap reached (${this.slots.size} slots) — resolving as default`);
-      return Promise.resolve(defaultFor(kind));
+    const capacity = this._capacity(sessionID);
+    if (capacity !== "ok") {
+      return Promise.resolve(this._unavailable(capacity, sessionID, kind));
     }
 
     const queue = this.perSession.get(sessionID) ?? [];
 
-    return new Promise<AskReply | typeof ASK_PENDING>((resolve, reject) => {
+    return new Promise<AskOutcome | typeof ASK_PENDING>((resolve, reject) => {
       const slot: AskSlot = {
         id,
         sessionID,
@@ -269,7 +295,7 @@ export class AskChannel {
     }
   }
 
-  private _settle(slot: AskSlot, value: AskReply | typeof ASK_PENDING): void {
+  private _settle(slot: AskSlot, value: AskOutcome | typeof ASK_PENDING): void {
     if (slot.settled) return;
     slot.settled = true;
     this.deps.timers.clear(slot.timer);

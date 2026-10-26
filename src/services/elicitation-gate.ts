@@ -1,4 +1,5 @@
 import { logger } from "../utils/logger.ts";
+import { ASK_UNAVAILABLE } from "./ask-channel.ts";
 import type { EffortAnalysis } from "./effort-analyzer.ts";
 import type { ToolContext } from "../tool.ts";
 
@@ -8,7 +9,7 @@ export const ELICITATION_OPTION_LIMIT = 4;
 export type ElicitationAsk = NonNullable<ToolContext["ask"]>;
 
 export type ElicitationResult =
-  | { selected: false; reason: "not-ambiguous" | "no-ask" | "timeout" | "dismissed" | "deferred" }
+  | { selected: false; reason: "not-ambiguous" | "no-ask" | "timeout" | "dismissed" | "deferred" | "unavailable" }
   | { selected: true; option: string };
 
 export interface ElicitationEvent {
@@ -79,7 +80,7 @@ export async function runElicitationGate(
     return { selected: false, reason: "deferred" };
   }
 
-  let answer: string | boolean | string[] | void | undefined;
+  let answer: string | boolean | string[] | void | typeof ASK_UNAVAILABLE | undefined;
   try {
     answer = await Promise.race([
       (ask as ElicitationAsk)(analysis.action_hint || "The request is unclear — choose an option:", {
@@ -90,6 +91,11 @@ export async function runElicitationGate(
     ]);
   } catch {
     answer = "__timeout__";
+  }
+
+  if (answer === ASK_UNAVAILABLE) {
+    logger.warn("[elicitation] ask refused (channel at capacity or disposed) — dispatching without an answer");
+    return { selected: false, reason: "unavailable" };
   }
 
   if (answer === "__timeout__" || answer === undefined) {

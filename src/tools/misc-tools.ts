@@ -1,6 +1,7 @@
 import type { ToolContext } from "../tool.ts";
 import { tool } from "../tool.ts";
 import { t } from "../translations.ts";
+import { ASK_UNAVAILABLE } from "../services/ask-channel.ts";
 
 export function buildHelpTool() {
   return tool({
@@ -27,10 +28,17 @@ export function buildReviewTool() {
         `## 🔍 Review Required — Review Gate\n### Work Summary\n${args.summary}\n\n### Participating agents\n${args.agents.map((a) => `- ${a}`).join("\n")}\n\n---\n**Do you approve this implementation?**`,
         { type: "confirm", default: false },
       );
+      if (approved === ASK_UNAVAILABLE) {
+        return {
+          output:
+            "❌ Review gate could not reach the user — the question channel is at capacity, so no approval was assumed. Answer the pending question and retry.",
+        };
+      }
       return {
-        output: approved
-          ? "✅ User approved the implementation."
-          : "❌ User rejected the implementation. Please revise.",
+        output:
+          approved === true
+            ? "✅ User approved the implementation."
+            : "❌ User rejected the implementation. Please revise.",
       };
     },
   });

@@ -30,6 +30,7 @@ const SILENT_CATCH_INVENTORY: Record<string, number> = {
   "infra/file-lock.ts": 23,
   "scripts/gen-opencode-config.ts": 1,
   "services/apply-patch.ts": 3,
+  "services/ask-channel.ts": 1,
   "services/ast-service.ts": 2,
   "services/background-notifier.ts": 2,
   "services/checkpoint-manager.ts": 3,

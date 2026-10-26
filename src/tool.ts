@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ASK_UNAVAILABLE } from "./services/ask-channel.ts";
 
 export type ToolContext = {
   sessionID: string;
@@ -14,7 +15,7 @@ export type ToolContext = {
       | { type: "confirm"; default: boolean }
       | { type: "select"; options: string[] }
       | { type: "multiselect"; options: string[] },
-  ): Promise<boolean | void | string | string[] | void>;
+  ): Promise<boolean | void | string | string[] | typeof ASK_UNAVAILABLE>;
 };
 
 export type ToolResult =
