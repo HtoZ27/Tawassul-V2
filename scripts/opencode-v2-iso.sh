@@ -32,6 +32,16 @@ file_bytes() { # $1=path → bytes on stdout; rc!=0 when unreadable
   printf '%s' "$n"
 }
 
+db_total_bytes() { # $1=db → main + WAL bytes; rc!=0 when unreadable
+  local total=0 f n
+  for f in "$1" "$1-wal"; do
+    [ -e "$f" ] || continue
+    n="$(file_bytes "$f")" || return 1
+    total=$((total + n))
+  done
+  printf '%s' "$total"
+}
+
 # One key from the pinned machine state without sourcing it.
 launcher_pinned_get() { # $1=key
   local key="$1" file="$XDG_CONFIG_HOME/pinned.env" line=""
@@ -125,17 +135,41 @@ if [ ! -x "$V2_MAINT" ]; then
   exit 2
 fi
 if [ "${TAWASSUL_AUTO_MAINTAIN:-1}" != "0" ] && [ -f "$V2_DB" ]; then
-  V2_BYTES="$(file_bytes "$V2_DB")" || { echo "opencode-v2-iso: cannot read size of $V2_DB — skipping cap automation (fail-closed, launching anyway)." >&2; V2_BYTES=0; }
+  V2_BYTES="$(db_total_bytes "$V2_DB")" || {
+    echo "❌ opencode-v2-iso: cannot measure $V2_DB (db+wal) — refusing to launch unguarded." >&2
+    exit 2
+  }
   if [ "$V2_BYTES" -ge "$TAWASSUL_DB_CAP_BYTES" ]; then
-  COOLDOWN_MARK="${V2_DB}.auto-maint-cooldown"
-  if [ ! -e "$COOLDOWN_MARK" ] || [ -n "$(find "$COOLDOWN_MARK" -mmin +1440 2>/dev/null)" ]; then
-    : > "$COOLDOWN_MARK" 2>/dev/null || true
-    "$V2_MAINT" --db "$V2_DB" --event-only >>"${V2_DB}.auto-maint.log" 2>&1 || \
-      echo "⚠️  opencode-v2-iso: event prune failed (S-040) — launching anyway." >&2
-    nohup "$V2_MAINT" --db "$V2_DB" --allow-in-use --cooldown-mark "$COOLDOWN_MARK" --backup-dir "$V2_BACKUP_DIR" >>"${V2_DB}.auto-maint.log" 2>&1 </dev/null &
-    disown 2>/dev/null || true
-    echo "⚠️  $V2_DB reached the 4GiB cap — events pruned, background maintenance triggered, launching now." >&2
+    COOLDOWN_MARK="${V2_DB}.auto-maint-cooldown"
+    if [ ! -e "$COOLDOWN_MARK" ] || [ -n "$(find "$COOLDOWN_MARK" -mmin +1440 2>/dev/null)" ]; then
+      : > "$COOLDOWN_MARK" 2>/dev/null || true
+      EV_RC=0
+      "$V2_MAINT" --db "$V2_DB" --event-only --cap-bytes "$TAWASSUL_DB_CAP_BYTES" >>"${V2_DB}.auto-maint.log" 2>&1 || EV_RC=$?
+      case "$EV_RC" in
+        0|9) ;;
+        *) echo "⚠️  opencode-v2-iso: event retention failed (rc=$EV_RC) — the cap guard still applies." >&2 ;;
+      esac
+      V2_AFTER="$(db_total_bytes "$V2_DB")" || {
+        echo "❌ opencode-v2-iso: cannot re-measure $V2_DB after event retention — refusing to launch unguarded." >&2
+        exit 2
+      }
+      V2_BYTES="$V2_AFTER"
+      if [ "$V2_AFTER" -lt "$TAWASSUL_DB_CAP_BYTES" ]; then
+        nohup "$V2_MAINT" --db "$V2_DB" --allow-in-use --cooldown-mark "$COOLDOWN_MARK" --backup-dir "$V2_BACKUP_DIR" >>"${V2_DB}.auto-maint.log" 2>&1 </dev/null &
+        disown 2>/dev/null || true
+        echo "⚠️  $V2_DB reached the cap — events pruned, background maintenance triggered, launching now." >&2
+      fi
+    fi
   fi
+  if [ "$V2_BYTES" -ge "$TAWASSUL_DB_CAP_BYTES" ]; then
+    if [ "${TAWASSUL_ALLOW_OVER_CAP:-0}" = "1" ]; then
+      echo "⚠️  opencode-v2-iso: $V2_DB is at/over the cap ($V2_BYTES >= $TAWASSUL_DB_CAP_BYTES bytes, db+wal) — launching under TAWASSUL_ALLOW_OVER_CAP=1." >&2
+    else
+      echo "❌ opencode-v2-iso: $V2_DB is at/over the cap ($V2_BYTES >= $TAWASSUL_DB_CAP_BYTES bytes, db+wal)." >&2
+      echo "   Close OpenCode, then run: bash \"$V2_MAINT\" --db \"$V2_DB\" --prune-days 90 --backup-dir \"$V2_BACKUP_DIR\"" >&2
+      echo "   Override (not recommended): TAWASSUL_ALLOW_OVER_CAP=1" >&2
+      exit 2
+    fi
   fi
 fi
 

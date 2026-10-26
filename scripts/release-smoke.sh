@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # release-smoke.sh — pin the host, boot a scratch workspace, and call two direct tools.
 #
-# Exit: 0 pass · 2 version drift or missing host · 3 boot/plugin failure · 4 tool failure · 64 usage.
+# Exit: 0 pass · 2 version drift or missing host · 3 boot/plugin failure · 4 tool failure · 5 model reply required but missing · 64 usage.
 set -u
 
 usage() {
@@ -10,6 +10,7 @@ usage() {
 
 MODEL="${TAWASSUL_SMOKE_MODEL:-opencode/big-pickle}"
 BOOT_TIMEOUT="${TAWASSUL_SMOKE_TIMEOUT:-60}"
+REQUIRE_MODEL_REPLY="${TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY:-0}"
 RESOLVE_ONLY=0
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -93,6 +94,7 @@ cd "$WORK" || { KEEP=1; exit 3; }
 timeout "$BOOT_TIMEOUT" "$BIN" run --standalone --auto --format json --model "$MODEL" "Reply with exactly: SMOKE" >"$WORK/run.out" 2>"$WORK/run.err"
 BOOT_RC=$?
 PLUGIN_BOOT=0
+MODEL_REPLY=0
 if grep -q 'initPlugin=' "$WORK/tawassul.log" 2>/dev/null && grep -q 'v2 registered 42 tools' "$WORK/tawassul.log" 2>/dev/null; then
   PLUGIN_BOOT=1
 fi
@@ -121,9 +123,10 @@ if [ "$PLUGIN_BOOT" != "1" ]; then
 fi
 if [ "$BOOT_RC" -eq 0 ]; then
   grep -q '"text":"SMOKE"' "$WORK/run.out" || { echo "release-smoke: boot reply missing SMOKE." >&2; KEEP=1; exit 3; }
+  MODEL_REPLY=1
   echo "release-smoke: scratch boot loaded the plugin and replied"
 else
-  echo "release-smoke: scratch boot loaded the plugin (model reply skipped)"
+  echo "release-smoke: scratch boot loaded the plugin (model reply unavailable)"
 fi
 
 HOST_LOG="${XDG_DATA_HOME:-$HOME/.local/share}/opencode/log/opencode.log"
@@ -156,4 +159,13 @@ if (!helpOut.includes("Available tools")) {
 console.log("release-smoke: direct tools OK (42 registered, health + help executed)");
 ' || { KEEP=1; exit 4; }
 
-echo "SMOKE PASS: host v$ACTUAL, scratch boot, 42 tools, health + help"
+if [ "$MODEL_REPLY" = "1" ]; then
+  echo "SMOKE PASS: host v$ACTUAL, scratch boot, 42 tools, model reply, health + help"
+else
+  if [ "$REQUIRE_MODEL_REPLY" = "1" ]; then
+    echo "SMOKE FAIL: host v$ACTUAL booted the plugin and 42 tools, but no model reply (TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY=1)" >&2
+    KEEP=1
+    exit 5
+  fi
+  echo "SMOKE PASS (no model reply): host v$ACTUAL, scratch boot, 42 tools, health + help"
+fi

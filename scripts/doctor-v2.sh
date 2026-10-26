@@ -14,6 +14,11 @@ KEY_DIR="${TAWASSUL_HMAC_KEY_DIR:-$HOME_DIR/.config/tawassul}"
 KEY_FILE="$KEY_DIR/.tawassul-hmac-key"
 SHARED_DB="$HOME_DIR/.local/share/opencode/opencode.db"
 LAUNCHER_DB="$HOME_DIR/.local/share/tawassul-v2/opencode-v2.db"
+CAP_BYTES="${TAWASSUL_DB_CAP_BYTES:-4294967296}"
+case "$CAP_BYTES" in ''|*[!0-9]*) CAP_BYTES=4294967296 ;; esac
+SERVICE_DESC="${XDG_STATE_HOME:-$HOME_DIR/.local/state}/opencode/service.json"
+db_census=""
+db_nonempty=0
 TMPROOT="${TMPDIR:-/tmp/opencode}"
 mkdir -p "$TMPROOT" 2>/dev/null || TMPROOT="/tmp"
 
@@ -106,6 +111,42 @@ else
   esac
 fi
 info "OPENCODE_DB: ${db:-(unset)}"
+live_db=""
+if [ -f "$SERVICE_DESC" ]; then
+  live_pid="$(sed -n 's/.*"pid":\([0-9]*\).*/\1/p' "$SERVICE_DESC" 2>/dev/null | head -n1)"
+  if [ -n "$live_pid" ] && kill -0 "$live_pid" 2>/dev/null; then
+    live_db="$(tr '\0' '\n' < "/proc/$live_pid/environ" 2>/dev/null | sed -n 's/^OPENCODE_DB=//p' | head -n1)"
+  fi
+fi
+if [ -n "$live_db" ]; then
+  info "live host DB: $live_db"
+  if [ -z "$db" ]; then
+    warn "this shell has no OPENCODE_DB — a CLI run would open $SHARED_DB while the live host writes $live_db"
+  elif [ "$db" != "$live_db" ]; then
+    fail "this shell's OPENCODE_DB ($db) differs from the live host DB ($live_db)"
+  else
+    pass "this shell's OPENCODE_DB matches the live host DB"
+  fi
+else
+  info "live host DB: unavailable (no running service descriptor)"
+fi
+
+section "database sizes"
+for candidate in "$db" "$SHARED_DB" "$LAUNCHER_DB" "$expected"; do
+  [ -n "$candidate" ] || continue
+  [ -f "$candidate" ] || continue
+  total=0
+  for part in "$candidate" "$candidate-wal"; do
+    [ -e "$part" ] || continue
+    bytes="$(stat -c %s "$part" 2>/dev/null || stat -f %z "$part" 2>/dev/null || true)"
+    case "$bytes" in ''|*[!0-9]*) continue ;; esac
+    total=$((total + bytes))
+  done
+  info "$candidate: $total bytes (db+wal)"
+  if [ "$total" -ge "$CAP_BYTES" ]; then
+    fail "database at/over the ${CAP_BYTES}-byte cap: $candidate ($total bytes, db+wal)"
+  fi
+done
 
 section "sessions"
 snapshot_dir="$(mktemp -d "$TMPROOT/tawassul-doctor.XXXXXX" 2>/dev/null || true)"
@@ -148,16 +189,42 @@ else
       mine="$(sqlite3 "$copy" "SELECT COUNT(*) FROM session_v2 WHERE directory = '$root_sql';" 2>/dev/null || printf '?')"
     fi
     info "$label: $mine project session(s) of $total — $src"
+    case "$mine$total" in
+      *[!0-9]*) ;;
+      *)
+        db_census="${db_census}${db_census:+; }${label} ${mine}/${total}"
+        if [ "$total" -gt 0 ]; then db_nonempty=$((db_nonempty + 1)); fi
+        ;;
+    esac
   }
 
   if [ -n "$db" ]; then count_db "$db" "OPENCODE_DB"; fi
   if [ "$db" != "$SHARED_DB" ]; then count_db "$SHARED_DB" "shared"; fi
   if [ "$db" != "$LAUNCHER_DB" ]; then count_db "$LAUNCHER_DB" "launcher"; fi
   if [ -n "$expected" ] && [ "$db" != "$expected" ]; then count_db "$expected" "hmac-isolated"; fi
+  if [ "$db_nonempty" -gt 1 ]; then
+    fail "multiple databases contain sessions ($db_census) — only the canonical OPENCODE_DB is visible to the host (D-01)"
+  elif [ "$db_nonempty" -eq 1 ]; then
+    pass "one database contains sessions ($db_census)"
+  else
+    info "no sessions found in the probed databases"
+  fi
 fi
 
+section "external v1 trees"
+for tree in "$HOME_DIR/Desktop/gtttt" "$HOME_DIR/Desktop/paassss"; do
+  [ -d "$tree" ] || continue
+  if compgen -G "$tree/.opencode/plugins/*/index.ts" >/dev/null; then
+    for v1_entry in "$tree"/.opencode/plugins/*/index.ts; do
+      [ -f "$v1_entry" ] || continue
+      warn "external v1 tree still exposes $v1_entry (user refused removal) — it can fail to load on boot; not modified"
+    done
+  else
+    pass "external tree has no live v1 entry: $tree"
+  fi
+done
+
 section "hosts"
-SERVICE_DESC="${XDG_STATE_HOME:-$HOME_DIR/.local/state}/opencode/service.json"
 if [ -f "$SERVICE_DESC" ]; then
   svc_url="$(sed -n 's/.*"url":"\([^"]*\)".*/\1/p' "$SERVICE_DESC" 2>/dev/null)"
   svc_pid="$(sed -n 's/.*"pid":\([0-9]*\).*/\1/p' "$SERVICE_DESC" 2>/dev/null)"

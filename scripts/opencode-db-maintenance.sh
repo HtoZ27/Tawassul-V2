@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # opencode-db-maintenance.sh — V2 LOCAL COPY (vendored maintenance lane;
-# V2 defaults point at the tawassul-v2 profile so V2 never touches a V1 path
-# by default).
+# the target DB is explicit: --db or OPENCODE_DB, never an implicit path).
 #
 # Prevents the working DB from growing back to tens of GB (23.8 GB observed:
 # 5.8M pages, 971K parts — the root cause of the frozen local server, since
@@ -14,15 +13,19 @@
 #   2. BACKUP via SQLite's online backup API (".backup") — consistent snapshot
 #      regardless of WAL state — to $BACKUP_DIR, keeping the last N backups.
 #      The backup must pass quick_check + a session-count probe or we abort.
-#   3. PRUNE old messages+parts (FK-cascade deletes parts; sessions are NEVER
-#      deleted — other tables reference them). Offset is wall-clock, messages
-#      touching fresh sessions are kept, so active work is never emptied.
-#      Also applies host `event` retention when the DB is quiescent: every event
-#      row predates the current run while session history lives in message/part.
+#   3. PRUNE old messages (message/part for legacy schema, session_message for
+#      the v2 schema; sessions are NEVER deleted — other tables reference them).
+#      Offset is wall-clock, messages touching fresh sessions are kept, so
+#      active work is never emptied. Also applies host `event` retention when
+#      the DB is quiescent: every event row predates the current run while
+#      session history stays in message/part/session_message.
 #   4. VACUUM — rebuilds the file, reclaims every freed page (the actual shrink).
 #      Runs ONLY when no process holds the DB (re-checked here); otherwise it is
 #      skipped with a notice — live VACUUM is forbidden under every flag.
 #   5. REPORT before/after sizes. Exit non-zero on any safety refusal.
+#      Exit: 2 refusal/usage · 3 probe failure · 4 backup failure · 5 mutation
+#      failure · 6 VACUUM failure · 7 disk space · 8 lock contention ·
+#      9 cap remains or protected-table mismatch.
 #
 # Event retention policy (S-040): the host `event` table is append-only with no
 # retention path; at tens of thousands of rows it freezes the synchronous SQLite
@@ -39,11 +42,11 @@
 #                              [--keep-backups N] [--check] [--force]
 #                              [--allow-in-use] [--ignore-low-ram]
 #                              [--allow-archive] [--event-retention all|off]
-#                              [--event-only]
+#                              [--event-only] [--cap-bytes N] [--plan]
 #
 # Defaults:
-#   --db          WINCOMING order: OPENCODE_DB env → ~/.local/share/tawassul-v2/
-#                 opencode-v2.db (the isolated V2 working DB). You can also pass --db.
+#   --db          OPENCODE_DB env only. There is no implicit fallback: pass --db
+#                 or set OPENCODE_DB, otherwise the run refuses (D-01).
 #                 (OPENCODE_DB set-but-missing fails closed; archive needs
 #                 --allow-archive + CONFIRM.)
 #   --prune-days  90 (0 disables pruning entirely — backup+VACUUM only)
@@ -73,6 +76,7 @@ ALLOW_ARCHIVE=0
 FORCE_WARN=0
 EVENT_RETENTION="all"
 COOLDOWN_MARK_TO_CLEAR=""
+CAP_BYTES="${TAWASSUL_DB_CAP_BYTES:-4294967296}"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -83,6 +87,8 @@ while [ "$#" -gt 0 ]; do
     --keep-backups) KEEP_BACKUPS="${2:?--keep-backups needs a number}"; shift 2 ;;
     --check) MODE="check"; shift ;;
     --event-only) MODE="event"; shift ;;
+    --cap-bytes) CAP_BYTES="${2:?--cap-bytes needs a number}"; shift 2 ;;
+    --plan) MODE="plan"; shift ;;
     --event-retention) EVENT_RETENTION="${2:?--event-retention needs all|off}"; shift 2 ;;
     --allow-in-use) ALLOW_IN_USE=1; shift ;;
     --ignore-low-ram) IGNORE_LOW_RAM=1; shift ;;
@@ -111,6 +117,39 @@ case "$EVENT_RETENTION" in
   all|off) ;;
   *) echo "❌ --event-retention must be all|off (got: $EVENT_RETENTION)" >&2; exit 2 ;;
 esac
+case "$CAP_BYTES" in
+  ''|*[!0-9]*) echo "❌ --cap-bytes must be a positive integer (got: $CAP_BYTES)" >&2; exit 2 ;;
+esac
+if [ "$CAP_BYTES" -lt 1 ]; then
+  echo "❌ --cap-bytes must be >= 1 (got: $CAP_BYTES)" >&2
+  exit 2
+fi
+MUTABLE_TABLES="message part session_message event"
+PROTECTED_TABLES="session session_v2 project workspace worktree project_directory permission credential account account_state control_account migration kv instruction_blob instruction_entry instruction_state session_inbox session_pending session_share todo event_sequence"
+assert_mutation_target() {
+  case " $MUTABLE_TABLES " in
+    *" $1 "*) return 0 ;;
+    *) echo "❌ refusing mutation target '$1' — not in the allowlist ($MUTABLE_TABLES)" >&2; exit 2 ;;
+  esac
+}
+db_total_bytes() { # $1=db → main + WAL bytes, non-zero exit when unreadable
+  local total=0 f n
+  for f in "$1" "$1-wal"; do
+    [ -e "$f" ] || continue
+    n="$(stat -c %s "$f" 2>/dev/null || stat -f %z "$f" 2>/dev/null || true)"
+    case "$n" in
+      ''|*[!0-9]*) return 1 ;;
+    esac
+    total=$((total + n))
+  done
+  printf '%s' "$total"
+}
+if [ "$MODE" = "plan" ]; then
+  echo "cap-bytes: $CAP_BYTES"
+  echo "mutation-targets: $MUTABLE_TABLES"
+  echo "protected-tables: $PROTECTED_TABLES"
+  exit 0
+fi
 if [ "$FORCE_WARN" = 1 ]; then
   echo "⚠️  --force is deprecated (== --allow-in-use --ignore-low-ram) and never authorizes a live VACUUM." >&2
 fi
@@ -126,10 +165,9 @@ if [ -z "$DB_PATH" ]; then
       echo "❌ OPENCODE_DB is set but missing: $OPENCODE_DB — refusing to pick another DB." >&2
       exit 2
     fi
-  elif [ -f "${HOME}/.local/share/tawassul-v2/opencode-v2.db" ]; then
-    DB_PATH="${HOME}/.local/share/tawassul-v2/opencode-v2.db"
   else
-    DB_PATH="${HOME}/.local/share/tawassul-v2/opencode-v2.db"
+    echo "❌ no target DB: pass --db PATH or set OPENCODE_DB (implicit selection is disabled — D-01)." >&2
+    exit 2
   fi
 fi
 if [ ! -f "$DB_PATH" ]; then
@@ -178,14 +216,15 @@ case "$DB_PATH" in
     ;;
 esac
 DB_SIZE_BEFORE="$(stat -c %s "$DB_PATH")"
-echo "→ target: $DB_PATH  ($(numfmt --to=iec "$DB_SIZE_BEFORE" 2>/dev/null || echo "$DB_SIZE_BEFORE bytes"))"
-# Growth alarm (alarm only — enforcement lives in the launchers, which refuse
-# to start on a DB at/over the 4GiB stop-for-maintenance cap):
-# 3GiB warning, 4GiB cap-reached notice.
-if [ "$DB_SIZE_BEFORE" -ge 4294967296 ]; then
-  echo "⛔ target reached the 4GiB cap — launchers trigger background maintenance and keep launching (rerun offline for the shrink)." >&2
-elif [ "$DB_SIZE_BEFORE" -ge 3221225472 ]; then
-  echo "⚠️  target exceeds 3GiB — approaching the 4GiB stop-for-maintenance cap." >&2
+DB_TOTAL_BEFORE="$(db_total_bytes "$DB_PATH")" || {
+  echo "❌ cannot measure DB+WAL size — refusing (fail-closed)." >&2
+  exit 3
+}
+echo "→ target: $DB_PATH  ($(numfmt --to=iec "$DB_SIZE_BEFORE" 2>/dev/null || echo "$DB_SIZE_BEFORE bytes"); db+wal $(numfmt --to=iec "$DB_TOTAL_BEFORE" 2>/dev/null || echo "$DB_TOTAL_BEFORE bytes"))"
+if [ "$DB_TOTAL_BEFORE" -ge "$CAP_BYTES" ]; then
+  echo "⛔ target reached the cap (${CAP_BYTES} bytes, db+wal) — full maintenance is the repair path; launchers refuse to start above it." >&2
+elif [ "$DB_TOTAL_BEFORE" -ge $((CAP_BYTES * 3 / 4)) ]; then
+  echo "⚠️  target exceeds 75% of the cap (${CAP_BYTES} bytes, db+wal) — schedule maintenance." >&2
 fi
 # Error log for the mutating steps (never silenced to /dev/null unlogged):
 # falls back to stderr when the directory is not writable.
@@ -320,6 +359,25 @@ table_count() { # $1=target $2=table → count, 0 when absent, "?" when unreadab
   esac
 }
 
+table_exists() { # $1=target $2=table → 1|0|?
+  local has=""
+  has="$(timeout 60 sqlite3 -readonly "$1" "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='$2';" 2>>"$LOG_FILE")" || { printf '?'; return 0; }
+  case "$has" in
+    0|1) printf '%s' "$has" ;;
+    *) printf '?' ;;
+  esac
+}
+
+protected_fingerprint() {
+  local t n out=""
+  for t in $PROTECTED_TABLES; do
+    n="$(table_count "$DB_PATH" "$t")"
+    [ "$n" = "?" ] && return 1
+    out="${out}${t}=${n};"
+  done
+  printf '%s' "$out"
+}
+
 event_count() { # $1=target → event rows, 0 when absent, "?" when unreadable
   table_count "$1" event
 }
@@ -334,7 +392,19 @@ event_present() { # $1=target → 1|0|?
 }
 
 event_delete() { # $1=db path
-  timeout 1800 sqlite3 "$1" ".timeout 60000" "DELETE FROM event;" 2>>"$LOG_FILE"
+  assert_mutation_target event
+  timeout 1800 sqlite3 -cmd ".timeout 60000" "$1" "DELETE FROM event;" 2>>"$LOG_FILE"
+}
+
+cap_status() {
+  local total=""
+  total="$(db_total_bytes "$DB_PATH")" || { echo "❌ cannot measure DB+WAL size — refusing (fail-closed)." >&2; return 3; }
+  if [ "$total" -ge "$CAP_BYTES" ]; then
+    echo "❌ cap remains: ${total} bytes (db+wal) >= ${CAP_BYTES} bytes." >&2
+    return 9
+  fi
+  echo "→ cap: ${total} bytes (db+wal) < ${CAP_BYTES}."
+  return 0
 }
 
 _GEN_GUARD="$(cd "$(dirname "$0")" && pwd -P)/guard-db-generation.sh"
@@ -361,22 +431,39 @@ FREELIST="$(pragma_read freelist_count 30 0)"
 size_report "before" "$PAGES" "$PAGESIZE" "$FREELIST"
 
 if [ "$MODE" = "check" ]; then
+  echo "→ cap: db+wal ${DB_TOTAL_BEFORE} / ${CAP_BYTES} bytes"
   if [ "$PRUNE_DAYS" -gt 0 ]; then
     CUTOFF="$(date -d "now -${PRUNE_DAYS} days" +%s)"
-    # Would-be delta, MEASURED (the header promises it): messages whose whole
-    # session is older than the cutoff, plus the part rows riding on them.
-    CAND="$(timeout 300 $RO "$(RO_DB)" "
-      SELECT (SELECT count(*) FROM message
-               WHERE time_updated < $CUTOFF
-                 AND session_id NOT IN (SELECT session_id FROM message
-                                         WHERE time_updated >= $CUTOFF))
-           || ' messages + ' ||
-           (SELECT count(*) FROM part
-             WHERE message_id IN (SELECT id FROM message
-                                  WHERE time_updated < $CUTOFF
-                                    AND session_id NOT IN (SELECT session_id FROM message
-                                                            WHERE time_updated >= $CUTOFF)))
-             || ' parts';" 2>/dev/null || echo "UNKNOWN (count query failed — see stderr)")"
+    CHK_MESSAGE="$(table_exists "$DB_PATH" message)"
+    CHK_V2="$(table_exists "$DB_PATH" session_message)"
+    CAND=""
+    if [ "$CHK_MESSAGE" = 1 ]; then
+      C1="$(timeout 300 $RO "$(RO_DB)" "
+        SELECT (SELECT count(*) FROM message
+                 WHERE time_updated < $CUTOFF
+                   AND session_id NOT IN (SELECT session_id FROM message
+                                           WHERE time_updated >= $CUTOFF))
+             || ' messages + ' ||
+             (SELECT count(*) FROM part
+               WHERE message_id IN (SELECT id FROM message
+                                    WHERE time_updated < $CUTOFF
+                                      AND session_id NOT IN (SELECT session_id FROM message
+                                                              WHERE time_updated >= $CUTOFF)))
+               || ' parts';" 2>/dev/null || echo "UNKNOWN")"
+      CAND="legacy ${C1}"
+    fi
+    if [ "$CHK_V2" = 1 ]; then
+      C2="$(timeout 300 $RO "$(RO_DB)" "
+        SELECT count(*) FROM session_message
+         WHERE time_updated < $CUTOFF
+           AND session_id NOT IN (SELECT session_id FROM session_message
+                                   WHERE time_updated >= $CUTOFF);" 2>/dev/null || echo "UNKNOWN")"
+      CAND="${CAND}${CAND:+; }v2 ${C2} messages"
+    fi
+    case "$CHK_MESSAGE$CHK_V2" in
+      *\?*) CAND="UNKNOWN (schema probe failed — see stderr)" ;;
+    esac
+    [ -n "$CAND" ] || CAND="UNKNOWN (no message or session_message table)"
     echo "→ ${PRUNE_DAYS} days cutoff (epoch ${CUTOFF}); dry-run only, nothing modified."
     echo "→ would prune now: ${CAND} (VACUUM reclaims the pages they free)"
   else
@@ -396,12 +483,13 @@ fi
 # Requires a proven-quiescent DB (every row predates this run).
 if [ "$MODE" = "event" ]; then
   if [ "$EVENT_RETENTION" = "off" ]; then
-    echo "→ event retention disabled (--event-retention off) — nothing to do."
+    echo "→ event retention disabled (--event-retention off) — no events deleted."
+    cap_status
     exit 0
   fi
   EV_PRESENT="$(event_present "$DB_PATH")"
   case "$EV_PRESENT" in
-    0) echo "→ no event table — nothing to do."; exit 0 ;;
+    0) echo "→ no event table — nothing to delete."; cap_status; exit 0 ;;
     \?) echo "❌ cannot probe the event table (fail-closed) — refusing." >&2; exit 3 ;;
   esac
   if ! command -v fuser >/dev/null 2>&1; then
@@ -422,15 +510,39 @@ if [ "$MODE" = "event" ]; then
   EV_BEFORE="$(event_count "$DB_PATH")"
   case "$EV_BEFORE" in
     \?) echo "❌ cannot count event rows (fail-closed) — refusing." >&2; exit 3 ;;
-    0) echo "→ event retention: 0 rows."; exit 0 ;;
+    0) echo "→ event retention: 0 rows."; cap_status; exit 0 ;;
   esac
   if ! event_delete "$DB_PATH"; then
     echo "❌ event retention failed (see $LOG_FILE)." >&2
     exit 5
   fi
   echo "→ event retention: deleted ${EV_BEFORE} rows (history stays in message/part)."
+  cap_status
   exit 0
 fi
+
+HIST_MESSAGE="?"
+HIST_V2="?"
+if [ "$PRUNE_DAYS" -gt 0 ]; then
+  HIST_MESSAGE="$(table_exists "$DB_PATH" message)"
+  HIST_V2="$(table_exists "$DB_PATH" session_message)"
+  case "$HIST_MESSAGE" in \?) echo "❌ cannot probe the legacy message table (fail-closed)." >&2; exit 3 ;; esac
+  case "$HIST_V2" in \?) echo "❌ cannot probe the v2 session_message table (fail-closed)." >&2; exit 3 ;; esac
+  if [ "$HIST_MESSAGE" != 1 ] && [ "$HIST_V2" != 1 ]; then
+    echo "❌ no known history table (message or session_message) — refusing an unprovable prune." >&2
+    exit 3
+  fi
+  echo "→ history schema: message=$HIST_MESSAGE session_message=$HIST_V2"
+fi
+PROTECTED_BEFORE=""
+if [ "$ALLOW_IN_USE" = 0 ]; then
+  PROTECTED_BEFORE="$(protected_fingerprint)" || {
+    echo "❌ cannot read protected-table counts — refusing mutations (fail-closed)." >&2
+    exit 3
+  }
+fi
+
+require_v2_generation || exit 2
 
 # ── backup (online backup API — consistent even if WAL present) ───────────────
 BACKUP_NAME="opencode-$(date +%Y%m%d-%H%M%S).db"
@@ -455,16 +567,16 @@ fi
 # next to session_v2, and a pure-v2 DB has session_v2 only.
 SRC_V2="$(table_count "$DB_PATH" session_v2)"
 SRC_V1="$(table_count "$DB_PATH" session)"
+SRC_SM="$(table_count "$DB_PATH" session_message)"
 BKP_V2="$(table_count "$(RO_URI "$BACKUP_FILE")" session_v2)"
 BKP_V1="$(table_count "$(RO_URI "$BACKUP_FILE")" session)"
-if [ "$SRC_V2" != "$BKP_V2" ] || [ "$SRC_V1" != "$BKP_V1" ] || [ "$SRC_V2" = "?" ] || [ "$SRC_V1" = "?" ]; then
-  echo "❌ backup session probe mismatch (source session_v2=$SRC_V2 session=$SRC_V1 / backup session_v2=$BKP_V2 session=$BKP_V1) — aborting (see $LOG_FILE)." >&2
+BKP_SM="$(table_count "$(RO_URI "$BACKUP_FILE")" session_message)"
+if [ "$SRC_V2" != "$BKP_V2" ] || [ "$SRC_V1" != "$BKP_V1" ] || [ "$SRC_SM" != "$BKP_SM" ] || [ "$SRC_V2" = "?" ] || [ "$SRC_V1" = "?" ] || [ "$SRC_SM" = "?" ]; then
+  echo "❌ backup probe mismatch (source session_v2=$SRC_V2 session=$SRC_V1 session_message=$SRC_SM / backup session_v2=$BKP_V2 session=$BKP_V1 session_message=$BKP_SM) — aborting (see $LOG_FILE)." >&2
   exit 4
 fi
-echo "→ backup verified (quick_check=ok, session_v2=$BKP_V2, session=$BKP_V1)"
+echo "→ backup verified (quick_check=ok, session_v2=$BKP_V2, session=$BKP_V1, session_message=$BKP_SM)"
 ls -1t "$BACKUP_DIR"/opencode-*.db 2>/dev/null | tail -n +$((KEEP_BACKUPS + 1)) | xargs -r rm -f --
-
-require_v2_generation || exit 2
 
 # ── prune old messages+parts (sessions untouched) ─────────────────────────────
 if [ "$PRUNE_DAYS" -gt 0 ]; then
@@ -475,15 +587,28 @@ if [ "$PRUNE_DAYS" -gt 0 ]; then
   # (proven: 4 parts survived a 2-message prune until this pragma was added).
   # The session join is intentionally absent: v2 sessions live in session_v2,
   # and a session table join skipped every migrated message.
-  timeout 1800 sqlite3 "$DB_PATH" "
-    PRAGMA foreign_keys = ON;
-    PRAGMA busy_timeout = 60000;
-    DELETE FROM message
-     WHERE time_updated < $CUTOFF
-       AND session_id NOT IN (
-         SELECT session_id FROM message WHERE time_updated >= $CUTOFF
-       );
-  " 2>>"$LOG_FILE" || { echo "❌ prune failed (see $LOG_FILE; retry offline or with --allow-in-use)." >&2; exit 5; }
+  if [ "$HIST_MESSAGE" = 1 ]; then
+    assert_mutation_target message
+    timeout 1800 sqlite3 -cmd ".timeout 60000" "$DB_PATH" "
+      PRAGMA foreign_keys = ON;
+      DELETE FROM message
+       WHERE time_updated < $CUTOFF
+         AND session_id NOT IN (
+           SELECT session_id FROM message WHERE time_updated >= $CUTOFF
+         );
+    " 2>>"$LOG_FILE" || { echo "❌ legacy message prune failed (see $LOG_FILE; retry offline or with --allow-in-use)." >&2; exit 5; }
+  fi
+  if [ "$HIST_V2" = 1 ]; then
+    assert_mutation_target session_message
+    timeout 1800 sqlite3 -cmd ".timeout 60000" "$DB_PATH" "
+      PRAGMA foreign_keys = ON;
+      DELETE FROM session_message
+       WHERE time_updated < $CUTOFF
+         AND session_id NOT IN (
+           SELECT session_id FROM session_message WHERE time_updated >= $CUTOFF
+         );
+    " 2>>"$LOG_FILE" || { echo "❌ v2 session_message prune failed (see $LOG_FILE; retry offline or with --allow-in-use)." >&2; exit 5; }
+  fi
 fi
 
 # ── host event retention (S-040) ──────────────────────────────────────────────
@@ -525,6 +650,22 @@ if [ "$EVENT_RETENTION" = "all" ]; then
   esac
 fi
 
+if [ "$ALLOW_IN_USE" = 0 ]; then
+  PROTECTED_AFTER="$(protected_fingerprint)" || {
+    echo "❌ cannot re-read protected-table counts after mutation — restoring is required (fail-closed)." >&2
+    echo "   Verified backup: $BACKUP_FILE" >&2
+    exit 9
+  }
+  if [ "$PROTECTED_AFTER" != "$PROTECTED_BEFORE" ]; then
+    echo "❌ protected tables changed during maintenance — aborting before VACUUM." >&2
+    echo "   before: $PROTECTED_BEFORE" >&2
+    echo "   after:  $PROTECTED_AFTER" >&2
+    echo "   Verified backup: $BACKUP_FILE" >&2
+    exit 9
+  fi
+  echo "→ protected tables unchanged"
+fi
+
 # ── vacuum: reclaim every freed page ──────────────────────────────────────────
 # VACUUM needs room for a full copy of the DB while it runs; refuse rather than
 # fill the disk and abort halfway. An unreadable df refuses too (fail-closed).
@@ -559,7 +700,7 @@ else
 fi
 if [ "$VACUUM_SKIPPED" = 0 ]; then
   echo "→ vacuum (this is the actual shrink step — can take a while)…"
-  timeout 3600 sqlite3 "$DB_PATH" "PRAGMA busy_timeout = 60000; VACUUM;" 2>>"$LOG_FILE" || {
+  timeout 3600 sqlite3 -cmd ".timeout 60000" "$DB_PATH" "VACUUM;" 2>>"$LOG_FILE" || {
     echo "❌ VACUUM failed — DB unchanged beyond the prune; safe to rerun (see $LOG_FILE)." >&2
     exit 6
   }
@@ -570,8 +711,13 @@ PAGES_A="$(pragma_read page_count 120 0)"
 PAGESIZE_A="$(pragma_read page_size 30 4096)"
 FREELIST_A="$(pragma_read freelist_count 30 0)"
 DB_SIZE_AFTER="$(stat -c %s "$DB_PATH")"
+DB_TOTAL_AFTER="$(db_total_bytes "$DB_PATH")" || {
+  echo "❌ cannot measure DB+WAL after maintenance — verify manually." >&2
+  exit 9
+}
 size_report "after " "$PAGES_A" "$PAGESIZE_A" "$FREELIST_A"
 echo "→ Δ file: before $(numfmt --to=iec "$DB_SIZE_BEFORE" 2>/dev/null || echo "$DB_SIZE_BEFORE") → after $(numfmt --to=iec "$DB_SIZE_AFTER" 2>/dev/null || echo "$DB_SIZE_AFTER")"
+echo "→ Δ total: before $(numfmt --to=iec "$DB_TOTAL_BEFORE" 2>/dev/null || echo "$DB_TOTAL_BEFORE") → after $(numfmt --to=iec "$DB_TOTAL_AFTER" 2>/dev/null || echo "$DB_TOTAL_AFTER")"
 EV_AFTER="$(event_count "$DB_PATH")"
 case "$EV_AFTER" in
   \?) echo "→ event rows after: unavailable" ;;
@@ -580,4 +726,8 @@ esac
 echo "✓ done. Backup: $BACKUP_FILE"
 if [ "${VACUUM_SKIPPED:-0}" = 1 ]; then
   echo "→ note: VACUUM was skipped (DB in use or unverifiable) — file not shrunk; rerun offline."
+fi
+if [ "$DB_TOTAL_AFTER" -ge "$CAP_BYTES" ]; then
+  echo "⛔ cap remains after maintenance: ${DB_TOTAL_AFTER} >= ${CAP_BYTES} bytes (db+wal)." >&2
+  exit 9
 fi
