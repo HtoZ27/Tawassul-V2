@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 41 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 42 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1796,20 +1796,26 @@ it reloads from disk after each and asserts none were dropped, then holds the
 file lock for 120 ms and asserts a mutation waits and commits (13
 assertions).
 
-#### E-24 Saga ids restart at `SAGA-001` and overwrite the previous journal — open (P1)
+#### E-24 Saga ids restart at `SAGA-001` and overwrite the previous journal — done (2026-10-26)
 
-`src/services/saga-coordinator.ts:81` initialises `_sagaSeq = 0` and
-`:91` returns `SAGA-${seq}` without seeding from
-`listJournalRecords()`. `journalPath` (`:95`) maps the id straight to
-`sagas/<id>.json` and `persist()` uses a plain write.
+`src/services/saga-coordinator.ts:81` initialised `_sagaSeq = 0` and
+`:91` returned `SAGA-${seq}` without seeding from
+`listJournalRecords()`. `journalPath` (`:95`) mapped the id straight to
+`sagas/<id>.json` and `persist()` used a plain write.
 
-Impact: the first saga of a new process overwrites the recovery record of the
-first saga of the previous process. `resumeSaga()` can then resume or skip
-the wrong transaction, and the completed-step history of the earlier saga is
+Impact: the first saga of a new process overwrote the recovery record of the
+first saga of the previous process. `resumeSaga()` could then resume or skip
+the wrong transaction, and the completed-step history of the earlier saga was
 gone.
 
-Next: seed the sequence from the journal directory (or use a timestamp plus
-uuid), and write through the atomic helper.
+Resolved 2026-10-26: the constructor scans the journal directory and seeds
+`_sagaSeq` from the highest `SAGA-<n>.json` id, so a new process continues the
+sequence; resumed ids (`SAGA-<n>-resumed.json`) are ignored by the scan. The
+journal writes through `atomicWriteFile` with `backup: false`, so a torn write
+cannot leave a partial record and the write creates no backup family.
+`prove-e24` restarts a coordinator over the same directory, asserts the id
+advances and the earlier record survives, seeds from a manually written
+`SAGA-009`, and checks there are no temp or backup leftovers (11 assertions).
 
 #### E-25 AskChannel answers questions on the user's behalf under load — open (P1)
 
