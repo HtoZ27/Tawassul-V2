@@ -1,6 +1,5 @@
 import type { ValidationStage } from "../tool-execute-types.ts";
-import { requiresConsent } from "./shared.ts";
-import { isRootLikeAgent } from "./shared.ts";
+import { isRootLikeAgent, isShellTool, requiresConsent } from "./shared.ts";
 import { logger } from "../../utils/logger.ts";
 import { t } from "../../translations.ts";
 import { ASK_PENDING } from "../../services/ask-channel.ts";
@@ -23,9 +22,9 @@ function isApprovalWord(value: unknown): boolean {
 }
 
 function buildDryRunPreview(tool: string, args: Record<string, unknown>): string {
-  if (tool === "bash") {
+  if (isShellTool(tool)) {
     const cmd = typeof args.command === "string" ? args.command : "";
-    return `DRY-RUN ▶ bash\n  command: ${cmd}`;
+    return `DRY-RUN ▶ ${tool}\n  command: ${cmd}`;
   }
   if (tool === "delete") {
     const file = typeof args.file === "string" ? args.file : "?";
@@ -196,7 +195,7 @@ export function consentKey(tool: string, args: Record<string, unknown>, sessionI
     const target = typeof args?.agent === "string" ? args.agent : "";
     return `kick:${target}${scope}`;
   }
-  if (tool === "bash") {
+  if (isShellTool(tool)) {
     const raw = typeof args?.command === "string" ? args.command : "";
     const command = stripBashComment(raw).trim().replace(/\s+/g, " ");
     return `bash:${command}${scope}`;
@@ -210,7 +209,7 @@ export const consentGateGuard: ValidationStage = {
     if (!consentGateEnabled) return true;
     if (!requiresConsent(input.tool, output.args ?? {})) return true;
     const args = output.args ?? {};
-    const detail = input.tool === "bash" && typeof args.command === "string" ? `: ${args.command.slice(0, 120)}` : "";
+    const detail = isShellTool(input.tool) && typeof args.command === "string" ? `: ${args.command.slice(0, 120)}` : "";
 
     const p = { tool: input.tool, detail: detail ? ` (${detail})` : "" };
     const askChannel = ctx.askChannelInstance;

@@ -125,6 +125,10 @@
     {
       "name": "global-install",
       "cmd": ["bun", "scripts/prove-global-install.ts"]
+    },
+    {
+      "name": "shell-alias",
+      "cmd": ["bun", "scripts/prove-shell-alias.ts"]
     }
   ],
   "smoke": [

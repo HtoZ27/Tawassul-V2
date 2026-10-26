@@ -1,5 +1,7 @@
 export function toolNameToV1(tool: string): string {
-  return tool === "subagent" ? "task" : tool;
+  if (tool === "subagent") return "task";
+  if (tool === "shell") return "bash";
+  return tool;
 }
 
 export function subagentArgsToV1(args: unknown): Record<string, unknown> {

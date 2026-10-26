@@ -41,6 +41,8 @@ export function normalizeName(v: unknown): string {
 
 
 
+const TOOL_ALIASES: Record<string, string> = { shell: "bash" };
+
 export function normalizeToolName(name: string): string {
   const n = normalizeName(name);
   if (!/^[a-z0-9_]{1,64}$/.test(n)) {
@@ -49,7 +51,7 @@ export function normalizeToolName(name: string): string {
       logger.warn(`[tawassul] invalid tool name "${name}"`);
       return normalizeName(name);
     }
-    return cleaned;
+    return TOOL_ALIASES[cleaned] ?? cleaned;
   }
-  return n;
+  return TOOL_ALIASES[n] ?? n;
 }

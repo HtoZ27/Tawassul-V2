@@ -26,7 +26,13 @@ export function isTawassulTool(name: string): boolean {
 export const TAWASSUL_ROLES = Object.keys(TAWASSUL_TOOL_ROLES);
 
 
-export const CONSENT_TOOLS = new Set<string>(["bash", "delete", "kick"]);
+export const SHELL_TOOL_NAMES = new Set<string>(["bash", "shell"]);
+
+export const CONSENT_TOOLS = new Set<string>(["bash", "shell", "delete", "kick"]);
+
+export function isShellTool(name: string): boolean {
+  return SHELL_TOOL_NAMES.has(normalizeToolName(name));
+}
 
 export const CONSENT_DANGEROUS_PATTERNS = [
   /rm\s+-rf\s+\//,
@@ -40,9 +46,10 @@ export const CONSENT_DANGEROUS_PATTERNS = [
 ];
 
 export function requiresConsent(inputTool: string, args: Record<string, unknown>): boolean {
-  if (!CONSENT_TOOLS.has(inputTool)) return false;
-  if (inputTool === "delete" || inputTool === "kick") return true;
-  if (inputTool === "bash") {
+  const tool = normalizeToolName(inputTool);
+  if (!CONSENT_TOOLS.has(tool)) return false;
+  if (tool === "delete" || tool === "kick") return true;
+  if (isShellTool(tool)) {
     const command = typeof args?.command === "string" ? args.command : "";
     return CONSENT_DANGEROUS_PATTERNS.some((p) => p.test(command));
   }
