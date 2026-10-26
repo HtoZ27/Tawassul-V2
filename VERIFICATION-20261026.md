@@ -3,7 +3,9 @@
 Scope: the six independent agent evaluations of the v2 cutover
 (`analyst-mimo`, `analyst-pickle`, `analyst-deepseek`, `analyst-gemini`,
 `analyst-beam-free`, `analyst-glm-5.3-flash-free`), checked against HEAD
-`3471fe3` plus the working tree.
+`3471fe3` plus the working tree. Round 2 re-checked the fixes on HEAD
+`26567e5` plus the uncommitted DB-protection work and is recorded at the end
+of this file.
 
 Method: every claim was re-checked against the source, the live state files,
 the installed host protocol, and runtime probes. The full gate was re-run on
@@ -30,17 +32,17 @@ blast radius wider: every `bash`-keyed guard was bypassed, not only consent.
 
 ## Gate evidence (2026-10-26)
 
-`npm run ci` exited 0:
+Latest round-2 run: `npm run ci` exited 0.
 
 - fast: 6 steps, pass.
-- proofs: 28 steps, 28,163 ms, `GATE PASS: proofs`.
+- proofs: 28 steps, 27,344 ms, `GATE PASS: proofs`.
 - catalog: the 29th `PROOF PASS` (28 proof steps plus the catalog).
-- smoke: `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`,
-  19,482 ms.
+- smoke: `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, model reply,
+  health + help`, 12,494 ms.
 - the smoke actually received a model reply in this run
-  (`scratch boot loaded the plugin and replied`), so the provider-refusal
-  tolerance branch was not exercised today. The weakened branch still exists;
-  see V-11.
+  (`scratch boot loaded the plugin and replied`). The boot-only path now
+  prints `SMOKE PASS (no model reply)` and can be made fatal with
+  `TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY=1` (V-11).
 
 The green gate proves boot health, tool registration, health, and help. It
 does not prove that a model round trip always happens.
@@ -123,6 +125,12 @@ Verdict: CONFIRMED, P0. Re-measured 2026-10-26:
 The register said 13/14/14 on 2026-10-25; the sidecar had grown to 19 at
 audit time and 21 at the final check. The split is worsening, not
 stabilizing. Owner decision still pending.
+
+Round 2 (2026-10-26 05:28): sidecar 22 `session_v2` / 2,541
+`session_message`, 29,343,744 bytes + 10,460,712 WAL; shared 14 / 2 legacy
+/ 1,268, 24,780,800 bytes; launcher 14, 13,627,392 bytes. The doctor exits 1
+on `OPENCODE_DB 22/22; shared 14/14; launcher 14/14`. The live v2 schema has
+no `message`/`part`; history is `session_message` (register D-04).
 
 #### V-05 Sidecar session count drifted (register: D-01)
 
@@ -217,6 +225,9 @@ serializes with `JSON.stringify(..., null, 2)`.
 Impact: boot cost and disk growth; the register understates it by 0.5 MB and
 the file has grown 270 KB since the report.
 
+Round 2 (05:28): 3,288,019 bytes and 1,909 runs (3,245,127 / 1,867 at 05:24).
+The file is still growing.
+
 #### V-11 The smoke can pass without a model round trip (register: G-09)
 
 Claim (analyst-mimo): `"text":"SMOKE"` is checked only when `BOOT_RC=0`; the
@@ -230,6 +241,11 @@ word `timeout`, provided the boot markers exist. `:122-124` checks
 
 Today's run did get a reply, so the branch was not used. The branch remains a
 path where `SMOKE PASS` is printed without a successful model call.
+
+Round 2: the branch is now labelled. A boot-only run prints
+`SMOKE PASS (no model reply)`, never the plain `SMOKE PASS` line, and
+`TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY=1` turns a missing reply into exit 5
+(`scripts/release-smoke.sh`). The default stays boot-tolerant by design.
 
 #### V-12 `plugin.config` is still not invoked on v2 (register: E-02)
 
@@ -711,3 +727,48 @@ Only select/input are unbridged.
    counts, V-34 line number, and the independence-proof wording.
 8. Add the missing proofs: backup cap, `shell` consent, live blocked tool,
    pin agreement, and the global boot.
+
+---
+
+## H. Round 2 reconciliation (2026-10-26 05:35)
+
+The two external reports and the round-1 ledger are stale on the items below.
+Every status was re-checked against HEAD `26567e5` plus the uncommitted
+DB-protection work, and the full `npm run ci` passed (fast 6, proofs 28,
+smoke 42 tools with a model reply).
+
+| Item | Round-1 state | Round-2 status | Evidence |
+|---|---|---|---|
+| C-01 `shell` bypasses consent | Confirmed critical | Fixed `8ccdd9a` | `prove-shell-alias` PASS |
+| V-02/V-03 select/input + `noReply` | Confirmed | Fixed `ccb2cb6` | `prove-v2-ask-bridge` PASS |
+| B-06/B-07/B-09 backup collision, orphans, no proof | Confirmed | Fixed `d012c55` | `prove-backup-cap` PASS |
+| B-08 >5 MB state gets no backup | Confirmed latent | Fixed `6564ac1` | large-file backup asserts |
+| B-10 boot-repair backups uncapped | Confirmed | Fixed `6564ac1` | exactly two backups |
+| G-09 smoke passes without a reply | Confirmed | Tightened; labelled pass + opt-in exit 5 | `release-smoke.sh` |
+| D-04 maintenance target/schema | New in round 2 | Fixed: explicit target, allowlist, census, cap | `prove-db-retention` PASS |
+| B-03 log size | 2.72 MB / 1,908 runs | 3,288,019 bytes / 1,909 runs | live file |
+| D-01 three DBs | 19/14/14 → 21/14/14 | 22/22, 14/14, 14/14; doctor exits 1 | `doctor-v2.sh` |
+| H-04 descriptor | Done | Live PID 1537214, URL `127.0.0.1:49374` | `service.json` + `/proc` |
+| E-01 `blockTool` | Fixed | 8 occurrences: 1 definition + 7 calls | `tool-execute.ts` |
+| D-03 root leftovers | Open, scan missing | Scan done: 3 root files, 1.09 GB `/tmp` | `stat`, `du` |
+
+### D-04 DB protection evidence
+
+The maintenance lane now has a single explicit target, a four-table mutation
+allowlist, a protected-table census, a 4 GiB DB+WAL cap, and a v2-schema
+prune. `scripts/prove-db-retention.ts` passes 44 assertions, including:
+
+- implicit DB selection is refused with exit 2 and names D-01;
+- `--plan` lists the mutation and protected tables;
+- a v2-only schema (`session_v2` + `session_message`, no `message`/`part`)
+  is detected and pruned without touching sessions;
+- `project`, `permission`, `credential`, and `migration` rows survive;
+- the backup carries every `session_message` row;
+- event-only exits 9 when the cap remains.
+
+A real-schema copy of the live sidecar completed full maintenance: backup
+verified `session_v2=21`, `session=0`, `session_message=2519`; protected
+counts unchanged; 38 MB → 22 MB DB+WAL. The live file was not mutated.
+
+Remaining owner decisions: D-01 canonical DB, D-02 import, P-07 v1 trees,
+D-03 cleanup, and the real global install (I-01).

@@ -107,6 +107,13 @@ that the PID is alive, reports the resolved `opencode` on PATH, flags a
 terminal install and a `~/.opencode/bin` PATH export, and lists every
 Desktop-bundled CLI with its version.
 
+Measured 2026-10-26: descriptor PID `1537214`, URL
+`http://127.0.0.1:49374`, started 03:46:40; parent app PID `1536678` started
+03:46:25. The sidecar's `/proc/1537214/environ` carries
+`OPENCODE_DB=/home/htoz/.local/share/opencode/tawassul-v2/opencode.db`; the
+app parent carries no `OPENCODE_*` variables. The doctor now compares that
+live DB with the shell's `OPENCODE_DB` and fails when they differ.
+
 ### H-05 Single-host rule — done
 
 Resolution: `AGENTS.md` ownership boundary item 4 and `README.md` "Host
@@ -386,10 +393,11 @@ Next: generate schemas at build time, read one JSON file at boot, and skip
 the host shows placeholder schemas. Next: readiness event or 6 attempts
 (about 3 s), with one warning line.
 
-### B-03 `tool-run-log.json` is 2.72 MB pretty-printed — open
+### B-03 `tool-run-log.json` is 3.1 MB pretty-printed — open
 
-Measured 2026-10-26: 2,717,354 bytes and 1,908 runs (the earlier 2.2 MB
-figure was already stale). `ToolRunLog.load()` parses the whole file at boot;
+Measured 2026-10-26 05:28: 3,288,019 bytes and 1,909 runs, still growing
+(3,245,127 bytes / 1,867 runs at 05:24; the 2.72 MB / 1,908-run figure in the
+audit was already stale). `ToolRunLog.load()` parses the whole file at boot;
 `save()` serializes the whole array with `JSON.stringify(..., null, 2)` and
 rewrites the file. Next: append-only JSONL with rotation at 2000 entries and
 a compact save.
@@ -533,6 +541,15 @@ tools, and health + help executed. Remaining nit: the smoke cannot pick a
 quota-free provider because no `auth.json` exists on this host; that needs an
 owner decision on where the real credential source lives.
 
+Tightened 2026-10-26: the report line now distinguishes an observed model
+reply from a boot-only run. It prints `model reply` only when the `SMOKE`
+text was actually received; otherwise it prints
+`SMOKE PASS (no model reply)` so a quota-skipped boot can never be read as a
+real round trip. `TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY=1` turns the missing
+reply into exit 5, and the default remains boot-tolerant. The latest full
+`npm run ci` printed `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, model
+reply, health + help`.
+
 ---
 
 ## Data and state (P1)
@@ -556,11 +573,22 @@ user never reads is not acceptable.
 - Launcher DB: `~/.local/share/tawassul-v2/opencode-v2.db` (13 MB, dev and
   smoke runs only).
 
-Re-measured 2026-10-26: sidecar 19 `session_v2` rows (25,378,816 bytes),
-shared 14 `session_v2` plus 2 legacy `session` rows (24,780,800 bytes),
-launcher 14 `session_v2` rows (13,627,392 bytes). At the final check later
-that day the sidecar had 21 rows, so the drift is continuing; the 13/14/14
-figure in the 2026-10-25 note is obsolete.
+Re-measured 2026-10-26 05:28: sidecar 22 `session_v2` rows, 2,541
+`session_message` rows, 5 `project` rows, 29,343,744 bytes plus a 10,460,712
+byte WAL (39,804,456 total); shared 14 `session_v2` plus 2 legacy `session`
+rows and 1,268 `session_message` rows, 24,780,800 bytes; launcher 14
+`session_v2` rows, 13,627,392 bytes, no `session` table. The doctor exits 1:
+`multiple databases contain sessions (OPENCODE_DB 22/22; shared 14/14;
+launcher 14/14)`. The 13/14/14 figure in the 2026-10-25 note is obsolete.
+
+Schema check against the OpenCode 2.1.4 reference
+(`extracted_files/opt/OpenCode/resources/app.asar` and `opencode-cli`): the
+host resolves `F4(o)` as `process.env.OPENCODE_DB` or `opencode.db` for the
+`latest/dev/beta/next/prod` channels, resolved against
+`$XDG_DATA_HOME/opencode`, and passes it as `database.path`. The live sidecar
+therefore follows the same rule. The live v2 schema has **no** `message` or
+`part` tables; its history is `session_message`. Any maintenance that assumes
+the legacy schema would have failed after taking a backup.
 
 The Desktop descriptor points every client at the sidecar, so the CLI and
 launcher paths are only used by isolated runs. Unifying them needs an explicit
@@ -587,12 +615,57 @@ E-06 fixed the write path: `stateFile` is
 `join(projectStateDir, fileName)` in `src/bootstrap/service-factory.ts:196`,
 so new state lands under `<project>/.opencode`. The root
 `collective-memory-515c5c5d.json` and its empty `.bak` are old leftovers;
-they are untracked and need owner approval before deletion. A scan for other
-root `collective-memory*`, `trust-score*`, `cost-transparency*`, and
-`background-coordinator*` files is still missing.
+they are untracked and need owner approval before deletion.
 
-Next: run that scan, keep anything v2 still reads, and delete the rest with
-owner approval (pending decision 6).
+Scan run 2026-10-26: the root holds exactly three leftovers —
+`collective-memory-515c5c5d.json` (2,752 bytes) plus a zero-byte
+`.bak.1792903295011.eb0c96a3c9c8`, and `cost-transparency.json` (25,718 bytes)
+plus two backups (24,216 and 24,563 bytes). No `trust-score*` or
+`background-coordinator*` files exist. The scratch area also holds 1.09 GB:
+four `v1tree-*` probe copies at 234–238 MB each (~946 MB total), plus
+`dual-v1` (8.6 MB), `smoke-run` (16 MB), `global-e2e` (23 MB),
+`gtttt-probe` (23 MB), `global-probe` (20 MB), `pkg-probe` (8.7 MB),
+`pkg-shape-probe` (6.8 MB), and `tawassul-v2` (7.6 MB).
+
+Next: delete the root leftovers and the scratch directories with owner
+approval (pending decision 6). Nothing in the current tree reads them.
+
+### D-04 DB maintenance could mutate the wrong DB or schema — fixed (2026-10-26)
+
+Owner-approved protection plan. Before this fix the maintenance lane fell back
+implicitly to the isolated launcher DB, mutated `message`/`part` without a
+schema probe, and could leave the launcher above the 4 GiB cap. On the live
+v2 schema the prune would have failed *after* taking the backup.
+
+Fixed in `scripts/opencode-db-maintenance.sh` and
+`scripts/opencode-v2-iso.sh`:
+
+- **Explicit target only.** `--db` or `OPENCODE_DB`; no implicit fallback.
+  `--plan` prints the contract for review.
+- **Mutation allowlist.** Only `message`, `part`, `session_message`, and
+  `event` may be deleted; every mutation re-checks the allowlist.
+- **Protected census.** `session`, `session_v2`, `project`, `workspace`,
+  `worktree`, `project_directory`, `permission`, `credential`, `account*`,
+  `migration`, `kv`, `instruction*`, `session_inbox`, `session_pending`,
+  `session_share`, `todo`, `event_sequence`. Counts are compared before and
+  after; any change exits 9 before VACUUM and names the verified backup.
+- **v2 schema.** `session_message` is pruned with the same fresh-session
+  guard as the legacy `message` path; an unprovable schema refuses. The
+  backup probe compares `session_v2`, `session`, and `session_message`.
+- **Cap.** Default 4 GiB (`TAWASSUL_DB_CAP_BYTES`), measured on DB + WAL.
+  Event-only exits 9 when the cap remains; the full run exits 9 when the cap
+  remains after VACUUM. The launcher refuses an unmeasurable or over-cap DB
+  unless `TAWASSUL_ALLOW_OVER_CAP=1`, and starts background maintenance only
+  when event retention actually relieved the cap.
+- **Proof.** `scripts/prove-db-retention.ts` now asserts the allowlist and
+  census, implicit-target refusal, v2-only schema, protected-table survival,
+  backup contents, and the cap exit code.
+
+Evidence: isolated proof passes; a real-schema copy of the live DB completed
+full maintenance with a verified backup (`session_v2=21`, `session=0`,
+`session_message=2519`), all protected counts unchanged, and 38 MB → 22 MB;
+the full `npm run ci` passes. D-01 stays open: the canonical path is still
+the owner's decision.
 
 ---
 
@@ -656,8 +729,10 @@ exists; "stale" means the finding no longer matches the tree.
 
 Original severity: critical. `src/v2/setup.ts:56-59` adds `isBlockError`
 and rethrows `ToolBlockedError` / `ConsentBlockedError`; the bridge catches
-only other errors. The seven `blockTool()` sites in
-`src/hooks/tool-execute.ts:185-266` now reach the host.
+only other errors. The seven `blockTool()` call sites in
+`src/hooks/tool-execute.ts:185-266` now reach the host. Census: eight
+`blockTool` occurrences in that file — one definition at `:105` plus seven
+calls at `:185`, `:197`, `:206`, `:224`, `:250`, `:254`, and `:266`.
 
 Remaining: no proof that a blocked tool actually fails a live run (G-05).
 
