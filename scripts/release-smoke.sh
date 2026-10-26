@@ -10,7 +10,7 @@ usage() {
 
 MODEL="${TAWASSUL_SMOKE_MODEL:-opencode/big-pickle}"
 BOOT_TIMEOUT="${TAWASSUL_SMOKE_TIMEOUT:-60}"
-REQUIRE_MODEL_REPLY="${TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY:-0}"
+REQUIRE_MODEL_REPLY="${TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY:-1}"
 RESOLVE_ONLY=0
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -95,6 +95,7 @@ timeout "$BOOT_TIMEOUT" "$BIN" run --standalone --auto --format json --model "$M
 BOOT_RC=$?
 PLUGIN_BOOT=0
 MODEL_REPLY=0
+DEGRADED=""
 if grep -q 'initPlugin=' "$WORK/tawassul.log" 2>/dev/null && grep -q 'v2 registered 42 tools' "$WORK/tawassul.log" 2>/dev/null; then
   PLUGIN_BOOT=1
 fi
@@ -103,14 +104,14 @@ if [ "$BOOT_RC" -ne 0 ]; then
   if [ "$PLUGIN_BOOT" = "1" ] && grep -qE 'provider\.[a-z-]+|FreeUsageLimitError|"status": *429|Free usage limit' "$WORK/run.out" "$WORK/run.err" 2>/dev/null; then
     PROVIDER_REFUSAL=1
   fi
-  if [ "$PLUGIN_BOOT" = "1" ] && { [ "$PROVIDER_REFUSAL" = "1" ] || [ "$BOOT_RC" -eq 124 ] || grep -qE 'ECONNRESET|Transport:|socket connection|ETIMEDOUT|timed out|timeout' "$WORK/run.out" "$WORK/run.err" 2>/dev/null; }; then
-    if [ "$PROVIDER_REFUSAL" = "1" ]; then
-      echo "release-smoke: model reply unavailable (provider refused — quota or auth) — plugin boot verified, continuing" >&2
-    else
-      echo "release-smoke: model reply unavailable (host transport) — plugin boot verified, continuing" >&2
-    fi
+  if [ "$PLUGIN_BOOT" = "1" ] && [ "$PROVIDER_REFUSAL" = "1" ]; then
+    DEGRADED="provider refused the model call"
+    echo "release-smoke: no model reply (provider refused — quota or auth); the plugin boot is verified" >&2
+  elif [ "$PLUGIN_BOOT" = "1" ] && [ "$REQUIRE_MODEL_REPLY" = "0" ]; then
+    DEGRADED="no reply required (TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY=0)"
+    echo "release-smoke: no model reply (tolerance enabled by TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY=0)" >&2
   else
-    echo "release-smoke: scratch boot failed (rc=$BOOT_RC)." >&2
+    echo "release-smoke: scratch boot failed (rc=$BOOT_RC): the plugin booted but gave no model reply and no provider refusal code." >&2
     tail -5 "$WORK/run.err" >&2
     KEEP=1
     exit 3
@@ -162,10 +163,5 @@ console.log("release-smoke: direct tools OK (42 registered, health + help execut
 if [ "$MODEL_REPLY" = "1" ]; then
   echo "SMOKE PASS: host v$ACTUAL, scratch boot, 42 tools, model reply, health + help"
 else
-  if [ "$REQUIRE_MODEL_REPLY" = "1" ]; then
-    echo "SMOKE FAIL: host v$ACTUAL booted the plugin and 42 tools, but no model reply (TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY=1)" >&2
-    KEEP=1
-    exit 5
-  fi
-  echo "SMOKE PASS (no model reply): host v$ACTUAL, scratch boot, 42 tools, health + help"
+  echo "SMOKE PASS (no model reply — $DEGRADED): host v$ACTUAL, scratch boot, 42 tools, health + help"
 fi
