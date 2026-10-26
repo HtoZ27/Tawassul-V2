@@ -1,10 +1,10 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 39 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 40 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
-Active P0: E-12 — state writes are reported before they happen; E-13 — a
-rejected state file is silently replaced by an older backup. The running host
-also predates the current build (G-13).
+Active P0: none open — E-12 (state writes reported before they happen) and
+E-13 (a rejected state file replaced by an older backup) are resolved. The
+running host still predates the current build (G-13).
 Register note: the third-round evaluation (2026-10-26) added E-11..E-41 and
 re-confirmed C-02, C-03, P-10, B-02, E-02, and G-13 without duplicating them.
 Stability view: `STABILITY.md` classifies all 52 open entries by whether they
@@ -1681,22 +1681,29 @@ unexpected error on a `bash` call into a hard block would disable delegation
 itself. Fail closed on the *decision* (consent denied, tool blocked), fail
 open with a loud log on *infrastructure* faults.
 
-#### E-19 Outputs over 50,000 characters are cut with no marker — open (P1)
+#### E-19 Outputs over 50,000 characters are cut with no marker — done (2026-10-26)
 
-`src/hooks/tool-execute.ts:673-674` builds `scanText` as
-`outputText.slice(0, 50_000)` for threat scanning. Line `:747` then assigns
-`output.output = svc.truncateToolOutput(scanText)`. Because `scanText` is
+`src/hooks/tool-execute.ts:673-674` built `scanText` as
+`outputText.slice(0, 50_000)` for threat scanning. Line `:747` then assigned
+`output.output = svc.truncateToolOutput(scanText)`. Because `scanText` was
 already at most 50,000 characters and `truncateToolOutput` only adds the
 head/tail split and the `[N chars truncated]` marker when its input *exceeds*
-the cap (`src/services/context-compressor.ts:22-27`), the marker path is
+the cap (`src/services/context-compressor.ts:22-27`), the marker path was
 unreachable here.
 
-Impact: any `bash` or `read` result over 50k is silently truncated to its
+Impact: any `bash` or `read` result over 50k was silently truncated to its
 first 50k — usually the head, while the error or final result lives in the
-tail. Unlike `src/tools/web.ts`, nothing is saved to a temp file.
+tail. Unlike `src/tools/web.ts`, nothing was saved to a temp file.
 
-Next: scan a slice but truncate the full `outputText`; add a proof with a
-120k output that asserts both the tail and the marker.
+Resolved 2026-10-26: the scan keeps its 50k slice, but delivery truncates the
+full `outputText`, so the head and tail survive under the
+`[N chars truncated]` marker. The privacy path now redacts the full text
+before that truncation, so a secret beyond the scan slice is redacted instead
+of silently dropping the tail; previously it set the quarantine flag and
+skipped the marker path entirely. `prove-e19` feeds a 120k `bash` result and
+asserts the head, the tail, the exact removed count, and the cap; a second
+case hides an `sk-` secret in the head and asserts it is redacted while the
+tail and marker survive (11 assertions).
 
 #### E-20 Shutdown does not await async cleanup callbacks — done (2026-10-26)
 

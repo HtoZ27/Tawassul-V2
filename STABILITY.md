@@ -15,23 +15,23 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **52 are open**.
+with 99 entries, of which **51 are open**.
 
 ## The filter
 
-52 open items sound like 52 problems. They are not the same kind of problem:
+51 open items sound like 51 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
 | S0 | Does the plugin work at all? | 1 |
-| S1 | Does it lose or corrupt data silently? | 5 |
+| S1 | Does it lose or corrupt data silently? | 4 |
 | S2 | Does it tell the truth about what happened? | 14 |
 | S3 | Does it start reliably and quickly? | 9 |
 | S4 | Can it be made to do something it should not? | 6 |
 | S5 | Can we prove any of the above? | 13 |
 | S6 | Does install and upgrade work? | 4 |
 
-**Stability is S0 + S1: 6 items.** S2 decides whether you can trust what you
+**Stability is S0 + S1: 5 items.** S2 decides whether you can trust what you
 see. S3 through S6 matter, but none of them makes a working session fail.
 
 ---
@@ -42,11 +42,10 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | --- | --- | --- |
 | `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
 
-## S1 — silent data loss (5)
+## S1 — silent data loss (4)
 
 | ID | Defect |
 | --- | --- |
-| `E-19` | Outputs over 50,000 characters are cut with no marker |
 | `E-23` | The goal store locks the file, not the goal; parallel mutations are lost as "locked" |
 | `E-24` | Saga ids restart at `SAGA-001` and overwrite the previous journal |
 | `B-11` | Predictive-router rewrites its file every 5 minutes and grows the backup family |
@@ -96,7 +95,7 @@ entry, and no hook may turn a `bash` infrastructure error into a hard block.
 
 ## The five clusters
 
-The 25 entries in S0–S2 are not 25 independent jobs. Most collapse into five
+The 24 entries in S0–S2 are not 24 independent jobs. Most collapse into five
 engineering clusters, each of which is one coherent change.
 
 | Cluster | Members | One change |
@@ -120,9 +119,9 @@ still there.
 the persistence cluster. Restart the host after each build (`G-13`) and
 confirm against a live session, not a proof.
 
-**Wave 2 — stop losing data (S1, 4–6 days).** The persistence cluster is
-closed (`E-20`, `E-21`, `E-22`, `P-08`, `P-09`); next is `E-19` in the
-bridge, then the stores cluster (`E-23`, `E-24`, `B-11`, `B-12`).
+**Wave 2 — stop losing data (S1, 4–6 days).** The persistence cluster
+(`E-20`, `E-21`, `E-22`, `P-08`, `P-09`) and `E-19` are closed; the remaining
+work is the stores cluster (`E-23`, `E-24`, `B-11`, `B-12`).
 
 **Wave 3 — stop lying (S2, 3–4 days).** Telemetry (`E-14`, `E-27`, `E-31`),
 then the rest of the bridge (`E-15`, `E-17`, `E-34`, `E-35`, `E-38`), then
@@ -180,6 +179,9 @@ today.
   computed before the shutdown flush, so it survives a restart; `P-08` (S1) —
   every rejected state copy is preserved under a distinct name and the
   quarantine keeps the five newest; `P-09` (S1) — the legacy lookup picks the
-  newest existing candidate and prefers the non-retired directory on a tie.
+  newest existing candidate and prefers the non-retired directory on a tie;
+  `E-19` (S1) — oversized tool output keeps its head and tail under an exact
+  truncation marker, and the privacy path redacts the full text instead of
+  dropping the tail.
 - The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
   Wave 2 and should be re-scoped to the wave boundaries above.
