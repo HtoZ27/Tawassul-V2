@@ -119,8 +119,9 @@ Verdict: CONFIRMED, P0. Re-measured 2026-10-26:
 | `~/.local/share/opencode/opencode.db` (shared) | 24,780,800 | 14 (plus 2 legacy `session`) |
 | `~/.local/share/tawassul-v2/opencode-v2.db` (launcher) | 13,627,392 | 14 |
 
-The register said 13/14/14 on 2026-10-25; the sidecar has grown to 19. The
-split is worsening, not stabilizing. Owner decision still pending.
+The register said 13/14/14 on 2026-10-25; the sidecar had grown to 19 at
+audit time and 21 at the final check. The split is worsening, not
+stabilizing. Owner decision still pending.
 
 #### V-05 Sidecar session count drifted (register: D-01)
 
@@ -592,7 +593,8 @@ Only select/input are unbridged.
 6. **V-25** boot-repair backups have no cap.
 7. **V-23** later rejected-state copies are dropped.
 8. **V-24** legacy state lookup prefers the retired v1 directory.
-9. **V-05** sidecar sessions grew from 13 to 19 in one day.
+9. **V-05** sidecar sessions grew from 13 to 19 (and 21 by the final check)
+   in one day.
 10. **V-14** the two foreign entries are full v1 trees, not single files.
 11. **V-10** the tool-run log is 2.72 MB and 1,908 runs, not 2.2 MB.
 12. **V-11** today's smoke did reply, so the weakened branch was not
@@ -659,7 +661,7 @@ Only select/input are unbridged.
 |---|---|---|
 | B-01 schema duplication plus reload | Confirmed | V-51 |
 | B-05 never measured | Confirmed | V-28 |
-| D-01 three DB paths | Confirmed; now 19/14/14 | V-04 |
+| D-01 three DB paths | Confirmed; 21/14/14 at final check | V-04 |
 | E-02 config hook unbridged | Confirmed; nuance in V-13 | V-12 |
 
 ### analyst-glm-5.3-flash-free

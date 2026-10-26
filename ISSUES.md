@@ -558,9 +558,9 @@ user never reads is not acceptable.
 
 Re-measured 2026-10-26: sidecar 19 `session_v2` rows (25,378,816 bytes),
 shared 14 `session_v2` plus 2 legacy `session` rows (24,780,800 bytes),
-launcher 14 `session_v2` rows (13,627,392 bytes). The sidecar grew by six
-sessions in one day while the other two stayed flat, so the split is
-widening; the 13/14/14 figure in the 2026-10-25 note is obsolete.
+launcher 14 `session_v2` rows (13,627,392 bytes). At the final check later
+that day the sidecar had 21 rows, so the drift is continuing; the 13/14/14
+figure in the 2026-10-25 note is obsolete.
 
 The Desktop descriptor points every client at the sidecar, so the CLI and
 launcher paths are only used by isolated runs. Unifying them needs an explicit
@@ -844,7 +844,8 @@ Corrections to existing entries:
 
 - B-03 now records 2,717,354 bytes and 1,908 runs (2026-10-26).
 - B-04 cleanup arithmetic is corrected to 33 `.bak.*` plus 75 `*.tmp`.
-- D-01 now records 19/14/14 sessions (2026-10-26).
+- D-01 now records 19/14/14 sessions at audit time and 21/14/14 at the
+  final check (2026-10-26).
 - G-09 is weakened: the smoke can still pass without a model reply; today it
   did reply.
 - E-02: `plugin.config` is uninvoked, but dynamic model repair does run via
