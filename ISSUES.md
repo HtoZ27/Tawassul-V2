@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 54 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 55 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1872,23 +1872,30 @@ cannot leave a partial record and the write creates no backup family.
 advances and the earlier record survives, seeds from a manually written
 `SAGA-009`, and checks there are no temp or backup leftovers (11 assertions).
 
-#### E-25 AskChannel answers questions on the user's behalf under load — open (P1)
+#### E-25 AskChannel answers questions on the user's behalf under load — done (2026-10-26)
 
-`src/services/ask-channel.ts:214-217`: when `_capacityOk(sessionID)` is
-false, the channel logs a warning and returns
-`Promise.resolve(defaultFor(kind))`. `defaultFor` (`:288-292`) returns
-`kind.default` for a confirm, `""` for select/input, and `[]` for
-multiselect. Callers such as `src/services/agent-management.ts:1005-1007`
-treat the value as a user decision.
+`src/services/ask-channel.ts:214-217` returned `Promise.resolve(defaultFor(kind))`
+when `_capacityOk(sessionID)` was false, and the same synthetic value on a
+disposed channel. `defaultFor` returned `kind.default` for a confirm, `""` for
+select, and `[]` for multiselect, and callers treated that as a user decision.
 
-Impact: with 8 pending questions in one session or 100 overall, a select is
+Impact: with 8 pending questions in one session or 100 overall, a select was
 answered with the empty string and a confirm with its default. Consent asks
-use `default: false` (`consent-gate-guard.ts:260,308`), so consent fails
-closed — but every other elicitation silently fabricates an answer, and
-neither the caller nor the user can tell.
+used `default: false`, so consent failed closed — but every other elicitation
+silently fabricated an answer, and neither the caller nor the user could tell.
 
-Next: return a distinct `ASK_UNAVAILABLE` result instead of a synthetic
-reply, and make callers fail closed.
+Resolved 2026-10-26: the channel returns the distinct `ASK_UNAVAILABLE`
+sentinel when it is disposed or at either cap, and writes an
+`ASK_UNAVAILABLE` audit event with the reason, kind, session, and pending
+count. Disposing settles a pending question as unavailable instead of a fake
+answer; a real user reply and the documented confirm default on timeout are
+unchanged. Callers fail closed: the `review` tool reports that the question
+could not be delivered and never assumes approval, a bulk `kick` reports the
+undelivered confirmation through `kickBulkConfirmRequired` and removes
+nothing, a dismissed review counts as a rejection, and the elicitation gate
+returns `reason: "unavailable"` instead of selecting an option. `prove-e25`
+covers both caps, disposal, deferred refusal, the gate, review, and kick (29
+assertions).
 
 #### E-26 The iteration budget hard-blocks every tool at 50 calls — done (2026-10-26)
 
