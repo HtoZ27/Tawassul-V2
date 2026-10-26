@@ -46,9 +46,11 @@ import { createHandoffEntry } from "../services/handoff-entry.ts";
 import { requiresConsent } from "../hooks/guards/shared/limits.ts";
 import { detectInstallScope, claimCoexistence, isCoexistenceOwner, releaseCoexistence } from "../core/install-scope.ts";
 import { warnIfUnisolatedDb } from "./db-isolation.ts";
-import { getAutoGrantableTools } from "../utils/permission-rules.ts";
+import {
+  ensureAddAgentToolPermissions,
+  ensureTawaToolPermissions,
+} from "../utils/agent-permission-repair.ts";
 import { matchesPatterns } from "../utils/text-utils.ts";
-import { BLOCKED_TOOLS } from "../security-policy.ts";
 
 
 
@@ -104,33 +106,6 @@ export function applyDynamicAgentModelFix(cfg: Config): Config {
   return cfg;
 }
 
-
-export function ensureTawaToolPermissions(cfg: Config): void {
-  const tawa = (cfg.agent as Record<string, unknown> | undefined)?.tawa as Record<string, unknown> | undefined;
-  if (!tawa || typeof tawa !== "object") return;
-  const perm = tawa.permission as Record<string, unknown> | undefined;
-  if (!perm || typeof perm !== "object") return;
-  
-  const tawaInnovations = (tawa as Record<string, unknown>).innovations as Record<string, unknown> | undefined;
-  const autoGrantMode = (tawaInnovations?.autoGrantMode as "all" | "safe-only" | "none") ?? "all";
-  const granted = getAutoGrantableTools(perm, autoGrantMode);
-  for (const name of granted) {
-    perm[name] = "allow";
-  }
-  for (const b of BLOCKED_TOOLS) {
-    perm[b] = "deny";
-  }
-}
-
-
-export function ensureAddAgentToolPermissions(cfg: Config): void {
-  const addagent = (cfg.agent as Record<string, unknown> | undefined)?.addagent as Record<string, unknown> | undefined;
-  if (!addagent || typeof addagent !== "object") return;
-  const perm = addagent.permission as Record<string, unknown> | undefined;
-  if (!perm || typeof perm !== "object") return;
-  perm.addagent = "allow";
-  perm.kick = "allow";
-}
 
 function initAudit(ctx: TawassulContext): void {
   const checks: string[] = [];

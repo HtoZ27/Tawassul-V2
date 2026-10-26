@@ -29,6 +29,7 @@ import {
 } from "../utils/path-resolver.ts";
 import { releaseFSLock } from "../infra/file-lock.ts";
 import { acquireOpencodeConfigLock } from "../utils/opencode-config.ts";
+import { applyPermissionRepairs } from "../utils/agent-permission-repair.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -224,6 +225,7 @@ export const OFFICIAL_PERMISSION_KEYS: readonly string[] = [
   "skill",
   "question",
   "doom_loop",
+  "write",
 ];
 
 export const REGISTERED_PERMISSION_KEYS: readonly string[] = [...TAWASSUL_TOOL_NAMES];
@@ -553,6 +555,7 @@ export function buildAgents(deleted?: readonly string[], opts?: GenOptions): Rec
   };
 
   grantTawaPluginTools(agents);
+  applyPermissionRepairs({ agent: agents });
   validateAgents(agents);
 
   return agents;

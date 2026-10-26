@@ -1,0 +1,132 @@
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DYNAMIC_MODEL_SENTINEL } from "../src/services/proxy-fallback-chains.ts";
+import { applyBootRepairs, repairProjectConfigBoot } from "../src/utils/opencode-config.ts";
+import { buildAgents } from "../src/scripts/gen-opencode-config.ts";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+let passed = 0;
+
+function fail(msg: string): never {
+  console.error(`PROOF FAIL: ${msg}`);
+  process.exitCode = 1;
+  throw new Error(msg);
+}
+
+function assert(cond: boolean, name: string): void {
+  if (!cond) fail(name);
+  passed++;
+  console.log(`ok ${name}`);
+}
+
+type PermissionMap = Record<string, unknown>;
+
+type AgentConfig = { model?: string; permission?: PermissionMap; [key: string]: unknown };
+
+type Config = { model?: string; agent?: Record<string, AgentConfig>; [key: string]: unknown };
+
+function readConfig(path: string): Config {
+  return JSON.parse(readFileSync(path, "utf-8")) as Config;
+}
+
+async function main(): Promise<void> {
+  const work = mkdtempSync(join(tmpdir(), "tawassul-e02-"));
+  const configPath = join(work, "opencode.json");
+  const base: Config = {
+    model: "opencode/big-pickle",
+    agent: {
+      tawa: {
+        model: "opencode/big-pickle",
+        permission: {
+          goal: "deny",
+          timeline: "ask",
+          bash: { "*": "deny", "ls *": "allow" },
+          write: "allow",
+        },
+      },
+      addagent: {
+        model: "opencode/big-pickle",
+        permission: {},
+      },
+      dev: {
+        model: "google/gemini-flash-lite-latest",
+      },
+    },
+  };
+  writeFileSync(configPath, JSON.stringify(base, null, 2) + "\n");
+
+  try {
+    const first = await repairProjectConfigBoot(work);
+    assert(first.changed, "boot repair rewrites a config that needs permission repairs");
+    assert(first.fixes.includes("agent-permissions"), "the permission repair is reported as a boot fix");
+
+    const repaired = readConfig(configPath);
+    const tawa = repaired.agent?.tawa?.permission ?? {};
+    const addagent = repaired.agent?.addagent?.permission ?? {};
+
+    assert(tawa["edit"] === "deny", "tawa is denied edit when no rule exists");
+    assert(tawa["write"] === "deny", "a permissive write rule is tightened to deny");
+    assert(
+      JSON.stringify(tawa["bash"]) === JSON.stringify({ "*": "deny", "ls *": "allow" }),
+      "an existing scoped bash allowlist is preserved instead of clobbered",
+    );
+    assert(tawa["addagent"] === "deny", "tawa is denied addagent");
+    assert(tawa["kick"] === "deny", "tawa is denied kick");
+    assert(tawa["pause"] === "deny", "tawa is denied pause");
+    assert(tawa["resume"] === "deny", "tawa is denied resume");
+    assert(tawa["discussion"] === "allow", "an unruled Tawassul tool is auto-granted to tawa");
+    assert(tawa["goal"] === "deny", "an explicit user rule for tawa is preserved");
+    assert(tawa["timeline"] === "ask", "an explicit ask rule for tawa is preserved");
+    assert(addagent["addagent"] === "allow", "addagent may call addagent");
+    assert(addagent["kick"] === "allow", "addagent may call kick");
+    assert(repaired.agent?.dev?.permission === undefined, "an unrelated agent is not given permissions");
+    assert(repaired.agent?.dev?.model === "google/gemini-flash-lite-latest", "an unrelated agent keeps its model");
+    assert(repaired.model === "opencode/big-pickle", "the top-level model is preserved");
+
+    const bytes = readFileSync(configPath, "utf-8");
+    const second = await repairProjectConfigBoot(work);
+    assert(!second.changed, "a repaired config is not rewritten again");
+    assert(readFileSync(configPath, "utf-8") === bytes, "the second boot leaves the file byte-identical");
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+
+  const raw = JSON.stringify(
+    {
+      model: "opencode/big-pickle",
+      agent: {
+        tawa: { model: DYNAMIC_MODEL_SENTINEL, permission: {} },
+      },
+    },
+    null,
+    2,
+  );
+  const applied = applyBootRepairs(raw);
+  assert(applied.fixes.includes("dynamic-models"), "the model repair still runs in the same pass");
+  assert(applied.fixes.includes("agent-permissions"), "the permission repair runs beside the model repair");
+  assert(applied.next !== raw, "a config that needs both repairs is rewritten");
+  const appliedConfig = JSON.parse(applied.next) as Config;
+  assert(appliedConfig.agent?.tawa?.model !== DYNAMIC_MODEL_SENTINEL, "the dynamic model becomes concrete");
+  assert(appliedConfig.agent?.tawa?.permission?.["bash"] === "deny", "the same pass denies bash for tawa");
+
+  const repo = dirname(dirname(fileURLToPath(import.meta.url)));
+  const generated = buildAgents(undefined, { projectRoot: resolve(repo) });
+  const generatedRaw = JSON.stringify({ model: "opencode/big-pickle", agent: generated }, null, 2);
+  const generatedRepair = applyBootRepairs(generatedRaw);
+  assert(
+    generatedRepair.fixes.length === 0,
+    "a freshly generated config already satisfies the permission repair",
+  );
+}
+
+try {
+  await main();
+  console.log(`PROOF PASS: the v2 boot repair applies the tawa and addagent permission helpers (${passed} assertions)`);
+} catch (e) {
+  if (!String((e as Error)?.message ?? "").includes("PROOF FAIL")) {
+    console.error(`PROOF FAIL: ${(e as Error)?.message ?? e}`);
+    process.exitCode = 1;
+  }
+}

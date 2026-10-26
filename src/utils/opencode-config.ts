@@ -21,6 +21,8 @@ import {
 } from "../services/proxy-fallback-chains.ts";
 import { RETIRED_MODEL_IDS } from "../core/variant-names.ts";
 import { logger } from "./logger.ts";
+import type { Config } from "../plugin-types.ts";
+import { applyPermissionRepairs } from "./agent-permission-repair.ts";
 
 
 export function stripJsoncComments(text: string): string {
@@ -378,6 +380,18 @@ export function applyBootRepairs(raw: string): { next: string; fixes: string[] }
   if (models !== next) {
     next = models;
     fixes.push("dynamic-models");
+  }
+  try {
+    const cfg = readJsoncObject(next) as Config;
+    if (applyPermissionRepairs(cfg) && cfg.agent) {
+      next = spliceAgentSection(next, cfg.agent);
+      fixes.push("agent-permissions");
+    }
+  } catch (e) {
+    logger.warn(
+      "[tawassul] boot repair: agent permission rewrite skipped:",
+      e instanceof Error ? e.message : e,
+    );
   }
   return { next, fixes };
 }
