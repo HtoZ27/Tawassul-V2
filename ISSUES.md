@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 56 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 57 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -2046,18 +2046,30 @@ the 25-vs-29 drift documented in the README could appear at all.
 Next: assert equality against a manifest, and make the docs read the manifest
 instead of restating a number.
 
-#### E-33 The client shim silently drops user-facing side effects — open (P2)
+#### E-33 The client shim silently drops user-facing side effects — done (2026-10-26)
 
-`src/v2/client-shim.ts:77-85` implements `tui.appendPrompt` and
-`tui.showToast` as log-only no-ops, and `:91` hardcodes
+`src/v2/client-shim.ts:77-85` implemented `tui.appendPrompt` and
+`tui.showToast` as log-only no-ops, and `:91` hardcoded
 `serverUrl: undefined`.
 
 Impact: rate-limit warnings, review prompts, and toast notifications never
-reach the user on v2; model-injection text loses the host URL it is built
-from. Both failures are silent.
+reached the user on v2; model-injection text lost the host URL it is built
+from. Both failures were silent. Worse, the fake `appendPrompt` made the ask
+renderer resolve to `"append"`, so every question was logged and never shown
+while the ask channel waited for an answer.
 
-Next: bridge `showToast` to the host notification API, or make the shim throw
-so callers know the capability is missing.
+Resolved 2026-10-26: the shim exposes only the capability it really has. There
+is no v1 TUI on v2, so the fake `appendPrompt`/`showToast` handles are gone and
+the ask renderer resolves to the transcript, where questions are injected with
+the ask marker and a real session id. The rate-limit retry and exhaustion
+notices use the same synthetic transcript path through `notifySession`, which
+returns `false` and logs when the bridge is missing instead of pretending; the
+toast-only `TAWASSUL_ASK_APPEND_PROMPT` flag is retired with the append mode.
+`serverUrl` is derived from `OPENCODE_SERVER_PORT`/`OPENCODE_PORT` (an invalid
+port is ignored rather than guessed), so the model-injection text keeps the
+host URL. `prove-e33` covers the shim surface, renderer resolution, question
+delivery, both rate-limit notices, the undelivered path, and the server URL (28
+assertions).
 
 #### E-34 `chat.message` message-level mutations are discarded — done (2026-10-26)
 
