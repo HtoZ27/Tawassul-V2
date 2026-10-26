@@ -15,23 +15,23 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **54 are open**.
+with 99 entries, of which **52 are open**.
 
 ## The filter
 
-59 open items sound like 59 problems. They are not the same kind of problem:
+52 open items sound like 52 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
 | S0 | Does the plugin work at all? | 1 |
-| S1 | Does it lose or corrupt data silently? | 7 |
+| S1 | Does it lose or corrupt data silently? | 5 |
 | S2 | Does it tell the truth about what happened? | 14 |
 | S3 | Does it start reliably and quickly? | 9 |
 | S4 | Can it be made to do something it should not? | 6 |
 | S5 | Can we prove any of the above? | 13 |
 | S6 | Does install and upgrade work? | 4 |
 
-**Stability is S0 + S1: 8 items.** S2 decides whether you can trust what you
+**Stability is S0 + S1: 6 items.** S2 decides whether you can trust what you
 see. S3 through S6 matter, but none of them makes a working session fail.
 
 ---
@@ -42,7 +42,7 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | --- | --- | --- |
 | `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
 
-## S1 — silent data loss (10)
+## S1 — silent data loss (5)
 
 | ID | Defect |
 | --- | --- |
@@ -51,8 +51,6 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | `E-24` | Saga ids restart at `SAGA-001` and overwrite the previous journal |
 | `B-11` | Predictive-router rewrites its file every 5 minutes and grows the backup family |
 | `B-12` | `panic` backup is best-effort, never pruned, and reports success even when it failed |
-| `P-08` | Later rejected-state copies are dropped |
-| `P-09` | Legacy state lookup prefers the retired v1 directory |
 
 ## S2 — features silently dead or lying (14)
 
@@ -98,12 +96,12 @@ entry, and no hook may turn a `bash` infrastructure error into a hard block.
 
 ## The five clusters
 
-The 27 entries in S0–S2 are not 27 independent jobs. Most collapse into five
+The 25 entries in S0–S2 are not 25 independent jobs. Most collapse into five
 engineering clusters, each of which is one coherent change.
 
 | Cluster | Members | One change |
 | --- | --- | --- |
-| **Persistence** | `E-12`, `E-13`, `E-20`, `E-21`, `E-22`, `P-08`, `P-09`, `D-05` | Make save/load/flush one generation-aware path: write before you report, quarantine instead of rolling back, await every flush. |
+| **Persistence** | `E-12`, `E-13`, `E-20`, `E-21`, `E-22`, `D-05` | Make save/load/flush one generation-aware path: write before you report, quarantine instead of rolling back, await every flush. |
 | **Bridge** | `E-15`, `E-17`, `E-34`, `E-35`, `E-38` | Read the v2 payload explicitly instead of inferring it, and preserve every part. |
 | **Guards** | `C-03`, `P-10`, `E-18`, `E-25`, `E-28` | One guard chain on every path, capability seeded at boot, fail closed on decisions and open on infrastructure. |
 | **Stores** | `E-23`, `E-24`, `B-11`, `B-12` | Correct lock key, monotonic ids, no timestamp in the change check, honest backup reporting. |
@@ -122,9 +120,9 @@ still there.
 the persistence cluster. Restart the host after each build (`G-13`) and
 confirm against a live session, not a proof.
 
-**Wave 2 — stop losing data (S1, 4–6 days).** Finish the persistence cluster
-(`E-20`, `E-21`, `E-22`, `P-08`, `P-09`), then `E-19` in the bridge,
-then the stores cluster (`E-23`, `E-24`, `B-11`, `B-12`).
+**Wave 2 — stop losing data (S1, 4–6 days).** The persistence cluster is
+closed (`E-20`, `E-21`, `E-22`, `P-08`, `P-09`); next is `E-19` in the
+bridge, then the stores cluster (`E-23`, `E-24`, `B-11`, `B-12`).
 
 **Wave 3 — stop lying (S2, 3–4 days).** Telemetry (`E-14`, `E-27`, `E-31`),
 then the rest of the bridge (`E-15`, `E-17`, `E-34`, `E-35`, `E-38`), then
@@ -179,6 +177,9 @@ today.
   cleanup callback, so the ledger and timeline tails flush; `E-21` (S1) — the
   shutdown flush makes one final forced write and reports a terminal failure;
   `E-22` (S1) — the dropped-handoff penalty is
-  computed before the shutdown flush, so it survives a restart.
+  computed before the shutdown flush, so it survives a restart; `P-08` (S1) —
+  every rejected state copy is preserved under a distinct name and the
+  quarantine keeps the five newest; `P-09` (S1) — the legacy lookup picks the
+  newest existing candidate and prefers the non-retired directory on a tie.
 - The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
   Wave 2 and should be re-scoped to the wave boundaries above.

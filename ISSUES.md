@@ -1,13 +1,13 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 32 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 39 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: E-12 — state writes are reported before they happen; E-13 — a
 rejected state file is silently replaced by an older backup. The running host
 also predates the current build (G-13).
 Register note: the third-round evaluation (2026-10-26) added E-11..E-41 and
 re-confirmed C-02, C-03, P-10, B-02, E-02, and G-13 without duplicating them.
-Stability view: `STABILITY.md` classifies all 59 open entries by whether they
+Stability view: `STABILITY.md` classifies all 52 open entries by whether they
 block use, lose data, or misreport, and gives the wave order.
 `SHARED.md` audit (2026-10-26): all 57 frozen entries are dispositioned in
 `VERIFICATION-20261026.md`; the only gaps that were actionable in this tree are
@@ -1072,15 +1072,33 @@ Fixed in `6564ac1`: both repair paths now use the atomic backup only, so the
 two-copy cap applies. `prove-backup-cap` runs three config repairs and asserts
 exactly two atomic backups and no uncapped timestamped file.
 
-### P-08 Later rejected-state copies are dropped — open (P2)
+### P-08 Later rejected-state copies are dropped — done (2026-10-26)
 
-`persist-utils.ts:111-113` keeps the first `${base}.rejected.` file and
-returns early for every later one.
+`persist-utils.ts:111-113` kept the first `${base}.rejected.` file and
+returned early for every later one, so only the first tampered payload was
+recoverable.
 
-### P-09 Legacy state lookup prefers the retired v1 directory — open (P2)
+Resolved 2026-10-26: each rejection is written under its own
+`${base}.rejected.<ms>.<seq>-<rand>` name, the quarantine keeps the newest
+`MAX_REJECTED_COPIES` (5) copies per base name, and the oldest are pruned
+first. The sequence component makes same-millisecond rejections sort in
+insertion order, so the cap never drops a newer copy. `prove-p08` rejects the
+same file three times, asserts both early copies keep their own bytes, grows
+the set to eight, and checks the five survivors are the newest and distinct
+(10 assertions).
 
-`state-paths.ts:7-9,44-45` checks `tawassyl` before `tawassul` and returns the
-first existing candidate with no freshness comparison.
+### P-09 Legacy state lookup prefers the retired v1 directory — done (2026-10-26)
+
+`state-paths.ts:7-9,44-45` checked `tawassyl` before `tawassul` and returned
+the first existing candidate with no freshness comparison, so a stale retired
+file shadowed the live v1-era state.
+
+Resolved 2026-10-26: `legacyStatePath` and `legacyFallbackFor` share
+`newestExisting()`, which picks the candidate with the newest mtime and, on an
+exact tie, keeps the non-retired `tawassul` directory; a single or absent
+candidate keeps the documented default. `prove-p09` runs in an isolated child
+with `HOME` pinned (so `homedir()` cannot be cached from the parent) and walks
+newer-retired, newer-router, tie, single, and absent cases (11 assertions).
 
 ### G-10 H-09 rename has no automated check — open (P2)
 
