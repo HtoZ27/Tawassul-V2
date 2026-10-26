@@ -131,7 +131,8 @@ Round 2 (2026-10-26 05:28): sidecar 22 `session_v2` / 2,541
 / 1,268, 24,780,800 bytes; launcher 14, 13,627,392 bytes. The owner adopted
 the role assignment: sidecar canonical, shared legacy read-only, launcher
 test-only. The doctor now passes with `one canonical session DB` and warns
-that the 14+14 copies stay read-only for D-02. The live v2 schema has no
+that the 14+14 copies are retained read-only; D-02 imported them on
+2026-10-26 (26 sessions, 384 messages). The live v2 schema has no
 `message`/`part`; history is `session_message` (register D-04).
 
 #### V-05 Sidecar session count drifted (register: D-01)
@@ -295,6 +296,12 @@ with no `setup`/`effect`, which the v2 host rejects. The same tree exists in
 Impact: every boot in those workspaces logs a plugin-load failure; a v1 tree
 is also one edit away from loading. This violates D-00 (`ISSUES.md:13`).
 Renaming the entry or removing the directory is needed.
+
+Resolved 2026-10-26: the owner deleted both package directories. Neither
+workspace has an `.opencode` directory now, and `doctor-v2.sh` prints
+`PASS  external tree has no live v1 entry` for both. Six inert
+`tawassul.js.retired-20261024` files remain in other workspaces; they are not
+discovered as active entries.
 
 #### V-15 No automated check for the H-09 rename (new: G-10)
 
@@ -772,5 +779,53 @@ A real-schema copy of the live sidecar completed full maintenance: backup
 verified `session_v2=21`, `session=0`, `session_message=2519`; protected
 counts unchanged; 38 MB → 22 MB DB+WAL. The live file was not mutated.
 
-Remaining owner decisions: D-02 import, P-07 v1 trees, and the real global
-install (I-01). D-01 roles and D-03 cleanup were executed on 2026-10-26.
+Remaining owner decision: the real global install (I-01), deferred by the
+owner on 2026-10-26. D-01 roles, D-02 import, D-03 cleanup, and P-07 were
+executed on 2026-10-26.
+
+## I. Round 3 — D-02 import, P-07, and global-install verification
+
+Run 2026-10-26 05:51-05:55 against the live sidecar and host v2.1.4.
+
+### D-02 import
+
+| Check | Result |
+|---|---|
+| Pre-import backup | 31,125,504 bytes, `integrity_check=ok`, 22 sessions / 2,712 messages |
+| Backup SHA-256 | `71766f6346d1...e9c90f5d`, stored in the adjacent `.sha256` file |
+| Sources | shared 12 new (342 messages) + launcher 14 new (42 messages) |
+| Imported | 26 sessions / 384 messages |
+| Canonical after commit | 48 sessions / 3,100 messages (3,110 after host writes) |
+| Integrity | `integrity_check=ok`, `foreign_key_check` empty |
+| Duplicates | 0 session IDs, 0 message IDs, 0 `(session_id, seq)` pairs, 0 orphans |
+| Protected tables | project 5, credential 6, instruction_blob 22, instruction_state 22, worktree 2, event 0, event_sequence 24 — unchanged |
+| Host visibility | `GET /api/session` returns 48 rows and all three spot-checked imported IDs |
+| Doctor | `PASS  one canonical session DB: OPENCODE_DB 48/48` |
+| Sources untouched | shared mtime 2026-10-25 16:55, launcher 2026-10-25 04:46 |
+
+Not imported: the shared DB's two legacy `session` rows (4 `message`, 2
+`part`) and the v1 archives under `/home/htoz/Videos/New Folder/` (223 and
+280 `session` rows, no `session_v2`). They use the v1 schema and stay
+read-only.
+
+### P-07
+
+`/home/htoz/Desktop/gtttt` and `/home/htoz/Desktop/paassss` no longer have an
+`.opencode` directory. `doctor-v2.sh` passes both external-tree checks; the
+only remaining `tawassul.js` copies outside this tree are six
+`.retired-20261024` files that the host does not discover.
+
+### Global install
+
+No global install exists at the v1 or v2 paths: `~/.opencode`,
+`~/.config/opencode/plugins/`, `~/.config/opencode/tawassul-runtime/`, and
+the v1 Bun package are all absent. The v1 docs use
+`~/.config/opencode/plugins/` (or `~/.opencode`); v2 uses the flat
+`~/.config/opencode/plugins/tawassul.js` plus the runtime directory.
+
+`bun scripts/install-global.ts --dry-run` exits 0 with the v2.1.4 host and
+would write a 2,297,954-byte self-contained bundle (SHA-256 prefix
+`4c867fa0`) plus four wasm assets; all assets resolve, and no v1 artifact
+blocks it. Scope detection returns `global` for the projected path and
+`project` for the project bundle. The config directory is unchanged, and the
+install remains deferred under I-01.

@@ -18,8 +18,8 @@ State: `open`, `in_progress`, `blocked`, `done`.
   the v1 tree have `.retired-20261024` markers and no active `tawassul.js`.
   Correction (2026-10-25): that scan matched flat files only. Three
   directories also carried `plugins/tawassul/index.ts`: `gtttt` and `paassss`
-  export a v1-only shape and fail the v2 plugin schema (P-07, still open),
-  while the v1 tree `tawassul` exported `{ id, server, setup }` and booted a
+  exported a v1-only shape and failed the v2 plugin schema (P-07, resolved
+  2026-10-26), while the v1 tree `tawassul` exported `{ id, server, setup }` and booted a
   v2 plugin in a v2 host — the owner renamed that entry the same day (H-09,
   done). The decision stands; the scan was incomplete and G-08 fixes it.
 
@@ -260,18 +260,36 @@ The flat self-contained install is implemented and proven at the file level
 (H-08). The items below are the remaining gaps; none of them blocks the
 project install, which stays the default.
 
-### I-01 Real global install is not performed — blocked (owner opt-in)
+### I-01 Real global install is not performed — verified, deferred (owner opt-in)
 
-State of this machine (2026-10-25): `~/.config/opencode/` contains
-`opencode.jsonc`, `package.json` (`{}`), `package-lock.json`, `service.json`,
-and `.gitignore`; there is no `plugins/`, no `tawassul-runtime/`, and no
-`tawassul-v2/`. The only live host is the Desktop sidecar, and it loads the
-project bundle.
+State of this machine (2026-10-26): no global Tawassul install exists.
+`~/.config/opencode/` contains `opencode.jsonc`, `package.json` (`{}`),
+`package-lock.json`, `service.json`, and `.gitignore`; there is no
+`plugins/`, no `tawassul-runtime/`, and no `tawassul-v2/`. The v1 terminal
+install `~/.opencode`, the v1 Bun package
+`~/.bun/install/global/node_modules/opencode-ai`, and the v1 binary
+`~/.bun/bin/opencode` are also absent. The only live host is the Desktop
+sidecar, and it loads the project bundle.
 
-Why blocked: the owner asked that a real machine-wide install not run until
-explicitly requested.
+Reference and paths: the v1 docs place a global install under
+`~/.config/opencode/plugins/` (or `~/.opencode` for the terminal install);
+the v2 installer writes the flat file
+`~/.config/opencode/plugins/tawassul.js` plus
+`~/.config/opencode/tawassul-runtime/VERSION` and `wasm/`. The paths do not
+collide, and the installer refuses a v1 package directory at the target.
 
-Next: on request, run `npm run build`, `npm run install:global`,
+V2 compatibility check (2026-10-26, no install): the host pin is v2.1.4 and
+`~/.config/ai.opencode.desktop/cli/2.1.4-x64/opencode-cli` reports
+`opencode v2.1.4`. `bun scripts/install-global.ts --dry-run` exits 0 and
+would write a 2,297,954-byte self-contained bundle (SHA-256 prefix
+`4c867fa0`) plus four wasm assets; all four wasm files resolve from
+`node_modules`, and no v1 artifact blocks the install. Scope detection
+returns `global` for the projected
+`~/.config/opencode/plugins/tawassul.js` and `project` for the project
+bundle. Nothing was written: the config directory still has only its five
+original files.
+
+Next: on explicit request, run `npm run build`, `npm run install:global`,
 `npm run verify:global`, then boot the Desktop (or an isolated HOME) and
 confirm one `loading plugin` line for the flat file, 42 tools, and a working
 `astquery`.
@@ -600,16 +618,40 @@ D-02 import; the launcher DB is test-only. Nothing is deleted or moved.
 non-canonical copies, passes when sessions exist only in those declared
 roles, and fails when an undeclared database holds sessions or when the
 canonical DB is empty while a copy holds them. The host still sees only the
-sidecar; recovering the 14 shared and 14 launcher sessions is D-02.
+sidecar; D-02 imported the 14 shared and 14 launcher sessions on 2026-10-26
+(26 new sessions, 384 messages). The copies stay read-only as backup
+material.
 
-Next: D-02 decides whether the legacy copies are imported; until then they
-stay read-only.
-
-### D-02 Old sessions are not imported — open
+### D-02 Old sessions are not imported — done (2026-10-26)
 
 Source: `/home/htoz/Videos/New Folder/` (old DBs, storage, snapshots).
-Next: decide the import scope now that D-01 roles are settled, take a verified
-backup, apply the generation guard, and keep the import read-only.
+
+Import executed 2026-10-26 05:51 against the canonical sidecar while the host
+was live. Pre-import backup:
+`/home/htoz/.local/share/opencode-backups/20261026/opencode-pre-import-20261026-055107.db`
+(31,125,504 bytes, `integrity_check=ok`, 22 `session_v2` / 2,712
+`session_message`; SHA-256 in the adjacent `.sha256` file). Scope: the 12
+shared-DB sessions absent from the sidecar and all 14 launcher sessions, with
+their 342 + 42 `session_message` rows. The 2 shared sessions already present
+were skipped by ID.
+
+Result: 26 sessions and 384 messages imported; canonical totals 48 sessions
+and 3,100 messages at commit (3,110 after the host's next writes).
+`integrity_check=ok`, `foreign_key_check` empty, zero duplicate session or
+message IDs, zero duplicate `(session_id, seq)`, zero orphan messages.
+Protected counts unchanged: project 5, credential 6, instruction_blob 22,
+instruction_state 22, worktree 2, event 0, event_sequence 24. The live
+`GET /api/session` returns 48 rows including the three spot-checked imported
+IDs, and `doctor-v2.sh` passes `one canonical session DB: OPENCODE_DB 48/48`.
+
+The shared and launcher DBs were read from copies and were not modified
+(mtimes still 2026-10-25). Not imported: the two legacy `session` rows plus
+4 `message` / 2 `part` rows in the shared DB, and the v1 archives
+`/home/htoz/Videos/New Folder/opencode/opencode.db` (223 `session`) and
+`opencode-desktop.db` (280 `session`), because they use the v1 schema with no
+`session_v2`; they stay read-only. The 90-day `session_message` retention
+still applies to imported history; run maintenance with `--prune-days 0` if
+it must be kept indefinitely.
 
 ### D-03 Project state moved to `.opencode` but root leftovers remain — done (2026-10-26)
 
@@ -698,11 +740,12 @@ is test-only.
   `.js`/`.ts` load, and both `.opencode/plugin` and `.opencode/plugins` are
   scanned. Nine package directories also exist at `.opencode/plugins/tawassul/`
   (the six plus `gtttt`, `paassss`, and the v1 tree): six contain only
-  `dist/index.js` and are not discovered; `gtttt` and `paassss` carry a
-  v1-only `index.ts` and are discovered (P-07); the v1 tree's `index.ts` was
-  renamed to `index.ts.retired-20261025` on 2026-10-25 (H-09, done) and is now
-  inert like the six. Deletion or neutralization needs owner approval
-  (pending decision 3).
+  `dist/index.js` and are not discovered; `gtttt` and `paassss` carried a
+  v1-only `index.ts` and were discovered (P-07, both deleted 2026-10-26); the
+  v1 tree's `index.ts` was renamed to `index.ts.retired-20261025` on
+  2026-10-25 (H-09, done) and is now inert like the six. The six inert
+  package directories still need owner approval for deletion (pending
+  decision 3).
 - **P-06** Legacy global config `~/.config/opencode/package.json` pinned
   `@opencode-ai/plugin@1.17.14`; done — H-06 removed the v1 SDK pin and the
   file is now `{}` with no `node_modules`.
@@ -715,7 +758,8 @@ is test-only.
   boot in those workspaces logs a failure and D-00 is violated. Next: with
   owner approval, rename the two `index.ts` files to
   `index.ts.retired-20261025` (or remove the package dirs), and add the G-08
-  doctor scan. P1.
+  doctor scan. P1. Resolved 2026-10-26: the owner deleted both package
+  directories; the G-08 doctor scan now passes both workspaces.
 
 ---
 
@@ -805,7 +849,8 @@ Original severity: major. The evaluation cites the 2026-10-25
 "cannot find this session" incident (`RECOVERY-20261025.md`). D-01 adopted
 the recommendation on 2026-10-26 without moving files: sidecar canonical,
 shared legacy read-only, launcher test-only. The doctor enforces the roles
-and rejects undeclared session DBs; the legacy rows stay for D-02.
+and rejects undeclared session DBs; D-02 imported the legacy rows on
+2026-10-26 (26 sessions, 384 messages).
 
 ### E-09 SDK pin mismatch — fixed; agreement check in G-07
 
@@ -908,8 +953,9 @@ The isolated-boot transcript exists, but no gate references
 
 ### G-12 Six high-stakes closures have no CI artifact — open (P2)
 
-H-02, H-07, P-05, and P-07 are prose evidence only; H-06 has a doctor warning;
-E-09 has pins but no agreement check. The full list and evidence are in
+H-02, H-07, P-05, and P-07 are prose evidence only; P-07 was resolved by
+owner deletion on 2026-10-26; H-06 has a doctor warning; E-09 has pins but no
+agreement check. The full list and evidence are in
 `VERIFICATION-20261026.md` (V-52).
 
 ### I-11 No committed CI transcript — open (P3)
@@ -936,10 +982,11 @@ Corrections to existing entries:
    `/home/htoz/Desktop/tawassyl/.opencode/plugins/tawassul/index.ts` to
    `index.ts.retired-20261025`; an isolated boot of the final tree loads no
    plugin and writes no state.
-2. **P-07:** with approval, rename the v1-only `index.ts` entries in
-   `/home/htoz/Desktop/gtttt/.opencode/plugins/tawassul/` and
-   `/home/htoz/Desktop/paassss/.opencode/plugins/tawassul/` (or remove the
-   package dirs). Both are discovered and fail to load on every boot.
+2. ~~P-07~~ — done 2026-10-26. The owner deleted the v1-only entries;
+   `/home/htoz/Desktop/gtttt` and `/home/htoz/Desktop/paassss` have no
+   `.opencode` at all. `doctor-v2.sh` passes
+   `external tree has no live v1 entry` for both. Only six inert
+   `tawassul.js.retired-20261024` files remain in other workspaces.
 3. Delete the 12 `tawassul.js.pre-refresh-*` copies, the 14
    `*.retired-20261024` files, and the six inert `dist`-only
    `.opencode/plugins/tawassul/` package dirs (`athan new vrsion`,
@@ -947,11 +994,11 @@ Corrections to existing entries:
 4. ~~Delete the `/tmp/opencode` artifacts~~ — done 2026-10-26. All scratch
    under `/tmp/opencode` was removed (about 1.09 GB, including the four
    `v1tree-*` copies and the probe/build directories); the directory is empty.
-   The remaining exit items are P-07 (external v1 trees) and the real global
+   P-07 is also done; the only remaining exit item is the opt-in global
    install (I-01).
 5. ~~D-01 roles~~ — done 2026-10-26. The sidecar is canonical, the shared DB
-   is legacy read-only for D-02, and the launcher DB is test-only; no file was
-   deleted or moved. `doctor-v2.sh` prints the canonical DB, labels the
+   was legacy read-only for the completed D-02 import, and the launcher DB
+   is test-only; no file was deleted or moved. `doctor-v2.sh` prints the canonical DB, labels the
    non-canonical copies, and fails on an undeclared session DB.
 6. ~~Keep or drop the untracked `scripts/check-shared-anchors.mjs`,
    `scripts/port-from-v1.mjs`, and `test-utils.ts`~~ — done 2026-10-26. All
@@ -1010,6 +1057,7 @@ Both `gate:smoke` and the full `ci` now pass with the quota exhausted.
   `index.ts.retired-20261025`, an isolated boot of a copy of the final tree
   shows zero plugin-load lines for `plugins/tawassul`, zero agents, and no
   state files. The v1 tree package directory is now inert. `gtttt` and
-  `paassss` still expose a v1-only `index.ts` (P-07, open).
+  `paassss` exposed a v1-only `index.ts` until the owner deleted both
+  package directories on 2026-10-26 (P-07 done).
 - The smoke accepts a provider transport error only after `initPlugin` and
   `v2 registered 42 tools` are confirmed; a missing plugin boot fails.
