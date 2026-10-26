@@ -33,6 +33,12 @@ export class LifecycleManager {
   getSaveHealth(): SaveHealth {
     return this.persistence.getSaveHealth();
   }
+  getPersistedGeneration(): number {
+    return this.persistence.getPersistedGeneration();
+  }
+  getDirtyGeneration(): number {
+    return this.persistence.getDirtyGeneration();
+  }
   flushSaves(): Promise<void> {
     return this.persistence.flushSaves();
   }

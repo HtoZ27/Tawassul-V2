@@ -617,7 +617,10 @@ export class StatePersistence {
   
   private saveFailureCount = 0;
   private nextRetryAt = 0;
+  private dirtyGeneration = 0;
+  private persistedGeneration = 0;
   private static readonly MAX_SAVE_FAILURES = 8;
+  private static readonly MAX_AWAITED_SAVES = 5;
   private static readonly BASE_DELAY = 100;
   private static readonly MAX_BACKOFF = 30000;
   
@@ -654,9 +657,48 @@ export class StatePersistence {
   async saveState(): Promise<void> {
     if (this.disposing) return;
     if (!this.ctx.stateDir) return;
+    this.markDirty();
+    await this.persistThrough(this.dirtyGeneration);
+  }
+
+  getPersistedGeneration(): number {
+    return this.persistedGeneration;
+  }
+
+  getDirtyGeneration(): number {
+    return this.dirtyGeneration;
+  }
+
+  private markDirty(): void {
     this.saveDirty = true;
-    this.scheduleDeferredSave();
-    if (this._saveCompletionPromise) await this._saveCompletionPromise;
+    this.dirtyGeneration++;
+  }
+
+  private async persistThrough(target: number): Promise<void> {
+    if (target <= this.persistedGeneration) return;
+    if (this.saveTimeout) {
+      if (this.timers) this.timers.clear(this.saveTimeout);
+      else clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
+    for (let attempt = 0; attempt < StatePersistence.MAX_AWAITED_SAVES; attempt++) {
+      if (this.disposing || this.persistedGeneration >= target) return;
+      if (this.saveInProgress) {
+        const inFlight = this._saveCompletionPromise;
+        if (inFlight) await inFlight;
+        if (this.persistedGeneration >= target) return;
+        continue;
+      }
+      const before = this.dirtyGeneration;
+      const persistedBefore = this.persistedGeneration;
+      await this.doSave("awaited");
+      if (this.persistedGeneration >= target) return;
+      if (this.dirtyGeneration === before && this.persistedGeneration === persistedBefore) {
+        logger.warn("saveState: the write was skipped (isolation or lock loss); the caller's data is memory-only");
+        return;
+      }
+    }
+    logger.warn(`saveState: gave up after ${StatePersistence.MAX_AWAITED_SAVES} attempts; on-disk state may be stale`);
   }
 
   
@@ -789,7 +831,7 @@ export class StatePersistence {
     }
     
     if (this.saveInProgress) {
-      this.saveDirty = true;
+      this.markDirty();
       if (this._saveCompletionPromise) await this._saveCompletionPromise;
       return;
     }
@@ -827,11 +869,14 @@ export class StatePersistence {
 
       try {
         const rollback = this.enforceStateLimits();
+        let savedGeneration = this.persistedGeneration;
         try {
           for (let attempt = 1; attempt <= StatePersistence.MAX_CAS_ATTEMPTS; attempt++) {
             try {
+              const generationAtWrite = this.dirtyGeneration;
               const payload = sanitizePayloadForWrite(buildPayload(this.ctx));
               await this.ctx.stateManager.saveWithRevision(payload, this.ctx.stateManager.getKnownRevision());
+              savedGeneration = generationAtWrite;
               break; 
             } catch (e) {
               if (e instanceof RevisionConflictError) {
@@ -912,7 +957,8 @@ export class StatePersistence {
               logger.warn("activity-metrics save failed:", e);
             }
           }
-          this.saveDirty = false; 
+          this.persistedGeneration = Math.max(this.persistedGeneration, savedGeneration);
+          this.saveDirty = this.dirtyGeneration > this.persistedGeneration;
           this.ctx.eventHub.emit({ type: "STATE_SAVED", payload: { type } });
         } catch (e) {
           rollback();

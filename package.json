@@ -29,6 +29,7 @@
     "prove:disclosure": "bun scripts/prove-disclosure.ts",
     "prove:s020": "bun scripts/prove-s020.ts",
     "prove:e11": "bun scripts/prove-e11.ts",
+    "prove:e12": "bun scripts/prove-e12.ts",
     "prove:s021": "bun scripts/prove-s021.ts",
     "prove:resurrection": "bun scripts/prove-goal-resurrection.ts",
     "prove:goal-capture": "bun scripts/prove-goal-capture.ts",
