@@ -15,17 +15,17 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **36 are open**.
+with 99 entries, of which **35 are open**.
 
 ## The filter
 
-36 open items sound like 36 problems. They are not the same kind of problem:
+35 open items sound like 35 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
 | S0 | Does the plugin work at all? | 1 |
 | S1 | Does it lose or corrupt data silently? | 0 |
-| S2 | Does it tell the truth about what happened? | 3 |
+| S2 | Does it tell the truth about what happened? | 2 |
 | S3 | Does it start reliably and quickly? | 9 |
 | S4 | Can it be made to do something it should not? | 6 |
 | S5 | Can we prove any of the above? | 13 |
@@ -42,10 +42,9 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | --- | --- | --- |
 | `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
 
-## S2 — features silently dead or lying (3)
+## S2 — features silently dead or lying (2)
 
-`E-29` one failing request trips the web
-breaker for 60 s · `E-33` client shim
+`E-33` client shim
 no-ops · `E-36` failed crawl returned as success.
 
 ## S3 — boot and startup (9)
@@ -79,7 +78,7 @@ entry, and no hook may turn a `bash` infrastructure error into a hard block.
 
 ## The two clusters
 
-The 9 entries in S0–S2 are not 9 independent jobs. They collapse into two
+The 8 entries in S0–S2 are not 8 independent jobs. They collapse into two
 engineering clusters, each of which is one coherent change.
 
 | Cluster | Members | One change |
@@ -111,8 +110,9 @@ mutations back to the request, `E-35` carries the tool title through the result
 bridge, and `E-38` closes the bridge by awaiting the refresh before disposal.
 `E-18` makes guard decisions propagate while infrastructure faults stay
 fail-open with an audit line, `E-02` applies the permission repair at boot so a
-stale config is fixed, and `E-25` refuses an unavailable question instead of
-answering it. Next are the three small tool fixes (`E-29`, `E-33`, `E-36`).
+stale config is fixed, `E-25` refuses an unavailable question instead of
+answering it, and `E-29` counts one web breaker failure per request. Next are
+the two remaining tool fixes (`E-33`, `E-36`).
 
 **Wave 4 — boot (S3, 2 days).** `B-01`, `B-02`, `B-03`, `B-05`, then the
 proofs `G-04`, `I-07`, `I-08`, `I-10`.
@@ -199,6 +199,7 @@ today.
   rules, and matches what the generator emits; `E-25` (S2) — the ask channel
   returns `ASK_UNAVAILABLE` at either cap or after disposal and the review,
   kick, and elicitation callers fail closed instead of trusting a fabricated
-  answer.
+  answer; `E-29` (S2) — the web breaker records one failure per request, so a
+  single bad URL no longer closes the whole web surface for a minute.
 - The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
   Wave 2 and should be re-scoped to the wave boundaries above.

@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 55 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 56 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1976,20 +1976,26 @@ entirely on one config line that a regeneration can change.
 
 Next: add both names, and assert the list in a proof.
 
-#### E-29 One failing web request trips the Firecrawl breaker for 60 s — open (P2)
+#### E-29 One failing web request trips the Firecrawl breaker for 60 s — done (2026-10-26)
 
 `src/tools/web.ts:58` constructs `CircuitBreaker(3, 60_000)`. Both
-`firecrawlPost` and `firecrawlGet` call `recordFailure` inside the
+`firecrawlPost` and `firecrawlGet` called `recordFailure` inside the
 *per-attempt* catch (`:489`, `:520`), before the retry backoff. With
-`maxRetries = 3` a single request contributes four failures and opens the
-breaker; `evaluate` then throws for every subsequent fetch, search, map, and
+`maxRetries = 3` a single request contributed four failures and opened the
+breaker; `evaluate` then threw for every subsequent fetch, search, map, and
 crawl for 60 s.
 
-Impact: one bad URL or one transient outage escalates into a global outage of
+Impact: one bad URL or one transient outage escalated into a global outage of
 the entire web surface.
 
-Next: record one failure per request, not per attempt; reset the counter on
-success of the final attempt only.
+Resolved 2026-10-26: both helpers record the failure once, when the request
+finally gives up, instead of on every attempt. A user abort is not counted as
+a service failure, the retry loop is unchanged, and the breaker still opens at
+three separate failed requests and still fails fast afterwards. `prove-e29`
+drives the real web tool against a stubbed upstream: one failing request costs
+exactly one failure and the next request still reaches the upstream, three
+separate failures open the breaker, a success clears the count, and an abort
+is ignored (18 assertions).
 
 #### E-30 `applyPatch` has a prefix-check escape and a cross-device write — open (P2)
 
