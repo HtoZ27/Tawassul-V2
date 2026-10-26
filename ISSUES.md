@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 53 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 54 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -906,26 +906,34 @@ calls at `:185`, `:197`, `:206`, `:224`, `:250`, `:254`, and `:266`.
 
 Remaining: no proof that a blocked tool actually fails a live run (G-05).
 
-### E-02 v1 config hook is not bridged — open (partially mitigated)
+### E-02 v1 config hook is not bridged — done (2026-10-26)
 
-Original severity: critical. `plugin.config` is only logged at
-`src/v2/setup.ts:375-379`; the v2 host never calls it. The hook at
-`src/bootstrap/plugin-init.ts:837-840` therefore does not run, so the tawa and
+Original severity: critical. `plugin.config` was only logged at
+`src/v2/setup.ts:375-379`; the v2 host never called it. The hook at
+`src/bootstrap/plugin-init.ts:837-840` therefore did not run, so the tawa and
 addagent permission repair (`ensureTawaToolPermissions` and
-`ensureAddAgentToolPermissions`, `plugin-init.ts:101-129`) is not applied at
-boot. Dynamic models are repaired by a separate path:
-`repairProjectConfigBoot` is called at `plugin-init.ts:479` and rewrites
-`DYNAMIC_MODEL_SENTINEL` entries (`opencode-config.ts:374-385`), so only the
-permission/roster half is missing.
+`ensureAddAgentToolPermissions`) was not applied at boot. Dynamic models were
+already repaired by `repairProjectConfigBoot` (`plugin-init.ts:479`), so only
+the permission half was missing.
 
 Mitigations: `gen-opencode-config` bakes models and permissions into
 `opencode.json`, and `execute.before` denies `BLOCKED_TOOLS` for tawa via
-`isBlockedForAgent` (`setup.ts:62-67`). Risk: a hand-edited or stale config,
-or a roster changed after generation, is not repaired at boot.
+`isBlockedForAgent`. Risk: a hand-edited or stale config, or a roster changed
+after generation, was not repaired at boot.
 
-Next: apply the permission helpers from the v2 boot path (a config writer or
-a `ctx.app`/`ctx.permission` bridge), then prove a denied tawa tool fails and
-addagent permissions are present. This is the live half of G-05.
+Resolved 2026-10-26: the two helpers moved to
+`src/utils/agent-permission-repair.ts`, and `applyBootRepairs` now parses the
+config, applies `applyPermissionRepairs` beside the model repair, and splices
+the agent section only when a value actually changes. The boot writer is the
+existing `repairProjectConfigBoot` path that `initPlugin` already calls, so no
+new host API is required. A scoped rule such as tawa's read-only bash
+allowlist is preserved instead of being replaced by a blanket deny; an
+explicit `allow`/`ask` on a blocked tool is tightened to `deny`; a missing
+blocked key is added as `deny`. The generator runs the same repair, so a fresh
+config needs no boot write, and `write` joins the official permission keys so
+the generated file validates. `prove-e02` covers the repair, the preserved
+scope, idempotence, the combined model+permission pass, and generator
+consistency (25 assertions).
 
 ### E-03 noReply queues a user turn; select/input unbridged — fixed (P-01)
 

@@ -15,17 +15,17 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **38 are open**.
+with 99 entries, of which **37 are open**.
 
 ## The filter
 
-38 open items sound like 38 problems. They are not the same kind of problem:
+37 open items sound like 37 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
 | S0 | Does the plugin work at all? | 1 |
 | S1 | Does it lose or corrupt data silently? | 0 |
-| S2 | Does it tell the truth about what happened? | 5 |
+| S2 | Does it tell the truth about what happened? | 4 |
 | S3 | Does it start reliably and quickly? | 9 |
 | S4 | Can it be made to do something it should not? | 6 |
 | S5 | Can we prove any of the above? | 13 |
@@ -42,9 +42,9 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | --- | --- | --- |
 | `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
 
-## S2 — features silently dead or lying (5)
+## S2 — features silently dead or lying (4)
 
-`E-02` config hook unbridged, permission repair missing · `E-25` AskChannel
+`E-25` AskChannel
 fabricates an answer at capacity · `E-29` one failing request trips the web
 breaker for 60 s · `E-33` client shim
 no-ops · `E-36` failed crawl returned as success.
@@ -80,7 +80,7 @@ entry, and no hook may turn a `bash` infrastructure error into a hard block.
 
 ## The two clusters
 
-The 11 entries in S0–S2 are not 11 independent jobs. They collapse into two
+The 10 entries in S0–S2 are not 10 independent jobs. They collapse into two
 engineering clusters, each of which is one coherent change.
 
 | Cluster | Members | One change |
@@ -111,8 +111,9 @@ validates arguments against the real schema, `E-34` applies the message-level
 mutations back to the request, `E-35` carries the tool title through the result
 bridge, and `E-38` closes the bridge by awaiting the refresh before disposal.
 `E-18` makes guard decisions propagate while infrastructure faults stay
-fail-open with an audit line. Next are the remaining guards (`E-02`, `E-25`),
-then the three small tool fixes (`E-29`, `E-33`, `E-36`).
+fail-open with an audit line, and `E-02` applies the permission repair at boot
+so a stale config is fixed. Next is the last guard (`E-25`), then the three
+small tool fixes (`E-29`, `E-33`, `E-36`).
 
 **Wave 4 — boot (S3, 2 days).** `B-01`, `B-02`, `B-03`, `B-05`, then the
 proofs `G-04`, `I-07`, `I-08`, `I-10`.
@@ -194,6 +195,8 @@ today.
   it before any registration cleanup, so a reload cannot outlive the tool
   domain; `E-18` (S2) — the v2 bridges rethrow consent and tool-block
   decisions, honour the before hook's `output.error` contract, and write an
-  audit event when an infrastructure fault fails open.
+  audit event when an infrastructure fault fails open; `E-02` (S2) — the boot
+  repair applies the tawa and addagent permission helpers, preserves scoped
+  rules, and matches what the generator emits.
 - The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
   Wave 2 and should be re-scoped to the wave boundaries above.
