@@ -1,9 +1,17 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 29 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 32 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
-Active P0: C-02 — the v2 consent loop and all text routing are dead; the
-running host also predates the current build (G-13).
+Active P0: E-12 — state writes are reported before they happen; E-13 — a
+rejected state file is silently replaced by an older backup. The running host
+also predates the current build (G-13).
+Register note: the third-round evaluation (2026-10-26) added E-11..E-41 and
+re-confirmed C-02, C-03, P-10, B-02, E-02, and G-13 without duplicating them.
+Stability view: `STABILITY.md` classifies all 59 open entries by whether they
+block use, lose data, or misreport, and gives the wave order.
+`SHARED.md` audit (2026-10-26): all 57 frozen entries are dispositioned in
+`VERIFICATION-20261026.md`; the only gaps that were actionable in this tree are
+`P-11` (from S-057) and `G-14` (the S-053 guard fixture), both now closed.
 
 Purpose: one durable place for open issues, evidence, and the next action, so
 development context survives session loss. Severity: P0 (can corrupt state or
@@ -12,6 +20,13 @@ State: `open`, `in_progress`, `blocked`, `done`.
 
 ## Owner decisions
 
+- **Bash permission is off-limits (2026-10-26).** Do not change the `bash`
+  permission of any agent, in `opencode.json` or in the roster. The host's
+  own agent-invocation path depends on it, so tightening it can break
+  delegation itself. Consequence for this register: guard fixes must never
+  be implemented by editing a `bash` permission entry, and no safety hook may
+  convert an infrastructure error on `bash` into a hard block (see the note
+  in E-18). Guard code may still inspect and refuse a *specific* command.
 - **D-00 (2026-10-25): v1 is retired permanently.** It will not work in any
   project again. It is not a compatibility target: any v1 plugin entry, v1
   host, or v1 global dependency is a defect. v2 is the only plugin. Two hosts
@@ -838,6 +853,39 @@ when D-05 closes the census and growth gaps.
   `index.ts.retired-20261025` (or remove the package dirs), and add the G-08
   doctor scan. P1. Resolved 2026-10-26: the owner deleted both package
   directories; the G-08 doctor scan now passes both workspaces.
+- **P-11** `addagent` reports a model as "outside the known catalog" when the
+  provider actually serves it. `src/tools/agent-management.ts:594` tests the
+  resolved `fullModel` against `MODEL_CATALOG` only; the provider reader
+  `getAllProviderModelTokens` (`src/core/model-registry.ts:152`) is already
+  shipped and is never consulted by the advisory. Observed 2026-10-24 while
+  adding three analyst variants: `opencode/glm-5.3-flash-free`,
+  `opencode/beam-free`, and `opencode/nemotron-3.5-super-vl-free` were all
+  `active` in the provider listing and each produced a false
+  `addagentUnverifiedModel` warning. The path is fail-open, so the agent is
+  created, but three false warnings teach the operator to ignore the fourth
+  one — the typo that is accepted and only fails at first spawn. Same
+  workflow, second gap: `parseKickInput` computes the model suffix
+  (`src/tools/agent-kick-helpers.ts:38`) but uses it only for the wildcard
+  branch, so `remove analyst with model X` resolves to the protected base
+  role instead of `analyst-<suffix>`, while `addagent` derives the variant.
+  Next: parse the provider out of `fullModel` and warn only when the id is
+  absent from the static catalog *and* unresolved in
+  `getProviderModelTokens(provider)`; keep fail-open and the existing message
+  for genuine unknowns. In the same pass, apply the derived suffix to a bare
+  base spec in `parseKickInput` so both tools resolve the same phrasing to the
+  same agent. P2 — recorded as S-057 before `SHARED.md` was frozen.
+
+  Resolved 2026-10-26: `src/core/model-registry.ts` now exports
+  `isModelServedByProvider` (exact slug match against the provider cache, no
+  partial-token match) and `shouldWarnUnverifiedModel` (alias, then static
+  catalog, then provider cache). `src/tools/agent-management.ts:594` calls the
+  helper, so the advisory is silent for every model the provider serves.
+  `parseKickInput` now reuses `deriveVariantSpec` for a single bare base, so
+  `remove analyst with model X` targets `analyst-<suffix>`; an explicit tag and
+  a non-base spec are unchanged. `prove-s028` grew from 30 to 45 assertions
+  (provider-served model, case-insensitive lookup, unserved model still warns,
+  alias suppression, static catalog, bare provider id, the addagent call site,
+  and four kick cases). Typecheck and `npm run check:rules` green.
 
 ---
 
@@ -1092,9 +1140,9 @@ HEAD `3582e85` plus the live host, the plugin log, and the installed
 loop and all text routing are dead on v2. Its guard evidence is taken from a
 stale running build, so several mechanism claims do not match HEAD.
 
-### C-02 Consent loop and text routing are dead on v2 — open (P0)
+### C-02 Consent loop and text routing are dead on v2 — done (2026-10-26)
 
-The chain is complete and code-proven:
+The chain was complete and code-proven before the fix:
 
 - `src/v2/setup.ts:90-108` builds the v1 hook input as
   `{ message: { role }, parts: [] }`; the real message text
@@ -1119,9 +1167,23 @@ gates, priority classification, and context nudges all consume the same empty
 string and are equally dead. `prove-v2-ask-bridge` checks `client-shim` bodies
 only, and the smoke run never invokes bash.
 
-Tracked as `G-002` in the goal ledger (`G-002-I1`..`I5`). Next: seed the
-bridge with the real text parts before the hook call, add a live
-ask/answer/execute proof, and keep the existing fail-closed path as a belt.
+Resolved 2026-10-26: `runChatMessageBridge` now seeds `v1Output.parts` with
+shallow copies of the real `last.content` parts (or one text part for string
+content), sets `message.text` for string content, and writes back only
+hook-added text parts plus text edits to seeded parts. Original parts are
+neither dropped nor duplicated; string content stays a string unless a part
+was added. `ToolExecuteBeforeContext` gains `chatOnlyAsk?: boolean`; the
+tool-execute context sets it in `hooks-registration.ts`, so
+`consent-gate-guard.ts` takes the deferred path when the only ask channel is
+the chat bridge, while the blocking host-ask race stays as a fail-closed belt.
+`scripts/prove-c02.ts` (48 assertions) covers array seeding, text-edit
+write-back, string content, dedupe, and marker preservation, plus a live
+isolated boot: the first user message reaches the hook, the gate defers and
+injects the marked question, a `yes` answer caches approval, the retry
+passes, a real `git push origin main` to a local bare remote lands the commit,
+a different `git push origin dev` still asks, a `no` answer caches denial, and
+the original approval remains scoped to its command. Wired as the `c02`
+proofs step; `npm run ci` green (31 proof steps, smoke pass).
 
 ### C-03 No-agent sessions skip every guard — open (P1)
 
@@ -1236,6 +1298,41 @@ Corrections to the side evaluation:
   references in `dist`). The fail-closed path stays until the SDK exposes
   forms or the plugin calls the protocol client directly.
 
+### G-14 The generation guard's orphaned-WAL branch has no fixture — done (2026-10-26)
+
+`scripts/guard-db-generation.sh:110` warns on an orphaned `-wal` sidecar,
+`:117` copies the DB plus companions when the direct probe fails, and `:175`
+retries the probe against that copy. No proof exercises any of those three
+lines: `prove-db-retention.ts` covers refusal and the dual session probe,
+`prove-backup-cap.ts` covers `.bak.orphan-*` pruning (a different family), and
+`prove-v2-independence.ts` only asserts that the launcher points at the local
+guard. S-053 recorded this as the v1 guard's missing fixture; the same branch
+is live in the v2 guard, so the gap transferred with the file.
+
+Impact: the guard fails closed today, so the exposure is a false refusal on a
+healthy DB with a stray `-wal`, not a wrong delete. It also means the
+snapshot-copy path has never run under a test.
+
+Next: construct a marker DB with a `-wal` and no `-shm`, make the direct probe
+fail deterministically (exclusive lock held by the fixture), and assert the
+snapshot copy is used, the retry returns the expected generation, and the
+original DB, `-wal`, and `-shm` are byte-identical afterwards.
+
+Resolved 2026-10-26: `scripts/prove-gen-guard-wal.ts` (the `gen-guard-wal`
+proofs step, 45 assertions) builds a WAL-mode DB whose `session_v2` marker
+exists only in the `-wal`, removes the `-shm`, and holds a POSIX exclusive
+lock on the DB file so the direct probe fails with `database is locked`. It
+asserts the orphan warning, the retry window (≈4 s), the snapshot copy reading
+the v2 marker, and byte-identical DB and WAL afterwards; a locked DB with no
+`-wal` exits 3 (`probe-failed`); an unusable `TMPDIR` exits 3 instead of
+reading a failed copy as "no markers"; a lock that clears is retried without a
+copy; and the v1 lane refuses a v2 marker visible only through the WAL
+(`marker-session_v2`). The orphaned fixture has no `-shm` to compare, so the
+proof instead asserts that the locked path never creates one next to the live
+DB. Observed while building it: a successful direct read of an orphaned WAL
+re-materializes `-shm` (SQLite behaviour); the guard does not modify DB
+content, and the copy path never touches the live files.
+
 ---
 
 ## Pending owner decisions
@@ -1332,3 +1429,625 @@ Both `gate:smoke` and the full `ci` now pass with the quota exhausted.
   package directories on 2026-10-26 (P-07 done).
 - The smoke accepts a provider transport error only after `initPlugin` and
   `v2 registered 42 tools` are confirmed; a missing plugin boot fails.
+
+---
+
+## Third-round evaluation (2026-10-26, six-agent gap audit)
+
+Source: the consolidated devil's-advocate evaluation, then a targeted gap
+audit in which each of the six analysts was given the consolidated list and
+one surface, and asked to report only what the list did not already cover.
+Surfaces: host runtime (`analyst-gemini`), v2 API fidelity
+(`analyst-beam-free`), security (`analyst-pickle`), tools (`analyst-mimo`),
+state and concurrency (`analyst-deepseek`), evidence integrity
+(`analyst-glm-5.3-flash-free`). Checked against HEAD `b55f9df` plus the
+working tree.
+
+Result: 31 new entries. Nine items from the consolidated report are **not** new
+— six already carry register IDs (C-02, C-03, P-10, B-02, E-02, G-13) and
+three were refuted claims — so they are re-confirmed under their existing IDs
+instead of being duplicated. Four agent claims were merged into an existing
+entry; one claim was rejected; one surface reported nothing missing. Every new
+entry below was re-read in the source by the main session before being
+written; line numbers are from HEAD `b55f9df`.
+
+Dedup rule used here: if a finding already has a register ID, the new
+evidence is appended to that entry, not given a new number.
+
+### Already registered — re-confirmed, no new ID
+
+- **C-02** consent loop and text routing are dead. Confirmed again at
+  `src/v2/setup.ts:93-102`: `v1Output.parts` is `[]` and `message.text` is
+  never set, so `getMessageContent` returns `""`.
+- **C-03** no-agent sessions skip every guard
+  (`src/hooks/validation-pipeline.ts:273-276`). Amplification found this
+  round: a *named but unrecognized* agent also bypasses, because
+  `src/hooks/tool-execute.ts:166` returns early when
+  `normalizedAgent && !isManagedAgent(normalizedAgent)`. C-03 covers the
+  missing-agent case; the unrecognized-name case is the same defect and the
+  same fix.
+- **P-10** the `permissionGuard` bash branch is dead.
+- **B-02** schema retry hides tools. Exact budget: 750 ms initial wait plus
+  20 × 500 ms ≈ 10.25 s.
+- **E-02** `plugin.config` is never bridged. The round-3 report initially
+  listed this as new; it is not.
+- **G-13** the live host keeps pre-build code until restart.
+
+### New P0
+
+#### E-11 Skill gate deadlocked every agent that has no capability record — done (2026-10-26)
+
+`src/hooks/guards/skill-gate-guard.ts:19-21` blocks `edit`, `write`, and
+`bash` when `ctx.capabilityTracker.getCapabilities(agent)` is empty. The
+tracker is only written on handoff completion
+(`src/services/handoff-service.ts:176,181`), lives in memory
+(`src/context-class.ts:183`), and is never seeded from the agent definition
+or `opencode.json`. A fresh process therefore has zero capabilities for every
+agent, so the first edit of every subagent is refused with a message telling
+it to route through `task(...)` — which it cannot do, because routing also
+requires work it cannot perform. This is a hard deadlock, not a slowdown.
+
+Live consequence: any delegated implementation task in a new session fails at
+its first write, and the failure is attributed to the agent rather than to
+the gate.
+
+Resolved 2026-10-26: `CapabilityTracker.seedCapability` records a declared
+capability without fabricating attempts or success rates, and
+`seedCapabilitiesFromRoster` seeds every roster agent from its md frontmatter
+(or `agentModels[...].capability`). `TawassulContext.seedCapabilities()` runs
+in `lifecycleInit` after the agent mds are ensured. The tracker now
+serializes to the state file (`capabilities` in `StateData`, a strict schema
+entry, a max-attempts merge, and restore on load), so learned rates survive a
+restart. The guard no longer blocks on an empty record: it logs one throttled
+warning per agent and allows, because the pipeline already filters unmanaged
+actors (`tool-execute.ts:166`) — an empty record is a seed fault, not a
+routing decision. `prove-e11` covers the seeder, the fail-open
+warning/throttle, a live context seeding two agents, and a save/load
+round-trip (29 assertions).
+
+#### E-12 `saveState()` reports success before anything is written — open (P0)
+
+`src/services/state-persistence.ts:607-613`:
+
+```
+this.saveDirty = true;
+this.scheduleDeferredSave();
+if (this._saveCompletionPromise) await this._saveCompletionPromise;
+```
+
+The awaited promise belongs to a save that was *already in flight*. If none
+is, the method returns immediately and the actual write happens later on a
+debounced timer (10 s in quiet mode). Callers that do
+`await ctx.saveState()` and then report success — for example
+`src/tools/record.ts:123` and `src/tools/tawa/task-orchestrate.ts:44` — are
+therefore reporting a write that has not happened.
+
+Impact: a crash, a kill, or a host restart inside the debounce window loses
+the record or handoff the user was told was stored. Combined with E-13, the
+lost write can also be replaced by an older generation on the next boot.
+
+Next: make `saveState()` resolve only after the dirty generation it
+observed has been persisted (track a generation counter and await that
+generation), and add a proof that a kill immediately after `record()` keeps
+the record.
+
+#### E-13 A rejected state file is silently replaced by an older backup — open (P0)
+
+`src/context/managers/StateManager.ts:594` returns `null` when the HMAC does
+not verify, logging only `State file rejected: <path>`. `loadFromFile`
+(`:693`) treats `null` exactly like "file missing" and walks
+`<path>.bak.0` … `.bak.N`, adopting the first readable generation
+(`:685-705`). No quarantine, no user-visible error.
+
+The damage is then made permanent: `rotateBackups` (`:241-262`) copies the
+current file — the rejected one — over `.bak.0` with
+`copyFile(fp, bakBase + ".0")` on the next full save, destroying the newest
+good backup.
+
+Impact: tampering, a truncated write, or a key change rolls the project back
+one or more generations with no signal, and then overwrites the evidence.
+Records and handoffs vanish while the session looks healthy.
+
+Next: distinguish "absent" from "present but rejected", quarantine the
+rejected file (the helper already exists in
+`src/services/persist-utils.ts:106-112`), refuse to rotate a rejected file
+over `.bak.0`, and surface a startup error.
+
+### New P1
+
+#### E-14 Tool failures are recorded as successes — open (P1)
+
+`src/v2/setup.ts:292-307` receives the host's `execute.after` payload, which
+carries `status: "completed" | "error"` (authoritative in
+`node_modules/@opencode/plugin/dist/promise/tool.d.ts`), but maps both
+branches to the same v1 shape with `title: ""`. The v1 side then infers
+success from a non-empty output string (`src/hooks/tool-execute.ts:166`
+onward). A v2 error result is non-empty, so every failure is counted as a
+success.
+
+Impact: agent health, capability success rate, rating, dedup, and the circuit
+breaker all consume this bit. A consistently failing agent is promoted, and a
+broken tool never trips the breaker.
+
+Next: carry `status` through the adapter and use it as the success signal;
+keep the string heuristic only as a fallback for v1-shaped results.
+
+#### E-15 Streaming, auto-save, and notifiers listen for v1 events — open (P1)
+
+`src/hooks/tool-output-stream.ts:86` and `:100` match
+`message.part.delta` and `message.part.updated`. The v2 host emits
+`session.text.*`, `session.tool.*`, and `session.execution.*`
+(`src/v2/event-adapter.ts` maps only part of the family). On the supported
+host the stream therefore never sees a delta.
+
+Impact: live tool output, auto-save triggers, compression triggers, and
+background notifications are silent on v2 while appearing healthy in tests
+that feed synthetic v1 events.
+
+Next: map the v2 families in the adapter and delete the v1 listeners from the
+v2 path; add a proof that a real `session.tool.*` event reaches the stream.
+
+#### E-16 The write-back drops later text parts — done (2026-10-26)
+
+At audit time `src/v2/result-bridge.ts` collected every text part, joined it,
+and assigned `result.content = [{ type: "text", text: nextText }]`. By HEAD
+the non-text parts were already preserved, but every text part after the
+first was still dropped: a `[text, file, text]` result became
+`[text, file]`, so a redaction hook silently deleted the second text part.
+
+Impact: long outputs lost their part boundaries and later text segments
+disappeared before the model saw them.
+
+Resolved 2026-10-26: `writeBackV1Output` replaces only the first text part in
+place and appends every remaining part verbatim (text and non-text). The
+string-content and no-text branches are unchanged. `prove-v2-compat.ts` was
+inverted from asserting the loss to asserting preservation, with added cases
+for a no-text result (text prepended), a string result, and redaction to an
+empty string. `bun scripts/gate.ts proofs` green (29 steps).
+
+#### E-17 `tool.definition` is unregistered, so schemas are placeholders — open (P1)
+
+The v2 setup never registers the definition hook, so the host advertises the
+placeholder schema (`additionalProperties: true`) and `makeV2Tool` does not
+run a zod parse before dispatch.
+
+Impact: the model can send arbitrary arguments, invalid arguments reach
+handlers, and a schema regression cannot be detected from the host side. This
+is also why B-02's window is dangerous rather than merely slow.
+
+Next: register the definition hook, or validate with the real schema in
+`makeV2Tool` before calling the handler.
+
+#### E-18 Hook errors are swallowed and the guard fails open — open (P1)
+
+`src/v2/setup.ts` wraps non-block hooks in `try/catch` and continues on
+error. A guard that throws — for example on an unexpected payload shape — is
+therefore silently disabled for the rest of the session, with one warn line.
+
+Impact: the failure mode of every safety hook is "off". A payload change in a
+host update turns the guard layer into a no-op without failing the gate.
+
+Next: classify hooks. Safety hooks (consent, permission, blocked tools) must
+rethrow; cosmetic hooks may fail open with telemetry.
+
+Owner constraint: do not extend this to `bash` infrastructure errors. The
+host's agent invocation runs through `bash`, so a hook that turns an
+unexpected error on a `bash` call into a hard block would disable delegation
+itself. Fail closed on the *decision* (consent denied, tool blocked), fail
+open with a loud log on *infrastructure* faults.
+
+#### E-19 Outputs over 50,000 characters are cut with no marker — open (P1)
+
+`src/hooks/tool-execute.ts:673-674` builds `scanText` as
+`outputText.slice(0, 50_000)` for threat scanning. Line `:747` then assigns
+`output.output = svc.truncateToolOutput(scanText)`. Because `scanText` is
+already at most 50,000 characters and `truncateToolOutput` only adds the
+head/tail split and the `[N chars truncated]` marker when its input *exceeds*
+the cap (`src/services/context-compressor.ts:22-27`), the marker path is
+unreachable here.
+
+Impact: any `bash` or `read` result over 50k is silently truncated to its
+first 50k — usually the head, while the error or final result lives in the
+tail. Unlike `src/tools/web.ts`, nothing is saved to a temp file.
+
+Next: scan a slice but truncate the full `outputText`; add a proof with a
+120k output that asserts both the tail and the marker.
+
+#### E-20 Shutdown does not await async cleanup callbacks — open (P1)
+
+`src/services/lifecycle-controller.ts:265` iterates `cleanupCallbacks` and
+calls `cb()` without `await`. The registered callbacks include
+`() => handoffLedger.dispose()` and `() => timelineStore.dispose()`
+(`src/bootstrap/service-factory.ts:799,801`), both async and both setting
+`disposed = true` before awaiting their flush.
+
+Impact: the buffered tail of `handoff-ledger.jsonl` and
+`timeline/events.jsonl` is dropped on every clean shutdown, and the
+unawaited rejection is swallowed by the surrounding `try/catch`.
+
+Next: await each callback (`for (const cb of …) await cb()`), or make the
+signature `() => void | Promise<void>` and drain them with `Promise.all`.
+
+#### E-21 After eight save failures the shutdown flush is a silent no-op — open (P1)
+
+`src/services/state-persistence.ts:678`:
+`if (this.saveFailureCount >= StatePersistence.MAX_SAVE_FAILURES) return;`
+No log, no event, no final attempt. `destroy()` calls `flushSaves()` and only
+logs if it throws, so a short-circuit is invisible.
+
+Impact: a transient disk problem (full disk, read-only mount, lock
+contention) that accumulates eight failures guarantees the whole session's
+state is discarded at exit with zero diagnostics.
+
+Next: log at error level, attempt one last write with a bypass flag, and
+report the failure to the user.
+
+#### E-22 Dropped-handoff penalties are computed after persistence is closed — open (P1)
+
+`src/services/lifecycle-controller.ts` calls `flushSaves()` (`:143`), then
+`markDisposing()` (`:207`), then `detectDroppedHandoffs()` (`:219`).
+`markDisposing()` makes `StatePersistence.doSave` return at its guard
+(`state-persistence.ts:704`) and disarms the timer, so the rating mutation
+that `detectDroppedHandoffs` performs (`RatingManager.ts:264`) can never be
+written.
+
+Impact: dropped-handoff penalties are always lost, and because
+`_countedDroppedHandoffs` is in memory they are recomputed and re-lost on
+every restart — a permanently unmeasurable signal.
+
+Next: run `detectDroppedHandoffs` before `flushSaves`, or allow a final
+forced write after `markDisposing`.
+
+#### E-23 The goal store locks the file, not the goal — open (P1)
+
+`src/services/goal-store.ts:442` calls
+`this.lockManager.acquireLock(this.metaPath, owner, id)` while building the
+owner string from `id`. `FileLockManager` keys locks by *file*, so the second
+concurrent mutation — even of a different goal — gets `acquired: false`, and
+`withLock` returns `null`, which `mutate` reports as
+`{ ok: false, reason: "locked" }` with no wait or retry.
+
+Impact: any turn that issues two `goal(...)` calls in parallel silently loses
+one, with a reason that blames a lock that does not exist.
+
+Next: key the lock on `metaPath` and serialise in-process, or lock per goal
+id; retry with a short backoff instead of returning `locked`.
+
+#### E-24 Saga ids restart at `SAGA-001` and overwrite the previous journal — open (P1)
+
+`src/services/saga-coordinator.ts:81` initialises `_sagaSeq = 0` and
+`:91` returns `SAGA-${seq}` without seeding from
+`listJournalRecords()`. `journalPath` (`:95`) maps the id straight to
+`sagas/<id>.json` and `persist()` uses a plain write.
+
+Impact: the first saga of a new process overwrites the recovery record of the
+first saga of the previous process. `resumeSaga()` can then resume or skip
+the wrong transaction, and the completed-step history of the earlier saga is
+gone.
+
+Next: seed the sequence from the journal directory (or use a timestamp plus
+uuid), and write through the atomic helper.
+
+#### E-25 AskChannel answers questions on the user's behalf under load — open (P1)
+
+`src/services/ask-channel.ts:214-217`: when `_capacityOk(sessionID)` is
+false, the channel logs a warning and returns
+`Promise.resolve(defaultFor(kind))`. `defaultFor` (`:288-292`) returns
+`kind.default` for a confirm, `""` for select/input, and `[]` for
+multiselect. Callers such as `src/services/agent-management.ts:1005-1007`
+treat the value as a user decision.
+
+Impact: with 8 pending questions in one session or 100 overall, a select is
+answered with the empty string and a confirm with its default. Consent asks
+use `default: false` (`consent-gate-guard.ts:260,308`), so consent fails
+closed — but every other elicitation silently fabricates an answer, and
+neither the caller nor the user can tell.
+
+Next: return a distinct `ASK_UNAVAILABLE` result instead of a synthetic
+reply, and make callers fail closed.
+
+#### E-26 The iteration budget hard-blocks every tool at 50 calls — done (2026-10-26)
+
+`src/services/iteration-budget.ts` set `DEFAULT_SUBAGENT_LIMIT = 50`;
+`consume` returned false once the budget was spent and the caller blocked
+*all* tools with `budgetExhausted`. There was no partial-result path and no
+per-agent override in practice.
+
+Resolution (2026-10-26): the budget is now self-scaling. It keeps a per
+`agent@session` limit, raises it by `budgetStepPercent` (default 50) whenever
+the agent exhausts it while working, and stops at
+`initial × budgetCeilingFactor` (default 4). A per-agent `iterationBudgets`
+entry is treated as an absolute pin and is never extended.
+
+New config keys in `tawassul.jsonc` (global) or the project `tawassul.json`:
+
+```jsonc
+{
+  "adaptiveBudgets": true,
+  "projectScale": "medium",
+  "budgetStepPercent": 50,
+  "budgetCeilingFactor": 4,
+  "budgetTiers": { "shallow": 60, "moderate": 100, "deep": 160, "analyze-first": 320 }
+}
+```
+
+`projectScale` multiplies the base (small 0.7, medium 1.0, large 1.6). The
+tier is chosen per `task(...)` call from `analyzeEffort(desc).thinking_effort`
+in `budgetGuard`, so a one-line fix starts at `shallow` and a full audit at
+`analyze-first` without any manual tuning. Effective subagent budgets with
+the defaults: shallow 60, moderate 100, deep 160, analyze-first 320, each
+extendable to 4× that (240, 400, 640, 1280). The untiered floor is 60 and
+the parent floor is 90.
+
+Verified with a 16-case runtime probe (defaults, tier assignment, one
+extension of +50 %, explicit pin never extended, adaptive off, large-project
+scaling, ceiling, configurable tier base) and `npm run verify` (`GATE PASS:
+fast`, build complete).
+
+Remaining: the block still stops the agent rather than degrading to
+read-only tools. Next: allow `read`, `grep`, and `glob` after the ceiling so
+the agent can return a partial result instead of nothing.
+
+#### E-27 The smoke gate passes a boot that never produced a reply — open (P1)
+
+`scripts/release-smoke.sh:103-111` downgrades a non-zero boot to
+`SMOKE PASS (no model reply)` when the output merely matches
+`ECONNRESET|Transport:|socket connection|ETIMEDOUT|timed out|timeout`, or
+when `BOOT_RC` is 124. The plugin-boot markers (`initPlugin`,
+`v2 registered 42 tools`) are checked, but a plugin that hangs, or that
+breaks after boot, produces exactly those markers plus a timeout.
+
+Impact: `README.md:96` claims "a broken plugin cannot pass it". A C-02-class
+regression — plugin boots, routing dead, run times out — passes green. The
+only end-to-end gate in `npm run ci` cannot distinguish it from provider
+flakiness.
+
+Next: require a model reply by default (`TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY=1`
+already exists as opt-in), and narrow the tolerance to a provider refusal
+code rather than the word "timeout".
+
+### New P2
+
+#### E-28 `patch` and `apply_patch` are absent from `BLOCKED_TOOLS` — open (P2)
+
+The host maps `write`, `patch`, and `apply_patch` to the `edit` permission,
+and the tawa config denies `edit`, so the bypass is not currently
+exploitable. It is not listed in `BLOCKED_TOOLS`, so the protection rests
+entirely on one config line that a regeneration can change.
+
+Next: add both names, and assert the list in a proof.
+
+#### E-29 One failing web request trips the Firecrawl breaker for 60 s — open (P2)
+
+`src/tools/web.ts:58` constructs `CircuitBreaker(3, 60_000)`. Both
+`firecrawlPost` and `firecrawlGet` call `recordFailure` inside the
+*per-attempt* catch (`:489`, `:520`), before the retry backoff. With
+`maxRetries = 3` a single request contributes four failures and opens the
+breaker; `evaluate` then throws for every subsequent fetch, search, map, and
+crawl for 60 s.
+
+Impact: one bad URL or one transient outage escalates into a global outage of
+the entire web surface.
+
+Next: record one failure per request, not per attempt; reset the counter on
+success of the final attempt only.
+
+#### E-30 `applyPatch` has a prefix-check escape and a cross-device write — open (P2)
+
+`src/services/apply-patch.ts:69` validates with
+`fullPath.startsWith(path.resolve(options.baseDir))`, so `/base/dir2/x`
+passes when the base is `/base/dir`. The realpath guard at `:74-81` sits in a
+`try/catch` that swallows, so it is skipped when the target does not exist
+yet — a symlinked parent is therefore not resolved. The write goes to
+`os.tmpdir()` and is `rename`d (`:106-107`), which fails `EXDEV` across
+filesystems and leaks the temp file.
+
+Current reach: `applyPatch` has no caller in `src/`; only
+`scripts/prove-disclosure.ts:32` counts it. It is a latent escape in the only
+in-repo patch writer.
+
+Next: compare with `path.relative` plus a separator check, resolve the parent
+directory rather than the file, and write the temp file inside the target
+directory.
+
+#### E-31 Event metrics are written to a collector that is thrown away — open (P2)
+
+`src/context-class.ts:190` initialises `metricsCollector = new
+MetricsCollector()` with no path. The constructor passes it to
+`new EventHub(this.timerManager, this.metricsCollector)` (`:423`) and then
+replaces the field with a path-backed collector (`:429`). `EventHub` keeps the
+original reference, and `MetricsCollector.saveToDisk()` returns early when
+`filePath` is null.
+
+Impact: `eventhub.dlq.added`, `eventhub.backpressure.drop`, and
+`eventhub.emitwait.timeout` — the only signals that listeners are failing or
+events are being dropped — are permanently unobservable.
+
+Next: construct the path-backed collector first and pass it to `EventHub`.
+
+#### E-32 The proof catalog enforces floors, not exact counts — open (P2)
+
+`scripts/prove-proof-catalog.ts:61` asserts `>= 25` proof files and `>= 24`
+proof steps. `PLAN.md:166-167` specifies exactly one `prove:` script per
+file and 25 files; the tree now has 29. The checker stays green, which is why
+the 25-vs-29 drift documented in the README could appear at all.
+
+Next: assert equality against a manifest, and make the docs read the manifest
+instead of restating a number.
+
+#### E-33 The client shim silently drops user-facing side effects — open (P2)
+
+`src/v2/client-shim.ts:77-85` implements `tui.appendPrompt` and
+`tui.showToast` as log-only no-ops, and `:91` hardcodes
+`serverUrl: undefined`.
+
+Impact: rate-limit warnings, review prompts, and toast notifications never
+reach the user on v2; model-injection text loses the host URL it is built
+from. Both failures are silent.
+
+Next: bridge `showToast` to the host notification API, or make the shim throw
+so callers know the capability is missing.
+
+#### E-34 `chat.message` message-level mutations are discarded — open (P2)
+
+`src/v2/setup.ts:99-115` builds `v1Output.message` and never reads it back:
+after the hook returns, only `v1Output.parts` are pushed into the host
+content. Any hook that changes `message.role`, `agent`, or `model` has no
+effect.
+
+Next: apply `v1Output.message` to the host payload, or remove the field from
+the v1 shape so the limitation is explicit.
+
+#### E-35 Tool result titles and metadata are lost on v2 — open (P2)
+
+`src/v2/adapters.ts:50-72` maps only `output` and `metadata`;
+`src/v2/setup.ts:295,304` hardcodes `title: ""` for both the completed and
+the error branch.
+
+Impact: every status title ("🌐 Web Fetch", "🚨 Panic Reset Complete", the
+cache-hit distinction) is invisible to the user and the model. Separately,
+`src/tools/direct-response.ts:37,45` returns a `requiresTask` field that no
+consumer reads and that the adapter drops, while the schema description still
+tells the model it influences routing.
+
+Next: pass `title` through the adapter and delete `requiresTask` or wire it.
+
+#### E-36 A failed crawl is returned as a successful result — open (P2)
+
+`src/tools/web.ts:849-865` breaks the poll loop on `failed` or `cancelled`
+and then returns a normal result with `title: "🕸️ Web Crawl"` and the status
+encoded only in prose. No throw, no error metadata, no cache entry.
+
+Impact: combined with E-14, a failed multi-page crawl is recorded as a
+success and is indistinguishable from a legitimately empty site without
+parsing the text.
+
+Next: return an error result for `failed`/`cancelled`.
+
+#### E-37 The v2 type shim is weaker than the host contract — open (P2)
+
+`src/v2/types.ts:16` declares `signal?: AbortSignal` and `:90`
+`permission?: V2Permission` although both are required by the host;
+`:56` omits the model-scoping options that `ModelHooks` supports; `:66`
+accepts an unconstrained string for the tool hook name although only
+`execute.before` and `execute.after` exist.
+
+Impact: missing host APIs and invalid hook names compile cleanly, so the
+compiler cannot catch a broken bridge. This is the mechanism behind several
+entries above.
+
+Next: derive the shim types from `@opencode/plugin` instead of restating them.
+
+#### E-38 Schema-refresh disposal does not await the in-flight refresh — open (P2)
+
+`src/v2/setup.ts:225-228` sets `stopRefresh = true` and calls
+`void refresh.catch(...)`, so a refresh already in progress can call
+`ctx.tool.reload()` after the registration is disposed.
+
+Impact: a reload against a disposed tool domain during shutdown or reload.
+
+Next: keep the refresh promise and await it in the dispose path.
+
+#### E-39 `isBlockedUrl` is a pre-flight string check only — open (P2)
+
+`src/tools/web.ts:216-281` normalises the hostname and rejects private
+ranges, but never resolves DNS, never re-checks after a redirect, and the
+actual fetch happens on the Firecrawl server. It is applied to `fetch`,
+`map`, and `crawl`.
+
+Impact: the plugin's SSRF guarantee is weaker than the code suggests; the
+real egress boundary is Firecrawl's.
+
+Next: document the trust boundary, and re-validate the final URL when the
+response exposes one.
+
+### New P3
+
+#### E-40 Shell scripts carry comments that no gate can see — open (P3)
+
+`AGENTS.md:24` states comments are forbidden and that shell is kept
+comment-free "by review". `scripts/check-v2-rules.mjs:33` scans only
+`.ts`, `.mjs`, and `.json`; `check:sh` runs `bash -n` only. In practice
+`scripts/release-smoke.sh:2-4` and `scripts/boot-scorecard-v2.sh:2-17` carry
+comment headers.
+
+Impact: the rule is stated as enforced but is unenforced for seven scripts,
+and the "by review" premise is already false.
+
+Next: either extend the checker to shell or state the exemption explicitly in
+`AGENTS.md`.
+
+#### E-41 There is no unit suite, and some proofs assert the defect — open (P3)
+
+Validation is 32 `scripts/prove-*.ts` integration scripts. There is no
+`tests/` directory and no assertion-level unit coverage of the bridge, the
+guards, or the stores. `scripts/prove-v2-compat.ts` asserted the multi-part
+loss described in E-16 as expected behaviour until 2026-10-26.
+
+Impact: a defect that is proven becomes a specification, and a regression in
+the bridge is invisible to the gate.
+
+Next: invert the assertions that encode defects, and add targeted cases
+for C-03, E-12, E-14, and E-19. Progress 2026-10-26:
+`prove-v2-compat.ts` now asserts part preservation (E-16 closed),
+`prove-e11` covers the skill-gate seed, fail-open, and persistence (E-11
+closed), and `prove-c02` covers the bridge seed/write-back plus the live
+consent answer/execute loop (C-02 closed).
+
+### Corrections to existing entries
+
+- **B-12**: `src/tools/system-controls.ts:232` appends
+  `t("panicBackupCreated")` whenever `stateDir` is set, including when the
+  `copyFile` at `:226` threw. The tool reports a backup that does not exist,
+  which is worse than the missing prune already recorded.
+- **B-02**: the window is 750 ms plus 20 × 500 ms ≈ 10.25 s, not "about
+  10 s"; the placeholder schema served during the window is
+  `additionalProperties: true` (E-17).
+- **E-07 / P-04**: unchanged. `scripts/prove-v2-independence.ts:35-97` is a
+  static text scan; round 3 found no behavioural proof to add.
+- **I-09**: unchanged. `scripts/prove-global-install.ts:147-149` still calls
+  the coexistence helpers directly instead of booting a dual-copy workspace.
+
+### Agent claims rejected or merged
+
+- Merged into **C-03**: "unmanaged agent names bypass the pipeline"
+  (`analyst-pickle`, MISSING-01) — same early return, same fix.
+- Merged into **E-17**: "placeholder schemas are advertised while init is
+  pending" (`analyst-pickle`, MISSING-08).
+- Merged into **E-39**: "the SSRF check is string-based" (`analyst-pickle`,
+  MISSING-05) — already recorded, now with the DNS/redirect caveat.
+- Duplicate of **E-07 / P-04**: the static independence proof
+  (`analyst-glm-5.3-flash-free`, FA-02).
+- Duplicate of **I-09**: the unit-only coexistence proof
+  (`analyst-glm-5.3-flash-free`, FA-04).
+- **Rejected**: "batchread enables bulk exfiltration"
+  (`analyst-pickle`, MISSING-07). Reading files the process can already read
+  is the tool's purpose; `resolveSafe` bounds it to the project. Not a defect.
+- **Unverified, not registered**: "`getTaskAgents` trusts `output.args`"
+  (`analyst-pickle`, MISSING-03) and "quarantine only fires on critical
+  patterns" (MISSING-04). Both describe plausible weaknesses but the round-3
+  read did not establish a concrete failing path. Left here so the next pass
+  can decide rather than re-derive.
+
+### Coverage of the gap audit
+
+- `analyst-gemini` (host runtime): reported **NONE**. No host-side finding
+  survived the dedup list.
+- `analyst-beam-free` (v2 API fidelity): 7 findings, 5 registered
+  (E-33, E-34, E-37, E-38) after grouping, 2 folded into E-37.
+- `analyst-pickle` (security): 8 findings, 1 registered as new evidence
+  (C-03 amplification), 3 merged, 1 rejected, 2 unverified.
+- `analyst-mimo` (tools): 8 findings, 7 registered (E-19, E-30, E-35, E-36,
+  E-29, E-25, and the B-12 correction), 1 folded into E-35.
+- `analyst-deepseek` (state): 8 findings, all 8 registered (E-12, E-13, E-20,
+  E-21, E-22, E-23, E-24, E-31).
+- `analyst-glm-5.3-flash-free` (evidence): 5 findings, 3 registered (E-27,
+  E-32, E-40), 2 duplicates.
+
+Net: of the 20 findings in the consolidated report, 6 were already registered
+(C-02, C-03, P-10, B-02, E-02, G-13) and 3 were refuted claims, so 11 were new
+and are recorded as E-11, E-14, E-15, E-16, E-17, E-18, E-26, E-28, E-32,
+E-39, and E-41. The gap audit then added 20 more that the consolidated report
+had missed, almost entirely in state durability and shutdown ordering
+(E-12, E-13, E-19, E-20, E-21, E-22, E-23, E-24, E-25, E-27, E-29, E-30,
+E-31, E-33, E-34, E-35, E-36, E-37, E-38, E-40).

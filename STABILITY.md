@@ -1,0 +1,181 @@
+# Tawassul V2 — Stability Triage
+
+Status: 2026-10-26 · HEAD `b55f9df` · gate `npm run ci` rc=0
+
+Purpose: one prioritized view across every open fix, filtered to the single
+question that matters for day-to-day use — **does this stop the plugin from
+working, lose data, or report success when it failed?**
+
+## Where the fixes actually live
+
+All 99 issue entries are in `ISSUES.md`. `PLAN.md`, `TRIAGE.md`,
+`CUTOVER.md`, `RECOVERY-20261025.md`, `DECOUPLING.md`, and `SHARED.md` are
+historical records: they describe work already done or decisions already
+taken. The one exception was `SHARED.md` S-057, which had never been
+registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
+`VERIFICATION-20261026.md` is the evidence ledger behind the
+register. So the "huge number spread across documents" collapses to one file
+with 99 entries, of which **59 are open**.
+
+## The filter
+
+59 open items sound like 59 problems. They are not the same kind of problem:
+
+| Tier | Question it answers | Count |
+| --- | --- | --- |
+| S0 | Does the plugin work at all? | 3 |
+| S1 | Does it lose or corrupt data silently? | 10 |
+| S2 | Does it tell the truth about what happened? | 14 |
+| S3 | Does it start reliably and quickly? | 9 |
+| S4 | Can it be made to do something it should not? | 6 |
+| S5 | Can we prove any of the above? | 13 |
+| S6 | Does install and upgrade work? | 4 |
+
+**Stability is S0 + S1: 13 items.** S2 decides whether you can trust what you
+see. S3 through S6 matter, but none of them makes a working session fail.
+
+---
+
+## S0 — the plugin does not work (3)
+
+| ID | Defect | Why it blocks |
+| --- | --- | --- |
+| `E-12` | `saveState()` returns before the write happens | `record`, `handoff`, and `goal` report success while the data is still only in memory. |
+| `E-13` | A rejected state file is treated as missing | Silent rollback to an older `.bak`, then the rejected file overwrites `.bak.0`. |
+| `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
+
+## S1 — silent data loss (10)
+
+| ID | Defect |
+| --- | --- |
+| `E-19` | Outputs over 50,000 characters are cut with no marker |
+| `E-20` | Shutdown does not await async cleanup callbacks; ledger and timeline tails are dropped |
+| `E-21` | After eight save failures the shutdown flush is a silent no-op |
+| `E-22` | Dropped-handoff ratings are computed after persistence is closed |
+| `E-23` | The goal store locks the file, not the goal; parallel mutations are lost as "locked" |
+| `E-24` | Saga ids restart at `SAGA-001` and overwrite the previous journal |
+| `B-11` | Predictive-router rewrites its file every 5 minutes and grows the backup family |
+| `B-12` | `panic` backup is best-effort, never pruned, and reports success even when it failed |
+| `P-08` | Later rejected-state copies are dropped |
+| `P-09` | Legacy state lookup prefers the retired v1 directory |
+
+## S2 — features silently dead or lying (14)
+
+`E-14` failures recorded as successes · `E-15` v1 event names, so streaming,
+auto-save, and notifiers are dead · `E-17` `tool.definition` unregistered,
+placeholder schemas · `E-18` hook errors swallowed, guard fails open ·
+`E-02` config hook unbridged, permission repair missing · `E-25` AskChannel
+fabricates an answer at capacity · `E-27` smoke passes a boot that never
+replied · `E-29` one failing request trips the web breaker for 60 s ·
+`E-31` event metrics written to a discarded collector · `E-33` client shim
+no-ops · `E-34` message-level mutations discarded · `E-35` result titles
+lost · `E-36` failed crawl returned as success · `E-38` refresh disposal
+race.
+
+## S3 — boot and startup (9)
+
+`B-01` schema work duplicated · `B-02` retry window hides tools for ~10 s ·
+`B-03` 3.1 MB pretty-printed run log parsed at boot · `B-05` schema payload
+unmeasured · `D-05` doctor census gap · `G-04` no boot budget proof ·
+`I-07` no bundle freshness check · `I-08` global boot cost unmeasured ·
+`I-10` successful host boot is manual.
+
+## S4 — security (6)
+
+`C-03` no-agent sessions skip every guard · `P-10` `permissionGuard` bash
+branch dead · `E-28` `patch`/`apply_patch` absent from `BLOCKED_TOOLS` ·
+`E-30` `applyPatch` prefix escape · `E-37` type shim weaker than the host
+contract · `E-39` SSRF check is pre-flight only.
+
+Owner constraint: none of these may be fixed by editing a `bash` permission
+entry, and no hook may turn a `bash` infrastructure error into a hard block.
+
+## S5 — evidence (13)
+
+`E-32`, `E-40`, `E-41`, `E-07`, `G-05`, `G-06`, `G-07`, `G-08`, `G-10`,
+`G-11`, `G-12`, `I-09`, `I-11`.
+
+## S6 — install and parity (4)
+
+`I-02`, `I-03`, `I-05`, `I-06`.
+
+---
+
+## The five clusters
+
+The 27 entries in S0–S2 are not 27 independent jobs. Most collapse into five
+engineering clusters, each of which is one coherent change.
+
+| Cluster | Members | One change |
+| --- | --- | --- |
+| **Persistence** | `E-12`, `E-13`, `E-20`, `E-21`, `E-22`, `P-08`, `P-09`, `D-05` | Make save/load/flush one generation-aware path: write before you report, quarantine instead of rolling back, await every flush. |
+| **Bridge** | `E-15`, `E-17`, `E-34`, `E-35`, `E-38` | Read the v2 payload explicitly instead of inferring it, and preserve every part. |
+| **Guards** | `C-03`, `P-10`, `E-18`, `E-25`, `E-28` | One guard chain on every path, capability seeded at boot, fail closed on decisions and open on infrastructure. |
+| **Stores** | `E-23`, `E-24`, `B-11`, `B-12` | Correct lock key, monotonic ids, no timestamp in the change check, honest backup reporting. |
+| **Telemetry** | `E-14`, `E-27`, `E-31` | Consume the host's `status`, require a real model reply, wire the metrics collector, warn only on a genuine unknown. |
+
+## Execution order
+
+**Wave 0 — in parallel with everything (1 day).** `E-41`: invert the proofs
+that assert defects as expected behaviour. The first inversion is done —
+`prove-v2-compat.ts` now asserts part preservation and `E-16` is closed. The
+remaining targeted cases (C-03, E-12, E-14, E-19) land with their
+fixes. Without this, every later wave can be "verified" green while the bug is
+still there.
+
+**Wave 1 — make it usable (S0, 3–4 days).** `E-12` + `E-13` as the start of
+the persistence cluster. Restart the host after each build (`G-13`) and
+confirm against a live session, not a proof.
+
+**Wave 2 — stop losing data (S1, 4–6 days).** Finish the persistence cluster
+(`E-20`, `E-21`, `E-22`, `P-08`, `P-09`), then `E-19` in the bridge,
+then the stores cluster (`E-23`, `E-24`, `B-11`, `B-12`).
+
+**Wave 3 — stop lying (S2, 3–4 days).** Telemetry (`E-14`, `E-27`, `E-31`),
+then the rest of the bridge (`E-15`, `E-17`, `E-34`, `E-35`, `E-38`), then
+guards (`E-18`, `E-02`, `E-25`), then the three small tool fixes (`E-29`,
+`E-33`, `E-36`).
+
+**Wave 4 — boot (S3, 2 days).** `B-01`, `B-02`, `B-03`, `B-05`, `E-38`,
+then the proofs `G-04`, `I-07`, `I-08`, `I-10`.
+
+**Wave 5 — security (S4, 2–3 days).** `C-03`, `P-10`, `E-28`, `E-30`,
+`E-37`, `E-39`.
+
+**Wave 6 — evidence and install (S5 + S6, 2 days).** Everything that remains.
+
+## Acceptance per wave
+
+A wave is done only when all four hold:
+
+1. the cited defect has a proof that fails on the previous commit and passes
+   on this one;
+2. `npm run verify` is green;
+3. a live host session exercises the fixed path — not a synthetic event;
+4. the register entry moves to `done` with the commit and the evidence line.
+
+## What not to start now
+
+`S5` and `S6` are real but do not change whether the plugin works. `E-40`
+(shell comments) and `E-41` are the only two worth doing early, and `E-41`
+is in Wave 0 for a reason. `I-02`…`I-06` affect the optional global install,
+which is deferred under `I-01`, so they cannot affect a project-scoped user
+today.
+
+## Current position
+
+- Wave 0: in progress — `prove-v2-compat` (E-16), `prove-e11` (E-11), and
+  `prove-c02` (C-02) landed; the remaining targeted cases are C-03, E-12,
+  E-14, and E-19.
+- Wave 1: `E-26` (iteration budget), `E-11` (skill gate), and `C-02` (consent
+  loop) are closed. `E-26` is not in S0–S2 because it blocked long tasks, not
+  normal use.
+- Closed since this triage: `P-11` (S2) and `G-14` (S5) on 2026-10-26 — the
+  provider-aware model advisory plus the `kick` variant derivation, and the
+  generation-guard WAL snapshot fixture; `E-16` (S1) — the write-back now
+  preserves every part; `E-11` (S0) — capabilities seed from the roster,
+  persist with the state file, and an empty record fails open with a warning;
+  `C-02` (S0) — the bridge seeds the real parts, the deferred consent path is
+  reachable, and a live ask/answer/execute proof lands a real `git push`.
+- The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
+  Wave 2 and should be re-scoped to the wave boundaries above.

@@ -28,6 +28,20 @@ command-level guards are keyed on `bash`, but no report traced the
 consequence for the consent gate. Verification confirmed it and found the
 blast radius wider: every `bash`-keyed guard was bypassed, not only consent.
 
+## Where each evaluation round is recorded
+
+| Round | Agents | Durable outcome |
+| --- | --- | --- |
+| 1 | all six analysts, full scope | this file, sections A–G (per-agent disposition in E); register entries `E-01`…`E-10` in `ISSUES.md` |
+| 2 | reconciliation of round 1 against a newer HEAD | this file, section H; register entries `C-02`, `C-03`, `P-10`, `B-11`, `B-12`, `G-13` |
+| 3 | all six analysts, full scope, plus a gap audit | `ISSUES.md`, "Third-round evaluation", `E-11`…`E-41`; this file, "Evaluation round 3" |
+| SHARED audit | one pass, all 57 frozen entries | this file, "SHARED.md disposition audit"; new register entries `P-11` and `G-14` |
+
+Raw per-agent transcripts were not persisted for any round. What survives is
+the verified disposition: each claim, its verdict, and the code that proves
+it. Round 3 is the same — the synthesis is durable, the raw text is not. If a
+future round needs the original wording, it must be captured at the time.
+
 ---
 
 ## Gate evidence (2026-10-26)
@@ -829,3 +843,96 @@ would write a 2,297,954-byte self-contained bundle (SHA-256 prefix
 blocks it. Scope detection returns `global` for the projected path and
 `project` for the project bundle. The config directory is unchanged, and the
 install remains deferred under I-01.
+
+---
+
+## Evaluation round 3 — consolidated report and gap audit (2026-10-26)
+
+The third evaluation round — the consolidated devil's-advocate report plus a
+six-agent gap audit against HEAD `b55f9df` — is recorded in `ISSUES.md` under
+"Third-round evaluation (2026-10-26, six-agent gap audit)", entries E-11
+through E-41. It re-confirms C-02, C-03, P-10, B-02, E-02, and G-13 without
+duplicating them, and it corrects B-02, B-12, and the panic backup note. The
+host-side surface produced no new finding: `analyst-gemini` reported NONE
+against the dedup list.
+
+---
+
+## SHARED.md disposition audit (2026-10-26)
+
+`SHARED.md` stays frozen (1251 lines, 57 entries, `S-001`…`S-057`). This
+audit read every entry and checked the action-required set against HEAD
+`b55f9df`. Heading statuses are not reliable: S-039, S-040, S-043, S-045,
+S-052, and S-053 are headed `REQUIRED`/`ACTION REQUIRED` while their bodies
+record an implementation or a done state, and S-052 carries two contradictory
+status rows. The disposition below follows the body and the code, not the
+heading.
+
+Method: each cited anchor was resolved to a current file and line; the
+action-required entries were re-read in full. Historical acceptance runs were
+not re-executed unless a current proof already covers them. No file in
+`SHARED.md` was edited.
+
+### Summary
+
+| Disposition | Entries | Count |
+| --- | --- | --- |
+| Closed: implemented, or explicitly v1-only/docs-only | S-001…S-032, S-036, S-038, S-039, S-040, S-041, S-043, S-045, S-049, S-052, S-054, S-056 | 43 |
+| Closed by design, N/A, or triaged | S-033, S-034, S-035, S-037, S-050, S-055 | 6 |
+| Mitigated plugin-side; host contract still open | S-042, S-044, S-046, S-047, S-048, S-051 | 6 |
+| Closed in this repo on 2026-10-26 | S-053 (proof gap → G-14), S-057 (code → P-11) | 2 |
+
+**Answer: no, not every entry is complete — but only two are actionable in
+this tree.** Six entries ask the host for an API or a documented contract
+that `@opencode/plugin` 2.1.4 does not expose; the plugin already fails
+closed or approximates in all six.
+
+### The early port entries
+
+| Entry | Disposition |
+| --- | --- |
+| S-001…S-010 | All ten problem/fix pairs are applied: entry shape, ESM external resolution, promise-domain tool results, capability probe, minimal-surface security policy, English-only registry, port overwrite guard, English translations stub, dual export, conflict-marker guard. S-010 is moot: `scripts/port-from-v1.mjs` was deleted at cutover (`CUTOVER.md` §4), so there is no port tool left to guard. |
+| S-011…S-020 | Implemented, or closed as a v1-only baseline that must not be re-ported (S-015, S-016). Spot-checks: S-012 close-only guard at `src/services/mission-board.ts:229` (`done` cannot reopen) with the index resynced at `:232-241`; S-013 `getAllowedToolsForRole` at `src/security-policy.ts:556`; S-014 health tool at `src/tools/tawa/health.ts:61`. |
+| S-021…S-032 | All dispositioned and closed: S-021 and S-023…S-026/S-028…S-031 are marked implemented, S-022's "genuinely behind" rows each carry an implemented proof anchor, and S-027 is closed as docs-only. Spot-check S-028: the provider token cache and both getters are live at `src/core/model-registry.ts:152`; the suffix gate is in `src/tools/agent-add-helpers.ts`. S-032's pending post-boot duplicate-winner check was satisfied by the cutover census: one plugin copy per workspace (`CUTOVER.md` §2). |
+
+### The action-required and status entries
+
+| Entry | Body claim | Disposition at HEAD |
+| --- | --- | --- |
+| S-033 | cold-boot launch wave, launcher/installer/self-bootstrap skipped | Closed by scope: launcher done under S-041 item 5, scorecard under S-054, self-bootstrap deliberately manual (`CUTOVER.md` §5; `scripts/prove-s024.ts:160` keeps the installer-coupled probe unported). |
+| S-034 | boot measurement stack, scorecard/runner skipped | Closed: `scripts/boot-scorecard-v2.sh` exists and `scripts/prove-boot-gate.ts` proves the launcher policy and the scorecard gates. |
+| S-035 | DB-safety toolchain, D3/recovery/salvage skipped | Closed by scope: guard + maintenance gate shipped (`scripts/guard-db-generation.sh`, `scripts/opencode-db-maintenance.sh`, `prove-db-retention`); D3/recovery/salvage are v1-host tools with no v2 surface. |
+| S-036 | agent-management week | Implemented; the add/kick helpers and both runtime paths are present. |
+| S-037 | test-suite triage + notify gate | N/A: v2 has no vitest suite; the proof catalog is the gate. |
+| S-038 | per-workspace coexistence seat | Implemented; `prove-s038` plus the five-workspace live boot recorded in the entry. |
+| S-039 | N2 must gate on assistant messages | Implemented: `src/hooks/n2-auto.ts:40` keeps the assistant-id set, `:134` only records `message.updated` with `role === "assistant"`, and every record carries `role_gate: true`. |
+| S-040 | event-table retention | Implemented: `DELETE FROM event` at `scripts/opencode-db-maintenance.sh:396`, `--event-only` at `:485`, dual `session_v2`+`session` probe. |
+| S-041 | pre-cutover coexistence, item 7 `[OPEN]` | 7/7 done; the marker is stale. `CUTOVER.md` §1 records `npm run ci` rc=0, §2 the live dual-generation boot (v2 and v1 workspaces, `DUAL` reply, one setup owner), §3 the guard matrix (both directions refuse, never fail open). |
+| S-042 | host loads both discovery paths | Plugin side done: `claimCoexistence` is wired at `src/bootstrap/plugin-init.ts:393`, so one copy owns setup per directory. Host side open: the host still scans `.opencode/plugin/` and `.opencode/plugins/`; only the first exists here. |
+| S-043 | v1 keys warn on every boot | Implemented: the keys are gone from the v2 config and the boot repair no longer re-adds `subagent_depth`. |
+| S-044 | `ask` is confirm-only | Host gap: `@opencode/plugin` 2.1.4 has no form/select surface (P-01). Plugin is fail-closed: confirm forces `ask`; `select`/`multiselect` now throw (`src/v2/ask.ts:40-47`) instead of returning `undefined`, which is stricter than the frozen status text. |
+| S-045 | deferred tool schemas | Implemented: `tool.reload()` is public in 2.1.4 (`dist/promise/tool.d.ts:83`) and the plugin calls it after init (`src/v2/setup.ts:204`). |
+| S-046 | `permission.assert` auto-allows unmatched actions | Plugin mitigation done: the evaluate hook forces `effect = "ask"` for `tawassul.ask` and `ask` is exposed only when both the hook and `assert` register (`src/v2/ask.ts:15-24`). Host default policy for third-party actions remains open. |
+| S-047 | no streaming deltas or compaction template | Host gap: the compaction bridge registers `session.hook("compaction")` (`src/v2/setup.ts:340`), but the host exposes no tool-result delta stream. The bridge is an approximation, as the entry says. |
+| S-048 | `output` without an output schema | Note only, no code change required. The v2 adapter emits `content`/`metadata` and never `output` without a schema. |
+| S-049 | `execute.after` discarded output mutations | Implemented; `prove-v2-compat` covers write-back and metadata. |
+| S-050 | budget exhaustion mislabeled | N/A: v1-only path; v2 owns its budget. The same class was re-opened and fixed as E-26. |
+| S-051 | host evidence for `permission.evaluate` and `tool.reload` | Note only; both mechanisms are in the 2.1.4 SDK, so the ask is satisfied for this host generation. |
+| S-052 | seven goal-capture gaps | Implemented: `close` and a terminal `update` share `finishLocked` (`src/services/goal-store.ts:675`), the cap counts only `activeCount()` (`:937`), and `prove-goal-capture` covers parity and replay. The second status row ("ACTION REQUIRED") is a stale duplicate. |
+| S-053 | retirement transfer | Done except the guard fixture: the live dual-generation boot and the guard matrix ran (`CUTOVER.md` §2-3), but no proof exercised the orphaned-`-wal`/snapshot-copy branch → **G-14**, closed 2026-10-26 by `scripts/prove-gen-guard-wal.ts` (45 assertions). |
+| S-054 | M3.1 scorecard split | Done: `scripts/boot-scorecard-v2.sh` carries both fixes and `prove-boot-gate` proves them. |
+| S-055 | v1 docs/atomic backlog | Triaged, not implemented wholesale: `TRIAGE.md` A–L gives one verdict per row; the accepted subset is `prove-catch-discipline`, the proof catalog, and `release-smoke.sh`; the rest is rejected with evidence or closed at v1 retirement. This is the terminal state its own status rule defines. |
+| S-056 | shared state surfaces | Implemented; `prove-state-namespace` asserts the paths, the read-only fallback, dual-prefix HMAC, and one seat owner. |
+| S-057 | addagent advisory uses the static catalog | **Closed → P-11** (2026-10-26). At audit time `src/tools/agent-management.ts:594` tested `MODEL_CATALOG` only and the kick suffix was used only for the wildcard branch. Both are fixed: the advisory calls `shouldWarnUnverifiedModel` (alias, static catalog, then the provider cache), and `parseKickInput` derives the variant for a bare base; `prove-s028` grew to 45 assertions. |
+
+### Consequence for the register
+
+Two new entries were added rather than duplicating the frozen text:
+
+- `P-11` — the addagent advisory and the kick suffix asymmetry (from S-057), closed 2026-10-26; evidence in `prove-s028` (45 assertions) and the `ISSUES.md` resolution.
+- `G-14` — the missing generation-guard orphan/WAL fixture (from S-053), closed 2026-10-26; evidence in `prove-gen-guard-wal` (45 assertions).
+
+No other entry needed a new ID. The six host-contract entries are recorded
+here as host gaps, not as plugin defects; if a future host build exposes the
+form API, the streaming delta API, or loader dedupe, they reopen as host
+verification items, not as code changes in this tree.
