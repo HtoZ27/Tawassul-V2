@@ -2,6 +2,8 @@
 
 Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 29 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
+Active P0: C-02 — the v2 consent loop and all text routing are dead; the
+running host also predates the current build (G-13).
 
 Purpose: one durable place for open issues, evidence, and the next action, so
 development context survives session loss. Severity: P0 (can corrupt state or
@@ -79,7 +81,8 @@ Evidence:
 - `~/.opencode` absent; `~/.bashrc` has no `~/.opencode/bin` export; a fresh
   login shell finds no `opencode`.
 - Launcher prints `opencode v2.1.4`; smoke resolves the Desktop CLI.
-- Full `npm run ci` after removal: rc=0, 25 `PROOF PASS`, `SMOKE PASS`.
+- Full `npm run ci` after removal: rc=0, 26 `PROOF PASS` (25 steps plus the
+  catalog), `SMOKE PASS`.
 - `dpkg -l opencode` is the **Desktop app** (`/opt/OpenCode`), not the CLI;
   removing that package would delete the Desktop app.
 
@@ -95,10 +98,11 @@ Evidence:
 - `~/.local/state/opencode/service.json` holds the active descriptor:
   `{"url":"http://127.0.0.1:49374","pid":805568,"version":"2.1.4",...}`,
   written by the Desktop at boot. `opencode service status` prints that URL.
-- `scripts/opencode-v2-iso.sh` ends with `exec "$OPENCODE_BIN" "$@"` and does
-  not force `--standalone`. If the client sees a service descriptor, it can
-  attach to the Desktop server, where `OPENCODE_DB`/`XDG_*` from the launcher
-  have no effect. Dev runs would then write to the live DB and state.
+- Hazard before the fix: `scripts/opencode-v2-iso.sh` ended with
+  `exec "$OPENCODE_BIN" "$@"` and did not force `--standalone`. If the client
+  saw a service descriptor, it could attach to the Desktop server, where
+  `OPENCODE_DB`/`XDG_*` from the launcher had no effect. Dev runs could then
+  write to the live DB and state.
 
 ### H-04 Service descriptor is the single source of truth — done
 
@@ -444,6 +448,10 @@ were removed from `~/.config/tawassul/state` (108 files in total). Measured
 before: 35 live backups plus 5 new ones in a single hour (288/day rate for the
 router); measured after: at most 2 per base everywhere.
 
+Caveat (2026-10-26): the live host still wrote five router backups because the
+loaded process predates `fa8fd71`; the cap holds for the source and the
+rebuilt bundle, not for a running pre-fix process (G-13).
+
 ### B-05 Tool schema payload is unmeasured — open
 
 42 tool schemas are sent with every request and may dominate session load.
@@ -572,7 +580,7 @@ reply, health + help`.
 
 ## Data and state (P1)
 
-### D-01 Three database paths — resolved by role assignment (2026-10-26)
+### D-01 Three database paths — resolved by role assignment (2026-10-26), residual risk D-05
 
 Re-raised by evaluation finding E-08; the owner adopted the recommended roles
 on 2026-10-26.
@@ -621,6 +629,19 @@ canonical DB is empty while a copy holds them. The host still sees only the
 sidecar; D-02 imported the 14 shared and 14 launcher sessions on 2026-10-26
 (26 new sessions, 384 messages). The copies stay read-only as backup
 material.
+
+Residual risk (D-05, 2026-10-26): the roles are a declaration, not yet an
+enforced write barrier. The doctor's census is a fixed list: `$db`, the
+canonical path, `$SHARED_DB`, `$LAUNCHER_DB`, and the v1
+`opencode-projects/<hmac>` path (`doctor-v2.sh:89,218-221`). The current v2
+CLI launcher writes `opencode/tawassul-v2/projects/<hmac>/opencode.db`
+(`opencode-iso.sh:124,130,135`), which is never probed. The "read-only"
+shared and launcher copies are only warned about, never checked against their
+14/14 import baseline (`doctor-v2.sh:229`). A second v2 CLI database with
+sessions, or a new write into a legacy copy, therefore still passes. The
+roles remain the right stabilization choice; D-05 records the enforcement
+gap and the recommended bounded census, baseline guard, and no-auto-move
+decision.
 
 ### D-02 Old sessions are not imported — done (2026-10-26)
 
@@ -709,15 +730,71 @@ the full `npm run ci` passes. D-01 roles were adopted on 2026-10-26: the
 sidecar is canonical, the shared DB is legacy read-only, and the launcher DB
 is test-only.
 
+### D-05 Doctor census misses the v2 CLI namespace and accepts legacy growth — open (P1)
+
+D-01 declared the roles, but `doctor-v2.sh` enforces them over a fixed list of
+five paths rather than a bounded census. It counts `$db`, the canonical path,
+`$SHARED_DB`, `$LAUNCHER_DB`, and `expected` (`:218-221`); `expected` is the
+v1 namespace `~/.local/share/opencode-projects/<hmac>/opencode.db` (`:89`).
+The v2 CLI launcher writes a different namespace:
+`~/.local/share/opencode/tawassul-v2/projects/<hmac>/opencode.db`
+(`opencode-iso.sh:124,130,135`, with `mkdir -p` at `:133`). Nothing in the
+doctor enumerates that tree, so a database there is never counted. It cannot
+trigger the "undeclared database" failure (`:223`) or the "canonical DB has no
+sessions while a legacy/test copy does" failure (`:225`) unless the caller
+happens to export its path as `OPENCODE_DB`. The same fixed-list limitation
+applies to every other `opencode-projects/<hash>` database.
+
+Latent today, not active: `~/.local/share/opencode/tawassul-v2/projects/`
+contains only `c9f1bc47443da701/`, the HMAC of `/home/htoz/Desktop/tawassyl`,
+and that directory has no `opencode.db`. The current root
+(`/home/htoz/Desktop/Tawassul V2`) hashes to `20744975b9574157`, so a v2 CLI
+launch from this tree would create the first unprobed database. The role
+assignment never said the CLI lane cannot run; it only labelled the old
+launcher file as test-only.
+
+Second gap: "read-only" is not checked. The shared copy is legacy read-only
+and the launcher copy is test-only, but the doctor only warns that they are
+retained (`:229`). It does not compare their counts with the 14/14 D-02
+baseline, so a process that opens either copy and writes a session still
+passes. The declaration prevents nothing by itself; only a growth check does.
+
+Recommended shape (D-05, owner decision 8; not implemented):
+
+- Bounded census: enumerate `opencode.db` up to depth 3 under
+  `~/.local/share/opencode`, `~/.local/share/tawassul-v2`, and
+  `~/.local/share/opencode-projects`, skip symlinks, open read-only, classify
+  every hit, and fail on any path with sessions that is not canonical, the
+  shared legacy copy, the launcher test copy, or the v1 HMAC path. Cap the
+  scan (for example 32 files) and fail closed when the cap is reached.
+- Baseline guard: record shared=14 and launcher=14 at the D-02 import and
+  fail when either grows; allow a deliberate import only through an explicit
+  flag. This is the difference between a label and an enforced role.
+- CLI namespace: either declare the v2 project DB as a test-only role in the
+  census and fail when it holds sessions, or require an explicit isolated-test
+  flag before the launcher creates or opens a non-canonical DB. Do not merge
+  it automatically.
+- No boot-time auto-move: the sidecar can be live with a WAL, the copies may
+  be read-only or stale, and there is no freshness proof. A failed move can
+  leave the canonical empty, which is the failure D-01 exists to prevent.
+  D-02 already did the one-time import with a verified backup; later copies
+  need an explicit, backed-up import.
+
+Verdict: the owner's role choice is correct as the stabilization step and
+should be kept. It becomes the structural guarantee the owner asked for only
+when D-05 closes the census and growth gaps.
+
 ---
 
 ## Product gaps (P2 unless noted)
 
 - **P-01** `select`/`input` elicitation: fixed in `ccb2cb6`. Unbridged types
   now throw a visible error instead of returning `undefined`; `noReply` uses
-  `session.synthetic` and never queues a model turn. The host still has no
-  select bridge, so an unbridged tool call fails closed rather than guessing.
-  `prove-v2-ask-bridge` covers both paths. P1 per E-03.
+  `session.synthetic` and never queues a model turn. The plugin SDK 2.1.4 has
+  no select bridge, so an unbridged tool call fails closed rather than
+  guessing. The host protocol does expose `session.form.create/reply/list/
+  cancel`, but `@opencode/plugin` 2.1.4 does not surface it; closing P-01 for
+  real needs the SDK form surface or a direct protocol client. P1 per E-03.
 - **P-02** A goal closed from `completed` writes a `dropped` tombstone; the
   digest counts stay correct, the label is cosmetic. Next: accept the label as
   cosmetic, or write `completed` for a `completed`-origin close; no data is at
@@ -727,9 +804,10 @@ is test-only.
   a 500-message session for the current miss rate first.
 - **P-04** Independence is proven statically; a real boot with the v1 tree
   renamed is still missing. `scripts/prove-v2-independence.ts` scans
-  `src/**/*.ts` and the launcher, matches a literal plugin filename, and skips
-  `scripts/*.sh`, `tests/`, `.opencode/`, `dist/`, and dynamically built
-  paths. It does not inspect the v1 tree's bootable package entry (H-09).
+  `src/**/*.ts` and `scripts/**/*.{ts,sh}`, checks the launcher by literal
+  filename, and walks the repo except `node_modules`, `.git`, and `dist` for
+  a single `tawassul.js` entry. It does not inspect the v1 tree's bootable
+  package entry (H-09).
   Next: boot a scratch workspace with the v1 tree renamed, census
   `opencode.json` plugin/mcp keys and `plugin(s)/*/index.*`, follow symlinks,
   scan every tracked file, and assert one effective host entry. P1.
@@ -783,16 +861,22 @@ Remaining: no proof that a blocked tool actually fails a live run (G-05).
 ### E-02 v1 config hook is not bridged — open (partially mitigated)
 
 Original severity: critical. `plugin.config` is only logged at
-`src/v2/setup.ts:377-381`; it is not called. The dynamic model fix and the
-tawa/addagent permission repair (`src/bootstrap/plugin-init.ts:85-126`,
-wired at `plugin-init.ts:838-840`) therefore never run on the v2 host.
+`src/v2/setup.ts:375-379`; the v2 host never calls it. The hook at
+`src/bootstrap/plugin-init.ts:837-840` therefore does not run, so the tawa and
+addagent permission repair (`ensureTawaToolPermissions` and
+`ensureAddAgentToolPermissions`, `plugin-init.ts:101-129`) is not applied at
+boot. Dynamic models are repaired by a separate path:
+`repairProjectConfigBoot` is called at `plugin-init.ts:479` and rewrites
+`DYNAMIC_MODEL_SENTINEL` entries (`opencode-config.ts:374-385`), so only the
+permission/roster half is missing.
+
 Mitigations: `gen-opencode-config` bakes models and permissions into
 `opencode.json`, and `execute.before` denies `BLOCKED_TOOLS` for tawa via
 `isBlockedForAgent` (`setup.ts:62-67`). Risk: a hand-edited or stale config,
 or a roster changed after generation, is not repaired at boot.
 
-Next: apply the three helpers from the v2 boot path (a config writer or a
-`ctx.app`/`ctx.permission` bridge), then prove a denied tawa tool fails and
+Next: apply the permission helpers from the v2 boot path (a config writer or
+a `ctx.app`/`ctx.permission` bridge), then prove a denied tawa tool fails and
 addagent permissions are present. This is the live half of G-05.
 
 ### E-03 noReply queues a user turn; select/input unbridged — fixed (P-01)
@@ -820,11 +904,14 @@ Rejected files go to `quarantinePath()` under the v2 state dir
 
 ### E-05 `--expect v2` accepted v1 content — fixed; matrix/proof gap in G-06
 
-Original severity: major. `scripts/guard-db-generation.sh:236-243` now
-refuses `marker-v1-content` when the v2 lane finds a non-empty DB with no
+Original severity: major. `scripts/guard-db-generation.sh:245` now refuses
+`marker-v1-content` when the v2 lane finds a non-empty DB with no
 `session_v2` marker. The `--expect v2` + v1-content row is missing from
 `CUTOVER.md` section 3, and the `marker-v1-content` path has no proof; the
-only guard proof covers `non-v2-path` (G-06).
+only guard proof covers `non-v2-path` (G-06). Residual (V-29): the v1 lane
+still warns and proceeds when a `session` table exists but no v1-positive
+marker does (`:229`); the table census bounds it to a recognizable v1 shape,
+and the v2 lane refuses the same DB with `marker-v1-content`.
 
 ### E-06 Project state written to the repo root — fixed; leftovers in D-03
 
@@ -837,11 +924,12 @@ empty `.bak` are leftovers (D-03).
 ### E-07 Independence proof is static — open (P-04)
 
 Original severity: major. `scripts/prove-v2-independence.ts` scans
-`src/**/*.ts` plus the launcher for v1 paths/imports and matches a literal
-host filename. It skips `scripts/*.sh`, `tests/`, `.opencode/`, `dist/`, and
-dynamic paths, and never boots with the v1 tree unreachable. It also misses
-the v1 tree's bootable package entry (H-09). Next: the expanded action is
-P-04; this entry adds the H-09 case to it.
+`src/**/*.ts` and `scripts/**/*.{ts,sh}` for v1 paths/imports, checks the
+launcher by literal filename, and walks the repo except `node_modules`,
+`.git`, and `dist` for a single `tawassul.js` entry. It is static: it never
+boots with the v1 tree unreachable and does not inspect the v1 tree's
+bootable package entry (H-09). Next: the expanded action is P-04; this entry
+adds the H-09 case.
 
 ### E-08 Three database paths — resolved by role assignment (D-01)
 
@@ -861,11 +949,11 @@ them in agreement (G-07).
 
 ### E-10 Reverted working tree / tsc failure — stale
 
-Original severity: minor. `git status` is clean apart from five known
-untracked files; `tsc --noEmit` passes and `npm run ci` is green at
-`d740865`. The finding described an intermediate working-tree state, not
-HEAD. Next: none; the entry stays closed and only documents the audit's
-baseline.
+Original severity: minor. At the audit baseline `d740865`, `git status` was
+clean apart from five known untracked files; `tsc --noEmit` passed and
+`npm run ci` was green. The finding described an intermediate working-tree
+state, not the baseline. Next: none; the entry stays closed and only
+documents the audit's baseline.
 
 ---
 
@@ -951,6 +1039,19 @@ first existing candidate with no freshness comparison.
 The isolated-boot transcript exists, but no gate references
 `retired-20261025`.
 
+### G-11 Proof catalog pins floors, not the exact set — open (P2)
+
+`scripts/prove-proof-catalog.ts:61` asserts `proofFiles.length >= 25` and
+`:89` asserts `proofs.length >= 24`; the current set is 29 files and 28 proof
+steps. A proof file and its gate step can be removed together and the catalog
+still passes as long as both floors are met. The catalog counts itself in the
+fast stage.
+
+Next: pin the exact sorted file list (or its hash) and the exact proof-step
+count, update the pin when a proof is added, and fail on any unrecorded
+addition or removal. The related register drifts from the same audit are
+corrected in place (H-02 proof count, E-05 line, E-07/P-04 wording).
+
 ### G-12 Six high-stakes closures have no CI artifact — open (P2)
 
 H-02, H-07, P-05, and P-07 are prose evidence only; P-07 was resolved by
@@ -973,6 +1074,167 @@ Corrections to existing entries:
   `TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY=1` makes it exit 5.
 - E-02: `plugin.config` is uninvoked, but dynamic model repair does run via
   `repairProjectConfigBoot`; only permission repair is missing.
+- E-05 now cites the refusal at `:245` and records the v1-lane
+  positive-evidence warning (V-29).
+- E-07/P-04 now state that the independence proof scans
+  `scripts/**/*.{ts,sh}`; it does not skip that tree (V-32).
+- H-02 records 26 `PROOF PASS` at the 2026-10-25 baseline (25 steps plus the
+  catalog); H-03 labels its evidence as pre-fix (V-32/V-35).
+- G-11 records the remaining catalog-floor gap (V-32).
+
+---
+
+## Side-evaluation verification (2026-10-26, second pass)
+
+Source: the final side evaluation of the bash/consent layer. Verified against
+HEAD `3582e85` plus the live host, the plugin log, and the installed
+`@opencode/*` 2.1.4 packages. The core diagnosis is confirmed: the consent
+loop and all text routing are dead on v2. Its guard evidence is taken from a
+stale running build, so several mechanism claims do not match HEAD.
+
+### C-02 Consent loop and text routing are dead on v2 — open (P0)
+
+The chain is complete and code-proven:
+
+- `src/v2/setup.ts:90-108` builds the v1 hook input as
+  `{ message: { role }, parts: [] }`; the real message text
+  (`last.content`) is only used for the reverse write at `:109-115`.
+- `getMessageContent` (`src/utils/format.ts:17-27`) reads only
+  `output.message.text` or `output.parts[].text`, so it returns `""`.
+- `src/hooks/message-updated.ts:563-575` passes that empty string to
+  `askChannel.onUserMessage`; `parseUserReply("")` returns `undefined`
+  immediately (`src/services/ask-channel-parse.ts:33-35`).
+- `ctx.ask` is a getter returning `tawaCtx.askChannel`
+  (`src/bootstrap/hooks-registration.ts:321-324`), and
+  `askChannelInstance` is also set, so `consent-gate-guard.ts:237` takes the
+  blocking branch, skips `deferConsent`, and races the ask against 25 s
+  (`:307-328`). The answer never arrives, so every consent-gated command ends
+  in `ConsentBlockedError("consentHostDenied")`.
+
+Impact: any `git push`, `rm -rf /abs`, `sudo`, `delete`, or `kick` that
+reaches the gate is refused after about 25 s regardless of what the user
+types. The deferred-question path, the 10-minute approval cache
+(`:46`), `@tawa` detection, dispatch intents, effort analysis, elicitation
+gates, priority classification, and context nudges all consume the same empty
+string and are equally dead. `prove-v2-ask-bridge` checks `client-shim` bodies
+only, and the smoke run never invokes bash.
+
+Tracked as `G-002` in the goal ledger (`G-002-I1`..`I5`). Next: seed the
+bridge with the real text parts before the hook call, add a live
+ask/answer/execute proof, and keep the existing fail-closed path as a belt.
+
+### C-03 No-agent sessions skip every guard — open (P1)
+
+`src/hooks/validation-pipeline.ts:273-276` returns `true` early when
+`!input.agent && !isTawaRelated`. `bash` is not a Tawassul tool, so a session
+where the host omits the agent bypasses the consent gate, the dangerous
+pattern stage, and the permission guard entirely. In that case `git push` and
+`rm -rf /` pass silently; the failure mode is fail-open, not the 25 s denial
+described for agent-bearing sessions. `isManagedAgent` itself treats a missing
+agent as trusted (`src/utils/agent.ts:47`), so nothing later restores the
+check.
+
+Next: require an agent identity for shell/delete/kick, or run the consent and
+pattern stages before the early return, and add a proof that a missing agent
+cannot bypass them.
+
+### P-10 Bash guard coverage is split; the `permissionGuard` bash branch is dead — open (P1)
+
+`permissionGuard` appears only in `VALIDATION_PIPELINE`
+(`validation-pipeline.ts:144`), which runs for tawa-related tools only. It is
+not in `ESSENTIAL_STAGES` (`:199-213`), which is the path for an ordinary
+`bash` call. `bash` is not `isTawassulTool`, so the tier check
+(`bash: "admin"` at `permission-guard.ts:46`) and the `DANGEROUS_PATTERNS`
+loop at `:295` are unreachable for bash at HEAD. The only live pattern check
+is `bashDangerousPatternsStage` (`:72-87`), and it runs only for managed
+agents; an unmanaged name such as `build` and a no-agent session do not reach
+it (C-03).
+
+Consequence for evidence: the 11 `PERMISSION_BLOCKED` entries with
+`pattern: "rm\\s+-rf\\s+\\/"` in
+`~/.local/share/tawassul-v2/tawassul/tawassul.log` cannot be produced by
+HEAD. HEAD would log `BASH_DANGEROUS_BLOCKED`, and that event has zero
+entries. Those blocks came from the stale build in G-13.
+
+Next: keep exactly one bash pattern stage on every path that can execute a
+shell command, or delete the dead branch and document that host permissions
+are the only bash gate. Do not "fix" `permissionGuard.ts:295` alone; it is not
+the active blocker.
+
+### B-11 Predictive-router rewrites its file every 5 minutes — open (P2)
+
+`src/features/predictive-router.ts:398` includes `exportedAt: Date.now()` in
+`exportData()`. `writeIfChanged` (`service-factory.ts:283`) therefore always
+sees a change, and the 5-minute timer (`:289-293`) rewrites the full file plus
+a timestamped backup. Live evidence: five backups under
+`~/.config/tawassul-v2/state/` at exactly 5-minute intervals
+(05:03, 05:08, 05:13, 05:18, 05:23), all 1134 bytes, next to the live file.
+This defeats the dirty-only claim in TRIAGE section C and grows the backup
+family without bound on a fixed build.
+
+Next: exclude `exportedAt` from the comparison (or from the persisted bytes),
+add a proof that two identical exports produce no write, and keep the cap at
+two.
+
+### B-12 `panic` backup is best-effort and never pruned — open (P2)
+
+`src/tools/system-controls.ts:222-231` copies `tawassul-state.json` to
+`tawassul-state.panic-backup-<uuid>.json`, logs a warning on failure, and
+proceeds with `clearAllState()`; with no `stateDir` it writes no backup at
+all. The name matches none of the prune families in `atomic.ts:29`
+(`.bak.<digits>.<12hex>`), so it accumulates forever. `ALLOWED_AGENTS` is
+`["@analyst"]` (`:178`), so the main user cannot run the reset from the main
+session while a single delegated agent decision can wipe the history.
+
+Next: make the backup mandatory (refuse to clear when it fails), add
+`panic-backup-*` to a capped prune family, and decide whether the owner
+session may call it.
+
+### G-13 The live host keeps pre-build code until restart — open (P1)
+
+The Desktop process started 2026-10-26 03:46:40
+(`~/.local/state/opencode/service.json`, pid 1537214), while
+`.opencode/plugin/tawassul.js` was rebuilt at 06:22. The live state proves
+the loaded code is older than `fa8fd71` (2025-10-25 20:24): five
+`predictive-router.json` backups exist although `MAX_BACKUPS` is 2 in the
+source and `atomic.ts:29-37` prunes to it. `B-04` therefore describes the
+source, not the running host; the same applies to any guard evidence taken
+from the log before a restart.
+
+Next: make `doctor-v2.sh` print process start time against the entry-file
+mtime and build hash, fail (or warn loudly) when the entry is newer than the
+process, and state the restart requirement in README and the release smoke
+output.
+
+Corrections to the side evaluation:
+
+- The log holds 11 `rm` blocks, not 10, and records only the pattern, not the
+  command text; "all were legitimate cleanups" is an inference from RULES.md
+  rule 2, not logged evidence. Four of the 11 predate the current process
+  start (03:46:40).
+- The claim that `permission-guard.ts:91-102` is the live blocker, and that
+  the RBAC `bash: admin` row overrides `bash: allow` in
+  `.opencode/agents/dev.md`, does not hold at HEAD (P-10). Both are dead for
+  bash because `permissionGuard` never runs on the bash path.
+- `> /dev/null` and `chown` are blocked only for managed agents through
+  `bashDangerousPatternsStage`; an unmanaged or no-agent session does not
+  reach that stage.
+- `curl|bash` is not gated by the plugin, but the host `BASH_READ_ONLY` map
+  denies `curl *` for every agent that uses it. The agents whose config grants
+  `bash: allow` (dev, tester, and their variants) have no such host deny.
+- File modes: `.opencode/plugin/tawassul.js` and `dist/index.js` are 0644,
+  not 0600. The state files and `~/.config/tawassul/.tawassul-hmac-key` are
+  0600.
+- README does not mention consent at all; the unreachable "reply yes / ok"
+  instruction (with an Arabic approval token) is only in
+  `src/i18n/en.json:82`.
+- `FACTS.md` exists at `src/FACTS.md`; only a root copy is missing, and no
+  document map in README/PLAN/AGENTS references it.
+- `P-01`: the 2.1.4 host protocol does have `session.form.create/reply/
+  list/cancel` (`node_modules/@opencode/protocol/dist/groups/session.d.ts`),
+  but `@opencode/plugin` 2.1.4 does not expose it (zero `session.form`
+  references in `dist`). The fail-closed path stays until the SDK exposes
+  forms or the plugin calls the protocol client directly.
 
 ---
 
@@ -999,7 +1261,8 @@ Corrections to existing entries:
 5. ~~D-01 roles~~ — done 2026-10-26. The sidecar is canonical, the shared DB
    was legacy read-only for the completed D-02 import, and the launcher DB
    is test-only; no file was deleted or moved. `doctor-v2.sh` prints the canonical DB, labels the
-   non-canonical copies, and fails on an undeclared session DB.
+   non-canonical copies, and fails on an undeclared session DB. Residual
+   enforcement gap: D-05 (item 8).
 6. ~~Keep or drop the untracked `scripts/check-shared-anchors.mjs`,
    `scripts/port-from-v1.mjs`, and `test-utils.ts`~~ — done 2026-10-26. All
    three were deleted; the two transfer tools referenced the retired v1 tree
@@ -1011,6 +1274,14 @@ Corrections to existing entries:
    B-04 cleanup; the single remaining router file stays as the permitted
    read-only legacy fallback. Its root-level siblings were deleted on
    2026-10-26 under item 6.
+8. D-05 enforcement shape — open. Recommended: keep the D-01 roles and
+   replace the fixed-path census with a bounded read-only census, fail when
+   the shared or launcher-legacy copy grows past the 14/14 D-02 baseline, and
+   declare the v2 CLI namespace as an explicit test-only role (or require
+   `TAWASSUL_ALLOW_SECOND_DB=1` before creating a non-canonical DB). Do not
+   auto-move at boot: the sidecar can be live with a WAL, and a failed move
+   can leave the canonical empty. Alternative rejected: automatic
+   newest-copy import on every boot.
 
 ## Verification baseline (for regression)
 
