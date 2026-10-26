@@ -15,23 +15,23 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **49 are open**.
+with 99 entries, of which **48 are open**.
 
 ## The filter
 
-49 open items sound like 49 problems. They are not the same kind of problem:
+48 open items sound like 48 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
 | S0 | Does the plugin work at all? | 1 |
-| S1 | Does it lose or corrupt data silently? | 2 |
+| S1 | Does it lose or corrupt data silently? | 1 |
 | S2 | Does it tell the truth about what happened? | 14 |
 | S3 | Does it start reliably and quickly? | 9 |
 | S4 | Can it be made to do something it should not? | 6 |
 | S5 | Can we prove any of the above? | 13 |
 | S6 | Does install and upgrade work? | 4 |
 
-**Stability is S0 + S1: 3 items.** S2 decides whether you can trust what you
+**Stability is S0 + S1: 2 items.** S2 decides whether you can trust what you
 see. S3 through S6 matter, but none of them makes a working session fail.
 
 ---
@@ -42,11 +42,10 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | --- | --- | --- |
 | `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
 
-## S1 — silent data loss (2)
+## S1 — silent data loss (1)
 
 | ID | Defect |
 | --- | --- |
-| `B-11` | Predictive-router rewrites its file every 5 minutes and grows the backup family |
 | `B-12` | `panic` backup is best-effort, never pruned, and reports success even when it failed |
 
 ## S2 — features silently dead or lying (14)
@@ -93,7 +92,7 @@ entry, and no hook may turn a `bash` infrastructure error into a hard block.
 
 ## The five clusters
 
-The 22 entries in S0–S2 are not 22 independent jobs. Most collapse into five
+The 21 entries in S0–S2 are not 21 independent jobs. Most collapse into five
 engineering clusters, each of which is one coherent change.
 
 | Cluster | Members | One change |
@@ -101,7 +100,7 @@ engineering clusters, each of which is one coherent change.
 | **Persistence** | `E-12`, `E-13`, `E-20`, `E-21`, `E-22`, `D-05` | Make save/load/flush one generation-aware path: write before you report, quarantine instead of rolling back, await every flush. |
 | **Bridge** | `E-15`, `E-17`, `E-34`, `E-35`, `E-38` | Read the v2 payload explicitly instead of inferring it, and preserve every part. |
 | **Guards** | `C-03`, `P-10`, `E-18`, `E-25`, `E-28` | One guard chain on every path, capability seeded at boot, fail closed on decisions and open on infrastructure. |
-| **Stores** | `B-11`, `B-12` | Correct lock key, monotonic ids, no timestamp in the change check, honest backup reporting. |
+| **Stores** | `B-12` | Correct lock key, monotonic ids, no timestamp in the change check, honest backup reporting. |
 | **Telemetry** | `E-14`, `E-27`, `E-31` | Consume the host's `status`, require a real model reply, wire the metrics collector, warn only on a genuine unknown. |
 
 ## Execution order
@@ -118,8 +117,8 @@ the persistence cluster. Restart the host after each build (`G-13`) and
 confirm against a live session, not a proof.
 
 **Wave 2 — stop losing data (S1, 4–6 days).** The persistence cluster
-(`E-20`, `E-21`, `E-22`, `P-08`, `P-09`) and `E-19` are closed; the remaining
-work is the stores cluster (`B-11`, `B-12`).
+(`E-20`, `E-21`, `E-22`, `P-08`, `P-09`), `E-19`, `E-23`, and `E-24` are
+closed; the remaining work is `B-12` in the stores cluster.
 
 **Wave 3 — stop lying (S2, 3–4 days).** Telemetry (`E-14`, `E-27`, `E-31`),
 then the rest of the bridge (`E-15`, `E-17`, `E-34`, `E-35`, `E-38`), then
@@ -180,9 +179,12 @@ today.
   newest existing candidate and prefers the non-retired directory on a tie;
   `E-19` (S1) — oversized tool output keeps its head and tail under an exact
   truncation marker, and the privacy path redacts the full text instead of
-  dropping the tail; `E-23` (S1) — the goal store waits out a held file lock
-  and retries, so parallel mutations are no longer lost as `locked`; `E-24`
+  dropping the tail; `E-23` (S1) — goal mutations queue in-process and then
+  wait out the file lock, so parallel mutations are neither lost as `locked`
+  nor allowed to clone the same snapshot; `E-24`
   (S1) — saga ids seed from the journal directory and the journal writes
-  atomically, so a restart cannot overwrite the previous recovery record.
+  atomically, so a restart cannot overwrite the previous recovery record;
+  `B-11` (S1) — the predictive router no longer timestamps its export, so an
+  unchanged state stops rewriting the file and growing backups.
 - The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
   Wave 2 and should be re-scoped to the wave boundaries above.

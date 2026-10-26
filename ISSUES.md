@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 42 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 43 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1241,20 +1241,23 @@ shell command, or delete the dead branch and document that host permissions
 are the only bash gate. Do not "fix" `permissionGuard.ts:295` alone; it is not
 the active blocker.
 
-### B-11 Predictive-router rewrites its file every 5 minutes — open (P2)
+### B-11 Predictive-router rewrites its file every 5 minutes — done (2026-10-26)
 
-`src/features/predictive-router.ts:398` includes `exportedAt: Date.now()` in
+`src/features/predictive-router.ts:398` included `exportedAt: Date.now()` in
 `exportData()`. `writeIfChanged` (`service-factory.ts:283`) therefore always
-sees a change, and the 5-minute timer (`:289-293`) rewrites the full file plus
+saw a change, and the 5-minute timer (`:289-293`) rewrote the full file plus
 a timestamped backup. Live evidence: five backups under
 `~/.config/tawassul-v2/state/` at exactly 5-minute intervals
 (05:03, 05:08, 05:13, 05:18, 05:23), all 1134 bytes, next to the live file.
-This defeats the dirty-only claim in TRIAGE section C and grows the backup
+This defeated the dirty-only claim in TRIAGE section C and grew the backup
 family without bound on a fixed build.
 
-Next: exclude `exportedAt` from the comparison (or from the persisted bytes),
-add a proof that two identical exports produce no write, and keep the cap at
-two.
+Resolved 2026-10-26: `exportData()` no longer embeds a timestamp, so an
+unchanged router serialises to identical bytes and `writeIfChanged` skips the
+write, the mtime bump, and the backup. `prove-b11` exports twice with a delay
+between, saves five unchanged exports and asserts none wrote, then makes a
+real change and asserts it does write while the backup family stays at the
+two-copy cap (8 assertions).
 
 ### B-12 `panic` backup is best-effort and never pruned — open (P2)
 
@@ -1785,16 +1788,19 @@ concurrent mutation — even of a different goal — got `acquired: false`, and
 Impact: any turn that issued two `goal(...)` calls in parallel silently lost
 one, with a reason that blamed a lock that did not exist.
 
-Resolved 2026-10-26: the file lock is the right scope (every mutation rewrites
-the whole ledger), so it stays keyed on `metaPath`; `withLock` now retries
-`acquireLock` up to 20 times at 50 ms before reporting `locked`. A held lock is
-therefore waited out instead of losing the write, while the resurrection proof
-still sees the losing mutation re-check the goal and return `not-found`
-rather than writing a ghost. `prove-e23` runs three concurrent creates, two
-concurrent updates to different goals, and two concurrent evidence appends;
-it reloads from disk after each and asserts none were dropped, then holds the
-file lock for 120 ms and asserts a mutation waits and commits (13
-assertions).
+Resolved 2026-10-26: every mutation rewrites the whole ledger, so the file
+lock stays keyed on `metaPath`, but it is no longer the only guard. Mutations
+queue in-process before taking the lock, `withLock` retries `acquireLock` up to
+20 times at 50 ms for cross-process contention, and the release is awaited.
+This matters because the file lock alone has an acquire window where two
+callers can both win — reproduced as two parallel evidence appends each
+cloning the same snapshot and losing one entry. `prove-e23` runs three
+concurrent creates, two concurrent updates to different goals, and two
+concurrent evidence appends; it reloads from disk after each and asserts none
+were dropped, then holds the file lock for 120 ms and asserts a mutation waits
+and commits (13 assertions, stable over repeated runs). The resurrection
+proof now starts a mutation, deletes during it, and asserts the goal is absent
+in memory and after a reload, with a later mutation returning `not-found`.
 
 #### E-24 Saga ids restart at `SAGA-001` and overwrite the previous journal — done (2026-10-26)
 
