@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 51 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 52 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -2106,15 +2106,22 @@ entries above.
 
 Next: derive the shim types from `@opencode/plugin` instead of restating them.
 
-#### E-38 Schema-refresh disposal does not await the in-flight refresh — open (P2)
+#### E-38 Schema-refresh disposal does not await the in-flight refresh — done (2026-10-26)
 
-`src/v2/setup.ts:225-228` sets `stopRefresh = true` and calls
-`void refresh.catch(...)`, so a refresh already in progress can call
-`ctx.tool.reload()` after the registration is disposed.
+`src/v2/setup.ts:225-228` set `stopRefresh = true` and called
+`void refresh.catch(...)`, so a refresh already in progress could call
+`ctx.tool.reload()` after the registration was disposed.
 
 Impact: a reload against a disposed tool domain during shutdown or reload.
 
-Next: keep the refresh promise and await it in the dispose path.
+Resolved 2026-10-26: the retry loop moved to `startSchemaRefresh`
+(`src/v2/schema-refresh.ts`), which returns the in-flight `done` promise and a
+`stop` that sets the flag and awaits it. The setup keeps the handle and awaits
+`stop()` before running any registration cleanup, and the loop checks the stop
+flag again after `refresh()` so a stopped refresh never calls `reload()`. A
+failed probe or reload is logged inside the lifecycle instead of rejecting the
+detached task. `prove-e38` covers the helper lifecycle and the setup disposal
+ordering, including a reload that is still in flight (16 assertions).
 
 #### E-39 `isBlockedUrl` is a pre-flight string check only — open (P2)
 
