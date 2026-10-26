@@ -89,7 +89,7 @@ export class StateManager {
   recordIndex: Map<string, RecordEntry> = new Map();
 
   static MAX_BACKUPS = 1;
-  static MAX_BACKUP_FILE_SIZE = 5 * 1024 * 1024;
+  static BACKUP_SIZE_WARN_BYTES = 5 * 1024 * 1024;
 
   
   private incrementalCounter = 0;
@@ -229,9 +229,10 @@ export class StateManager {
     
     try {
       const st = await stat(fp);
-      if (st.size > StateManager.MAX_BACKUP_FILE_SIZE) {
-        logger.debug(`Skip backup: state file ${st.size} bytes exceeds ${StateManager.MAX_BACKUP_FILE_SIZE} byte cap`);
-        return;
+      if (st.size > StateManager.BACKUP_SIZE_WARN_BYTES) {
+        logger.warn(
+          `State file ${st.size} bytes exceeds ${StateManager.BACKUP_SIZE_WARN_BYTES} bytes; backing up anyway to preserve recovery`,
+        );
       }
     } catch {
 

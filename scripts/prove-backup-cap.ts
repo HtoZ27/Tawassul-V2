@@ -1,7 +1,8 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { atomicWriteFile } from "../src/utils/atomic.ts";
+import { ensureAgentModels } from "../src/utils/opencode-config.ts";
 import { StateManager } from "../src/context/managers/StateManager.ts";
 
 let failures = 0;
@@ -60,6 +61,30 @@ try {
   check("tmp files are cleaned", !existsSync(`${target}.tmp`));
   check("delta files are cleaned", !existsSync(`${target}.delta`));
   check("the numbered chain is untouched by cleanup", existsSync(`${target}.bak.0`) && existsSync(`${target}.bak.1`));
+
+  const project = join(root, "project");
+  mkdirSync(project, { recursive: true });
+  const config = join(project, "opencode.json");
+  const dynamicConfig = `{\n  "agent": {\n    "dev": {\n      "model": "dynamic"\n    }\n  }\n}\n`;
+  let lastBackup: string | null = null;
+  for (let run = 0; run < 3; run++) {
+    writeFileSync(config, dynamicConfig, "utf8");
+    const result = await ensureAgentModels(project);
+    if (result.changed) lastBackup = result.backupPath;
+  }
+  const configBackups = readdirSync(project).filter((entry) => /^opencode\.json\.bak\.\d+\.[0-9a-f]{12}$/.test(entry));
+  check("config repair uses the atomic backup scheme", lastBackup !== null && /\.bak\.\d+\.[0-9a-f]{12}$/.test(lastBackup));
+  check("config repair keeps exactly two backups", configBackups.length === 2);
+  check("config repair writes no uncapped timestamped backup", !readdirSync(project).some((entry) => /^opencode\.json\.bak\.\d{4}-/.test(entry)));
+
+  const large = join(root, "large-state.json");
+  const largeBytes = StateManager.BACKUP_SIZE_WARN_BYTES + 1024;
+  writeFileSync(large, "x".repeat(largeBytes), "utf8");
+  const largeManager = new StateManager(root, () => large);
+  const rotate = (largeManager as unknown as { rotateBackups: (fp: string) => Promise<void> }).rotateBackups.bind(largeManager);
+  await rotate(large);
+  check("a state file above the warning size still gets a backup", existsSync(`${large}.bak.0`));
+  check("the large backup keeps the full content", existsSync(`${large}.bak.0`) && statSync(`${large}.bak.0`).size === largeBytes);
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

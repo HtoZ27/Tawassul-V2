@@ -1,6 +1,6 @@
 
 
-import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
@@ -326,11 +326,9 @@ export async function ensureAgentModels(projectDir: string): Promise<EnsureAgent
       const raw = readFileSync(configPath, "utf-8");
       const next = rewriteDynamicAgentModels(raw);
       if (next === raw) return { configPath, changed: false, backupPath: null };
-      const ts = new Date().toISOString().replace(/[:.]/g, "-");
-      const backupPath = configPath + ".bak." + ts;
-      writeFileSync(backupPath, raw);
-      await atomicWriteFile(configPath, next);
-      logger.info(`[tawassul] ✎ replaced retired/dynamic model in ${configPath} (backup: ${backupPath})`);
+      const written = await atomicWriteFile(configPath, next);
+      const backupPath = written.backupPath;
+      logger.info(`[tawassul] ✎ replaced retired/dynamic model in ${configPath} (backup: ${backupPath ?? "none"})`);
       return { configPath, changed: true, backupPath };
     } finally {
       try {
@@ -421,12 +419,10 @@ export async function repairProjectConfigBoot(projectDir: string): Promise<Repai
       const raw = readFileSync(configPath, "utf-8");
       const applied = applyBootRepairs(raw);
       if (applied.fixes.length === 0) return { configPath, changed: false, backupPath: null, fixes: [] };
-      const ts = new Date().toISOString().replace(/[:.]/g, "-");
-      const backupPath = configPath + ".bak." + ts;
-      writeFileSync(backupPath, raw);
-      await atomicWriteFile(configPath, applied.next);
+      const written = await atomicWriteFile(configPath, applied.next);
+      const backupPath = written.backupPath;
       logger.info(
-        `[tawassul] boot repair: ${applied.fixes.join(" + ")} rewritten in ${configPath} (backup: ${backupPath})`,
+        `[tawassul] boot repair: ${applied.fixes.join(" + ")} rewritten in ${configPath} (backup: ${backupPath ?? "none"})`,
       );
       return { configPath, changed: true, backupPath, fixes: applied.fixes };
     } finally {
