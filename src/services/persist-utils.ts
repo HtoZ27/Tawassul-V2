@@ -13,6 +13,8 @@ import { legacyFallbackFor } from "../utils/state-paths.ts";
 
 const debounceEntries = new Map<string, { timer: ReturnType<typeof setTimeout>; fn: () => Promise<void> }>();
 const DEBOUNCE_MS = 30_000; 
+const MAX_REJECTED_COPIES = 5;
+let rejectedSequence = 0;
 
 
 export function schedulePersist(key: string, fn: () => Promise<void>): void {
@@ -102,15 +104,25 @@ export async function hmacWriteFile(filePath: string, data: unknown): Promise<vo
 async function preserveRejectedState(filePath: string, raw: string): Promise<void> {
   if (raw.trim().length < 2) return;
   try {
-    const { readdir, writeFile } = await import("node:fs/promises");
+    const { readdir, unlink, writeFile } = await import("node:fs/promises");
     const { quarantinePath } = await import("../utils/state-paths.ts");
     const base = basename(filePath);
-    const dest = quarantinePath(`${base}.rejected.${Date.now()}`);
+    const suffix = `${Date.now()}.${String(++rejectedSequence).padStart(6, "0")}-${Math.random().toString(16).slice(2, 8)}`;
+    const dest = quarantinePath(`${base}.rejected.${suffix}`);
     const qdir = dirname(dest);
     await mkdir(qdir, { recursive: true });
-    const siblings = await readdir(qdir);
-    if (siblings.some((f) => f.startsWith(`${base}.rejected.`))) return;
     await writeFile(dest, raw, "utf-8");
+    const siblings = (await readdir(qdir))
+      .filter((f) => f.startsWith(`${base}.rejected.`))
+      .sort();
+    const excess = siblings.slice(0, Math.max(0, siblings.length - MAX_REJECTED_COPIES));
+    for (const stale of excess) {
+      try {
+        await unlink(quarantinePath(stale));
+      } catch (e) {
+        logger.debug(`[tawassul] M-2: stale rejected copy kept for ${stale}:`, e);
+      }
+    }
     logger.warn(
       `[tawassul] M-2: rejected state preserved for recovery at ${dest} — review and restore manually if needed`,
     );

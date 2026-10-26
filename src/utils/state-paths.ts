@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { globalConfigBaseDir, safeHomedir, type InstallScope } from "./path-resolver.ts";
 
@@ -50,6 +50,21 @@ function legacyStateCandidates(fileName: string): string[] {
   return legacyStateCandidateDirs().map((dir) => resolve(dir, fileName));
 }
 
+function newestExisting(candidates: string[]): string | undefined {
+  let best: string | undefined;
+  let bestMtime = Number.NEGATIVE_INFINITY;
+  for (const candidate of candidates) {
+    try {
+      const mtime = statSync(candidate).mtimeMs;
+      if (best === undefined || mtime >= bestMtime) {
+        best = candidate;
+        bestMtime = mtime;
+      }
+    } catch {}
+  }
+  return best;
+}
+
 export function quarantinePath(fileName: string): string {
   return resolve(stateDir(), QUARANTINE_SUBDIR, fileName);
 }
@@ -69,7 +84,7 @@ export function scopedStatePath(base: string, scope: InstallScope | undefined, f
 
 export function legacyStatePath(fileName: string): string {
   const candidates = legacyStateCandidates(fileName);
-  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0] ?? resolve(legacyStateDir(), fileName);
+  return newestExisting(candidates) ?? candidates[0] ?? resolve(legacyStateDir(), fileName);
 }
 
 export function stateReadPath(fileName: string): string {
@@ -84,8 +99,8 @@ export function legacyFallbackFor(filePath: string): string | undefined {
   const target = resolve(filePath);
   const rel = relative(stateDir(), target);
   if (rel !== "" && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel)) {
-    const hit = legacyStateCandidates(rel).find((candidate) => candidate !== target && existsSync(candidate));
-    return hit ?? undefined;
+    const hit = newestExisting(legacyStateCandidates(rel).filter((candidate) => candidate !== target));
+    return hit;
   }
   const parent = dirname(target);
   if (basename(parent) !== ".opencode") return undefined;
