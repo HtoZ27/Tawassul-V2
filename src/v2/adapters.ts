@@ -1,4 +1,4 @@
-import type { z as Zod } from "zod";
+import { z, type z as Zod } from "zod";
 import type { ToolContext, ToolDefinition } from "../tool.ts";
 import { buildToolJsonSchema } from "../lib/tool-schema-injection.ts";
 import { logger } from "../utils/logger.ts";
@@ -73,6 +73,12 @@ export function toV2Result(result: unknown): unknown {
 
 export type AskFactory = (context: V2ToolContext) => ToolContext["ask"];
 
+function formatIssues(error: z.ZodError): string {
+  return error.issues
+    .map((issue) => `${issue.path.length > 0 ? issue.path.join(".") : "<root>"}: ${issue.message}`)
+    .join("; ");
+}
+
 export function makeV2Tool(
   ctx: V2Context,
   name: string,
@@ -80,6 +86,8 @@ export function makeV2Tool(
   schema: Record<string, unknown> | undefined,
   askFactory?: AskFactory,
 ): V2ToolDefinition {
+  const shape = (def.args ?? {}) as Zod.ZodRawShape;
+  const validator = Object.keys(shape).length > 0 ? z.object(shape) : null;
   return {
     name,
     description: def.description,
@@ -87,8 +95,14 @@ export function makeV2Tool(
     options: { codemode: false },
     execute: async (args: Record<string, unknown>, context: V2ToolContext): Promise<unknown> => {
       const v1Context = buildV1ToolContext(ctx, context, askFactory);
-      const result = await def.execute(args, v1Context);
-      return toV2Result(result);
+      if (validator) {
+        const parsed = validator.safeParse(args ?? {});
+        if (!parsed.success) {
+          throw new Error(`Invalid input for tool "${name}": ${formatIssues(parsed.error)}`);
+        }
+        return toV2Result(await def.execute(parsed.data as Record<string, unknown>, v1Context));
+      }
+      return toV2Result(await def.execute(args, v1Context));
     },
   };
 }
