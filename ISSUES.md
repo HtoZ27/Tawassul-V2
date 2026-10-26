@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 40 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 41 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1773,20 +1773,28 @@ shutdown flush, so the rating mutation is written by that flush and survives a
 restart. `prove-e22` asserts the on-disk penalty, the read-back after a
 restart, and that a completed handoff is never counted (5 assertions).
 
-#### E-23 The goal store locks the file, not the goal — open (P1)
+#### E-23 The goal store locks the file, not the goal — done (2026-10-26)
 
-`src/services/goal-store.ts:442` calls
+`src/services/goal-store.ts:442` called
 `this.lockManager.acquireLock(this.metaPath, owner, id)` while building the
 owner string from `id`. `FileLockManager` keys locks by *file*, so the second
-concurrent mutation — even of a different goal — gets `acquired: false`, and
-`withLock` returns `null`, which `mutate` reports as
+concurrent mutation — even of a different goal — got `acquired: false`, and
+`withLock` returned `null`, which `mutate` reported as
 `{ ok: false, reason: "locked" }` with no wait or retry.
 
-Impact: any turn that issues two `goal(...)` calls in parallel silently loses
-one, with a reason that blames a lock that does not exist.
+Impact: any turn that issued two `goal(...)` calls in parallel silently lost
+one, with a reason that blamed a lock that did not exist.
 
-Next: key the lock on `metaPath` and serialise in-process, or lock per goal
-id; retry with a short backoff instead of returning `locked`.
+Resolved 2026-10-26: the file lock is the right scope (every mutation rewrites
+the whole ledger), so it stays keyed on `metaPath`; `withLock` now retries
+`acquireLock` up to 20 times at 50 ms before reporting `locked`. A held lock is
+therefore waited out instead of losing the write, while the resurrection proof
+still sees the losing mutation re-check the goal and return `not-found`
+rather than writing a ghost. `prove-e23` runs three concurrent creates, two
+concurrent updates to different goals, and two concurrent evidence appends;
+it reloads from disk after each and asserts none were dropped, then holds the
+file lock for 120 ms and asserts a mutation waits and commits (13
+assertions).
 
 #### E-24 Saga ids restart at `SAGA-001` and overwrite the previous journal — open (P1)
 
