@@ -1,0 +1,667 @@
+# Claim verification ledger — 2026-10-26
+
+Scope: the six independent agent evaluations of the v2 cutover
+(`analyst-mimo`, `analyst-pickle`, `analyst-deepseek`, `analyst-gemini`,
+`analyst-beam-free`, `analyst-glm-5.3-flash-free`), checked against HEAD
+`3471fe3` plus the working tree.
+
+Method: every claim was re-checked against the source, the live state files,
+the installed host protocol, and runtime probes. The full gate was re-run on
+2026-10-26. A claim is "confirmed" only when the cited code or a runtime probe
+shows it; "refuted" means the cited code shows the opposite; "partial" means
+the mechanism is real but the stated impact or number is wrong.
+
+All IDs in this file are local (`V-01` ... `V-49`). Where an item already
+exists in `ISSUES.md`, the heading names that ID (`register: B-03`). Where the
+verification found a new defect, the heading names the new register ID
+(`new: C-01`).
+
+Result: 49 entries checked. 34 confirmed, 4 partially confirmed, 8 refuted or
+not observed, 3 verified sound.
+
+One critical defect was missed by all six reports: `CONSENT_TOOLS` is keyed on
+`bash`, but the v2 host sends `shell`, so every dangerous-command consent
+check is dead.
+
+---
+
+## Gate evidence (2026-10-26)
+
+`npm run ci` exited 0:
+
+- fast: 6 steps, pass.
+- proofs: 25 steps, 24,683 ms, `GATE PASS: proofs`.
+- catalog: the 26th `PROOF PASS` (25 proof steps plus the catalog).
+- smoke: `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`,
+  15,829 ms.
+- the smoke actually received a model reply in this run
+  (`scratch boot loaded the plugin and replied`), so the provider-refusal
+  tolerance branch was not exercised today. The weakened branch still exists;
+  see V-11.
+
+The green gate proves boot health, tool registration, health, and help. It
+does not prove that a model round trip always happens.
+
+---
+
+## A. Confirmed defects
+
+### A1. Critical
+
+#### V-01 Consent gating is dead on the v2 host (new: C-01)
+
+Claim (analyst-deepseek): command-level guards are keyed on `bash`, while the
+v2 host calls the tool `shell`.
+
+Verdict: CONFIRMED, P0.
+
+Evidence:
+
+- `src/hooks/guards/shared/limits.ts:29` defines
+  `CONSENT_TOOLS = new Set(["bash", "delete", "kick"])`.
+- `:42-49` returns `false` for every other tool name.
+- The installed host protocol names the command tool `shell`:
+  `node_modules/@opencode/protocol/dist/client.d.ts:53`
+  (`"server.shell": "shell"`) and the session schema tag `"shell"`.
+- The plugin's own metrics record real calls as `"tool": "shell"`
+  (`.opencode/activity-metrics.json:35`).
+- `src/utils/name-utils.ts:44-55` does not alias `shell` to `bash`.
+
+Impact: `git push --force`, `rm -rf /`, `sudo`, `mkfs`, `dd if=` and the other
+patterns in `CONSENT_DANGEROUS_PATTERNS` never reach the consent gate. The
+host's own permission layer is the only remaining protection. This violates
+the product rule that the agent must not act destructively on the user's
+behalf.
+
+Next: add `shell` to the consent set (and normalize host aliases in one
+place), then add a live proof that `shell` with a dangerous command blocks
+until the user answers.
+
+#### V-02 AskChannel select/input still return `undefined` (register: P-01/E-03)
+
+Claim: select/multiselect/input elicitations are not bridged.
+
+Verdict: CONFIRMED, P0. `src/v2/ask.ts:40-43` logs a warning and returns
+`undefined` for every type except `confirm`.
+
+Impact: a tool that needs a choice silently proceeds without an answer.
+
+#### V-03 `noReply` still becomes a queued user turn (register: P-01/E-03)
+
+Claim: `body.noReply === true` maps to `delivery: "queue"`.
+
+Verdict: CONFIRMED, P0. `src/v2/client-shim.ts:47` and `:55` map it in both
+`prompt` and `promptAsync`.
+
+Impact: a consent question becomes a real model turn, so the agent can answer
+on the user's behalf and burn quota. This is exactly the failure the owner
+called out.
+
+#### V-04 Three database paths still coexist (register: D-01)
+
+Claim: sidecar, shared, and launcher databases carry different session sets.
+
+Verdict: CONFIRMED, P0. Re-measured 2026-10-26:
+
+| DB | Size | `session_v2` |
+|---|---|---|
+| `~/.local/share/opencode/tawassul-v2/opencode.db` (sidecar) | 25,378,816 | 19 |
+| `~/.local/share/opencode/opencode.db` (shared) | 24,780,800 | 14 (plus 2 legacy `session`) |
+| `~/.local/share/tawassul-v2/opencode-v2.db` (launcher) | 13,627,392 | 14 |
+
+The register said 13/14/14 on 2026-10-25; the sidecar has grown to 19. The
+split is worsening, not stabilizing. Owner decision still pending.
+
+#### V-05 Sidecar session count drifted (register: D-01)
+
+The count moved from 13 to 19 in one day while the other two stayed at 14.
+Recorded as new evidence under D-01; no separate action.
+
+### A2. Major
+
+#### V-06 The two backup schemes collide and the prune keeps the wrong files (new: B-06)
+
+Claim (analyst-mimo): `utils/atomic.ts` prunes by prefix and can evict the
+`StateManager` numbered chain; `.bak.orphan-*` is kept preferentially.
+
+Verdict: CONFIRMED by runtime probe, P1.
+
+Probe: seed `f.json.bak.0`, `f.json.bak.1`, `f.json.bak.orphan-1792900000000`,
+then one `atomicWriteFile("f.json", ..., { backup: true })`.
+
+Remaining files:
+
+```
+f.json
+f.json.bak.1792985110796.89fc1b8485c6
+f.json.bak.orphan-1792900000000
+```
+
+The two numbered backups were deleted; the orphan was kept. Cause:
+`src/utils/atomic.ts:24-27` filters every `${base}.bak.` entry, sorts
+lexicographically descending, and keeps the first two. `orphan-` sorts after
+digits, and the timestamped name sorts before `.bak.0`/`.bak.1`.
+
+Impact: one atomic write to a base that also has a `StateManager` chain
+destroys the recovery chain and replaces it with an orphan plus one snapshot.
+The owner's "never more than two" rule is met numerically while the useful
+backups are lost.
+
+Next: namespace the schemes (`.bak.atomic.` vs `.bak.rotated.`), exclude
+`.bak.orphan-*` from the atomic prune, and add a gate proof.
+
+#### V-07 `.bak.orphan-*` files are never pruned (new: B-07)
+
+Claim (analyst-mimo): `cleanOrphanedTmp` only removes `*.tmp` and `*.delta`.
+
+Verdict: CONFIRMED, P1. `StateManager.cleanOrphanedTmp` at
+`src/context/managers/StateManager.ts:319-338` matches `\.(tmp|delta)$` only.
+`src/services/lifecycle-controller.ts:229` creates
+`<state>.bak.orphan-<ts>` at shutdown when a `.tmp` survives.
+
+Impact: every crash can leave one orphan forever, and V-06 shows those
+orphans outrank real backups in the atomic prune. Zero orphans exist today,
+so this is latent, not active.
+
+#### V-08 A state file above 5 MB gets no backup at all (new: B-08)
+
+Claim (analyst-mimo): `MAX_BACKUP_FILE_SIZE` skips the numbered backup.
+
+Verdict: CONFIRMED, P1 latent. `src/context/managers/StateManager.ts:92`
+sets the cap to 5 MB; `:232-234` returns without rotating when the file is
+larger. The live `tawassul-state.json` is 49,853 bytes today, so the cap is
+not active. A growing file silently loses all recovery copies.
+
+#### V-09 No gate proof covers the backup cap (new: B-09)
+
+Claim (analyst-mimo): the cap is a one-off probe, not a gate proof.
+
+Verdict: CONFIRMED, P2. No `scripts/prove-*.ts` references `MAX_BACKUPS`, and
+no proof writes repeatedly into a directory and asserts the backup count
+(`prove-catch-discipline.ts:34-35` only asserts log strings).
+
+Impact: the owner's hard requirement can regress without the gate noticing.
+
+#### V-10 `tool-run-log.json` is 2.72 MB, not 2.2 MB (register: B-03)
+
+Claim (analyst-mimo): the size figure is stale and the file keeps growing.
+
+Verdict: CONFIRMED, P2. Measured 2026-10-26: 2,717,354 bytes, 1,908 runs.
+`src/services/tool-run-log.ts:88` parses the whole file at load and `:105`
+serializes with `JSON.stringify(..., null, 2)`.
+
+Impact: boot cost and disk growth; the register understates it by 0.5 MB and
+the file has grown 270 KB since the report.
+
+#### V-11 The smoke can pass without a model round trip (register: G-09)
+
+Claim (analyst-mimo): `"text":"SMOKE"` is checked only when `BOOT_RC=0`; the
+tolerance regex is too broad.
+
+Verdict: CONFIRMED as a gate weakening, P1. `scripts/release-smoke.sh:99-110`
+accepts any non-zero exit whose output matches `provider\.[a-z-]+`,
+`FreeUsageLimitError`, `429`, `ECONNRESET`, `timed out`, or the unanchored
+word `timeout`, provided the boot markers exist. `:122-124` checks
+`"text":"SMOKE"` only on `BOOT_RC=0`.
+
+Today's run did get a reply, so the branch was not used. The branch remains a
+path where `SMOKE PASS` is printed without a successful model call.
+
+#### V-12 `plugin.config` is still not invoked on v2 (register: E-02)
+
+Claim (analyst-deepseek): the hook is only logged.
+
+Verdict: CONFIRMED, P1. `src/v2/setup.ts:374-379` logs that the hook "has no
+host channel"; the hook itself is registered in
+`src/bootstrap/plugin-init.ts:837-840` but never called by the v2 adapter.
+
+Impact: model-sentinel and permission repair that depend on this hook do not
+run through the host. See V-13 for the part that is mitigated.
+
+#### V-13 Permission repair does not run at boot; model repair only covers the project config (register: E-02)
+
+Claim (analyst-deepseek): dynamic model resolution and addagent permission
+repair never run.
+
+Verdict: PARTIALLY CONFIRMED, P1.
+
+- `src/utils/opencode-config.ts:376-385` (`applyBootRepairs`) rewrites dynamic
+  model sentinels and is called at `src/bootstrap/plugin-init.ts:479` via
+  `repairProjectConfigBoot`.
+- It does not call `ensureTawaToolPermissions` or
+  `ensureAddAgentToolPermissions`; those are only in the uninvoked `config`
+  hook (`plugin-init.ts:838-840`).
+- It only looks at `opencode.json`/`opencode.jsonc` in the project directory,
+  not the global config.
+
+So model repair survives for project configs; permission repair does not run
+at boot at all, and a global config is never repaired.
+
+#### V-14 The two foreign v1 entries are full v1 trees (register: P-07)
+
+Claim (analyst-gemini): `gtttt` and `paassss` still expose a v1-only
+`index.ts` that the host discovers and fails to load.
+
+Verdict: CONFIRMED and larger than reported, P1.
+
+`/home/htoz/Desktop/gtttt/.opencode/plugins/tawassul/` is a 664 KB directory
+with the full v1 source tree (26 top-level entries, `bootstrap/`, `services/`,
+`plugin.ts`). Its `plugin.ts:12` exports `{ id: "tawassul", server: tawassul }`
+with no `setup`/`effect`, which the v2 host rejects. The same tree exists in
+`paassss`.
+
+Impact: every boot in those workspaces logs a plugin-load failure; a v1 tree
+is also one edit away from loading. Renaming the entry or removing the
+directory is needed.
+
+#### V-15 No automated check for the H-09 rename (new: G-10)
+
+Claim (analyst-gemini): the closure depends on a manual rename and has no
+gate.
+
+Verdict: PARTIALLY CONFIRMED, P2. The register has a manual isolated-boot
+transcript, so "no proof" is too strong. There is no automated check: no
+`prove-*` or `tests/` file references `retired-20261025`.
+
+Impact: a restore or copy can reintroduce the entry silently.
+
+#### V-16 Stale wasm assets are not pruned on upgrade (register: I-04)
+
+Claim (analyst-pickle).
+
+Verdict: CONFIRMED, P2. `scripts/install-global.ts:345-352` writes the new
+bundle and assets and writes a new marker; `:276-300` records only the new
+assets. No code removes files under `WASM_DIR` that are absent from the new
+set.
+
+#### V-17 `--force` overwrites an unmarked target without a backup (register: I-05)
+
+Claim (analyst-pickle).
+
+Verdict: CONFIRMED, P2. `scripts/install-global.ts:347` calls
+`writeAtomic(TARGET, bundle.bytes)` after the `--force` bypass at `:325-326`;
+there is no copy of the pre-existing file.
+
+#### V-18 The installer is Linux-only despite a cross-platform claim (register: I-02)
+
+Claim (analyst-pickle).
+
+Verdict: CONFIRMED, P2 if cross-platform is in scope. `hostCandidates()` at
+`scripts/install-global.ts:126-133` splits `PATH` on `":"`, probes the bare
+name `opencode`, and hardcodes `~/.config/ai.opencode.desktop/cli`. Windows
+uses `";"` and `opencode.exe`/`opencode.cmd`; macOS paths differ.
+
+#### V-19 Global boot cost is unmeasured and the live boot is manual (register: I-08/I-10)
+
+Claim (analyst-pickle).
+
+Verdict: CONFIRMED, P2. The baseline records a manual isolated-HOME boot and
+no timing; `npm run ci` never boots the installed global file.
+
+#### V-20 Coexistence is unit-level only (register: I-09)
+
+Claim (analyst-pickle).
+
+Verdict: CONFIRMED, P2. The register itself says the coexistence claim is
+unit-level; no live two-copy boot is in the gate.
+
+#### V-21 No pin agreement check in the fast tier (register: G-07)
+
+Claim (analyst-deepseek): the fast tier has no pin check.
+
+Verdict: CONFIRMED, P3. `scripts/gate.ts fast` runs rules, shell syntax,
+typecheck, config, facts, catalog. The pins agree today
+(`package.json:57`, `doctor-v2.sh:187`, `opencode-v2-iso.sh:176`,
+`release-smoke.sh:25` all 2.1.4) but nothing asserts it.
+
+#### V-22 No Desktop-wide plugin-entry census (register: G-08)
+
+Claim (analyst-gemini): no scan for `plugins/*/index.{ts,js}`.
+
+Verdict: CONFIRMED, P2. The proof walks the repo for exactly `tawassul.js`
+(`scripts/prove-v2-independence.ts:96-107`) and never scans the Desktop
+workspaces where V-14 lives.
+
+#### V-23 Later rejected-state copies are dropped (new: P-08)
+
+Claim (analyst-mimo): `preserveRejectedState` keeps only the first rejection.
+
+Verdict: CONFIRMED, P2. `src/services/persist-utils.ts:111-113` returns early
+when any `${base}.rejected.` file already exists in the quarantine directory.
+The first corrupt state is preserved; every later distinct one is lost. No
+`.rejected.*` file exists today under `.opencode/`, the global v2 state dir,
+or the legacy state dir, so the reported `timeline-meta.json.rejected.*`
+artifact is not present on this machine; the defect is in the code path.
+
+#### V-24 Legacy state lookup prefers the v1 directory (new: P-09)
+
+Claim (analyst-mimo): `tawassyl` is checked before `tawassul`, first existing
+wins, no staleness comparison.
+
+Verdict: CONFIRMED, P2. `src/utils/state-paths.ts:7-9` names the v1 dir
+`tawassyl` and the router dir `tawassul`; `:44-45` orders v1 first;
+`:70-72` returns the first existing candidate.
+
+Impact: if both legacy dirs exist, the retired tree's state wins even when it
+is older. The register's legacy fallback is deliberate but not ordered by
+freshness.
+
+#### V-25 Boot-repair backups are uncapped (new: B-10)
+
+`src/utils/opencode-config.ts:425` writes `configPath + ".bak." + ts` with no
+prune. Today exactly two `opencode.json.bak.*` exist (within the cap), but a
+repeated repair can exceed it. P3.
+
+#### V-26 Schema refresh is delayed, not permanently skipped (register: B-01/B-02)
+
+Claim (analyst-deepseek): `collectToolSchemas` is refreshed only when the
+initial ready probe succeeds.
+
+Verdict: PARTIAL, P2. The initial branch at `src/v2/setup.ts:164-178` does
+skip schema collection when the 750 ms probe is not ready. But the retry loop
+at `:196-224` calls `readyProbe()`, `refreshSchemas()`, and `ctx.tool.reload()`
+as soon as the host becomes ready. The exposed window is the placeholder
+period, not a permanent empty schema set.
+
+#### V-27 Placeholder window is about 10.25 s, not 10.75 s (register: B-02)
+
+Claim (analyst-deepseek): worst case is 750 ms + 20 x 500 ms = 10.75 s.
+
+Verdict: PARTIAL, P3. The loop sleeps after attempts 0 through 18 and returns
+after the 20th probe (`setup.ts:198-220`), so the built-in delay is
+750 + 19 x 500 = 10,250 ms, plus the probe latency. The user-visible window is
+still about 10 seconds and worth reducing.
+
+#### V-28 Tool schema payload is still unmeasured (register: B-05)
+
+Claim (analyst-beam-free).
+
+Verdict: CONFIRMED, P2. No file records the schema bytes per request; the
+register keeps B-05 open.
+
+#### V-51 Schemas are collected twice and the tool set is reloaded (register: B-01)
+
+Claim (analyst-beam-free): schema collection is duplicated around
+`ctx.tool.reload()`.
+
+Verdict: CONFIRMED, P2. When the host is ready at boot,
+`src/v2/setup.ts:164-178` collects schemas before registration; the retry
+loop at `:198-224` collects them again and calls `ctx.tool.reload()`. The
+second pass is needed for a late-ready host, but the ready path pays for both.
+
+#### V-29 Unknown schemas proceed on positive evidence (register: E-05)
+
+Claim (analyst-glm): `guard-db-generation.sh:229` proceeds when no v1 marker
+is present.
+
+Verdict: CONFIRMED but bounded, P2. The `warn` branch runs only after the
+`event`/`message`/`part`/`session` table probes pass, so a completely foreign
+database is still refused by the table census.
+
+#### V-30 Auto `npm install` is not covered (register: I-06)
+
+Claim (analyst-pickle).
+
+Verdict: CONFIRMED, P3. The path exists at `install-global.ts:239-245`, but
+`prove-global-install.ts` never exercises a missing wasm package.
+
+#### V-31 No committed CI transcript (new: I-11)
+
+Claim (analyst-pickle).
+
+Verdict: CONFIRMED, P3 process gap. The gate result is not an artifact in the
+tree; today's run is recorded in this file instead.
+
+### A3. Minor
+
+#### V-32 Register drift (new: G-11)
+
+Confirmed:
+
+- The H-02 evidence bullet in `ISSUES.md` (line 82) says 25 `PROOF PASS`,
+  while the baseline `npm run ci` bullet (line 877) says 26 (25 steps plus the
+  catalog, which is correct).
+- The audit baseline paragraph (line 653) cites HEAD `d740865` while HEAD is
+  `3471fe3`.
+- The E-07 text (lines 615-617) says the independence proof skips
+  `scripts/*.sh`, but `scripts/prove-v2-independence.ts:71-75` scans `.ts` and
+  `.sh`.
+
+#### V-33 B-04 cleanup arithmetic (register: B-04)
+
+`ISSUES.md` says "41 redundant files removed — 33 `.bak.*` plus 75 `*.tmp`";
+33 + 75 = 108. The total and the components cannot both be right. P3
+documentation.
+
+#### V-34 E-05 line drift (register: E-05)
+
+The E-05 text (line 704) cites `guard-db-generation.sh:236-243`; the refusal
+is at `:245`. P3.
+
+#### V-35 H-03 evidence text still reads as a current hazard (register: H-03)
+
+The heading says "done", but the evidence block at `ISSUES.md:99-101`
+describes the attach hazard in the present tense ("If the client sees a
+service descriptor, it can attach ... Dev runs would then write to the live
+DB"). The resolution explains the fix; the evidence needs a "before" label.
+P3 documentation.
+
+#### V-36 Root leftovers are real and already covered (register: D-03)
+
+`cost-transparency.json` plus two backups, `collective-memory-515c5c5d.json`
+plus one backup, and `opencode.json` plus two backups are present. The D-03
+text (lines 590-591) already names the `cost-transparency*` scan as missing,
+so the agent's "undercount" claim is refuted (see R-07). P3.
+
+#### V-37 E-10 HEAD citation is stale (register: E-10)
+
+The E-10 text (line 744) cites `d740865`; HEAD is `3471fe3`. The tree is
+clean apart from the five known untracked files. P3.
+
+---
+
+## B. Refuted claims
+
+#### R-01 State recovery is dead (analyst-mimo)
+
+Refuted as stated. `src/context/managers/StateManager.ts:680-699` reads only
+the numbered chain and the legacy `.bak`, but the live
+`.opencode/tawassul-state.json` has a valid `.bak.0`, and `StateManager`
+itself writes numbered backups via `rotateBackups` (`:222-257`). Recovery
+works for the main state file. The unread timestamped backups belong to
+files written through `utils/atomic.ts` (router, goals, timeline), which have
+their own loaders. The real risk is V-06, not a dead main state.
+
+#### R-02 Dynamic model resolution never runs (analyst-deepseek)
+
+Refuted. `repairProjectConfigBoot` calls `applyBootRepairs`, which calls
+`rewriteDynamicAgentModels` (`src/utils/opencode-config.ts:376-385`), and the
+repair runs at boot (`src/bootstrap/plugin-init.ts:479`). The gap is narrower:
+permission repair and global-config repair do not run (V-13).
+
+#### R-03 `plugin.config` is wired at `plugin-init.ts:479` (analyst-deepseek)
+
+Refuted. `:479` is the `repairProjectConfigBoot` call. The `config` hook is at
+`:837-840`. The hook is still uninvoked on v2, so the underlying E-02 finding
+stands, but the citation is wrong.
+
+#### R-04 The retention refusal citation `:82` is wrong (analyst-deepseek)
+
+Refuted. The G-06/E-05 text (line 478) cites `prove-db-retention.ts:82`, and
+the assertion is exactly at line 82 (`assert(refused.output.includes(
+"generation guard refused"))`). No drift.
+
+#### R-05 `--purge` keeps agent files without warning (analyst-pickle)
+
+Refuted as stated. `scripts/install-global.ts:377-383` counts the agent files
+and prints `kept N agent file(s) ... remove them manually if unwanted`. The
+files are kept, but the user is warned. P3 documentation only.
+
+#### R-06 There is no bundle freshness check (analyst-pickle)
+
+Refuted as stated. The marker records `bundle.sha256`, `bytes`, `version`,
+`host`, and the wasm hashes (`install-global.ts:276-300`); `upToDate`
+compares version, host, and bundle sha (`:292-310`). What is missing is a link
+to the source git commit, not freshness of the installed bundle.
+
+#### R-07 D-03 omits the cost-transparency leftovers (analyst-mimo)
+
+Refuted. `ISSUES.md:585-587` explicitly names `cost-transparency*` as part of
+the missing scan.
+
+#### R-08 The smoke passed with zero model round trips in the observed run
+
+Not observed on 2026-10-26. The run logged `scratch boot loaded the plugin and
+replied`, and `"text":"SMOKE"` was checked. The code path that permits a pass
+without a model call still exists (V-11); the claim is about the gate design,
+not today's transcript.
+
+---
+
+## C. Verified sound (no action)
+
+#### V-48 E-09 pins agree
+
+`package.json:57`, `doctor-v2.sh:187`, `opencode-v2-iso.sh:176`,
+`release-smoke.sh:25` all pin 2.1.4. The finding is a coverage gap (V-21), not
+a mismatch.
+
+#### V-49 B-04 code constants
+
+`atomic.ts:9` is 2 and `StateManager.ts:91` is 1, so the named rotation keeps
+`.bak.0` plus `.bak.1`. The cap is correct; the cross-scheme interaction is
+the defect (V-06/V-09).
+
+#### V-50 AskChannel confirm path works
+
+`ask.ts:25-38` registers the permission evaluate hook and `:50-67` asserts it.
+Only select/input are unbridged.
+
+---
+
+## D. New or materially corrected findings
+
+1. **V-01** consent gating is dead for `shell` (critical).
+2. **V-06** atomic prune evicts `.bak.0`/`.bak.1` and keeps `.bak.orphan-*`
+   (runtime-proven).
+3. **V-07** orphans are never cleaned.
+4. **V-08** a state file above 5 MB gets no backup.
+5. **V-09** no gate proof for the backup cap.
+6. **V-25** boot-repair backups have no cap.
+7. **V-23** later rejected-state copies are dropped.
+8. **V-24** legacy state lookup prefers the retired v1 directory.
+9. **V-05** sidecar sessions grew from 13 to 19 in one day.
+10. **V-14** the two foreign entries are full v1 trees, not single files.
+11. **V-10** the tool-run log is 2.72 MB and 1,908 runs, not 2.2 MB.
+12. **V-11** today's smoke did reply, so the weakened branch was not
+    exercised; the register should distinguish "the gate can pass without a
+    model call" from "the gate passed without one".
+
+---
+
+## E. Agent-by-agent disposition
+
+### analyst-mimo
+
+| Finding | Verdict | ID |
+|---|---|---|
+| `.bak.orphan-*` latent eviction | Confirmed, runtime-proven | V-06 |
+| State recovery dead | Refuted; main state has `.bak.0` | R-01 |
+| `preserveRejectedState` drops later rejections | Confirmed | V-23 |
+| Legacy candidate order `tawassyl` first | Confirmed | V-24 |
+| Independence proof counts only `tawassul.js` | Confirmed | V-22 |
+| Guard unknown-schema positive-evidence | Confirmed, bounded | V-29 |
+| B-03 is 2.45 MB | Confirmed, now 2.72 MB | V-10 |
+| B-04 arithmetic 41 vs 108 | Confirmed | V-33 |
+| G-09 tolerance too broad | Confirmed | V-11 |
+| ISSUES 25 vs 26 | Confirmed cosmetic | V-32 |
+| 5 MB backup skip | Confirmed latent | V-08 |
+| No backup-cap proof | Confirmed | V-09 |
+
+### analyst-pickle
+
+| Finding | Verdict | ID |
+|---|---|---|
+| PATH split on `:` | Confirmed | V-18 |
+| `--purge` keeps agents without warning | Refuted; warning exists | R-05 |
+| Stale wasm not pruned | Confirmed | V-16 |
+| `--force` no backup | Confirmed | V-17 |
+| Auto npm install untested | Confirmed | V-30 |
+| No bundle freshness | Refuted; sha marker exists | R-06 |
+| Global boot cost unmeasured | Confirmed | V-19 |
+| Coexistence unit-level only | Confirmed | V-20 |
+| Manual boot not in CI | Confirmed | V-19 |
+| No CI transcript | Confirmed process gap | V-31 |
+
+### analyst-deepseek
+
+| Finding | Verdict | ID |
+|---|---|---|
+| Consent gate keyed on `bash` | Confirmed, critical, missed by others | V-01 |
+| Schema refresh only on initial ready | Partial; retry loop | V-26 |
+| Worst case 10.75 s | Partial; 10.25 s | V-27 |
+| `plugin.config` wired at `:479` | Refuted; hook at `:837-840` | R-03 |
+| Retention citation `:82` drift | Refuted | R-04 |
+
+### analyst-gemini
+
+| Finding | Verdict | ID |
+|---|---|---|
+| P-07 entries still discovered | Confirmed; full v1 trees | V-14 |
+| H-09 manual rename, no gate | Partial; transcript exists, gate missing | V-15 |
+
+### analyst-beam-free
+
+| Finding | Verdict | ID |
+|---|---|---|
+| B-01 schema duplication plus reload | Confirmed | V-51 |
+| B-05 never measured | Confirmed | V-28 |
+| D-01 three DB paths | Confirmed; now 19/14/14 | V-04 |
+| E-02 config hook unbridged | Confirmed; nuance in V-13 | V-12 |
+
+### analyst-glm-5.3-flash-free
+
+| Finding | Verdict | ID |
+|---|---|---|
+| E-05 marker at `:245` not `236-243` | Confirmed | V-34 |
+| E-09 pins agree | Confirmed sound | V-48 |
+| E-10 register one commit behind | Confirmed | V-37 |
+| Independence proof scans `scripts/*.sh` | Confirmed; register wrong | V-32 |
+| Counts only `tawassul.js` | Confirmed | V-22 |
+| Guard unknown-schema policy | Confirmed | V-29 |
+
+---
+
+## F. Impact ranking (end-user harm)
+
+1. **V-01** destructive commands bypass consent entirely.
+2. **V-04** a session written to the wrong DB is unrecoverable.
+3. **V-02 / V-03** the agent can decide for the user and burn quota.
+4. **V-06 / V-07 / V-08** recovery copies can be silently destroyed or never
+   written.
+5. **V-12 / V-13** roster permissions are not repaired at boot.
+6. **V-14** every boot in two workspaces fails to load a v1 plugin.
+7. **V-11** the gate can certify a boot with no model round trip.
+8. **V-10 / V-26 / V-27** boot cost and placeholder delay.
+9. **V-16 / V-17 / V-18** global install can leave stale or overwritten files.
+10. **Register drift** (V-32, V-33, V-34, V-35, V-37) makes future audits
+    unreliable.
+
+---
+
+## G. Next actions
+
+1. Fix V-01: add `shell` to the consent set, normalize host aliases, and add a
+   live blocked-command proof.
+2. Fix V-06/V-07: namespace the backup schemes, exclude `.bak.orphan-*` from
+   the atomic prune, clean orphans, and add a gate proof for the cap.
+3. Fix V-02/V-03: bridge select/multiselect onto `permission.assert` or fail
+   closed with a visible error; never map `noReply` to a queued turn.
+4. Execute the DB protection plan (protected tables, fail-closed detection,
+   isolated proof) before any maintenance touches the sidecar.
+5. Decide D-01 canonical DB, then enforce a single write path.
+6. Rename or remove the two full v1 trees in `gtttt` and `paassss`.
+7. Correct the register: V-10 size, V-33 arithmetic, V-32 HEAD and proof
+   counts, V-34 line number, and the independence-proof wording.
+8. Add the missing proofs: backup cap, `shell` consent, live blocked tool,
+   pin agreement, and the global boot.

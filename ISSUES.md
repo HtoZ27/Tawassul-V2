@@ -386,11 +386,13 @@ Next: generate schemas at build time, read one JSON file at boot, and skip
 the host shows placeholder schemas. Next: readiness event or 6 attempts
 (about 3 s), with one warning line.
 
-### B-03 `tool-run-log.json` is 2.2 MB pretty-printed — open
+### B-03 `tool-run-log.json` is 2.72 MB pretty-printed — open
 
-`ToolRunLog.load()` parses the whole file at boot; `save()` serializes the whole
-array with `JSON.stringify(..., null, 2)` and rewrites the file. Next:
-append-only JSONL with rotation at 2000 entries and a compact save.
+Measured 2026-10-26: 2,717,354 bytes and 1,908 runs (the earlier 2.2 MB
+figure was already stale). `ToolRunLog.load()` parses the whole file at boot;
+`save()` serializes the whole array with `JSON.stringify(..., null, 2)` and
+rewrites the file. Next: append-only JSONL with rotation at 2000 entries and
+a compact save.
 
 ### B-04 Backups exceeded the owner cap — done (2026-10-25)
 
@@ -409,12 +411,12 @@ rotation also ends at 2 files. Verified by an isolated probe (6 consecutive
 writes of one file leave exactly 2 backups) and by the built bundle containing
 both new constants.
 
-Cleanup on this machine (2026-10-25, owner approved): 41 redundant files
-removed — 33 `.bak.*` pruned to 2 per base across `.opencode/`, the project
-root, the global v2 state dir, and the legacy v1 state dir, plus 75 stale
-`*.tmp` write leftovers in `~/.config/tawassul/state`. Measured before: 35
-live backups plus 5 new ones in a single hour (288/day rate for the router);
-measured after: at most 2 per base everywhere.
+Cleanup on this machine (2026-10-25, owner approved): 33 `.bak.*` files were
+pruned to 2 per base across `.opencode/`, the project root, the global v2
+state dir, and the legacy v1 state dir, and 75 stale `*.tmp` write leftovers
+were removed from `~/.config/tawassul/state` (108 files in total). Measured
+before: 35 live backups plus 5 new ones in a single hour (288/day rate for the
+router); measured after: at most 2 per base everywhere.
 
 ### B-05 Tool schema payload is unmeasured — open
 
@@ -553,6 +555,12 @@ user never reads is not acceptable.
   2026-10-25 04:35; no live process holds it).
 - Launcher DB: `~/.local/share/tawassul-v2/opencode-v2.db` (13 MB, dev and
   smoke runs only).
+
+Re-measured 2026-10-26: sidecar 19 `session_v2` rows (25,378,816 bytes),
+shared 14 `session_v2` plus 2 legacy `session` rows (24,780,800 bytes),
+launcher 14 `session_v2` rows (13,627,392 bytes). The sidecar grew by six
+sessions in one day while the other two stayed flat, so the split is
+widening; the 13/14/14 figure in the 2026-10-25 note is obsolete.
 
 The Desktop descriptor points every client at the sidecar, so the CLI and
 launcher paths are only used by isolated runs. Unifying them needs an explicit
@@ -739,6 +747,85 @@ baseline.
 
 ---
 
+## Verification of the six-agent evaluation (2026-10-26)
+
+The six reports were re-checked claim by claim; the full ledger is
+`VERIFICATION-20261026.md` (49 entries: 34 confirmed, 4 partial, 8 refuted
+or not observed, 3 sound). `npm run ci` was re-run on 2026-10-26 and passed
+(25 proof steps, smoke with a real model reply).
+
+New defects from that verification, not in the reports:
+
+### C-01 Consent gating is keyed on `bash`, the host sends `shell` — open (P0)
+
+`src/hooks/guards/shared/limits.ts:29` only recognizes `bash`, `delete`, and
+`kick`; the v2 host names the command tool `shell`
+(`@opencode/protocol` `"server.shell"`, and the plugin's own metrics record
+`"tool":"shell"`). `requiresConsent("shell", {command:"git push --force"})`
+returns false, so every dangerous-command pattern is unguarded. Next: add
+`shell`, normalize host aliases in one place, and prove a live block.
+
+### B-06 atomic prune evicts the numbered backup chain — open (P1)
+
+Runtime probe 2026-10-26: with `.bak.0`, `.bak.1`, and `.bak.orphan-*`
+present, one `atomicWriteFile` keeps the timestamped backup and the orphan
+and deletes both numbered backups. `src/utils/atomic.ts:24-27` sorts the
+whole `.bak.` namespace descending and keeps two. This silently destroys the
+`StateManager` recovery chain while satisfying the count.
+
+### B-07 `.bak.orphan-*` is never cleaned — open (P1)
+
+`StateManager.cleanOrphanedTmp` (`:319-338`) removes only `*.tmp` and
+`*.delta`; `lifecycle-controller.ts:229` creates `.bak.orphan-<ts>` at
+shutdown. Zero exist today, so the leak is latent.
+
+### B-08 A state file above 5 MB is never backed up — open (P1 latent)
+
+`StateManager.MAX_BACKUP_FILE_SIZE` is 5 MB (`:92`); `:232-234` returns
+without rotating. The live state file is 49,853 bytes, so the cap is not
+active, but growth would silently remove all recovery copies.
+
+### B-09 No gate proof covers the backup cap — open (P2)
+
+No `prove-*` script asserts the backup count; the B-04 proof was a one-off.
+
+### B-10 Boot-repair config backups have no cap — open (P3)
+
+`opencode-config.ts:425` writes `opencode.json.bak.<ts>` without pruning.
+Two exist today; repeated repairs can exceed the owner cap.
+
+### P-08 Later rejected-state copies are dropped — open (P2)
+
+`persist-utils.ts:111-113` keeps the first `${base}.rejected.` file and
+returns early for every later one.
+
+### P-09 Legacy state lookup prefers the retired v1 directory — open (P2)
+
+`state-paths.ts:7-9,44-45` checks `tawassyl` before `tawassul` and returns the
+first existing candidate with no freshness comparison.
+
+### G-10 H-09 rename has no automated check — open (P2)
+
+The isolated-boot transcript exists, but no gate references
+`retired-20261025`.
+
+### I-11 No committed CI transcript — open (P3)
+
+The gate result is not an artifact; the 2026-10-26 run is recorded in
+`VERIFICATION-20261026.md`.
+
+Corrections to existing entries:
+
+- B-03 now records 2,717,354 bytes and 1,908 runs (2026-10-26).
+- B-04 cleanup arithmetic is corrected to 33 `.bak.*` plus 75 `*.tmp`.
+- D-01 now records 19/14/14 sessions (2026-10-26).
+- G-09 is weakened: the smoke can still pass without a model reply; today it
+  did reply.
+- E-02: `plugin.config` is uninvoked, but dynamic model repair does run via
+  `repairProjectConfigBoot`; only permission repair is missing.
+
+---
+
 ## Pending owner decisions
 
 1. ~~H-09~~ — done 2026-10-25. The owner renamed
@@ -766,16 +853,16 @@ baseline.
    earlier pending text was wrong). `schema-payload` was deleted on
    2026-10-25 after the quota diagnosis. `v1-retire-backup` (six old
    `opencode.json` copies) needs a separate keep/delete decision.
-7. Legacy state residue (done 2026-10-25): the 75 stale `*.tmp` files and the
-   extra `.bak.*` files under `~/.config/tawassul/state/` were removed with the
-   B-04 cleanup; the single remaining router file stays as the permitted
-   read-only legacy fallback. Its root-level siblings (`cost-transparency.json`,
-   `collective-memory-515c5c5d.json`) are still pending under item 6.
 5. D-01: name the sidecar DB canonical, the shared DB legacy read-only, and the
    launcher DB test-only. No file is deleted. Deferred on 2026-10-25.
 6. Keep or drop the untracked `scripts/check-shared-anchors.mjs`,
    `scripts/port-from-v1.mjs`, and `test-utils.ts`, plus the root
    `collective-memory*` files.
+7. Legacy state residue (done 2026-10-25): the 75 stale `*.tmp` files and the
+   extra `.bak.*` files under `~/.config/tawassul/state/` were removed with the
+   B-04 cleanup; the single remaining router file stays as the permitted
+   read-only legacy fallback. Its root-level siblings (`cost-transparency.json`,
+   `collective-memory-515c5c5d.json`) are still pending under item 6.
 
 ## Verification baseline (for regression)
 
@@ -789,6 +876,9 @@ Both `gate:smoke` and the full `ci` now pass with the quota exhausted.
 - `npm run gate:smoke`: build + release smoke, about 13.8 s.
 - `npm run ci`: rc=0, 26 `PROOF PASS` (25 proof steps plus the catalog),
   `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`, about 47 s.
+- Re-verified 2026-10-26: `npm run ci` rc=0, 25 proof steps (24,683 ms),
+  `SMOKE PASS` with a real model reply (the provider-refusal branch was not
+  exercised). The full claim-by-claim audit is `VERIFICATION-20261026.md`.
 - The baseline above was measured with no `opencode` on PATH: the launcher and
   smoke both resolve the Desktop-bundled CLI.
 - Bundles identical: `dist/index.js` and `.opencode/plugin/tawassul.js`
