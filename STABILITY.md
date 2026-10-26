@@ -15,17 +15,17 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **46 are open**.
+with 99 entries, of which **45 are open**.
 
 ## The filter
 
-46 open items sound like 46 problems. They are not the same kind of problem:
+45 open items sound like 45 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
 | S0 | Does the plugin work at all? | 1 |
 | S1 | Does it lose or corrupt data silently? | 0 |
-| S2 | Does it tell the truth about what happened? | 13 |
+| S2 | Does it tell the truth about what happened? | 12 |
 | S3 | Does it start reliably and quickly? | 9 |
 | S4 | Can it be made to do something it should not? | 6 |
 | S5 | Can we prove any of the above? | 13 |
@@ -42,13 +42,13 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | --- | --- | --- |
 | `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
 
-## S2 — features silently dead or lying (13)
+## S2 — features silently dead or lying (12)
 
 `E-15` v1 event names, so streaming, auto-save, and notifiers are dead · `E-17` `tool.definition` unregistered,
 placeholder schemas · `E-18` hook errors swallowed, guard fails open ·
 `E-02` config hook unbridged, permission repair missing · `E-25` AskChannel
-fabricates an answer at capacity · `E-27` smoke passes a boot that never
-replied · `E-29` one failing request trips the web breaker for 60 s ·
+fabricates an answer at capacity · `E-29` one failing request trips the web
+breaker for 60 s ·
 `E-31` event metrics written to a discarded collector · `E-33` client shim
 no-ops · `E-34` message-level mutations discarded · `E-35` result titles
 lost · `E-36` failed crawl returned as success · `E-38` refresh disposal
@@ -85,7 +85,7 @@ entry, and no hook may turn a `bash` infrastructure error into a hard block.
 
 ## The four clusters
 
-The 19 entries in S0–S2 are not 19 independent jobs. Most collapse into four
+The 18 entries in S0–S2 are not 18 independent jobs. Most collapse into four
 engineering clusters, each of which is one coherent change.
 
 | Cluster | Members | One change |
@@ -93,7 +93,7 @@ engineering clusters, each of which is one coherent change.
 | **Persistence** | `E-12`, `E-13`, `E-20`, `E-21`, `E-22`, `D-05` | Make save/load/flush one generation-aware path: write before you report, quarantine instead of rolling back, await every flush. |
 | **Bridge** | `E-15`, `E-17`, `E-34`, `E-35`, `E-38` | Read the v2 payload explicitly instead of inferring it, and preserve every part. |
 | **Guards** | `C-03`, `P-10`, `E-18`, `E-25`, `E-28` | One guard chain on every path, capability seeded at boot, fail closed on decisions and open on infrastructure. |
-| **Telemetry** | `E-27`, `E-31` | Require a real model reply, wire the metrics collector, warn only on a genuine unknown. |
+| **Telemetry** | `E-31` | Wire the metrics collector, warn only on a genuine unknown. |
 
 ## Execution order
 
@@ -113,7 +113,7 @@ cluster (`E-20`, `E-21`, `E-22`, `P-08`, `P-09`), `E-19`, `E-23`, `E-24`, and
 the stores cluster (`B-11`, `B-12`). No S1 item is open.
 
 **Wave 3 — stop lying (S2, 3–4 days).** `E-14` and the rest of telemetry
-(`E-27`, `E-31`), then the rest of the bridge (`E-15`, `E-17`, `E-34`, `E-35`, `E-38`), then
+(`E-27`, `E-31`) are closed; next of the bridge (`E-15`, `E-17`, `E-34`, `E-35`, `E-38`), then
 guards (`E-18`, `E-02`, `E-25`), then the three small tool fixes (`E-29`,
 `E-33`, `E-36`).
 
@@ -181,6 +181,8 @@ today.
   `panic` refuses to clear when its backup fails, reports a missing state file
   honestly, and caps its backup family at three; `E-14` (S2) — the v2
   `execute.after` status decides success, so a failed tool no longer counts as
-  a success and can trip the loop guard.
+  a success and can trip the loop guard; `E-27` (S2) — the smoke gate requires
+  a model reply and only tolerates an explicit provider refusal, so a plugin
+  that hangs after boot fails it.
 - The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
   Wave 2 and should be re-scoped to the wave boundaries above.

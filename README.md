@@ -90,10 +90,13 @@ durations. The manifest is `scripts/gate-manifest.json`;
 `prove-proof-catalog` fails when a proof file is missing from it.
 
 The smoke stage builds once, then boots a scratch workspace with an isolated
-`OPENCODE_DB` and checks `initPlugin`, 42 registered tools, and direct `health`
-plus `help` calls. A broken plugin cannot pass it. If the model provider is
-unreachable, the smoke keeps the plugin-boot evidence and reports the reply as
-skipped; a missing plugin boot still fails.
+`OPENCODE_DB` and checks `initPlugin`, 42 registered tools, a model reply, and
+direct `health` plus `help` calls. A broken plugin cannot pass it: a boot that
+hangs or times out after loading the plugin fails, and only an explicit
+provider refusal code (quota or auth) is accepted in place of the reply.
+`TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY=0` restores the older transport tolerance
+for a machine that cannot reach the provider; a missing plugin boot always
+fails.
 
 ## Independence
 

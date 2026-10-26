@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 45 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 46 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1901,23 +1901,31 @@ Remaining: the block still stops the agent rather than degrading to
 read-only tools. Next: allow `read`, `grep`, and `glob` after the ceiling so
 the agent can return a partial result instead of nothing.
 
-#### E-27 The smoke gate passes a boot that never produced a reply — open (P1)
+#### E-27 The smoke gate passes a boot that never produced a reply — done (2026-10-26)
 
-`scripts/release-smoke.sh:103-111` downgrades a non-zero boot to
-`SMOKE PASS (no model reply)` when the output merely matches
+`scripts/release-smoke.sh:103-111` downgraded a non-zero boot to
+`SMOKE PASS (no model reply)` when the output merely matched
 `ECONNRESET|Transport:|socket connection|ETIMEDOUT|timed out|timeout`, or
-when `BOOT_RC` is 124. The plugin-boot markers (`initPlugin`,
-`v2 registered 42 tools`) are checked, but a plugin that hangs, or that
+when `BOOT_RC` was 124. The plugin-boot markers (`initPlugin`,
+`v2 registered 42 tools`) were checked, but a plugin that hangs, or that
 breaks after boot, produces exactly those markers plus a timeout.
 
-Impact: `README.md:96` claims "a broken plugin cannot pass it". A C-02-class
-regression — plugin boots, routing dead, run times out — passes green. The
-only end-to-end gate in `npm run ci` cannot distinguish it from provider
+Impact: `README.md:96` claimed "a broken plugin cannot pass it". A C-02-class
+regression — plugin boots, routing dead, run times out — passed green. The
+only end-to-end gate in `npm run ci` could not distinguish it from provider
 flakiness.
 
-Next: require a model reply by default (`TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY=1`
-already exists as opt-in), and narrow the tolerance to a provider refusal
-code rather than the word "timeout".
+Resolved 2026-10-26: the transport tolerance is gone. `release-smoke.sh` now
+requires a reply by default (`TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY` defaults to
+1), and the only tolerated no-reply is an explicit provider refusal code
+(`provider.*`, `FreeUsageLimitError`, `"status": 429`, `Free usage limit`),
+reported as `SMOKE PASS (no model reply — provider refused the model call)`.
+A boot that hangs or times out after the plugin markers exits 3, the same as
+any other boot failure. Setting `TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY=0`
+restores the old tolerance deliberately and the pass message names the switch.
+`prove-e27` runs the real script against a stub host in four modes — hang,
+opt-out hang, provider refusal, real reply — and asserts the exit code and the
+reporting for each (11 assertions).
 
 ### New P2
 
