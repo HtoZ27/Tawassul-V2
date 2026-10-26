@@ -328,6 +328,7 @@ export class StateManager {
     } catch {
       return;
     }
+    const orphans: string[] = [];
     for (const entry of entries) {
       if (entry.startsWith(base + ".") && /\.(tmp|delta)$/.test(entry)) {
         try {
@@ -335,6 +336,16 @@ export class StateManager {
         } catch {
 
         }
+        continue;
+      }
+      if (entry.startsWith(`${base}.bak.orphan-`)) orphans.push(entry);
+    }
+    orphans.sort().reverse();
+    for (const stale of orphans.slice(StateManager.MAX_BACKUPS)) {
+      try {
+        await unlink(join(dir, stale));
+      } catch (e) {
+        logger.debug(`StateManager: orphan cleanup skipped for ${stale}:`, e);
       }
     }
   }

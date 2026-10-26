@@ -133,6 +133,10 @@
     {
       "name": "v2-ask-bridge",
       "cmd": ["bun", "scripts/prove-v2-ask-bridge.ts"]
+    },
+    {
+      "name": "backup-cap",
+      "cmd": ["bun", "scripts/prove-backup-cap.ts"]
     }
   ],
   "smoke": [

@@ -15,19 +15,25 @@ export interface AtomicWriteResult {
   replaced: boolean;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 async function pruneOldBackups(filePath: string): Promise<void> {
   try {
     const dir = dirname(filePath);
     const base = basename(filePath);
     const entries = await readdir(dir);
+    const pattern = new RegExp(`^${escapeRegExp(base)}\\.bak\\.(\\d+)\\.[0-9a-f]{12}$`);
     const backups = entries
-      .filter((e) => e.startsWith(`${base}.bak.`))
-      .sort()
-      .reverse();
+      .map((name) => {
+        const match = pattern.exec(name);
+        return match ? { name, at: Number(match[1]) } : null;
+      })
+      .filter((entry): entry is { name: string; at: number } => entry !== null)
+      .sort((a, b) => b.at - a.at);
     for (const stale of backups.slice(MAX_BACKUPS)) {
-      
-      
-      await unlink(join(dir, stale)).catch(() => undefined);
+      await unlink(join(dir, stale.name)).catch(() => undefined);
     }
   } catch (e) {
     logger.debug(`atomicWriteFile: backup prune skipped for ${filePath}:`, e);
