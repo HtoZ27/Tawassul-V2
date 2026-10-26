@@ -38,10 +38,14 @@ const MAX_LINE = 20_000;
 
 const MAP_CAP = 2000;
 
-export function createToolOutputStreamHook(clients?: { isIsolationActive?: () => boolean }) {
+export function createToolOutputStreamHook(clients?: {
+  isIsolationActive?: () => boolean;
+  logLine?: (line: string) => void;
+}) {
   
   
   const isIsolationActive = clients?.isIsolationActive ?? isIsolationActiveFallback;
+  const logLine = clients?.logLine ?? ((line: string) => logger.info(line));
   
   const printed = new Map<string, number>();
   
@@ -65,13 +69,13 @@ export function createToolOutputStreamHook(clients?: { isIsolationActive?: () =>
     const visible = capped ? lines.slice(0, MAX_EMIT_LINES) : lines;
     for (const line of visible) {
       if (line.length <= MAX_LINE) {
-        logger.info(`[${tool}] ${line}`);
+        logLine(`[${tool}] ${line}`);
       } else {
-        logger.info(`[${tool}] ${line.slice(0, MAX_LINE)} …(+${line.length - MAX_LINE} chars)`);
+        logLine(`[${tool}] ${line.slice(0, MAX_LINE)} …(+${line.length - MAX_LINE} chars)`);
       }
     }
     if (capped) {
-      logger.info(`[${tool}] …(${lines.length - MAX_EMIT_LINES} more lines omitted)`);
+      logLine(`[${tool}] …(${lines.length - MAX_EMIT_LINES} more lines omitted)`);
     }
     return visible.join("\n").length;
   }

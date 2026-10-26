@@ -58,7 +58,21 @@ function rawEvent(ev: V2EventRecord): V1Event {
   return ev as unknown as V1Event;
 }
 
-export function mapV2EventToV1(event: unknown): V1Event[] {
+function contentText(value: unknown): string | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const parts: string[] = [];
+  for (const item of value) {
+    const record = asRecord(item);
+    if (record && record.type === "text" && typeof record.text === "string") parts.push(record.text);
+  }
+  return parts.length > 0 ? parts.join("\n") : undefined;
+}
+
+export type V1EventMapOptions = {
+  toolOf?: (callID: string) => string | undefined;
+};
+
+export function mapV2EventToV1(event: unknown, options: V1EventMapOptions = {}): V1Event[] {
   const rec = asRecord(event);
   if (!rec) return [{ event: "session.status", properties: {} }];
   const ev = rec as V2EventRecord;
@@ -67,6 +81,71 @@ export function mapV2EventToV1(event: unknown): V1Event[] {
   const props = sessionID ? { sessionID } : {};
 
   switch (type) {
+    case "session.text.delta": {
+      const data = dataOf(ev);
+      const partID = typeof data?.assistantMessageID === "string" ? data.assistantMessageID : undefined;
+      const delta = typeof data?.delta === "string" ? data.delta : "";
+      if (!partID || !delta) return [rawEvent(ev)];
+      return [rawEvent(ev), v1("message.part.delta", { ...props, partID, field: "text", delta })];
+    }
+    case "session.tool.called": {
+      const data = dataOf(ev);
+      const id = typeof data?.id === "string" ? data.id : undefined;
+      if (!id) return [rawEvent(ev)];
+      const tool = options.toolOf?.(id);
+      const input = asRecord(data?.input) ?? {};
+      return [
+        rawEvent(ev),
+        v1("message.part.updated", {
+          ...props,
+          part: { id, type: "tool", ...(tool ? { tool } : {}), state: { status: "running", input } },
+        }),
+      ];
+    }
+    case "session.tool.progress": {
+      const data = dataOf(ev);
+      const id = typeof data?.id === "string" ? data.id : undefined;
+      if (!id) return [rawEvent(ev)];
+      const tool = options.toolOf?.(id);
+      const metadata = asRecord(data?.metadata) ?? {};
+      const delta = typeof metadata.output === "string" ? metadata.output : undefined;
+      return [
+        rawEvent(ev),
+        v1("message.part.updated", {
+          ...props,
+          part: { id, type: "tool", ...(tool ? { tool } : {}), state: { status: "running", metadata } },
+          ...(delta ? { delta } : {}),
+        }),
+      ];
+    }
+    case "session.tool.success": {
+      const data = dataOf(ev);
+      const id = typeof data?.id === "string" ? data.id : undefined;
+      if (!id) return [rawEvent(ev)];
+      const tool = options.toolOf?.(id);
+      const output = contentText(data?.content) ?? "";
+      return [
+        rawEvent(ev),
+        v1("message.part.updated", {
+          ...props,
+          part: { id, type: "tool", ...(tool ? { tool } : {}), state: { status: "completed", output } },
+        }),
+      ];
+    }
+    case "session.tool.failed": {
+      const data = dataOf(ev);
+      const id = typeof data?.id === "string" ? data.id : undefined;
+      if (!id) return [rawEvent(ev)];
+      const tool = options.toolOf?.(id);
+      const message = errorOf(ev) ?? "tool failed";
+      return [
+        rawEvent(ev),
+        v1("message.part.updated", {
+          ...props,
+          part: { id, type: "tool", ...(tool ? { tool } : {}), state: { status: "error", error: message } },
+        }),
+      ];
+    }
     case "session.execution.started":
       return [rawEvent(ev), v1("session.status", { ...props, status: "busy" })];
     case "session.execution.succeeded":

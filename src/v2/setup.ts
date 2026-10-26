@@ -194,6 +194,14 @@ export function createV2Setup() {
     const wrapped = plugin.tool ?? {};
     const registered: Array<() => Promise<void>> = [];
     const processedMessages = new Set<string>();
+    const callTools = new Map<string, string>();
+    const rememberCallTool = (id: string, tool: string): void => {
+      callTools.set(id, tool);
+      if (callTools.size > 500) {
+        const oldest = callTools.keys().next().value;
+        if (oldest !== undefined) callTools.delete(oldest);
+      }
+    };
     const readyProbe = getInitReady(plugin);
     const askRegistration = await registerAskPermission(ctx);
     if (askRegistration) registered.push(() => askRegistration.dispose());
@@ -280,6 +288,7 @@ export function createV2Setup() {
             id: string;
             input: unknown;
           };
+          rememberCallTool(spec.id, spec.tool);
           const v1Input = {
             tool: toolNameToV1(spec.tool),
             agent: spec.agent,
@@ -395,7 +404,7 @@ export function createV2Setup() {
           const stream = ctx.event.subscribe();
           for await (const raw of stream) {
             if (disposed) return;
-            const mapped = mapV2EventToV1(raw);
+            const mapped = mapV2EventToV1(raw, { toolOf: (id) => callTools.get(id) });
             for (const ev of mapped) {
               try {
                 if (plugin.event) await plugin.event({ event: ev });
