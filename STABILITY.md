@@ -15,7 +15,7 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **57 are open**.
+with 99 entries, of which **56 are open**.
 
 ## The filter
 
@@ -24,14 +24,14 @@ with 99 entries, of which **57 are open**.
 | Tier | Question it answers | Count |
 | --- | --- | --- |
 | S0 | Does the plugin work at all? | 1 |
-| S1 | Does it lose or corrupt data silently? | 10 |
+| S1 | Does it lose or corrupt data silently? | 9 |
 | S2 | Does it tell the truth about what happened? | 14 |
 | S3 | Does it start reliably and quickly? | 9 |
 | S4 | Can it be made to do something it should not? | 6 |
 | S5 | Can we prove any of the above? | 13 |
 | S6 | Does install and upgrade work? | 4 |
 
-**Stability is S0 + S1: 11 items.** S2 decides whether you can trust what you
+**Stability is S0 + S1: 10 items.** S2 decides whether you can trust what you
 see. S3 through S6 matter, but none of them makes a working session fail.
 
 ---
@@ -47,7 +47,6 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | ID | Defect |
 | --- | --- |
 | `E-19` | Outputs over 50,000 characters are cut with no marker |
-| `E-20` | Shutdown does not await async cleanup callbacks; ledger and timeline tails are dropped |
 | `E-21` | After eight save failures the shutdown flush is a silent no-op |
 | `E-22` | Dropped-handoff ratings are computed after persistence is closed |
 | `E-23` | The goal store locks the file, not the goal; parallel mutations are lost as "locked" |
@@ -178,6 +177,7 @@ today.
   `E-12` (S0) — `saveState()` now awaits its generation, and a real `SIGKILL`
   immediately after `record()` keeps the record; `E-13` (S0) — a rejected
   state file is quarantined, never rotated over `.bak.0`, and recovery from a
-  backup is writable again.
+  backup is writable again; `E-20` (S1) — `destroy()` awaits every async
+  cleanup callback, so the ledger and timeline tails flush.
 - The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
   Wave 2 and should be re-scoped to the wave boundaries above.

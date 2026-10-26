@@ -1680,7 +1680,7 @@ tail. Unlike `src/tools/web.ts`, nothing is saved to a temp file.
 Next: scan a slice but truncate the full `outputText`; add a proof with a
 120k output that asserts both the tail and the marker.
 
-#### E-20 Shutdown does not await async cleanup callbacks — open (P1)
+#### E-20 Shutdown does not await async cleanup callbacks — done (2026-10-26)
 
 `src/services/lifecycle-controller.ts:265` iterates `cleanupCallbacks` and
 calls `cb()` without `await`. The registered callbacks include
@@ -1694,6 +1694,14 @@ unawaited rejection is swallowed by the surrounding `try/catch`.
 
 Next: await each callback (`for (const cb of …) await cb()`), or make the
 signature `() => void | Promise<void>` and drain them with `Promise.all`.
+
+Resolved 2026-10-26: `addCleanupCallback` accepts `() => void | Promise<void>`
+in both the controller and the manager, and `destroy()` awaits each callback
+in registration order, logging a failed one at warn level and continuing.
+`prove-e20` registers a slow async callback, a writer, a thrower, a follower,
+and the real `HandoffLedger.dispose`; it asserts the awaited order, the marker
+on disk when `destroy()` resolves, that a failure does not stop the chain, and
+that the buffered ledger tail is written exactly once (9 assertions).
 
 #### E-21 After eight save failures the shutdown flush is a silent no-op — open (P1)
 
