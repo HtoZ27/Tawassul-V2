@@ -32,10 +32,10 @@ check is dead.
 `npm run ci` exited 0:
 
 - fast: 6 steps, pass.
-- proofs: 28 steps, 24,314 ms, `GATE PASS: proofs`.
+- proofs: 28 steps, 28,163 ms, `GATE PASS: proofs`.
 - catalog: the 29th `PROOF PASS` (28 proof steps plus the catalog).
 - smoke: `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`,
-  20,220 ms.
+  19,482 ms.
 - the smoke actually received a model reply in this run
   (`scratch boot loaded the plugin and replied`), so the provider-refusal
   tolerance branch was not exercised today. The weakened branch still exists;
@@ -184,9 +184,13 @@ untouched. `prove-backup-cap` covers the prune.
 Claim (analyst-mimo): `MAX_BACKUP_FILE_SIZE` skips the numbered backup.
 
 Verdict: CONFIRMED, P1 latent. `src/context/managers/StateManager.ts:92`
-sets the cap to 5 MB; `:232-234` returns without rotating when the file is
-larger. The live `tawassul-state.json` is 49,853 bytes today, so the cap is
-not active. A growing file silently loses all recovery copies.
+set the cap to 5 MB; `:232-234` returned without rotating when the file was
+larger. The live `tawassul-state.json` was 49,853 bytes, so the cap was not
+active. A growing file would silently stop refreshing recovery copies.
+
+Fixed in `6564ac1`: 5 MB is a warning threshold only; rotation always
+backs up. `prove-backup-cap` writes a 5 MB+ state file and asserts the full
+copy exists.
 
 #### V-09 No gate proof covers the backup cap (new: B-09)
 
@@ -366,9 +370,13 @@ freshness.
 
 #### V-25 Boot-repair backups are uncapped (new: B-10)
 
-`src/utils/opencode-config.ts:425` writes `configPath + ".bak." + ts` with no
-prune. Today exactly two `opencode.json.bak.*` exist (within the cap), but a
-repeated repair can exceed it. P3.
+`src/utils/opencode-config.ts:425` wrote `configPath + ".bak." + ts` with no
+prune. Exactly two `opencode.json.bak.*` existed at audit time (within the
+cap), but repeated repairs could exceed it. P3.
+
+Fixed in `6564ac1`: the manual backup is gone; both repair paths use
+`atomicWriteFile` and its two-copy cap. `prove-backup-cap` runs three repairs
+and asserts two backups with no uncapped timestamped file.
 
 #### V-26 Schema refresh is delayed, not permanently skipped (register: B-01/B-02)
 

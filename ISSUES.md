@@ -787,11 +787,15 @@ Fixed in `d012c55`: the atomic prune matches only its own
 in `d012c55`: cleanup keeps only the newest orphan and removes older ones;
 the numbered chain is untouched. `prove-backup-cap` covers it.
 
-### B-08 A state file above 5 MB is never backed up — open (P1 latent)
+### B-08 A state file above 5 MB is never backed up — fixed (P1 latent)
 
-`StateManager.MAX_BACKUP_FILE_SIZE` is 5 MB (`:92`); `:232-234` returns
-without rotating. The live state file is 49,853 bytes, so the cap is not
-active, but growth would silently remove all recovery copies.
+`StateManager.MAX_BACKUP_FILE_SIZE` was 5 MB and rotation returned without a
+copy above it. The live state file is 49,853 bytes, so the cap was not
+active, but growth would have silently stopped recovery copies.
+
+Fixed in `6564ac1`: 5 MB is now a warning threshold
+(`BACKUP_SIZE_WARN_BYTES`); rotation logs a warning and backs up anyway.
+`prove-backup-cap` writes a 5 MB+ state file and asserts the full copy exists.
 
 ### B-09 No gate proof covers the backup cap — fixed (P2)
 
@@ -799,10 +803,16 @@ Fixed in `d012c55`: `prove-backup-cap` performs repeated atomic writes,
 asserts exactly two atomic backups remain, and asserts the numbered chain and
 newest orphan survive. It runs in `gate:proofs`.
 
-### B-10 Boot-repair config backups have no cap — open (P3)
+### B-10 Boot-repair config backups have no cap — fixed (P3)
 
-`opencode-config.ts:425` writes `opencode.json.bak.<ts>` without pruning.
-Two exist today; repeated repairs can exceed the owner cap.
+`opencode-config.ts` wrote an extra `opencode.json.bak.<ts>` before
+`atomicWriteFile`, so each repair produced two backups and the manual one was
+uncapped. Two existed at audit time; repeated repairs could exceed the owner
+cap.
+
+Fixed in `6564ac1`: both repair paths now use the atomic backup only, so the
+two-copy cap applies. `prove-backup-cap` runs three config repairs and asserts
+exactly two atomic backups and no uncapped timestamped file.
 
 ### P-08 Later rejected-state copies are dropped — open (P2)
 
@@ -892,7 +902,7 @@ Both `gate:smoke` and the full `ci` now pass with the quota exhausted.
 - `npm run gate:smoke`: build + release smoke, about 20.2 s.
 - `npm run ci`: rc=0, 29 `PROOF PASS` (28 proof steps plus the catalog),
   `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`, about 60 s.
-- Re-verified 2026-10-26: `npm run ci` rc=0, 28 proof steps (24,314 ms),
+- Re-verified 2026-10-26: `npm run ci` rc=0, 28 proof steps (28,163 ms),
   `SMOKE PASS` with a real model reply (the provider-refusal branch was not
   exercised). The full claim-by-claim audit is `VERIFICATION-20261026.md`.
 - The baseline above was measured with no `opencode` on PATH: the launcher and
