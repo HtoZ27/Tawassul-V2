@@ -15,7 +15,7 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **58 are open**.
+with 99 entries, of which **57 are open**.
 
 ## The filter
 
@@ -23,7 +23,7 @@ with 99 entries, of which **58 are open**.
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
-| S0 | Does the plugin work at all? | 2 |
+| S0 | Does the plugin work at all? | 1 |
 | S1 | Does it lose or corrupt data silently? | 10 |
 | S2 | Does it tell the truth about what happened? | 14 |
 | S3 | Does it start reliably and quickly? | 9 |
@@ -31,16 +31,15 @@ with 99 entries, of which **58 are open**.
 | S5 | Can we prove any of the above? | 13 |
 | S6 | Does install and upgrade work? | 4 |
 
-**Stability is S0 + S1: 12 items.** S2 decides whether you can trust what you
+**Stability is S0 + S1: 11 items.** S2 decides whether you can trust what you
 see. S3 through S6 matter, but none of them makes a working session fail.
 
 ---
 
-## S0 — the plugin does not work (2)
+## S0 — the plugin does not work (1)
 
 | ID | Defect | Why it blocks |
 | --- | --- | --- |
-| `E-13` | A rejected state file is treated as missing | Silent rollback to an older `.bak`, then the rejected file overwrites `.bak.0`. |
 | `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
 
 ## S1 — silent data loss (10)
@@ -177,6 +176,8 @@ today.
   `C-02` (S0) — the bridge seeds the real parts, the deferred consent path is
   reachable, and a live ask/answer/execute proof lands a real `git push`;
   `E-12` (S0) — `saveState()` now awaits its generation, and a real `SIGKILL`
-  immediately after `record()` keeps the record.
+  immediately after `record()` keeps the record; `E-13` (S0) — a rejected
+  state file is quarantined, never rotated over `.bak.0`, and recovery from a
+  backup is writable again.
 - The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
   Wave 2 and should be re-scoped to the wave boundaries above.

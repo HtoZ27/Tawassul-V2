@@ -1544,7 +1544,7 @@ silently. `prove-e12` covers durability without a flush, a mutation during an
 in-flight save, and a real `SIGKILL` immediately after `record()` keeps the
 record (14 assertions).
 
-#### E-13 A rejected state file is silently replaced by an older backup — open (P0)
+#### E-13 A rejected state file is silently replaced by an older backup — done (2026-10-26)
 
 `src/context/managers/StateManager.ts:594` returns `null` when the HMAC does
 not verify, logging only `State file rejected: <path>`. `loadFromFile`
@@ -1565,6 +1565,20 @@ Next: distinguish "absent" from "present but rejected", quarantine the
 rejected file (the helper already exists in
 `src/services/persist-utils.ts:106-112`), refuse to rotate a rejected file
 over `.bak.0`, and surface a startup error.
+
+Resolved 2026-10-26: `StateManager` now records every rejected path with its
+reason (hmac, prototype-pollution, schema, unreadable) and clears the mark
+once the file verifies again. `loadFromFile` preserves the rejected bytes as a
+quarantine copy and logs an error that names the file, the reason, the backup
+fallback, and the rotation rule. `rotateBackups` refuses a rejected primary, so
+the newest good `.bak.0` survives until an operator restores a readable file.
+`getDiskRevision` now answers with the loaded revision when no primary is
+readable, which is what makes recovery from a backup writable again instead of
+a permanent revision-conflict loop. A tampered primary keeps the session
+read-only by design, and `saveState` reports that as memory-only instead of
+success. `prove-e13` covers the quarantine copy, the startup error, the
+rotation guard, the read-only save, and the healed write that resumes rotation
+(27 assertions).
 
 ### New P1
 
