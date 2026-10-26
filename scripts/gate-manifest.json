@@ -91,6 +91,10 @@
       "cmd": ["bun", "scripts/prove-e19.ts"]
     },
     {
+      "name": "e23",
+      "cmd": ["bun", "scripts/prove-e23.ts"]
+    },
+    {
       "name": "p08",
       "cmd": ["bun", "scripts/prove-p08.ts"]
     },

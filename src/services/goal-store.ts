@@ -25,6 +25,9 @@ export interface GoalStoreOptions {
   lockManager?: FileLockManager | null;
 }
 
+const LOCK_RETRY_ATTEMPTS = 20;
+const LOCK_RETRY_DELAY_MS = 50;
+
 export interface GoalCreateInput {
   title: string;
   detail?: string;
@@ -430,24 +433,22 @@ export class GoalStore {
 
   private async withLock(id: string): Promise<(() => void) | null> {
     if (!this.lockManager) return () => undefined;
-    
-    
-    
-    
-    
-    
     const acq = ++this.lockAcq;
     const owner = `goal-store:${id}:${acq}`;
-    try {
-      const lock = await this.lockManager.acquireLock(this.metaPath, owner, id);
-      
-      if (!lock.acquired) return null;
-      return () => {
-        void this.lockManager?.releaseLock(this.metaPath, owner).catch(() => undefined);
-      };
-    } catch {
-      return null;
+    for (let attempt = 0; attempt < LOCK_RETRY_ATTEMPTS; attempt++) {
+      try {
+        const lock = await this.lockManager.acquireLock(this.metaPath, owner, id);
+        if (lock.acquired) {
+          return () => {
+            void this.lockManager?.releaseLock(this.metaPath, owner).catch(() => undefined);
+          };
+        }
+      } catch {
+        return null;
+      }
+      await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_DELAY_MS));
     }
+    return null;
   }
 
   private writeGuarded(): { ok: false; reason: string } | null {
