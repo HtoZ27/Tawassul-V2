@@ -520,7 +520,13 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
       
       
       
-      const success = !!(output.title || output.output || (output as Record<string, unknown>).result);
+      const declaredStatus = output.metadata?.status;
+      const success =
+        declaredStatus === "error"
+          ? false
+          : declaredStatus === "completed"
+            ? true
+            : !!(output.title || output.output || (output as Record<string, unknown>).result);
 
       
       
