@@ -1,6 +1,6 @@
 import { tool } from "../tool.ts";
 import { resolve } from "node:path";
-import { copyFile, access } from "node:fs/promises";
+import { copyFile, access, readdir, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { logger } from "../utils/logger.ts";
 import { normalizeName } from "../utils/name-utils.ts";
@@ -176,6 +176,30 @@ export function buildResumeTool(
 
 
 const ALLOWED_AGENTS = ["@analyst"];
+const PANIC_BACKUP_PREFIX = "tawassul-state.panic-backup-";
+const MAX_PANIC_BACKUPS = 3;
+
+async function backupBeforePanic(stateDir: string): Promise<string | null> {
+  const stateFile = resolve(stateDir, "tawassul-state.json");
+  try {
+    await access(stateFile);
+  } catch {
+    return null;
+  }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const backupFile = resolve(stateDir, `${PANIC_BACKUP_PREFIX}${stamp}-${randomUUID()}.json`);
+  await copyFile(stateFile, backupFile);
+  const names = (await readdir(stateDir)).filter((f) => f.startsWith(PANIC_BACKUP_PREFIX)).sort();
+  const excess = names.slice(0, Math.max(0, names.length - MAX_PANIC_BACKUPS));
+  for (const stale of excess) {
+    try {
+      await unlink(resolve(stateDir, stale));
+    } catch (e) {
+      logger.debug(`Panic backup prune skipped for ${stale}:`, e);
+    }
+  }
+  return backupFile;
+}
 
 export function buildPanicTool(clearAllState: () => string, stateDir?: string) {
   return tool({
@@ -218,18 +242,24 @@ export function buildPanicTool(clearAllState: () => string, stateDir?: string) {
           ].join("\n"),
         };
       }
+      let backupPath: string | null = null;
       if (stateDir) {
-        const stateFile = resolve(stateDir, "tawassul-state.json");
-        const backupFile = resolve(stateDir, `tawassul-state.panic-backup-${randomUUID()}.json`);
         try {
-          await access(stateFile);
-          await copyFile(stateFile, backupFile);
+          backupPath = await backupBeforePanic(stateDir);
         } catch (e) {
-          logger.warn("Panic backup failed:", e);
+          logger.error("Panic aborted: backup failed, nothing was cleared:", e);
+          return {
+            title: "🚨 Panic Aborted",
+            output: t("panicBackupFailed", { error: (e as Error)?.message ?? String(e) }),
+          };
         }
       }
       const summary = clearAllState();
-      const backupNote = stateDir ? "\n\n" + t("panicBackupCreated") : "";
+      const backupNote = !stateDir
+        ? ""
+        : backupPath
+          ? `\n\n${t("panicBackupCreated")}\n- **Backup:** \`${backupPath}\``
+          : `\n\n${t("panicNoStateFile")}`;
       return {
         title: "🚨 Panic Reset Complete",
         output: summary + backupNote,

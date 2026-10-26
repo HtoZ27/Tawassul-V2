@@ -38,6 +38,7 @@
     "prove:e23": "bun scripts/prove-e23.ts",
     "prove:e24": "bun scripts/prove-e24.ts",
     "prove:b11": "bun scripts/prove-b11.ts",
+    "prove:b12": "bun scripts/prove-b12.ts",
     "prove:p08": "bun scripts/prove-p08.ts",
     "prove:p09": "bun scripts/prove-p09.ts",
     "prove:s021": "bun scripts/prove-s021.ts",
