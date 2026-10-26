@@ -1505,7 +1505,7 @@ routing decision. `prove-e11` covers the seeder, the fail-open
 warning/throttle, a live context seeding two agents, and a save/load
 round-trip (29 assertions).
 
-#### E-12 `saveState()` reports success before anything is written — open (P0)
+#### E-12 `saveState()` reports success before anything is written — done (2026-10-26)
 
 `src/services/state-persistence.ts:607-613`:
 
@@ -1530,6 +1530,19 @@ Next: make `saveState()` resolve only after the dirty generation it
 observed has been persisted (track a generation counter and await that
 generation), and add a proof that a kill immediately after `record()` keeps
 the record.
+
+Resolved 2026-10-26: `StatePersistence` keeps a `dirtyGeneration` and a
+`persistedGeneration`. Every mutation marks the state dirty and increments the
+dirty generation; `doSave` records the generation it built the payload from and
+advances `persistedGeneration` only after the atomic write succeeds.
+`saveState()` cancels the pending debounce, awaits a save of the observed
+generation, and repeats (bounded to five attempts) when a mutation lands while
+a save is in flight. `saveDirty` is now derived from the two generations, so
+the deferred timer and `flushSaves` cannot clear a newer mutation. A skipped
+write (isolation or lock loss) logs a warning instead of reporting success
+silently. `prove-e12` covers durability without a flush, a mutation during an
+in-flight save, and a real `SIGKILL` immediately after `record()` keeps the
+record (14 assertions).
 
 #### E-13 A rejected state file is silently replaced by an older backup — open (P0)
 
