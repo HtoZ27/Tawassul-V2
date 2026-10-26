@@ -57,7 +57,7 @@ export class LifecycleManager {
   destroy(): Promise<void> {
     return this.controller.destroy();
   }
-  addCleanupCallback(cb: () => void): void {
+  addCleanupCallback(cb: () => void | Promise<void>): void {
     this.controller.addCleanupCallback(cb);
   }
 }

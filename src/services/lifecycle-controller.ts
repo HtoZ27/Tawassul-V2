@@ -18,7 +18,7 @@ import { logger } from "../utils/logger.ts";
 
 export class LifecycleController {
   private autoSaveManager: AutoSaveManager;
-  private cleanupCallbacks: Array<() => void> = [];
+  private cleanupCallbacks: Array<() => void | Promise<void>> = [];
   private destroyed = false;
 
   constructor(
@@ -28,7 +28,7 @@ export class LifecycleController {
     this.autoSaveManager = new AutoSaveManager(() => this.persistence.doSave(), ctx.timerManager);
   }
 
-  addCleanupCallback(cb: () => void): void {
+  addCleanupCallback(cb: () => void | Promise<void>): void {
     if (this.persistence.isDisposing()) return;
     this.cleanupCallbacks.push(cb);
   }
@@ -266,9 +266,9 @@ export class LifecycleController {
     }
     for (const cb of this.cleanupCallbacks) {
       try {
-        cb();
+        await cb();
       } catch (e) {
-        logger.debug("destroy: cleanup callback failed:", e);
+        logger.warn("destroy: cleanup callback failed:", e);
       }
     }
     this.cleanupCallbacks.length = 0;
