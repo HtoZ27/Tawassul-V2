@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z, type z as Zod } from "zod";
 import type { ToolContext, ToolDefinition } from "../tool.ts";
 import { buildToolJsonSchema } from "../lib/tool-schema-injection.ts";
@@ -24,6 +25,27 @@ export async function collectToolSchemas(
     }),
   );
   return schemas;
+}
+
+function stableSchemaJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableSchemaJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const keys = Object.keys(record).sort();
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${stableSchemaJson(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+export function schemaFingerprint(schemas: Map<string, Record<string, unknown>>): string {
+  const hash = createHash("sha256");
+  for (const name of [...schemas.keys()].sort()) {
+    hash.update(name);
+    hash.update("\u0000");
+    hash.update(stableSchemaJson(schemas.get(name)));
+    hash.update("\u0000");
+  }
+  return hash.digest("hex");
 }
 
 function buildV1ToolContext(

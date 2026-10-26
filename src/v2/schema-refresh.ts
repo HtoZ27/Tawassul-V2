@@ -4,7 +4,7 @@ export type SchemaRefreshProbe = () => Promise<{ ready: boolean; error?: { messa
 
 export type SchemaRefreshOptions = {
   probe: SchemaRefreshProbe;
-  refresh: () => Promise<void>;
+  refresh: () => Promise<boolean | void>;
   reload: () => Promise<void>;
   describe: () => string;
   attempts?: number;
@@ -41,8 +41,14 @@ export function startSchemaRefresh(options: SchemaRefreshOptions): SchemaRefresh
         if (stopped) return;
         const status = await options.probe();
         if (status.ready) {
-          await options.refresh();
+          const changed = (await options.refresh()) !== false;
           if (stopped) return;
+          if (!changed) {
+            info(
+              `[tawassul] v2 tool schemas unchanged after init (${options.describe()}); reload skipped`,
+            );
+            return;
+          }
           try {
             await options.reload();
             info(

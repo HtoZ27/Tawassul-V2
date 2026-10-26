@@ -40,7 +40,7 @@ type Handle = { done: Promise<void>; stop: () => Promise<void> };
 
 type Options = {
   probe: () => Promise<{ ready: boolean; error?: { message?: string } }>;
-  refresh: () => Promise<void>;
+  refresh: () => Promise<boolean | void>;
   reload: () => Promise<void>;
   describe: () => string;
   attempts?: number;
@@ -77,7 +77,13 @@ function fakePlugin(ready: () => Promise<{ ready: boolean; error?: { message?: s
   } as unknown as TawassulHooks;
 }
 
-function fakeContext(order: string[], reload: () => Promise<void>): V2Context {
+type ToolEntry = { name?: string; input?: Record<string, unknown> };
+
+function fakeContext(
+  order: string[],
+  reload: () => Promise<void>,
+  onEntry?: (entry: ToolEntry) => void,
+): V2Context {
   return {
     location: { directory: process.cwd() },
     session: {
@@ -88,7 +94,7 @@ function fakeContext(order: string[], reload: () => Promise<void>): V2Context {
     },
     tool: {
       transform: async (callback: (editor: { add: (entry: unknown) => void }) => void) => {
-        callback({ add: () => undefined });
+        callback({ add: (entry) => onEntry?.(entry as ToolEntry) });
         return { dispose: async () => order.push("tool-dispose") };
       },
       reload,
@@ -215,19 +221,32 @@ async function setupCases(): Promise<void> {
     const order: string[] = [];
     const reloadStarted = deferred();
     const reloadGate = deferred();
+    const entries: ToolEntry[] = [];
     let reloads = 0;
-    const ready = async (): Promise<{ ready: boolean }> => ({ ready: true });
+    let probes = 0;
+    const ready = async (): Promise<{ ready: boolean }> => {
+      probes += 1;
+      return probes === 1 ? { ready: false } : { ready: true };
+    };
     const cleanup = await createV2Setup({
       init: () => fakePlugin(ready),
-      refresh: { attempts: 2, delayMs: 1 },
+      refresh: { attempts: 2, delayMs: 1, initialWaitMs: 5 },
     })(
-      fakeContext(order, async () => {
-        reloads++;
-        order.push("reload-start");
-        reloadStarted.resolve();
-        await reloadGate.promise;
-        order.push("reload-end");
-      }),
+      fakeContext(
+        order,
+        async () => {
+          reloads++;
+          order.push("reload-start");
+          reloadStarted.resolve();
+          await reloadGate.promise;
+          order.push("reload-end");
+        },
+        (entry) => entries.push(entry),
+      ),
+    );
+    assert(
+      entries.length === 1 && Object.keys(entries[0]?.input?.properties ?? {}).length === 0,
+      "a registration before readiness advertises the placeholder schema",
     );
     const started = await Promise.race([
       reloadStarted.promise.then(() => true),
@@ -245,6 +264,31 @@ async function setupCases(): Promise<void> {
     assert(disposed, "dispose finishes once the in-flight reload finishes");
     assert(order.indexOf("reload-end") < order.indexOf("tool-dispose"), "the tool domain is disposed only after the reload");
     assert(reloads === 1, "the setup reloads exactly once");
+  }
+
+  {
+    const order: string[] = [];
+    const entries: ToolEntry[] = [];
+    let reloads = 0;
+    const ready = async (): Promise<{ ready: boolean }> => ({ ready: true });
+    const cleanup = await createV2Setup({
+      init: () => fakePlugin(ready),
+      refresh: { attempts: 2, delayMs: 1 },
+    })(
+      fakeContext(
+        order,
+        async () => {
+          reloads++;
+        },
+        (entry) => entries.push(entry),
+      ),
+    );
+    await cleanup();
+    assert(
+      entries.length === 1 && Object.keys(entries[0]?.input?.properties ?? {}).length > 0,
+      "a registration after readiness advertises the real schema",
+    );
+    assert(reloads === 0, "the setup skips the reload when the registered schemas are already current");
   }
 
   {

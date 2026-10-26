@@ -4,7 +4,7 @@ import { getInitReady, initPlugin } from "../bootstrap/plugin-init.ts";
 import { ToolBlockedError } from "../hooks/tool-execute.ts";
 import { BLOCKED_TOOLS } from "../security-policy.ts";
 import { logger } from "../utils/logger.ts";
-import { collectToolSchemas, makeV2Tool } from "./adapters.ts";
+import { collectToolSchemas, makeV2Tool, schemaFingerprint } from "./adapters.ts";
 import { createAskBridge, registerAskPermission } from "./ask.ts";
 import { buildPluginInput } from "./client-shim.ts";
 import { isTaskTool, subagentArgsToV1, toolNameToV1, v1ArgsToSubagent } from "./delegation.ts";
@@ -226,7 +226,7 @@ async function runCompactionBridge(plugin: TawassulHooks, event: V2SessionEvent)
 
 export type V2SetupDeps = {
   init?: (input: PluginInput) => TawassulHooks;
-  refresh?: { attempts?: number; delayMs?: number };
+  refresh?: { attempts?: number; delayMs?: number; initialWaitMs?: number };
 };
 
 export function createV2Setup(deps: V2SetupDeps = {}) {
@@ -257,19 +257,23 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
     const askFactory = (context: V2ToolContext) => createAskBridge(ctx, context, askEnabled);
 
     let schemas: Map<string, Record<string, unknown>> = new Map();
-    const refreshSchemas = async (): Promise<void> => {
+    let registeredSchemaFingerprint = "";
+    const refreshSchemas = async (): Promise<boolean> => {
       try {
         schemas = await collectToolSchemas(wrapped);
       } catch (e) {
         logger.error("[tawassul] v2 schema collection failed:", e);
+        return false;
       }
+      return schemaFingerprint(schemas) !== registeredSchemaFingerprint;
     };
 
     if (readyProbe) {
+      const initialWaitMs = deps.refresh?.initialWaitMs ?? INITIAL_SCHEMA_WAIT_MS;
       const initial = await Promise.race([
         readyProbe(),
         new Promise<{ ready: boolean }>((resolve) => {
-          const timer = setTimeout(() => resolve({ ready: false }), INITIAL_SCHEMA_WAIT_MS);
+          const timer = setTimeout(() => resolve({ ready: false }), initialWaitMs);
           if (timer.unref) timer.unref();
         }),
       ]);
@@ -286,6 +290,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
         logger.info(`[tawassul] v2 registered ${count} tools`);
       });
       registered.push(() => toolRegistration.dispose());
+      registeredSchemaFingerprint = schemaFingerprint(schemas);
     } catch (e) {
       logger.error("[tawassul] v2 tool registration failed:", e);
     }
@@ -295,7 +300,10 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
       const refresh = startSchemaRefresh({
         probe: readyProbe,
         refresh: refreshSchemas,
-        reload: () => ctx.tool.reload(),
+        reload: async () => {
+          await ctx.tool.reload();
+          registeredSchemaFingerprint = schemaFingerprint(schemas);
+        },
         describe: () => `${schemas.size} schemas`,
         attempts: deps.refresh?.attempts ?? SCHEMA_RETRY_ATTEMPTS,
         delayMs: deps.refresh?.delayMs ?? SCHEMA_RETRY_DELAY_MS,
