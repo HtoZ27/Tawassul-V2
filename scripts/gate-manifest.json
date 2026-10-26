@@ -87,6 +87,10 @@
       "cmd": ["bun", "scripts/prove-e22.ts"]
     },
     {
+      "name": "e19",
+      "cmd": ["bun", "scripts/prove-e19.ts"]
+    },
+    {
       "name": "p08",
       "cmd": ["bun", "scripts/prove-p08.ts"]
     },

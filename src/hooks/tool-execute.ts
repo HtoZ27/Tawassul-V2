@@ -723,11 +723,11 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
       
       
       
+      let deliveredText = outputText;
       if (ctx.privacyGuard && scanText && !quarantineApplied) {
-        const pr = ctx.privacyGuard.redact(scanText);
+        const pr = ctx.privacyGuard.redact(outputText);
         if (pr.isPrivate) {
-          output.output = pr.redacted;
-          quarantineApplied = true;
+          deliveredText = pr.redacted;
           const emitEvt =
             ctx.emitWithChain ??
             ((type: string, payload: Record<string, unknown>) => {
@@ -744,7 +744,7 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
 
       
       if (!quarantineApplied && outputText && !TASK_TOOL_NAMES.includes(input.tool)) {
-        output.output = svc.truncateToolOutput(scanText);
+        output.output = svc.truncateToolOutput(deliveredText);
       }
 
       if (!isTawassulTool(input.tool)) return;
