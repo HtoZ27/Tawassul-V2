@@ -151,6 +151,7 @@ export class GoalStore {
   private warned = false;
   
   private lockAcq = 0;
+  private mutationQueue: Promise<unknown> = Promise.resolve();
   
   private lifecycleCounts = { completed: 0, verified: 0, dropped: 0 };
   
@@ -422,25 +423,38 @@ export class GoalStore {
 
   
   private async mutate<T>(key: string, fn: () => Promise<T>): Promise<T | { ok: false; reason: "locked" }> {
+    const run = this.mutationQueue.then(() => this.runExclusive(key, fn));
+    this.mutationQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  private async runExclusive<T>(key: string, fn: () => Promise<T>): Promise<T | { ok: false; reason: "locked" }> {
     const release = await this.withLock(key);
     if (!release) return { ok: false, reason: "locked" };
     try {
       return await fn();
     } finally {
-      release();
+      await release();
     }
   }
 
-  private async withLock(id: string): Promise<(() => void) | null> {
-    if (!this.lockManager) return () => undefined;
+  private async withLock(id: string): Promise<(() => Promise<void>) | null> {
+    if (!this.lockManager) return async () => undefined;
     const acq = ++this.lockAcq;
     const owner = `goal-store:${id}:${acq}`;
     for (let attempt = 0; attempt < LOCK_RETRY_ATTEMPTS; attempt++) {
       try {
         const lock = await this.lockManager.acquireLock(this.metaPath, owner, id);
         if (lock.acquired) {
-          return () => {
-            void this.lockManager?.releaseLock(this.metaPath, owner).catch(() => undefined);
+          return async () => {
+            try {
+              await this.lockManager?.releaseLock(this.metaPath, owner);
+            } catch (e) {
+              logger.debug(`[goal-store] lock release failed for ${owner}:`, e);
+            }
           };
         }
       } catch {
