@@ -286,7 +286,7 @@ export class AskChannel {
   private async _render(slot: AskSlot): Promise<void> {
     try {
       if (!this.deps.render) {
-        logger.debug(`AskChannel: no renderer — ask "${slot.title}" surfaced in transcript only`);
+        logger.debug(`AskChannel: no renderer — ask "${slot.title}" is not displayed and will time out`);
         return;
       }
       await this.deps.render({ id: slot.id, title: slot.title, kind: slot.kind, sessionID: slot.sessionID });

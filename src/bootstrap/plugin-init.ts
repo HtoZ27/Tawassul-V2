@@ -175,7 +175,28 @@ export function getRetryDelayMs(attempt: number, baseMs = 1000): number {
 export function clearRateLimitRetry(sessionId: string): void {
   retryingSessions.delete(sessionId);
 }
-async function handleRateLimitError(
+export async function notifySession(ctx: PluginInput, sessionId: string, text: string): Promise<boolean> {
+  const client = ctx.client as TranscriptClient | undefined;
+  const promptAsync = client?.session?.promptAsync ?? client?.session?.prompt;
+  if (!promptAsync) {
+    logger.warn(`[tawassul] notice not delivered: transcript bridge unavailable (session ${sessionId})`);
+    return false;
+  }
+  try {
+    await (promptAsync as (o: TranscriptPromptInput) => Promise<unknown>)({
+      path: { id: sessionId },
+      body: { parts: [{ type: "text", text }], noReply: true },
+      query: { directory: ctx.directory },
+    });
+    return true;
+  } catch (err) {
+    logger.warn(
+      `[tawassul] notice not delivered to session ${sessionId}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return false;
+  }
+}
+export async function handleRateLimitError(
   ctx: PluginInput,
   tawaCtx: TawassulContext,
   sessionId: string,
@@ -190,30 +211,16 @@ async function handleRateLimitError(
   if (attempt >= apiRetryMax) {
     retryingSessions.delete(sessionId);
     logger.warn(`[tawassul] rate-limit retry exhausted for session ${sessionId}`);
-    const exhaustedTui = (ctx.client as { tui?: { showToast?: (m: { message: string; variant?: string }) => void } } | undefined)
-      ?.tui;
-    try {
-      exhaustedTui?.showToast?.({
-        message: t("rateLimitRetryExhausted", { attempts: String(apiRetryMax) }),
-        variant: "error",
-      });
-    } catch (err) {
-      logger.debug("[tawassul] rate-limit exhaustion toast failed:", err);
-    }
+    void notifySession(ctx, sessionId, t("rateLimitRetryExhausted", { attempts: String(apiRetryMax) }));
     return false;
   }
   const delayMs = getRetryDelayMs(attempt, apiRetryBaseMs);
   rememberRetryingSession(sessionId, attempt + 1);
-  const tui = (ctx.client as { tui?: { showToast?: (m: { message: string; variant?: string }) => void } } | undefined)
-    ?.tui;
-  try {
-    tui?.showToast?.({
-      message: t("rateLimitRetrying", { attempt: String(attempt + 1), delay: String(delayMs / 1000) }),
-      variant: "warning",
-    });
-  } catch (err) {
-    logger.debug("[tawassul] rate-limit retry toast failed:", err);
-  }
+  void notifySession(
+    ctx,
+    sessionId,
+    t("rateLimitRetrying", { attempt: String(attempt + 1), delay: String(delayMs / 1000) }),
+  );
   logger.warn(
     `[tawassul] rate-limit detected (attempt ${attempt + 1}/${apiRetryMax}) — retrying session ${sessionId} in ${delayMs}ms`,
   );
@@ -416,29 +423,18 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
     .trim()
     .toLowerCase();
   const askEnabled = askEnv !== "0" && askEnv !== "false";
-  const appendPrompt = (
-    ctx.client as { tui?: { appendPrompt?: (p: { text?: string }) => Promise<unknown> } } | undefined
-  )?.tui?.appendPrompt;
   const renderEnv = readAskRenderEnv();
-  const renderMode = resolveAskRenderer({
-    appendPromptAvailable: Boolean(appendPrompt),
-    appendPromptEnabled: renderEnv.appendPromptEnabled,
-    transcriptEnabled: renderEnv.transcriptEnabled,
-  });
+  const renderMode = resolveAskRenderer({ transcriptEnabled: renderEnv.transcriptEnabled });
   if (askEnabled && tawaCtx.timerManager) {
     const askDeps: AskChannelDeps = {
       sessionID: () => tawaCtx.sessionId,
       timers: tawaCtx.timerManager,
       render:
-        renderMode === "append"
+        renderMode === "transcript"
           ? async (slot) => {
-              await appendPrompt!({ text: formatAskPrompt(slot.title, slot.kind) });
+              await injectTranscriptQuestion(ctx, slot.sessionID, slot.title, slot.kind);
             }
-          : renderMode === "transcript"
-            ? async (slot) => {
-                await injectTranscriptQuestion(ctx, slot.sessionID, slot.title, slot.kind);
-              }
-            : undefined,
+          : undefined,
       
       
       

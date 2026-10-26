@@ -69,25 +69,28 @@ function buildSessionClient(ctx: V2Context) {
   };
 }
 
+export function resolveV2ServerUrl(
+  env: Record<string, string | undefined> = process.env,
+): string | undefined {
+  const raw = env.OPENCODE_SERVER_PORT ?? env.OPENCODE_PORT;
+  if (!raw) return undefined;
+  const port = Number(raw);
+  if (!Number.isInteger(port) || port <= 0 || port >= 65536) {
+    logger.debug(`[tawassul] v2 shim: ignoring invalid server port "${raw}"`);
+    return undefined;
+  }
+  return `http://localhost:${port}`;
+}
+
 export function buildPluginInput(ctx: V2Context): PluginInput {
   const directory = resolveV2Directory(ctx);
   const client: Record<string, unknown> = {
     session: buildSessionClient(ctx),
-    tui: {
-      appendPrompt: async (input: { text?: string } | undefined) => {
-        logger.info(`[tawassul] v2 shim: appendPrompt not supported (${input?.text ?? ""})`);
-        return undefined;
-      },
-      showToast: async (input: { message?: string; variant?: string } | undefined) => {
-        logger.info(`[tawassul] v2 shim: showToast ${input?.variant ?? "info"} (${input?.message ?? ""})`);
-        return undefined;
-      },
-    },
   };
   return {
     client,
     directory,
     worktree: directory,
-    serverUrl: undefined,
+    serverUrl: resolveV2ServerUrl(),
   };
 }

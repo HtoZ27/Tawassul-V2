@@ -1,7 +1,6 @@
 
 
 export interface AskRenderEnvFlags {
-  appendPromptEnabled: boolean;
   transcriptEnabled: boolean;
 }
 
@@ -16,19 +15,12 @@ export function readAskRenderEnv(
     return s !== "0" && s !== "false";
   };
   return {
-    appendPromptEnabled: flag(env.TAWASSUL_ASK_APPEND_PROMPT, "0"),
     transcriptEnabled: flag(env.TAWASSUL_ASK_TRANSCRIPT, "1"),
   };
 }
 
-export type AskRenderMode = "append" | "transcript" | "none";
+export type AskRenderMode = "transcript" | "none";
 
-export function resolveAskRenderer(opts: {
-  appendPromptAvailable: boolean;
-  appendPromptEnabled: boolean;
-  transcriptEnabled: boolean;
-}): AskRenderMode {
-  if (opts.appendPromptAvailable && opts.appendPromptEnabled) return "append";
-  if (opts.transcriptEnabled) return "transcript";
-  return "none";
+export function resolveAskRenderer(opts: { transcriptEnabled: boolean }): AskRenderMode {
+  return opts.transcriptEnabled ? "transcript" : "none";
 }
