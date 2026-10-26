@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 49 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 50 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -2035,15 +2035,26 @@ from. Both failures are silent.
 Next: bridge `showToast` to the host notification API, or make the shim throw
 so callers know the capability is missing.
 
-#### E-34 `chat.message` message-level mutations are discarded — open (P2)
+#### E-34 `chat.message` message-level mutations are discarded — done (2026-10-26)
 
-`src/v2/setup.ts:99-115` builds `v1Output.message` and never reads it back:
-after the hook returns, only `v1Output.parts` are pushed into the host
-content. Any hook that changes `message.role`, `agent`, or `model` has no
+`src/v2/setup.ts:99-115` built `v1Output.message` and never read it back:
+after the hook returned, only `v1Output.parts` were pushed into the host
+content. Any hook that changed `message.role`, `agent`, or `model` had no
 effect.
 
-Next: apply `v1Output.message` to the host payload, or remove the field from
-the v1 shape so the limitation is explicit.
+Impact: a hook that rerouted the request — promoted a message to `system`,
+switched the agent, or overrode the model — was silently ignored on v2 while
+the same hook worked on v1.
+
+Resolved 2026-10-26: the bridge reads `v1Output.message` back. A valid role
+(`system`, `user`, `assistant`, `tool`) replaces the host message role, a
+non-blank `agent` replaces the request agent, and a `model` in either
+`provider/model` or `{ providerID, modelID }` form replaces the request model;
+an unknown role, a blank agent, or an unparseable model is ignored instead of
+corrupting the request. A replaced `message.text` wins over part edits for
+string content, while array content keeps the part-level path. `prove-e34`
+drives role, agent, model, text, append, edit, no-op, invalid-role, and dedupe
+cases (13 assertions).
 
 #### E-35 Tool result titles and metadata are lost on v2 — open (P2)
 
