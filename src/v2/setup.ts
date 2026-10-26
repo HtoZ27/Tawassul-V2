@@ -76,6 +76,22 @@ function isBlockedForAgent(agent: unknown, tool: string): boolean {
   return isTawa && BLOCKED_TOOLS.includes(toolNameToV1(tool));
 }
 
+function reportSafetyHookFailure(hook: string, detail: string, error: unknown): void {
+  logger.error(
+    `[tawassul] v2 ${hook} (${detail}) failed; continuing fail-open:`,
+    error instanceof Error ? error.stack : error,
+  );
+  try {
+    logger.audit("V2_SAFETY_HOOK_FAIL_OPEN", {
+      hook,
+      detail,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  } catch {
+    void 0;
+  }
+}
+
 export async function runChatMessageBridge(
   plugin: TawassulHooks,
   event: V2SessionEvent,
@@ -136,7 +152,8 @@ export async function runChatMessageBridge(
   try {
     await hook(v1Input, v1Output);
   } catch (e) {
-    logger.warn(`[tawassul] v2 chat.message bridge failed for ${sessionID}:`, e instanceof Error ? e.stack : e);
+    if (isBlockError(e)) throw e;
+    reportSafetyHookFailure("chat.message", sessionID, e);
     return;
   }
   let messageText: string | undefined;
@@ -303,7 +320,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
             sessionID: spec.sessionID,
             callID: spec.id,
           };
-          const v1Output = {
+          const v1Output: { args: Record<string, unknown>; error?: string } = {
             args: isTaskTool(spec.tool) ? subagentArgsToV1(spec.input) : cloneArgs(spec.input),
           };
           const bridge = plugin["tool.execute.before"];
@@ -318,8 +335,10 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
               await bridge(v1Input, v1Output);
             } catch (e) {
               if (isBlockError(e)) throw e;
-              logger.warn(`[tawassul] v2 execute.before (${spec.tool}) failed:`, e);
+              reportSafetyHookFailure("execute.before", spec.tool, e);
             }
+            const blocked = typeof v1Output.error === "string" ? v1Output.error.trim() : "";
+            if (blocked) throw new ToolBlockedError(blocked);
             if (v1Output.args && typeof v1Output.args === "object") {
               spec.input = isTaskTool(spec.tool) ? v1ArgsToSubagent(v1Output.args) : cloneArgs(v1Output.args);
             }
