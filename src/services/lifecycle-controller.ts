@@ -142,6 +142,11 @@ export class LifecycleController {
       logger.debug("destroy: flushPrefsSave threw:", e);
     }
     try {
+      this.ctx.ratingManager.detectDroppedHandoffs([...this.ctx.handoffs.values()]);
+    } catch (e) {
+      logger.debug("destroy: detectDroppedHandoffs failed:", e);
+    }
+    try {
       await this.persistence.flushSaves();
     } catch (e) {
       logger.error("destroy: flushSaves failed; the session state was not written:", e);
@@ -216,11 +221,6 @@ export class LifecycleController {
       }
     } catch (e) {
       logger.debug("destroy: handoff count failed:", e);
-    }
-    try {
-      this.ctx.ratingManager.detectDroppedHandoffs([...this.ctx.handoffs.values()]);
-    } catch (e) {
-      logger.debug("destroy: detectDroppedHandoffs failed:", e);
     }
     try {
       const fp = this.ctx.statePath();

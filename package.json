@@ -33,6 +33,7 @@
     "prove:e13": "bun scripts/prove-e13.ts",
     "prove:e20": "bun scripts/prove-e20.ts",
     "prove:e21": "bun scripts/prove-e21.ts",
+    "prove:e22": "bun scripts/prove-e22.ts",
     "prove:s021": "bun scripts/prove-s021.ts",
     "prove:resurrection": "bun scripts/prove-goal-resurrection.ts",
     "prove:goal-capture": "bun scripts/prove-goal-capture.ts",
