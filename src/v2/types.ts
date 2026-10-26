@@ -36,7 +36,13 @@ export type V2ToolHookInput = {
   messageID?: string;
   id: string;
   input: unknown;
-} & ({ status: "completed"; result: V2ToolResult } | { status: "error"; error?: { message?: string } });
+} & ({
+  status: "completed";
+  result: V2ToolResult;
+} | {
+  status: "error";
+  error?: { message?: string; metadata?: Record<string, unknown> };
+});
 
 export type V2SessionEvent = {
   sessionID?: string;

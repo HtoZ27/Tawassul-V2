@@ -131,6 +131,10 @@
       "cmd": ["bun", "scripts/prove-e34.ts"]
     },
     {
+      "name": "e35",
+      "cmd": ["bun", "scripts/prove-e35.ts"]
+    },
+    {
       "name": "p08",
       "cmd": ["bun", "scripts/prove-p08.ts"]
     },

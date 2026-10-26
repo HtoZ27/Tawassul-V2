@@ -9,7 +9,7 @@ import { createAskBridge, registerAskPermission } from "./ask.ts";
 import { buildPluginInput } from "./client-shim.ts";
 import { isTaskTool, subagentArgsToV1, toolNameToV1, v1ArgsToSubagent } from "./delegation.ts";
 import { mapV2EventToV1 } from "./event-adapter.ts";
-import { applyV1AfterOutput, resultText } from "./result-bridge.ts";
+import { applyV1AfterOutput, metadataChanged, resultText, titleFromMetadata, withTitleMetadata } from "./result-bridge.ts";
 import type { V2Context, V2SessionEvent, V2ToolContext, V2ToolHookInput } from "./types.ts";
 
 const MAX_PROCESSED_MESSAGES = 1024;
@@ -363,12 +363,12 @@ export function createV2Setup() {
           if (!bridge) return;
           const completed = spec.status === "completed" ? spec.result : undefined;
           const originalText = resultText(completed);
-          const originalMetadata = completed?.metadata;
+          const originalMetadata = spec.status === "completed" ? completed?.metadata : spec.error?.metadata;
           const syntheticStatus = !Object.prototype.hasOwnProperty.call(originalMetadata ?? {}, "status");
           const v1Output =
             spec.status === "error"
               ? {
-                  title: "",
+                  title: titleFromMetadata(originalMetadata),
                   output: spec.error?.message ?? "tool failed",
                   metadata: {
                     ...(originalMetadata ?? {}),
@@ -377,13 +377,19 @@ export function createV2Setup() {
                   } as Record<string, unknown>,
                 }
               : {
-                  title: "",
+                  title: titleFromMetadata(originalMetadata),
                   output: originalText,
                   metadata: { ...(originalMetadata ?? {}), status: "completed" } as Record<string, unknown>,
                 };
           return bridge(v1Input, v1Output)
             .then(() => {
-              if (spec.status === "error" || !spec.result) return;
+              if (spec.status === "error") {
+                if (!spec.error) return;
+                const nextMetadata = withTitleMetadata(spec.error.metadata, v1Output.title);
+                if (metadataChanged(spec.error.metadata, nextMetadata)) spec.error.metadata = nextMetadata;
+                return;
+              }
+              if (!spec.result) return;
               try {
                 applyV1AfterOutput(spec.result, originalText, originalMetadata, v1Output, syntheticStatus);
               } catch (e) {

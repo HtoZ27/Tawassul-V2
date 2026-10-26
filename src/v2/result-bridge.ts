@@ -6,6 +6,23 @@ export type V1AfterOutput = {
   metadata: Record<string, unknown>;
 };
 
+export const V1_TITLE_KEY = "tawassul.title";
+
+export function titleFromMetadata(metadata: Record<string, unknown> | undefined): string {
+  const value = metadata?.[V1_TITLE_KEY];
+  return typeof value === "string" ? value : "";
+}
+
+export function withTitleMetadata(
+  metadata: Record<string, unknown> | undefined,
+  title: string,
+): Record<string, unknown> | undefined {
+  const next: Record<string, unknown> = { ...(metadata ?? {}) };
+  if (title) next[V1_TITLE_KEY] = title;
+  else delete next[V1_TITLE_KEY];
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
 export function resultText(result: V2ToolResult | undefined): string {
   if (!result) return "";
   if (typeof result.content === "string") return result.content;
@@ -80,7 +97,8 @@ export function applyV1AfterOutput(
 ): void {
   writeBackV1Output(result, originalText, v1Output.output);
   if (syntheticStatus && v1Output.metadata) delete v1Output.metadata.status;
-  if (v1Output.metadata && metadataChanged(originalMetadata, v1Output.metadata)) {
-    result.metadata = v1Output.metadata;
+  const nextMetadata = withTitleMetadata(v1Output.metadata, v1Output.title);
+  if (nextMetadata && metadataChanged(originalMetadata, nextMetadata)) {
+    result.metadata = nextMetadata;
   }
 }

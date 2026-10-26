@@ -34,16 +34,9 @@ export function buildDirectResponseTool() {
       "Allow @tawa to respond directly without delegating to task(). Used for simple questions that only need read/grep/glob. Complex tasks (edit/bash/deep analysis) must use task().",
     args: {
       response: tool.schema.string().describe("The direct response to the user"),
-      requiresTask: tool.schema
-        .boolean()
-        .default(false)
-        .describe("Set to true if this question actually needs a task() delegation"),
     },
     async execute(args) {
-      return {
-        output: args.response,
-        requiresTask: args.requiresTask,
-      };
+      return { output: args.response };
     },
   });
 }

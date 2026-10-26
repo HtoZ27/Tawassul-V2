@@ -3,6 +3,7 @@ import type { ToolContext, ToolDefinition } from "../tool.ts";
 import { buildToolJsonSchema } from "../lib/tool-schema-injection.ts";
 import { logger } from "../utils/logger.ts";
 import { resolveV2Directory } from "./client-shim.ts";
+import { withTitleMetadata } from "./result-bridge.ts";
 import type { V2Context, V2ToolContext, V2ToolDefinition } from "./types.ts";
 
 const EMPTY_INPUT_SCHEMA = { type: "object", properties: {}, additionalProperties: true };
@@ -52,7 +53,7 @@ export function toV2Result(result: unknown): unknown {
     return { content: [{ type: "text", text: result }] };
   }
   if (result && typeof result === "object") {
-    const rec = result as { output?: unknown; metadata?: Record<string, unknown> };
+    const rec = result as { output?: unknown; title?: unknown; metadata?: Record<string, unknown> };
     const text = typeof rec.output === "string"
       ? rec.output
       : rec.output === undefined
@@ -60,7 +61,10 @@ export function toV2Result(result: unknown): unknown {
         : typeof rec.output === "object"
           ? JSON.stringify(rec.output)
           : String(rec.output);
-    const metadata = rec.metadata && typeof rec.metadata === "object" ? rec.metadata : undefined;
+    const metadata = withTitleMetadata(
+      rec.metadata && typeof rec.metadata === "object" ? rec.metadata : undefined,
+      typeof rec.title === "string" ? rec.title : "",
+    );
     if (text.length > 0) {
       return metadata
         ? { content: [{ type: "text", text }], metadata }
