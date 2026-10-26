@@ -417,6 +417,9 @@ export class TawassulContext implements TawaOrchestratorContext {
     this.state = new TawassulState();
     this.stateDir = directory;
     this.scope = detectInstallScope(import.meta.url);
+    this.metricsCollector = new MetricsCollector(
+      resolve(resolveRuntimeStateDir(directory, this.scope), "metrics.json"),
+    );
     this.sessionManager = new SessionManager(directory);
     logger.debug(`Session started: ${this.sessionManager.getSessionId()}`);
     this.configManager = new ConfigManager(directory, (n, f) => this.safeConfigPath(n, f), this.scope);
@@ -426,9 +429,6 @@ export class TawassulContext implements TawaOrchestratorContext {
     this._stateManager = new StateManager(this.stateDir, () => this.statePath());
     this._lifecycleManager = new LifecycleManager(this);
     this._commandRouter = new CommandRouter(this);
-    this.metricsCollector = new MetricsCollector(
-      resolve(resolveRuntimeStateDir(directory, this.scope), "metrics.json"),
-    );
     this.registerEventHubListener("CRITICAL_ERROR", (d) => logger.error("[Tawassul] Critical:", d));
     const modeEnv = process?.env?.OPENCODE_MODE;
     if (modeEnv === "plan" || modeEnv === "build") this.detectedMode = modeEnv;
