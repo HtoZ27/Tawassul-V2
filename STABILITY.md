@@ -15,7 +15,7 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **55 are open**.
+with 99 entries, of which **54 are open**.
 
 ## The filter
 
@@ -24,14 +24,14 @@ with 99 entries, of which **55 are open**.
 | Tier | Question it answers | Count |
 | --- | --- | --- |
 | S0 | Does the plugin work at all? | 1 |
-| S1 | Does it lose or corrupt data silently? | 8 |
+| S1 | Does it lose or corrupt data silently? | 7 |
 | S2 | Does it tell the truth about what happened? | 14 |
 | S3 | Does it start reliably and quickly? | 9 |
 | S4 | Can it be made to do something it should not? | 6 |
 | S5 | Can we prove any of the above? | 13 |
 | S6 | Does install and upgrade work? | 4 |
 
-**Stability is S0 + S1: 9 items.** S2 decides whether you can trust what you
+**Stability is S0 + S1: 8 items.** S2 decides whether you can trust what you
 see. S3 through S6 matter, but none of them makes a working session fail.
 
 ---
@@ -47,7 +47,6 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | ID | Defect |
 | --- | --- |
 | `E-19` | Outputs over 50,000 characters are cut with no marker |
-| `E-22` | Dropped-handoff ratings are computed after persistence is closed |
 | `E-23` | The goal store locks the file, not the goal; parallel mutations are lost as "locked" |
 | `E-24` | Saga ids restart at `SAGA-001` and overwrite the previous journal |
 | `B-11` | Predictive-router rewrites its file every 5 minutes and grows the backup family |
@@ -178,6 +177,8 @@ today.
   state file is quarantined, never rotated over `.bak.0`, and recovery from a
   backup is writable again; `E-20` (S1) — `destroy()` awaits every async
   cleanup callback, so the ledger and timeline tails flush; `E-21` (S1) — the
-  shutdown flush makes one final forced write and reports a terminal failure.
+  shutdown flush makes one final forced write and reports a terminal failure;
+  `E-22` (S1) — the dropped-handoff penalty is
+  computed before the shutdown flush, so it survives a restart.
 - The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
   Wave 2 and should be re-scoped to the wave boundaries above.

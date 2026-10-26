@@ -1727,7 +1727,7 @@ the backoff gate. `prove-e21` covers the forced write after eight failures,
 the successful path, and a terminal failure that rejects with a clear error
 (9 assertions).
 
-#### E-22 Dropped-handoff penalties are computed after persistence is closed — open (P1)
+#### E-22 Dropped-handoff penalties are computed after persistence is closed — done (2026-10-26)
 
 `src/services/lifecycle-controller.ts` calls `flushSaves()` (`:143`), then
 `markDisposing()` (`:207`), then `detectDroppedHandoffs()` (`:219`).
@@ -1742,6 +1742,11 @@ every restart — a permanently unmeasurable signal.
 
 Next: run `detectDroppedHandoffs` before `flushSaves`, or allow a final
 forced write after `markDisposing`.
+
+Resolved 2026-10-26: `destroy()` now detects dropped handoffs before the
+shutdown flush, so the rating mutation is written by that flush and survives a
+restart. `prove-e22` asserts the on-disk penalty, the read-back after a
+restart, and that a completed handoff is never counted (5 assertions).
 
 #### E-23 The goal store locks the file, not the goal — open (P1)
 
