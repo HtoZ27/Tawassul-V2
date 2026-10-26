@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 52 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 53 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1704,23 +1704,26 @@ advertised `input` remains the schema produced by `buildToolJsonSchema`, which
 `prove-e17` asserts is the real one with `required: ["count"]`. The stub
 `buildValidator` helper was removed in the same edit (16 assertions).
 
-#### E-18 Hook errors are swallowed and the guard fails open — open (P1)
+#### E-18 Hook errors are swallowed and the guard fails open — done (2026-10-26)
 
-`src/v2/setup.ts` wraps non-block hooks in `try/catch` and continues on
-error. A guard that throws — for example on an unexpected payload shape — is
-therefore silently disabled for the rest of the session, with one warn line.
+`src/v2/setup.ts` wrapped the safety bridges in `try/catch` and continued on
+every error. Two paths failed open: a consent or tool-block decision raised
+from `chat.message` was logged and dropped, and the `execute.before` bridge
+ignored the v1 `output.error` contract entirely, so a guard that reported a
+denial through the documented field was treated as an allow.
 
-Impact: the failure mode of every safety hook is "off". A payload change in a
-host update turns the guard layer into a no-op without failing the gate.
+Impact: the failure mode of a safety hook was "off". A payload change in a
+host update could turn the guard layer into a no-op without failing the gate.
 
-Next: classify hooks. Safety hooks (consent, permission, blocked tools) must
-rethrow; cosmetic hooks may fail open with telemetry.
-
-Owner constraint: do not extend this to `bash` infrastructure errors. The
-host's agent invocation runs through `bash`, so a hook that turns an
-unexpected error on a `bash` call into a hard block would disable delegation
-itself. Fail closed on the *decision* (consent denied, tool blocked), fail
-open with a loud log on *infrastructure* faults.
+Resolved 2026-10-26: the bridges now classify errors. A `ConsentBlockedError`
+or `ToolBlockedError` is rethrown from `chat.message` and `execute.before`
+instead of being swallowed, and a non-blank `output.error` set by the before
+hook blocks the call with that message. Infrastructure faults still fail open,
+but loudly: `reportSafetyHookFailure` logs at error level and writes a
+`V2_SAFETY_HOOK_FAIL_OPEN` audit event. The `bash` rule is preserved — a
+thrown infrastructure error on a `bash` call does not become a hard block, so
+delegation keeps working. `prove-e18` covers both decisions, both fail-open
+paths, the argument rewrite, and the blank-error case (14 assertions).
 
 #### E-19 Outputs over 50,000 characters are cut with no marker — done (2026-10-26)
 
