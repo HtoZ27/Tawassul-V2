@@ -1703,7 +1703,7 @@ and the real `HandoffLedger.dispose`; it asserts the awaited order, the marker
 on disk when `destroy()` resolves, that a failure does not stop the chain, and
 that the buffered ledger tail is written exactly once (9 assertions).
 
-#### E-21 After eight save failures the shutdown flush is a silent no-op — open (P1)
+#### E-21 After eight save failures the shutdown flush is a silent no-op — done (2026-10-26)
 
 `src/services/state-persistence.ts:678`:
 `if (this.saveFailureCount >= StatePersistence.MAX_SAVE_FAILURES) return;`
@@ -1716,6 +1716,16 @@ state is discarded at exit with zero diagnostics.
 
 Next: log at error level, attempt one last write with a bypass flag, and
 report the failure to the user.
+
+Resolved 2026-10-26: `flushSaves` no longer returns early when the failure
+count is exhausted. It logs an error, performs one forced final write, and if
+that write throws it increments the count, logs that the session state is not
+on disk, and rethrows so `destroy()` reports at error level. The give-up path
+after the retry loop is also error level now. `doSave` resets the failure count
+only after a clean save; previously any direct save cleared it, which defeated
+the backoff gate. `prove-e21` covers the forced write after eight failures,
+the successful path, and a terminal failure that rejects with a clear error
+(9 assertions).
 
 #### E-22 Dropped-handoff penalties are computed after persistence is closed — open (P1)
 
