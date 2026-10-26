@@ -143,6 +143,18 @@ function isClientError(e: unknown): boolean {
   return e instanceof Error && /HTTP 4\d\d/.test(e.message);
 }
 
+class WebTerminalError extends Error {}
+
+function describeCrawlError(status: Record<string, unknown>): string {
+  const raw = status.error;
+  if (typeof raw === "string" && raw.trim()) return raw.trim();
+  if (raw && typeof raw === "object") {
+    const message = (raw as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message.trim();
+  }
+  return "no reason given";
+}
+
 
 export function cacheDir(): string {
   return process.env.TAWASSUL_WEB_CACHE_DIR ?? join(v2NamespaceRoot(globalCacheBaseDir()), "web-cache");
@@ -855,6 +867,10 @@ export function buildWebTool() {
               status = await firecrawlGet(`/v2/crawl/${id}`, signal);
               if (["completed", "failed", "cancelled"].includes(String(status.status))) break;
             }
+            const crawlStatus = String(status.status ?? "");
+            if (crawlStatus === "failed" || crawlStatus === "cancelled") {
+              throw new WebTerminalError(`Crawl ${id} ${crawlStatus}: ${describeCrawlError(status)}`);
+            }
             const docs = Array.isArray(status.data) ? status.data : [];
             const sections = docs.map((doc: Record<string, unknown>, index: number) => {
               const header = documentHeader(doc) || `Page ${index + 1}`;
@@ -886,6 +902,7 @@ export function buildWebTool() {
         
         
         await cleanupTempOutputs(createdThisRun);
+        if (e instanceof WebTerminalError) throw e;
         return { title: "❌ Web", output: `Error: ${e instanceof Error ? e.message : String(e)}` };
       }
     },
