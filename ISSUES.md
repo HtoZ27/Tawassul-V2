@@ -754,7 +754,7 @@ The six reports were re-checked claim by claim; the full ledger is
 or not observed, 3 sound). `npm run ci` was re-run on 2026-10-26 and passed
 (28 proof steps, smoke with a real model reply).
 
-New defects from that verification, not in the reports:
+New or widened defects from that verification:
 
 ### C-01 Consent gating is keyed on `bash`, the host sends `shell` — fixed (P0)
 

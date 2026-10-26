@@ -21,9 +21,10 @@ verification found a new defect, the heading names the new register ID
 Result: 50 entries checked. 34 confirmed, 5 partially confirmed, 8 refuted or
 not observed, 3 verified sound.
 
-One critical defect was missed by all six reports: `CONSENT_TOOLS` is keyed on
-`bash`, but the v2 host sends `shell`, so every dangerous-command consent
-check is dead.
+One critical defect was under-reported: analyst-deepseek noted that
+command-level guards are keyed on `bash`, but no report traced the
+consequence for the consent gate. Verification confirmed it and found the
+blast radius wider: every `bash`-keyed guard was bypassed, not only consent.
 
 ---
 
