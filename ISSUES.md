@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-25 · Gate: `npm run ci` rc=0 (3 isolated stages, 26 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 26 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 
 Purpose: one durable place for open issues, evidence, and the next action, so
@@ -750,7 +750,7 @@ baseline.
 ## Verification of the six-agent evaluation (2026-10-26)
 
 The six reports were re-checked claim by claim; the full ledger is
-`VERIFICATION-20261026.md` (49 entries: 34 confirmed, 4 partial, 8 refuted
+`VERIFICATION-20261026.md` (50 entries: 34 confirmed, 5 partial, 8 refuted
 or not observed, 3 sound). `npm run ci` was re-run on 2026-10-26 and passed
 (25 proof steps, smoke with a real model reply).
 
@@ -808,6 +808,12 @@ first existing candidate with no freshness comparison.
 
 The isolated-boot transcript exists, but no gate references
 `retired-20261025`.
+
+### G-12 Six high-stakes closures have no CI artifact — open (P2)
+
+H-02, H-07, P-05, and P-07 are prose evidence only; H-06 has a doctor warning;
+E-09 has pins but no agreement check. The full list and evidence are in
+`VERIFICATION-20261026.md` (V-52).
 
 ### I-11 No committed CI transcript — open (P3)
 

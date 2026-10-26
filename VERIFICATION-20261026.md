@@ -9,14 +9,16 @@ Method: every claim was re-checked against the source, the live state files,
 the installed host protocol, and runtime probes. The full gate was re-run on
 2026-10-26. A claim is "confirmed" only when the cited code or a runtime probe
 shows it; "refuted" means the cited code shows the opposite; "partial" means
-the mechanism is real but the stated impact or number is wrong.
+the mechanism is real but the stated impact or number is wrong. Several agents
+could not execute commands and reported on-disk claims as unverifiable; this
+ledger re-checked every on-disk claim with shell access.
 
 All IDs in this file are local (`V-01` ... `V-49`). Where an item already
 exists in `ISSUES.md`, the heading names that ID (`register: B-03`). Where the
 verification found a new defect, the heading names the new register ID
 (`new: C-01`).
 
-Result: 49 entries checked. 34 confirmed, 4 partially confirmed, 8 refuted or
+Result: 50 entries checked. 34 confirmed, 5 partially confirmed, 8 refuted or
 not observed, 3 verified sound.
 
 One critical defect was missed by all six reports: `CONSENT_TOOLS` is keyed on
@@ -251,8 +253,8 @@ with no `setup`/`effect`, which the v2 host rejects. The same tree exists in
 `paassss`.
 
 Impact: every boot in those workspaces logs a plugin-load failure; a v1 tree
-is also one edit away from loading. Renaming the entry or removing the
-directory is needed.
+is also one edit away from loading. This violates D-00 (`ISSUES.md:13`).
+Renaming the entry or removing the directory is needed.
 
 #### V-15 No automated check for the H-09 rename (new: G-10)
 
@@ -361,7 +363,8 @@ Verdict: PARTIAL, P2. The initial branch at `src/v2/setup.ts:164-178` does
 skip schema collection when the 750 ms probe is not ready. But the retry loop
 at `:196-224` calls `readyProbe()`, `refreshSchemas()`, and `ctx.tool.reload()`
 as soon as the host becomes ready. The exposed window is the placeholder
-period, not a permanent empty schema set.
+period, not a permanent empty schema set; during that window the tools carry
+placeholder schemas and no per-tool warning is logged.
 
 #### V-27 Placeholder window is about 10.25 s, not 10.75 s (register: B-02)
 
@@ -412,20 +415,35 @@ Claim (analyst-pickle).
 Verdict: CONFIRMED, P3 process gap. The gate result is not an artifact in the
 tree; today's run is recorded in this file instead.
 
+#### V-52 High-stakes closures rest on manual transcripts (new: G-12)
+
+Claim (analyst-mimo): H-02, H-06, H-07, P-05, P-07, and E-09 rest on one-off
+transcripts with no CI artifact.
+
+Verdict: PARTIALLY CONFIRMED, P2. `grep` over `scripts/` and `tests/` finds no
+gate step for H-02, H-07, P-05, or P-07; those closures are prose evidence.
+H-06 has a live doctor warning (`doctor-v2.sh:202`), and E-09 has four pins but
+no agreement assertion (V-21). The risk is silent regression, not a false
+closure.
+
 ### A3. Minor
 
 #### V-32 Register drift (new: G-11)
 
 Confirmed:
 
-- The H-02 evidence bullet in `ISSUES.md` (line 82) says 25 `PROOF PASS`,
-  while the baseline `npm run ci` bullet (line 877) says 26 (25 steps plus the
-  catalog, which is correct).
+- The status date at the top of `ISSUES.md` is 2026-10-25; it is now
+  2026-10-26.
+- The H-02 evidence bullet (line 82) says 25 `PROOF PASS`, while the baseline
+  `npm run ci` bullet says 26 (25 steps plus the catalog, which is correct).
 - The audit baseline paragraph (line 653) cites HEAD `d740865` while HEAD is
   `3471fe3`.
 - The E-07 text (lines 615-617) says the independence proof skips
   `scripts/*.sh`, but `scripts/prove-v2-independence.ts:71-75` scans `.ts` and
   `.sh`.
+- The pending-decision list was numbered 1,2,3,4,7,5,6; it is now 1-7.
+- The catalog counts itself and asserts floors (`>=25`, `>=24`), so the exact
+  total is not pinned (`scripts/prove-proof-catalog.ts:66-67`).
 
 #### V-33 B-04 cleanup arithmetic (register: B-04)
 
@@ -577,6 +595,7 @@ Only select/input are unbridged.
 | ISSUES 25 vs 26 | Confirmed cosmetic | V-32 |
 | 5 MB backup skip | Confirmed latent | V-08 |
 | No backup-cap proof | Confirmed | V-09 |
+| Six closures rest on manual transcripts | Partial | V-52 |
 
 ### analyst-pickle
 
