@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 43 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 44 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1259,19 +1259,30 @@ between, saves five unchanged exports and asserts none wrote, then makes a
 real change and asserts it does write while the backup family stays at the
 two-copy cap (8 assertions).
 
-### B-12 `panic` backup is best-effort and never pruned — open (P2)
+### B-12 `panic` backup is best-effort and never pruned — done (2026-10-26)
 
-`src/tools/system-controls.ts:222-231` copies `tawassul-state.json` to
-`tawassul-state.panic-backup-<uuid>.json`, logs a warning on failure, and
-proceeds with `clearAllState()`; with no `stateDir` it writes no backup at
-all. The name matches none of the prune families in `atomic.ts:29`
-(`.bak.<digits>.<12hex>`), so it accumulates forever. `ALLOWED_AGENTS` is
+`src/tools/system-controls.ts:222-231` copied `tawassul-state.json` to
+`tawassul-state.panic-backup-<uuid>.json`, logged a warning on failure, and
+proceeded with `clearAllState()`; with no `stateDir` it wrote no backup at
+all. The name matched none of the prune families in `atomic.ts:29`
+(`.bak.<digits>.<12hex>`), so it accumulated forever. `ALLOWED_AGENTS` is
 `["@analyst"]` (`:178`), so the main user cannot run the reset from the main
 session while a single delegated agent decision can wipe the history.
 
-Next: make the backup mandatory (refuse to clear when it fails), add
-`panic-backup-*` to a capped prune family, and decide whether the owner
-session may call it.
+Resolved 2026-10-26: the backup is now mandatory. `backupBeforePanic` copies
+the state file to `<stamp>-<uuid>` inside the `panic-backup-` family and
+prunes that family to the three newest; any failure aborts the tool with
+`panicBackupFailed` and leaves `clearAllState()` uncalled. A missing state
+file is distinguished from a failed copy: the reset proceeds and reports
+`panicNoStateFile` instead of claiming a backup exists. `prove-b12` runs a
+confirmed panic, checks the clear happens only after the copy exists and the
+report names the file, seeds five old backups and asserts the cap keeps the
+three newest, runs with no state file, and forces an unreadable state file to
+assert nothing is cleared (11 assertions).
+
+The `ALLOWED_AGENTS = ["@analyst"]` allow-list is left as it is: widening it
+is a policy decision about who may wipe history, not a defect in the backup
+path, and the operator can already reach it through `@analyst`.
 
 ### G-13 The live host keeps pre-build code until restart — open (P1)
 
