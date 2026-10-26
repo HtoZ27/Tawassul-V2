@@ -32,10 +32,10 @@ check is dead.
 `npm run ci` exited 0:
 
 - fast: 6 steps, pass.
-- proofs: 27 steps, 30,501 ms, `GATE PASS: proofs`.
-- catalog: the 28th `PROOF PASS` (27 proof steps plus the catalog).
+- proofs: 28 steps, 24,314 ms, `GATE PASS: proofs`.
+- catalog: the 29th `PROOF PASS` (28 proof steps plus the catalog).
 - smoke: `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`,
-  16,751 ms.
+  20,220 ms.
 - the smoke actually received a model reply in this run
   (`scratch boot loaded the plugin and replied`), so the provider-refusal
   tolerance branch was not exercised today. The weakened branch still exists;
@@ -153,12 +153,14 @@ lexicographically descending, and keeps the first two. `orphan-` sorts after
 digits, and the timestamped name sorts before `.bak.0`/`.bak.1`.
 
 Impact: one atomic write to a base that also has a `StateManager` chain
-destroys the recovery chain and replaces it with an orphan plus one snapshot.
-The owner's "never more than two" rule is met numerically while the useful
-backups are lost.
+destroyed the recovery chain and replaced it with an orphan plus one snapshot.
+The owner's "never more than two" rule was met numerically while the useful
+backups were lost.
 
-Next: namespace the schemes (`.bak.atomic.` vs `.bak.rotated.`), exclude
-`.bak.orphan-*` from the atomic prune, and add a gate proof.
+Fixed in `d012c55`: the atomic prune matches only its own
+`.bak.<timestamp>.<hex>` names, so numbered backups and orphans are never
+evicted. `prove-backup-cap` seeds both schemes and asserts the numbered chain
+survives two atomic writes.
 
 #### V-07 `.bak.orphan-*` files are never pruned (new: B-07)
 
@@ -169,9 +171,13 @@ Verdict: CONFIRMED, P1. `StateManager.cleanOrphanedTmp` at
 `src/services/lifecycle-controller.ts:229` creates
 `<state>.bak.orphan-<ts>` at shutdown when a `.tmp` survives.
 
-Impact: every crash can leave one orphan forever, and V-06 shows those
-orphans outrank real backups in the atomic prune. Zero orphans exist today,
-so this is latent, not active.
+Impact: every crash could leave one orphan forever, and V-06 showed those
+orphans outranked real backups in the atomic prune. Zero orphans existed at
+audit time, so this was latent.
+
+Fixed in `d012c55`: `cleanOrphanedTmp` now keeps only the newest orphan
+(`MAX_BACKUPS`) and removes older ones, while leaving the numbered chain
+untouched. `prove-backup-cap` covers the prune.
 
 #### V-08 A state file above 5 MB gets no backup at all (new: B-08)
 
@@ -186,11 +192,13 @@ not active. A growing file silently loses all recovery copies.
 
 Claim (analyst-mimo): the cap is a one-off probe, not a gate proof.
 
-Verdict: CONFIRMED, P2. No `scripts/prove-*.ts` references `MAX_BACKUPS`, and
-no proof writes repeatedly into a directory and asserts the backup count
-(`prove-catch-discipline.ts:34-35` only asserts log strings).
+Verdict: CONFIRMED, P2 at audit time. No `scripts/prove-*.ts` referenced
+`MAX_BACKUPS`, and no proof wrote repeatedly into a directory and asserted
+the backup count.
 
-Impact: the owner's hard requirement can regress without the gate noticing.
+Fixed in `d012c55`: `prove-backup-cap` now seeds both schemes, performs two
+atomic writes, asserts exactly two atomic backups remain, and asserts the
+numbered chain and newest orphan survive. It runs in `gate:proofs`.
 
 #### V-10 `tool-run-log.json` is 2.72 MB, not 2.2 MB (register: B-03)
 

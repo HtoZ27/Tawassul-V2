@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 28 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 29 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 
 Purpose: one durable place for open issues, evidence, and the next action, so
@@ -752,7 +752,7 @@ baseline.
 The six reports were re-checked claim by claim; the full ledger is
 `VERIFICATION-20261026.md` (50 entries: 34 confirmed, 5 partial, 8 refuted
 or not observed, 3 sound). `npm run ci` was re-run on 2026-10-26 and passed
-(27 proof steps, smoke with a real model reply).
+(28 proof steps, smoke with a real model reply).
 
 New defects from that verification, not in the reports:
 
@@ -769,19 +769,23 @@ Fixed in `8ccdd9a`: `normalizeToolName` and the v2 bridge canonicalize
 alias, and `prove-shell-alias` covers normalization, consent, the dangerous
 pattern guard, and the tawa block. The proof is in `gate:proofs`.
 
-### B-06 atomic prune evicts the numbered backup chain — open (P1)
+### B-06 atomic prune evicts the numbered backup chain — fixed (P1)
 
 Runtime probe 2026-10-26: with `.bak.0`, `.bak.1`, and `.bak.orphan-*`
-present, one `atomicWriteFile` keeps the timestamped backup and the orphan
-and deletes both numbered backups. `src/utils/atomic.ts:24-27` sorts the
-whole `.bak.` namespace descending and keeps two. This silently destroys the
-`StateManager` recovery chain while satisfying the count.
+present, one `atomicWriteFile` kept the timestamped backup and the orphan
+and deleted both numbered backups. `src/utils/atomic.ts` sorted the whole
+`.bak.` namespace descending and kept two.
 
-### B-07 `.bak.orphan-*` is never cleaned — open (P1)
+Fixed in `d012c55`: the atomic prune matches only its own
+`.bak.<timestamp>.<hex>` names; numbered backups and orphans are excluded.
+`prove-backup-cap` seeds both schemes and asserts the numbered chain survives.
 
-`StateManager.cleanOrphanedTmp` (`:319-338`) removes only `*.tmp` and
-`*.delta`; `lifecycle-controller.ts:229` creates `.bak.orphan-<ts>` at
-shutdown. Zero exist today, so the leak is latent.
+### B-07 `.bak.orphan-*` is never cleaned — fixed (P1)
+
+`StateManager.cleanOrphanedTmp` only removed `*.tmp` and `*.delta`;
+`lifecycle-controller.ts:229` creates `.bak.orphan-<ts>` at shutdown. Fixed
+in `d012c55`: cleanup keeps only the newest orphan and removes older ones;
+the numbered chain is untouched. `prove-backup-cap` covers it.
 
 ### B-08 A state file above 5 MB is never backed up — open (P1 latent)
 
@@ -789,9 +793,11 @@ shutdown. Zero exist today, so the leak is latent.
 without rotating. The live state file is 49,853 bytes, so the cap is not
 active, but growth would silently remove all recovery copies.
 
-### B-09 No gate proof covers the backup cap — open (P2)
+### B-09 No gate proof covers the backup cap — fixed (P2)
 
-No `prove-*` script asserts the backup count; the B-04 proof was a one-off.
+Fixed in `d012c55`: `prove-backup-cap` performs repeated atomic writes,
+asserts exactly two atomic backups remain, and asserts the numbered chain and
+newest orphan survive. It runs in `gate:proofs`.
 
 ### B-10 Boot-repair config backups have no cap — open (P3)
 
@@ -882,11 +888,11 @@ Both `gate:smoke` and the full `ci` now pass with the quota exhausted.
 
 - `npm run verify`: `gate:fast` plus the build (`dist/index.js` and `dist/global.js`).
 - `npm run gate:fast`: 6 steps, about 11.7 s.
-- `npm run gate:proofs`: 27 proofs, one child each, about 30.5 s.
-- `npm run gate:smoke`: build + release smoke, about 16.8 s.
-- `npm run ci`: rc=0, 28 `PROOF PASS` (27 proof steps plus the catalog),
-  `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`, about 61 s.
-- Re-verified 2026-10-26: `npm run ci` rc=0, 27 proof steps (30,501 ms),
+- `npm run gate:proofs`: 28 proofs, one child each, about 24.3 s.
+- `npm run gate:smoke`: build + release smoke, about 20.2 s.
+- `npm run ci`: rc=0, 29 `PROOF PASS` (28 proof steps plus the catalog),
+  `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`, about 60 s.
+- Re-verified 2026-10-26: `npm run ci` rc=0, 28 proof steps (24,314 ms),
   `SMOKE PASS` with a real model reply (the provider-refusal branch was not
   exercised). The full claim-by-claim audit is `VERIFICATION-20261026.md`.
 - The baseline above was measured with no `opencode` on PATH: the launcher and
@@ -894,7 +900,7 @@ Both `gate:smoke` and the full `ci` now pass with the quota exhausted.
 - Bundles identical: `dist/index.js` and `.opencode/plugin/tawassul.js`
   (1,858,782 bytes). The opt-in global bundle is `dist/global.js`
   (2,296,549 bytes, self-contained).
-- `prove-global-install` is one of the 27 proof steps: flat layout, bundle
+- `prove-global-install` is one of the 28 proof steps: flat layout, bundle
   hash, four wasm assets, `VERSION` marker, scope detection, v1/legacy
   refusal, unmarked target refusal, `--force`, tamper repair, coexistence
   unit claim, uninstall, dry run, purge, and verify-missing.
