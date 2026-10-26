@@ -2,9 +2,11 @@
 
 
 
-import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
+import { readFile, mkdir, readdir } from "node:fs/promises";
+import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { logger } from "../utils/logger.ts";
+import { atomicWriteFile } from "../utils/atomic.ts";
 
 export type SagaState = "PENDING" | "EXECUTING" | "COMPLETED" | "COMPENSATING" | "COMPENSATED" | "FAILED";
 
@@ -55,6 +57,21 @@ export interface ResumeResult {
 const MAX_TRANSACTIONS = 200;
 const SAGAS_DIR = "sagas";
 
+function highestJournalSeq(dir: string): number {
+  let best = 0;
+  try {
+    for (const file of readdirSync(dir)) {
+      const match = /^SAGA-(\d+)\.json$/.exec(file);
+      if (!match) continue;
+      const seq = Number(match[1]);
+      if (Number.isFinite(seq) && seq > best) best = seq;
+    }
+  } catch (e) {
+    logger.debug(`[saga] journal scan skipped for ${dir}:`, e);
+  }
+  return best;
+}
+
 export function createJournalRecord(tx: {
   transactionId: string;
   sagaName: string;
@@ -84,7 +101,10 @@ export class SagaCoordinator<C> {
   private _journalQueue: Promise<unknown> = Promise.resolve();
 
   constructor(persistDir?: string) {
-    if (persistDir) this.persistDir = join(persistDir, SAGAS_DIR);
+    if (persistDir) {
+      this.persistDir = join(persistDir, SAGAS_DIR);
+      this._sagaSeq = highestJournalSeq(this.persistDir);
+    }
   }
 
   private nextSagaId(): string {
@@ -102,11 +122,10 @@ export class SagaCoordinator<C> {
     const record = createJournalRecord(tx);
     const write: Promise<void> = this._journalQueue
       .catch(() => undefined)
-      .then(() =>
-        mkdir(this.persistDir!, { recursive: true }).then(() =>
-          writeFile(this.journalPath(tx.transactionId), JSON.stringify(record, null, 2), "utf-8"),
-        ),
-      )
+      .then(async () => {
+        await mkdir(this.persistDir!, { recursive: true });
+        await atomicWriteFile(this.journalPath(tx.transactionId), JSON.stringify(record, null, 2), { backup: false });
+      })
       .catch(async (err) => {
         
         
@@ -116,7 +135,7 @@ export class SagaCoordinator<C> {
         if ((err as { code?: string })?.code === "ENOENT") {
           try {
             await mkdir(this.persistDir!, { recursive: true });
-            await writeFile(this.journalPath(tx.transactionId), JSON.stringify(record, null, 2), "utf-8");
+            await atomicWriteFile(this.journalPath(tx.transactionId), JSON.stringify(record, null, 2), { backup: false });
             return;
           } catch (retryErr) {
             logger.warn(`[saga] journal retry failed for ${tx.transactionId}:`, retryErr);
