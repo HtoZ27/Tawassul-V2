@@ -328,6 +328,7 @@ export function createHooks(
     get askChannelInstance() {
       return tawaCtx.askChannelInstance;
     },
+    chatOnlyAsk: true,
     circuitBreaker,
     healthTracker,
     getAgentModel,

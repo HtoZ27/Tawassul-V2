@@ -65,7 +65,7 @@ function isBlockedForAgent(agent: unknown, tool: string): boolean {
   return isTawa && BLOCKED_TOOLS.includes(toolNameToV1(tool));
 }
 
-async function runChatMessageBridge(
+export async function runChatMessageBridge(
   plugin: TawassulHooks,
   event: V2SessionEvent,
   processed: Set<string>,
@@ -96,9 +96,31 @@ async function runChatMessageBridge(
     model: toDynamicAgentModel(event.model),
     messageID: toV1MessageID(messageID),
   };
+  const rawContent = last["content"];
+  const contentIsString = typeof rawContent === "string";
+  const originals: Array<{ type: string; text?: string; [key: string]: unknown }> = [];
+  if (Array.isArray(rawContent)) {
+    for (const part of rawContent) {
+      if (part && typeof part === "object" && !Array.isArray(part)) {
+        const record = part as Record<string, unknown>;
+        if (typeof record["type"] === "string") {
+          originals.push(record as { type: string; text?: string; [key: string]: unknown });
+        }
+      }
+    }
+  } else if (contentIsString && rawContent.length > 0) {
+    originals.push({ type: "text", text: rawContent });
+  }
+  const seeded = originals.map((part) => ({ ...part }));
+  const seededToOriginal = new Map<object, { type: string; text?: string; [key: string]: unknown }>();
+  seeded.forEach((copy, index) => {
+    const original = originals[index];
+    if (original) seededToOriginal.set(copy, original);
+  });
+
   const v1Output = {
-    message: { role: role as string },
-    parts: [] as Array<{ type: string; text?: string; [key: string]: unknown }>,
+    message: { role: role as string, ...(contentIsString ? { text: rawContent } : {}) },
+    parts: seeded,
   };
   try {
     await hook(v1Input, v1Output);
@@ -106,12 +128,32 @@ async function runChatMessageBridge(
     logger.warn(`[tawassul] v2 chat.message bridge failed for ${sessionID}:`, e instanceof Error ? e.stack : e);
     return;
   }
-  const content = last["content"];
-  if (!Array.isArray(content)) return;
+  const added: Array<{ type: string; text: string }> = [];
+  let editedString: string | undefined;
   for (const part of v1Output.parts) {
-    if (part && typeof part === "object" && part["type"] === "text" && typeof part["text"] === "string") {
-      content.push({ type: "text", text: part["text"] });
+    if (!part || typeof part !== "object") continue;
+    const original = seededToOriginal.get(part);
+    if (original) {
+      if (original.type === "text" && typeof part.text === "string" && part.text !== original.text) {
+        original.text = part.text;
+        if (contentIsString) editedString = part.text;
+      }
+      continue;
     }
+    if (part.type === "text" && typeof part.text === "string") {
+      added.push({ type: "text", text: part.text });
+    }
+  }
+  if (contentIsString && editedString !== undefined) {
+    last["content"] = editedString;
+  }
+  if (added.length === 0) return;
+  if (Array.isArray(rawContent)) {
+    rawContent.push(...added);
+    return;
+  }
+  if (contentIsString) {
+    last["content"] = [{ type: "text", text: editedString ?? rawContent }, ...added];
   }
 }
 

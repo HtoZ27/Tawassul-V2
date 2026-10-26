@@ -18,6 +18,7 @@ import { isIsolationActiveSync } from "../../services/isolation.ts";
 import { acquireFSLock, releaseFSLock, removeFSLockDir } from "../../infra/file-lock.ts";
 import { atomicWriteFile, checkDiskSpace } from "../../infra/disk-utils.ts";
 import type { RecordEntry, HandoffEntry } from "../types.ts";
+import type { AgentCapability } from "../../features/capability-tracker.ts";
 import type { PauseState } from "../../tools/system-controls.ts";
 import { logger } from "../../utils/logger.ts";
 
@@ -35,6 +36,7 @@ export type StateData = {
   hoffSeq: number;
   agentErrors: Record<string, number>;
   agentRatings: Record<string, Record<string, unknown>>;
+  capabilities?: AgentCapability[];
   dynamicAgents: string[];
   agentModelMap: Record<string, string>;
   sharedMemory?: Record<string, unknown>;
@@ -726,6 +728,7 @@ export class StateManager {
     stateData.hoffSeq = (data.hoffSeq as number) ?? 0;
     stateData.agentErrors = (data.agentErrors as Record<string, number>) ?? {};
     stateData.agentRatings = (data.agentRatings as Record<string, Record<string, unknown>>) ?? {};
+    stateData.capabilities = (data.capabilities as StateData["capabilities"]) ?? [];
     stateData.dynamicAgents = (data.dynamicAgents as string[]) ?? [];
     stateData.agentModelMap = (data.agentModelMap as Record<string, string>) ?? {};
     stateData.sharedMemory = data.sharedMemory as Record<string, unknown> | undefined;

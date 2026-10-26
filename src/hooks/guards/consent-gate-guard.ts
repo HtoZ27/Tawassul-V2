@@ -234,7 +234,7 @@ export const consentGateGuard: ValidationStage = {
       approvalCache.delete(key);
     }
 
-    const hasHostAsk = typeof ctx.ask === "function";
+    const hasHostAsk = typeof ctx.ask === "function" && !ctx.chatOnlyAsk;
     if (!askChannel && !hasHostAsk) {
       logger.audit("CONSENT_BLOCKED", { agent: input.agent, tool: input.tool, reason: "no-ask-channel" });
       throw new ConsentBlockedError(t("consentNoChannel", p));

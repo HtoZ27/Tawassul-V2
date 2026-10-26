@@ -11,6 +11,7 @@ export async function lifecycleInit(ctx: TawassulContext): Promise<void> {
   if (ctx.configManager.config.language) setLanguage(ctx.configManager.config.language);
   await lifecycleLoadConflictDataset(ctx);
   await ctx.lifecycleManager.init();
+  ctx.seedCapabilities();
   ctx.memoryWatchdog.start();
   if (ctx.pipelineState) initAutoSweep(ctx.pipelineState);
 }

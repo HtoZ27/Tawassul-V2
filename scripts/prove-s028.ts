@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getProviderModelTokens, getAllProviderModelTokens } from "../src/core/model-registry.ts";
+import { getProviderModelTokens, getAllProviderModelTokens, shouldWarnUnverifiedModel } from "../src/core/model-registry.ts";
 import { parseAddInput, validateAddInput } from "../src/tools/agent-add-helpers.ts";
+import { parseKickInput } from "../src/tools/agent-kick-helpers.ts";
 import { resolveRole } from "../src/utils/agent.ts";
 import { DELETED_AGENTS } from "../src/security-policy.ts";
 
@@ -56,6 +57,25 @@ try {
   const explicit = parseAddInput("analyst-mimo with model Exo Free from opencode");
   assert(explicit !== null && explicit.specs.join(",") === "analyst-mimo", "explicit suffix stays unchanged");
   assert(explicit !== null && Object.keys(explicit.derived).length === 0, "explicit suffix records no derivation");
+
+  assert(shouldWarnUnverifiedModel("opencode/fledge-alpha-free", false) === false, "provider-served model produces no advisory");
+  assert(shouldWarnUnverifiedModel("opencode/Exo-Free", false) === false, "advisory lookup is case-insensitive");
+  assert(shouldWarnUnverifiedModel("opencode/evil-free", false) === true, "unserved model still warns");
+  assert(shouldWarnUnverifiedModel("opencode/fledge-alpha-free", true) === false, "alias suppresses the advisory");
+  assert(shouldWarnUnverifiedModel("opencode/mimo-v2.6-flash-free", false) === false, "static catalog model produces no advisory");
+  assert(shouldWarnUnverifiedModel("opencode", false) === true, "bare provider id warns");
+  const addSource = readFileSync("src/tools/agent-management.ts", "utf8");
+  assert(addSource.includes("shouldWarnUnverifiedModel(fullModel, usedAlias)"), "addagent advisory consults the provider-aware helper");
+
+  const kickBare = parseKickInput("remove analyst with model Exo Free from opencode");
+  assert(kickBare !== null && kickBare.join(",") === "analyst-exo-free", "kick derives the variant for a bare base");
+  const kickExplicit = parseKickInput("remove analyst-mimo with model Exo Free from opencode");
+  assert(kickExplicit !== null && kickExplicit.join(",") === "analyst-mimo", "kick keeps an explicit suffix");
+  const kickUnknown = parseKickInput("remove custom-thing with model Exo Free from opencode");
+  assert(kickUnknown !== null && kickUnknown.join(",") === "custom-thing", "kick leaves a non-base spec unchanged");
+  const kickAll = parseKickInput("remove all with model Exo Free from opencode");
+  assert(kickAll !== null && kickAll.includes("analyst-exo-free"), "kick all covers derived variants");
+  assert(kickAll !== null && !kickAll.includes("tawa-exo-free"), "kick all never derives a tawa variant");
 
   useCache("absent.json");
   assert(validateAddInput(["analyst-mimo"], "opencode/mimo-v2.6-flash-free") === null, "static suffix accepted without cache");

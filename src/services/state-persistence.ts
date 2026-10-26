@@ -101,6 +101,7 @@ function collectStateData(
     hoffSeq: ctx.hoffSeq,
     agentErrors: { ...ctx.errorManager.agentErrors },
     agentRatings: { ...ctx.ratingManager.agentRatings },
+    capabilities: ctx.capabilityTracker.toJSON(),
     dynamicAgents: [...ctx.agentManager.dynamicAgents],
     agentModelMap: { ...ctx.modelManager.agentModelMap },
     pauseState: ctx.pauseState,
@@ -174,6 +175,49 @@ function mergeRatings(
     if (la > da) out[agent] = rating;
   }
   return out;
+}
+
+function mergeCapabilities(
+  live: StateData["capabilities"],
+  disk: StateData["capabilities"],
+): StateData["capabilities"] {
+  const byAgent = new Map<string, NonNullable<StateData["capabilities"]>[number]>();
+  const absorb = (record: NonNullable<StateData["capabilities"]>[number]): void => {
+    const agent = normalizeName(record.agent);
+    if (!agent) return;
+    const prev = byAgent.get(agent);
+    if (!prev) {
+      byAgent.set(agent, {
+        agent,
+        capabilities: [...new Set(record.capabilities ?? [])],
+        successRates: { ...(record.successRates ?? {}) },
+        attempts: { ...(record.attempts ?? {}) },
+        successes: { ...(record.successes ?? {}) },
+        lastUpdated: record.lastUpdated || new Date(0).toISOString(),
+      });
+      return;
+    }
+    for (const capability of record.capabilities ?? []) {
+      if (!prev.capabilities.includes(capability)) prev.capabilities.push(capability);
+    }
+    for (const [capability, attempts] of Object.entries(record.attempts ?? {})) {
+      const known = prev.attempts[capability] ?? 0;
+      if (attempts > known) {
+        prev.attempts[capability] = attempts;
+        prev.successes[capability] = record.successes?.[capability] ?? 0;
+        prev.successRates[capability] = record.successRates?.[capability] ?? 0.5;
+      } else if (attempts === known) {
+        prev.successes[capability] = Math.max(prev.successes[capability] ?? 0, record.successes?.[capability] ?? 0);
+        if (!(capability in prev.successRates) && record.successRates?.[capability] !== undefined) {
+          prev.successRates[capability] = record.successRates[capability]!;
+        }
+      }
+    }
+    if (record.lastUpdated > prev.lastUpdated) prev.lastUpdated = record.lastUpdated;
+  };
+  for (const record of disk ?? []) absorb(record);
+  for (const record of live ?? []) absorb(record);
+  return [...byAgent.values()];
 }
 
 
@@ -323,6 +367,7 @@ function mergeFullScope(
     hoffSeq: Math.max(live.hoffSeq ?? 0, disk.hoffSeq ?? 0),
     agentErrors: maxByKey(live.agentErrors, disk.agentErrors),
     agentRatings: mergeRatings(live.agentRatings, disk.agentRatings),
+    capabilities: mergeCapabilities(live.capabilities, disk.capabilities),
     dynamicAgents: unionStrings(live.dynamicAgents, disk.dynamicAgents),
     
     
@@ -397,6 +442,7 @@ function emptyStateData(): StateData {
     hoffSeq: 0,
     agentErrors: {},
     agentRatings: {},
+    capabilities: [],
     dynamicAgents: [],
     agentModelMap: {},
   };
@@ -466,6 +512,7 @@ function injectMergedIntoCtx(
     import("../context/types.ts").AgentRating
   >;
   ctx.ratingManager.agentRatings = normalizedRatings;
+  ctx.capabilityTracker.restore(merged.capabilities ?? []);
   ctx.agentManager.dynamicAgents = merged.dynamicAgents ?? [];
   const normalizedModelMap = normalizeMapKeys(merged.agentModelMap ?? {});
   ctx.modelManager.agentModelMap = normalizedModelMap;

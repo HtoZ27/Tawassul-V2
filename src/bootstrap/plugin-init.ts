@@ -10,7 +10,14 @@ import type { TawassulHooks as Hooks, PluginInput, Config, InitReadyProbe } from
 import { INIT_READY } from "../plugin-types.ts";
 import type { ToolDefinition, ToolContext } from "../tool.ts";
 import { setLanguage, t } from "../translations.ts";
-import { applyIterationBudgets } from "../services/iteration-budget.ts";
+import {
+  applyIterationBudgets,
+  applyBudgetTiers,
+  setAdaptiveBudget,
+  setBudgetCeiling,
+  setBudgetStep,
+  setProjectScale,
+} from "../services/iteration-budget.ts";
 import { TawassulContext } from "../context.ts";
 import { createServices } from "./service-factory.ts";
 import { createHooks } from "./hooks-registration.ts";
@@ -603,6 +610,26 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
         });
         if (applied > 0) {
           logger.info(`[tawassul] iteration budgets overridden for ${applied} agent(s) from config`);
+        }
+      }
+
+      const budgetConfig = tawaCtx.configManager.config;
+      if (typeof budgetConfig.adaptiveBudgets === "boolean") {
+        setAdaptiveBudget(budgetConfig.adaptiveBudgets);
+      }
+      if (budgetConfig.projectScale) {
+        setProjectScale(budgetConfig.projectScale);
+      }
+      if (typeof budgetConfig.budgetStepPercent === "number") {
+        setBudgetStep(budgetConfig.budgetStepPercent);
+      }
+      if (typeof budgetConfig.budgetCeilingFactor === "number") {
+        setBudgetCeiling(budgetConfig.budgetCeilingFactor);
+      }
+      if (budgetConfig.budgetTiers) {
+        const tiers = applyBudgetTiers(budgetConfig.budgetTiers);
+        if (tiers > 0) {
+          logger.info(`[tawassul] budget tiers overridden for ${tiers} tier(s) from config`);
         }
       }
 

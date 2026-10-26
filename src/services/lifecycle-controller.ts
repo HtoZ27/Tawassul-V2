@@ -65,6 +65,7 @@ export class LifecycleController {
       records: this.ctx.records.length,
       agentErrors: Object.keys(this.ctx.errorManager.agentErrors).length,
       agentRatings: Object.keys(this.ctx.ratingManager.agentRatings).length,
+      capabilities: this.ctx.capabilityTracker.getAll().length,
       dynamicAgents: this.ctx.agentManager.dynamicAgents.length,
     };
     this.ctx.handoffs.clear();
@@ -73,6 +74,7 @@ export class LifecycleController {
     this.ctx.hoffSeq = 0;
     this.ctx.errorManager.clearErrors();
     this.ctx.ratingManager.agentRatings = {};
+    this.ctx.capabilityTracker.clear();
     this.ctx.agentManager.dynamicAgents.length = 0;
     this.ctx.pauseState = null;
     this.ctx.seenAgents.clear();

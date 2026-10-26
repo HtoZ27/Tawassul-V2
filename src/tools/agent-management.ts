@@ -34,8 +34,8 @@ import { ALL_AGENTS } from "../agent-templates.ts";
 import { defaultAgentModelForRole, getDynamicFallbackChainForRole } from "../services/proxy-fallback-chains.ts";
 import { isGeneratedVariant, RETIRED_MODEL_IDS } from "../core/variant-names.ts";
 import { setDynamicDeletedAgents, pruneUserPreservedAgents } from "../security-policy.ts";
-import { resolveModelAlias, MODEL_ALIASES, MODEL_CATALOG } from "../services/proxy-models.ts";
-import { MODEL_ID_TO_SUFFIX } from "../core/model-registry.ts";
+import { resolveModelAlias, MODEL_ALIASES } from "../services/proxy-models.ts";
+import { MODEL_ID_TO_SUFFIX, shouldWarnUnverifiedModel } from "../core/model-registry.ts";
 import { MAX_DYNAMIC_AGENTS_DEFAULT } from "../context/constants.ts";
 import { t } from "../translations.ts";
 import {
@@ -591,9 +591,8 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
       if (validationErr) return { output: validationErr };
       const fullModel = resolveModelAlias(parsed.model)!;
       const usedAlias = Boolean(MODEL_ALIASES[parsed.model.toLowerCase()]);
-      const inCatalog = MODEL_CATALOG.some((m) => m.id === fullModel);
       let modelAdvisory: string | undefined;
-      if (!usedAlias && !inCatalog) {
+      if (shouldWarnUnverifiedModel(fullModel, usedAlias)) {
         modelAdvisory = t("addagentUnverifiedModel", { model: fullModel });
       }
       warnScopeMismatch(ctx);

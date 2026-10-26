@@ -2,7 +2,7 @@ import { ALL_AGENTS } from "../agent-templates.ts";
 import { AGENTS_DEFAULT } from "../context/constants.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 import { MODEL_ALIASES, MODEL_ID_TO_SUFFIX } from "../services/proxy-models.ts";
-import { expandAllSuffixToken, stripLeadingVerb } from "./agent-add-helpers.ts";
+import { expandAllSuffixToken, stripLeadingVerb, deriveVariantSpec } from "./agent-add-helpers.ts";
 import type { TawassulContext } from "../context.ts";
 import { t } from "../translations.ts";
 
@@ -45,7 +45,12 @@ export function parseKickInput(input: string): string[] | null {
           first,
           ALL_AGENTS.map((a) => a.name),
         );
-        if (tagged) specs = tagged.map((n) => normalizeName(n));
+        if (tagged) {
+          specs = tagged.map((n) => normalizeName(n));
+        } else {
+          const derived = deriveVariantSpec(first, fullEn, providerEn);
+          if (derived) specs = [derived.tag];
+        }
       }
     }
     return specs;

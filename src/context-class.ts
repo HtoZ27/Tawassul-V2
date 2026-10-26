@@ -9,7 +9,7 @@ import { RateLimiter } from "./context/rate-limit.ts";
 import { RuleInputBuilder } from "./services/rule-input-builder.ts";
 import { TaskPriorityManager } from "./features/task-priority.ts";
 import { StatsCollector } from "./services/stats.ts";
-import { CapabilityTracker } from "./features/capability-tracker.ts";
+import { CapabilityTracker, seedCapabilitiesFromRoster } from "./features/capability-tracker.ts";
 import { SharedMemoryManager } from "./services/shared-memory.ts";
 import { GamificationManager } from "./features/gamification.ts";
 import type { RuleInput, TawaPreferences, SharedMemory } from "./conflict-resolver/types.ts";
@@ -526,6 +526,14 @@ export class TawassulContext implements TawaOrchestratorContext {
   }
   getAgents(): string[] {
     return AgentFacade.agentGetAgents(this);
+  }
+  seedCapabilities(): number {
+    this.ensureConfig();
+    return seedCapabilitiesFromRoster(
+      this._capabilityTracker,
+      this.getAgents(),
+      (agent) => this.readAgentMd(agent)?.capability ?? this.configManager.config.agentModels?.[agent]?.capability,
+    );
   }
   getMaxRecords(): number {
     return AgentFacade.agentGetMaxRecords(this);

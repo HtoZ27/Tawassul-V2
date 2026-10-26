@@ -157,6 +157,24 @@ export function getAllProviderModelTokens(): ReadonlySet<string> {
   return union;
 }
 
+export function isModelServedByProvider(fullModel: string): boolean {
+  const trimmed = fullModel.trim().toLowerCase();
+  const slash = trimmed.indexOf("/");
+  if (slash <= 0 || slash === trimmed.length - 1) return false;
+  const provider = trimmed.slice(0, slash);
+  const slug = trimmed.slice(slash + 1);
+  const tokens = readProviderTokenCache().get(provider);
+  if (!tokens) return false;
+  return tokens.has(slug);
+}
+
+export function shouldWarnUnverifiedModel(fullModel: string, usedAlias: boolean): boolean {
+  if (usedAlias) return false;
+  const id = fullModel.trim().toLowerCase();
+  if (MODEL_CATALOG.some((m) => m.id.toLowerCase() === id)) return false;
+  return !isModelServedByProvider(id);
+}
+
 export function resolveModelAlias(alias: string): string | null {
   const trimmed = alias.trim().toLowerCase();
   const fromAlias = MODEL_ALIASES[trimmed];

@@ -61,8 +61,40 @@ assert(
     JSON.stringify([
       { type: "text", text: "redacted" },
       { type: "file", uri: "file:///a.png", mime: "image/png" },
+      { type: "text", text: "second" },
     ]),
-  "write-back replaces text once and keeps non-text parts",
+  "write-back replaces the first text part and preserves every other part",
+);
+
+const noText: V2ResultShape = { content: [{ type: "file", uri: "file:///b.bin" }] };
+writeBackV1Output(noText as never, "", "summary");
+assert(
+  JSON.stringify(noText.content) ===
+    JSON.stringify([
+      { type: "text", text: "summary" },
+      { type: "file", uri: "file:///b.bin" },
+    ]),
+  "write-back prepends text when the result has no text part",
+);
+
+const stringContent: V2ResultShape = { content: "old" };
+writeBackV1Output(stringContent as never, "old", "new");
+assert(stringContent.content === "new", "write-back replaces a string result");
+
+const emptyRedaction: V2ResultShape = {
+  content: [
+    { type: "text", text: "secret" },
+    { type: "text", text: "keep" },
+  ],
+};
+writeBackV1Output(emptyRedaction as never, "secret\nkeep", "");
+assert(
+  JSON.stringify(emptyRedaction.content) ===
+    JSON.stringify([
+      { type: "text", text: "" },
+      { type: "text", text: "keep" },
+    ]),
+  "write-back keeps later parts when redacting to empty",
 );
 
 const unchanged: V2ResultShape = { content: [{ type: "text", text: "same" }] };

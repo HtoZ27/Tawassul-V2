@@ -90,6 +90,15 @@ export const HandoffEntrySchema = z.object({
   decision: RuleDecisionSchema.optional(),
 });
 
+const CapabilityRecordSchema = z.object({
+  agent: z.string().min(1).max(200),
+  capabilities: z.array(z.string().min(1).max(200)),
+  successRates: z.record(z.string(), z.number().min(0).max(1)),
+  attempts: z.record(z.string(), z.number().int().min(0).max(1_000_000)),
+  successes: z.record(z.string(), z.number().int().min(0).max(1_000_000)),
+  lastUpdated: z.string(),
+});
+
 export const AgentRatingSchema = z.object({
   agent: z.string(),
   handoffsInitiated: z.number().int().min(0),
@@ -340,6 +349,7 @@ export const StateSchema = z.preprocess(
       hoffSeq: z.number().int().min(0).optional(),
       agentErrors: z.record(z.string(), z.number().min(0).max(10000)).optional(),
       agentRatings: z.record(z.string(), AgentRatingSchema).optional(),
+      capabilities: z.array(CapabilityRecordSchema).max(500).optional(),
       dynamicAgents: z.array(z.string().min(1).max(100)).optional(),
       agentModelMap: z.record(z.string(), z.string()).optional(),
       sharedMemory: SharedMemorySchema.optional(),

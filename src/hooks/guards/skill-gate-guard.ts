@@ -1,7 +1,11 @@
 
 import { guard, getCurrentAgent } from "./shared.ts";
+import { logger } from "../../utils/logger.ts";
 
 let skillGateEnabled = true;
+
+const EMPTY_RECORD_WARNED: Set<string> = new Set();
+const MAX_EMPTY_RECORD_WARNS = 48;
 
 export const setSkillGateEnabled = (enabled: boolean): void => {
   skillGateEnabled = enabled;
@@ -18,5 +22,12 @@ export const skillGateGuard = guard("skill-gate", (ctx, input) => {
   if (!agent || agent === "tawa") return null;
   const capabilities = ctx.capabilityTracker?.getCapabilities(agent) ?? [];
   if (capabilities.length > 0) return null;
-  return `⏭️ SKIP: agent "${input.agent}" has no registered capabilities in capabilityTracker. Instead of running ${input.tool} directly, route the task via task(desc: '${input.agent}') or update the capability record first.`;
+  if (!EMPTY_RECORD_WARNED.has(agent) && EMPTY_RECORD_WARNED.size < MAX_EMPTY_RECORD_WARNS) {
+    EMPTY_RECORD_WARNED.add(agent);
+    logger.warn("[tawassul] skill gate: managed agent has no capability record — allowing (bootstrap seed fault)", {
+      agent,
+      tool: input.tool,
+    });
+  }
+  return null;
 });

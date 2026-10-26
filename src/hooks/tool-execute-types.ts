@@ -107,6 +107,8 @@ export interface ToolExecuteBeforeContext {
   
   askChannelInstance?: import("../services/ask-channel.ts").AskChannel;
   
+  chatOnlyAsk?: boolean;
+
   chainCtx?: import("../services/chain-ctx.ts").ChainCtx | null;
   
   emitWithChain?: (type: string, payload: Record<string, unknown>) => void;

@@ -1,7 +1,7 @@
 import { betaMean, betaCIExact, ucbTerm } from "./beta-stats.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 
-type AgentCapability = {
+export type AgentCapability = {
   agent: string;
   capabilities: string[];
   
@@ -15,6 +15,27 @@ type AgentCapability = {
 export class CapabilityTracker {
   private agents: Map<string, AgentCapability> = new Map();
   private static DEFAULT_ALPHA = 0.3;
+
+  seedCapability(agent: string, capability: string): void {
+    const agentKey = normalizeName(agent);
+    const declared = capability.trim();
+    if (!agentKey || declared === "") return;
+    let cap = this.agents.get(agentKey);
+    if (!cap) {
+      cap = {
+        agent: agentKey,
+        capabilities: [],
+        successRates: {},
+        attempts: {},
+        successes: {},
+        lastUpdated: new Date().toISOString(),
+      };
+      this.agents.set(agentKey, cap);
+    }
+    if (!cap.capabilities.includes(declared)) {
+      cap.capabilities.push(declared);
+    }
+  }
 
   updateCapability(
     agent: string,
@@ -123,4 +144,54 @@ export class CapabilityTracker {
   getAll(): AgentCapability[] {
     return [...this.agents.values()];
   }
+
+  toJSON(): AgentCapability[] {
+    return this.getAll().map((entry) => ({
+      agent: entry.agent,
+      capabilities: [...entry.capabilities],
+      successRates: { ...entry.successRates },
+      attempts: { ...entry.attempts },
+      successes: { ...entry.successes },
+      lastUpdated: entry.lastUpdated,
+    }));
+  }
+
+  restore(records: readonly AgentCapability[] | undefined): void {
+    this.agents.clear();
+    for (const record of records ?? []) {
+      const agent = normalizeName(record.agent);
+      if (!agent) continue;
+      this.agents.set(agent, {
+        agent,
+        capabilities: [...new Set(record.capabilities ?? [])],
+        successRates: { ...(record.successRates ?? {}) },
+        attempts: { ...(record.attempts ?? {}) },
+        successes: { ...(record.successes ?? {}) },
+        lastUpdated: record.lastUpdated || new Date().toISOString(),
+      });
+    }
+  }
+
+  clear(): void {
+    this.agents.clear();
+  }
+}
+
+export function seedCapabilitiesFromRoster(
+  tracker: CapabilityTracker,
+  agents: Iterable<string>,
+  readCapability: (agent: string) => string | undefined,
+): number {
+  let seeded = 0;
+  const seen = new Set<string>();
+  for (const tag of agents) {
+    const agent = normalizeName(tag);
+    if (!agent || agent === "tawa" || seen.has(agent)) continue;
+    seen.add(agent);
+    const capability = readCapability(agent);
+    if (!capability || capability.trim() === "") continue;
+    tracker.seedCapability(agent, capability);
+    seeded++;
+  }
+  return seeded;
 }

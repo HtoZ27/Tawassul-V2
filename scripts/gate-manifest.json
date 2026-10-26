@@ -35,6 +35,10 @@
       "cmd": ["bun", "scripts/prove-gen-merge-guards.ts"]
     },
     {
+      "name": "gen-guard-wal",
+      "cmd": ["bun", "scripts/prove-gen-guard-wal.ts"]
+    },
+    {
       "name": "roster-boundary",
       "cmd": ["bun", "scripts/prove-roster-boundary.ts"]
     },
@@ -57,6 +61,10 @@
     {
       "name": "s020",
       "cmd": ["bun", "scripts/prove-s020.ts"]
+    },
+    {
+      "name": "e11",
+      "cmd": ["bun", "scripts/prove-e11.ts"]
     },
     {
       "name": "s021",
@@ -133,6 +141,10 @@
     {
       "name": "v2-ask-bridge",
       "cmd": ["bun", "scripts/prove-v2-ask-bridge.ts"]
+    },
+    {
+      "name": "c02",
+      "cmd": ["bun", "scripts/prove-c02.ts"]
     },
     {
       "name": "backup-cap",

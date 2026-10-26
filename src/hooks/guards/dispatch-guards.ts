@@ -19,7 +19,8 @@ import {
   normalizeName,
   isRootLikeAgent,
 } from "./shared.ts";
-import { remaining, checkCap } from "../../services/iteration-budget.ts";
+import { remaining, checkCap, assignTier } from "../../services/iteration-budget.ts";
+import { analyzeEffort } from "../../services/effort-analyzer.ts";
 import { TASK_TOOL_NAMES, GENERAL_REPORT_ONLY_CALLERS } from "../../security-policy.ts";
 import { t } from "../../translations.ts";
 import { logger } from "../../utils/logger.ts";
@@ -202,7 +203,13 @@ export const circuitBreakerGuard = guard("circuit-breaker", (ctx, input, output)
 
 export const budgetGuard = guard("iteration-budget", (_ctx, input, output) => {
   if (!TASK_TOOL_NAMES.includes(input.tool) || !input.agent) return null;
-  for (const agent of getDispatchTargets(input, output)) {
+  const targets = getDispatchTargets(input, output);
+  const desc = output.args?.desc;
+  if (typeof desc === "string" && desc.length > 0) {
+    const tier = analyzeEffort(desc).thinking_effort ?? "moderate";
+    for (const agent of targets) assignTier(agent, input.sessionID, tier);
+  }
+  for (const agent of targets) {
     if (remaining(agent, input.sessionID) <= 0) {
       return `🚫 Agent "${agent}" is out of budget. Try again later or use another agent.`;
     }

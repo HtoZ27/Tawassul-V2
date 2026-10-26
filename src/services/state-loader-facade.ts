@@ -56,6 +56,8 @@ export async function loadAllState(ctx: TawaOrchestratorContext): Promise<void> 
     }
   }
 
+  ctx.capabilityTracker.restore(result.capabilities ?? []);
+
   
   
   

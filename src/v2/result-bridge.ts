@@ -40,6 +40,8 @@ export function writeBackV1Output(result: V2ToolResult, originalText: string, ne
         if (!replaced) {
           nextParts.push({ ...part, text: nextText });
           replaced = true;
+        } else {
+          nextParts.push(part);
         }
         continue;
       }
