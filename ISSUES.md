@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 26 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 27 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 
 Purpose: one durable place for open issues, evidence, and the next action, so
@@ -752,18 +752,22 @@ baseline.
 The six reports were re-checked claim by claim; the full ledger is
 `VERIFICATION-20261026.md` (50 entries: 34 confirmed, 5 partial, 8 refuted
 or not observed, 3 sound). `npm run ci` was re-run on 2026-10-26 and passed
-(25 proof steps, smoke with a real model reply).
+(26 proof steps, smoke with a real model reply).
 
 New defects from that verification, not in the reports:
 
-### C-01 Consent gating is keyed on `bash`, the host sends `shell` — open (P0)
+### C-01 Consent gating is keyed on `bash`, the host sends `shell` — fixed (P0)
 
-`src/hooks/guards/shared/limits.ts:29` only recognizes `bash`, `delete`, and
+`src/hooks/guards/shared/limits.ts` only recognized `bash`, `delete`, and
 `kick`; the v2 host names the command tool `shell`
 (`@opencode/protocol` `"server.shell"`, and the plugin's own metrics record
 `"tool":"shell"`). `requiresConsent("shell", {command:"git push --force"})`
-returns false, so every dangerous-command pattern is unguarded. Next: add
-`shell`, normalize host aliases in one place, and prove a live block.
+returned false, so every dangerous-command pattern was unguarded.
+
+Fixed in `8ccdd9a`: `normalizeToolName` and the v2 bridge canonicalize
+`shell` to `bash` before any guard runs, `CONSENT_TOOLS` also accepts the raw
+alias, and `prove-shell-alias` covers normalization, consent, the dangerous
+pattern guard, and the tawa block. The proof is in `gate:proofs`.
 
 ### B-06 atomic prune evicts the numbered backup chain — open (P1)
 
@@ -878,11 +882,11 @@ Both `gate:smoke` and the full `ci` now pass with the quota exhausted.
 
 - `npm run verify`: `gate:fast` plus the build (`dist/index.js` and `dist/global.js`).
 - `npm run gate:fast`: 6 steps, about 11.7 s.
-- `npm run gate:proofs`: 25 proofs, one child each, about 21.3 s.
-- `npm run gate:smoke`: build + release smoke, about 13.8 s.
-- `npm run ci`: rc=0, 26 `PROOF PASS` (25 proof steps plus the catalog),
-  `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`, about 47 s.
-- Re-verified 2026-10-26: `npm run ci` rc=0, 25 proof steps (24,683 ms),
+- `npm run gate:proofs`: 26 proofs, one child each, about 23.2 s.
+- `npm run gate:smoke`: build + release smoke, about 17.5 s.
+- `npm run ci`: rc=0, 27 `PROOF PASS` (26 proof steps plus the catalog),
+  `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`, about 55 s.
+- Re-verified 2026-10-26: `npm run ci` rc=0, 26 proof steps (23,153 ms),
   `SMOKE PASS` with a real model reply (the provider-refusal branch was not
   exercised). The full claim-by-claim audit is `VERIFICATION-20261026.md`.
 - The baseline above was measured with no `opencode` on PATH: the launcher and
@@ -890,7 +894,7 @@ Both `gate:smoke` and the full `ci` now pass with the quota exhausted.
 - Bundles identical: `dist/index.js` and `.opencode/plugin/tawassul.js`
   (1,858,782 bytes). The opt-in global bundle is `dist/global.js`
   (2,296,549 bytes, self-contained).
-- `prove-global-install` is one of the 25 proof steps: flat layout, bundle
+- `prove-global-install` is one of the 26 proof steps: flat layout, bundle
   hash, four wasm assets, `VERSION` marker, scope detection, v1/legacy
   refusal, unmarked target refusal, `--force`, tamper repair, coexistence
   unit claim, uninstall, dry run, purge, and verify-missing.

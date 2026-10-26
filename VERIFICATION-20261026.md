@@ -13,7 +13,7 @@ the mechanism is real but the stated impact or number is wrong. Several agents
 could not execute commands and reported on-disk claims as unverifiable; this
 ledger re-checked every on-disk claim with shell access.
 
-All IDs in this file are local (`V-01` ... `V-49`). Where an item already
+All IDs in this file are local (`V-01` ... `V-52`). Where an item already
 exists in `ISSUES.md`, the heading names that ID (`register: B-03`). Where the
 verification found a new defect, the heading names the new register ID
 (`new: C-01`).
@@ -32,10 +32,10 @@ check is dead.
 `npm run ci` exited 0:
 
 - fast: 6 steps, pass.
-- proofs: 25 steps, 24,683 ms, `GATE PASS: proofs`.
-- catalog: the 26th `PROOF PASS` (25 proof steps plus the catalog).
+- proofs: 26 steps, 23,153 ms, `GATE PASS: proofs`.
+- catalog: the 27th `PROOF PASS` (26 proof steps plus the catalog).
 - smoke: `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`,
-  15,829 ms.
+  17,472 ms.
 - the smoke actually received a model reply in this run
   (`scratch boot loaded the plugin and replied`), so the provider-refusal
   tolerance branch was not exercised today. The weakened branch still exists;
@@ -55,9 +55,10 @@ does not prove that a model round trip always happens.
 Claim (analyst-deepseek): command-level guards are keyed on `bash`, while the
 v2 host calls the tool `shell`.
 
-Verdict: CONFIRMED, P0.
+Verdict: CONFIRMED, P0. Fixed in `8ccdd9a`; `prove-shell-alias` now covers
+the alias, consent, the dangerous-command guard, and the tawa block.
 
-Evidence:
+Evidence at audit time:
 
 - `src/hooks/guards/shared/limits.ts:29` defines
   `CONSENT_TOOLS = new Set(["bash", "delete", "kick"])`.
@@ -75,9 +76,9 @@ host's own permission layer is the only remaining protection. This violates
 the product rule that the agent must not act destructively on the user's
 behalf.
 
-Next: add `shell` to the consent set (and normalize host aliases in one
-place), then add a live proof that `shell` with a dangerous command blocks
-until the user answers.
+Resolution: `shell` is now canonicalized to `bash` at the hook boundary and
+in the v2 bridge, the consent set also accepts the raw alias, and
+`prove-shell-alias` fails the gate if any of those links regress.
 
 #### V-02 AskChannel select/input still return `undefined` (register: P-01/E-03)
 
