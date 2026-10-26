@@ -14,11 +14,13 @@ KEY_DIR="${TAWASSUL_HMAC_KEY_DIR:-$HOME_DIR/.config/tawassul}"
 KEY_FILE="$KEY_DIR/.tawassul-hmac-key"
 SHARED_DB="$HOME_DIR/.local/share/opencode/opencode.db"
 LAUNCHER_DB="$HOME_DIR/.local/share/tawassul-v2/opencode-v2.db"
+SIDECAR_DB="$HOME_DIR/.local/share/opencode/tawassul-v2/opencode.db"
 CAP_BYTES="${TAWASSUL_DB_CAP_BYTES:-4294967296}"
 case "$CAP_BYTES" in ''|*[!0-9]*) CAP_BYTES=4294967296 ;; esac
 SERVICE_DESC="${XDG_STATE_HOME:-$HOME_DIR/.local/state}/opencode/service.json"
-db_census=""
-db_nonempty=0
+db_canonical=""
+db_secondary=""
+db_unknown=""
 TMPROOT="${TMPDIR:-/tmp/opencode}"
 mkdir -p "$TMPROOT" 2>/dev/null || TMPROOT="/tmp"
 
@@ -130,6 +132,14 @@ if [ -n "$live_db" ]; then
 else
   info "live host DB: unavailable (no running service descriptor)"
 fi
+if [ -n "$live_db" ]; then
+  CANONICAL_DB="$live_db"
+elif [ -n "$db" ]; then
+  CANONICAL_DB="$db"
+else
+  CANONICAL_DB="$SIDECAR_DB"
+fi
+info "canonical DB (single write path): $CANONICAL_DB"
 
 section "database sizes"
 for candidate in "$db" "$SHARED_DB" "$LAUNCHER_DB" "$expected"; do
@@ -189,23 +199,35 @@ else
       mine="$(sqlite3 "$copy" "SELECT COUNT(*) FROM session_v2 WHERE directory = '$root_sql';" 2>/dev/null || printf '?')"
     fi
     info "$label: $mine project session(s) of $total — $src"
-    case "$mine$total" in
-      *[!0-9]*) ;;
-      *)
-        db_census="${db_census}${db_census:+; }${label} ${mine}/${total}"
-        if [ "$total" -gt 0 ]; then db_nonempty=$((db_nonempty + 1)); fi
-        ;;
+    case "$total" in
+      ''|*[!0-9]*) return 0 ;;
     esac
+    if [ "$total" -eq 0 ]; then return 0; fi
+    if [ "$src" = "$CANONICAL_DB" ]; then
+      db_canonical="${db_canonical}${db_canonical:+; }${label} ${mine}/${total}"
+    elif [ "$src" = "$SHARED_DB" ]; then
+      db_secondary="${db_secondary}${db_secondary:+; }${label}(legacy-read-only) ${mine}/${total}"
+    elif [ "$src" = "$LAUNCHER_DB" ]; then
+      db_secondary="${db_secondary}${db_secondary:+; }${label}(test-only) ${mine}/${total}"
+    else
+      db_unknown="${db_unknown}${db_unknown:+; }${label} ${mine}/${total}"
+    fi
   }
 
   if [ -n "$db" ]; then count_db "$db" "OPENCODE_DB"; fi
+  if [ -n "$CANONICAL_DB" ] && [ "$CANONICAL_DB" != "$db" ] && [ "$CANONICAL_DB" != "$expected" ]; then count_db "$CANONICAL_DB" "canonical"; fi
   if [ "$db" != "$SHARED_DB" ]; then count_db "$SHARED_DB" "shared"; fi
   if [ "$db" != "$LAUNCHER_DB" ]; then count_db "$LAUNCHER_DB" "launcher"; fi
   if [ -n "$expected" ] && [ "$db" != "$expected" ]; then count_db "$expected" "hmac-isolated"; fi
-  if [ "$db_nonempty" -gt 1 ]; then
-    fail "multiple databases contain sessions ($db_census) — only the canonical OPENCODE_DB is visible to the host (D-01)"
-  elif [ "$db_nonempty" -eq 1 ]; then
-    pass "one database contains sessions ($db_census)"
+  if [ -n "$db_unknown" ]; then
+    fail "an undeclared database contains sessions ($db_unknown) — only the canonical DB, the legacy shared copy, and the test copy are allowed (D-01)"
+  elif [ -z "$db_canonical" ] && [ -n "$db_secondary" ]; then
+    fail "the canonical DB has no sessions while a legacy/test copy does ($db_secondary) — those sessions are invisible; import required (D-02)"
+  elif [ -n "$db_canonical" ]; then
+    pass "one canonical session DB: $db_canonical"
+    if [ -n "$db_secondary" ]; then
+      warn "non-canonical session copies are present and must stay read-only for D-02: $db_secondary"
+    fi
   else
     info "no sessions found in the probed databases"
   fi

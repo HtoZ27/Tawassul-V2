@@ -67,9 +67,8 @@ assert(launcher.includes('GUARD="$V2_REPO/scripts/guard-db-generation.sh"'), "la
 assert(!/tawassyl/i.test(launcher), "launcher has no v1 reference");
 
 const foreignRef = /Desktop\/tawassyl|\.\.\/tawassyl|plugins\/tawassul\//;
-const transferTools = new Set(["scripts/check-shared-anchors.mjs", "scripts/port-from-v1.mjs"]);
 const scriptFiles = [...walk(join(repo, "scripts"), ".ts"), ...walk(join(repo, "scripts"), ".sh")];
-const scriptHits = scriptFiles.filter((file) => !transferTools.has(rel(file)) && foreignRef.test(text(file)));
+const scriptHits = scriptFiles.filter((file) => foreignRef.test(text(file)));
 assert(
   scriptHits.length === 0,
   `shipped scripts have no v1 tree reference (found ${scriptHits.map(rel).join(", ") || "none"})`,
