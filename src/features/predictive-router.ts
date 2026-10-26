@@ -395,7 +395,6 @@ export class PredictiveRouter {
       performance: this.getAllPerformance(),
       explorationFactor: this.explorationFactor,
       totalRoutings: this.totalRoutings,
-      exportedAt: Date.now(),
     };
     return JSON.stringify(data);
   }
