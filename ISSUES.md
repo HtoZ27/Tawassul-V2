@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 57 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 58 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -2116,17 +2116,25 @@ because nothing read it. `prove-e35` covers the adapter round-trip, the
 after-hook edit and clear paths, and the reduced direct-response schema
 (18 assertions).
 
-#### E-36 A failed crawl is returned as a successful result — open (P2)
+#### E-36 A failed crawl is returned as a successful result — done (2026-10-26)
 
-`src/tools/web.ts:849-865` breaks the poll loop on `failed` or `cancelled`
-and then returns a normal result with `title: "🕸️ Web Crawl"` and the status
+`src/tools/web.ts:849-865` broke the poll loop on `failed` or `cancelled`
+and then returned a normal result with `title: "🕸️ Web Crawl"` and the status
 encoded only in prose. No throw, no error metadata, no cache entry.
 
-Impact: combined with E-14, a failed multi-page crawl is recorded as a
-success and is indistinguishable from a legitimately empty site without
+Impact: combined with E-14, a failed multi-page crawl was recorded as a
+success and was indistinguishable from a legitimately empty site without
 parsing the text.
 
-Next: return an error result for `failed`/`cancelled`.
+Resolved 2026-10-26: the crawl now throws `WebTerminalError` with the upstream
+reason as soon as the status is `failed` or `cancelled`, and the tool's outer
+catch rethrows that error after cleaning up temp outputs, so the host records
+the call as an error result. A completed crawl still returns its pages, a
+completed crawl with no pages is still a normal empty result, and a
+non-terminal Firecrawl failure (for example a failed start request) keeps the
+readable error result it had before. `prove-e36` drives the real web tool
+against a stubbed Firecrawl server across the failed, cancelled, completed,
+empty, and non-terminal cases (10 assertions).
 
 #### E-37 The v2 type shim is weaker than the host contract — open (P2)
 

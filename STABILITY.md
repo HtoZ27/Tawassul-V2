@@ -15,17 +15,17 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **34 are open**.
+with 99 entries, of which **33 are open**.
 
 ## The filter
 
-34 open items sound like 34 problems. They are not the same kind of problem:
+33 open items sound like 33 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
 | S0 | Does the plugin work at all? | 1 |
 | S1 | Does it lose or corrupt data silently? | 0 |
-| S2 | Does it tell the truth about what happened? | 1 |
+| S2 | Does it tell the truth about what happened? | 0 |
 | S3 | Does it start reliably and quickly? | 9 |
 | S4 | Can it be made to do something it should not? | 6 |
 | S5 | Can we prove any of the above? | 13 |
@@ -41,10 +41,6 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | ID | Defect | Why it blocks |
 | --- | --- | --- |
 | `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
-
-## S2 — features silently dead or lying (1)
-
-`E-36` failed crawl returned as success.
 
 ## S3 — boot and startup (9)
 
@@ -77,8 +73,8 @@ entry, and no hook may turn a `bash` infrastructure error into a hard block.
 
 ## The two clusters
 
-The 7 entries in S0–S2 are not 7 independent jobs. They collapse into two
-engineering clusters, each of which is one coherent change.
+The persistence and guard work is not a set of independent jobs. It collapses
+into two engineering clusters, each of which is one coherent change.
 
 | Cluster | Members | One change |
 | --- | --- | --- |
@@ -110,9 +106,10 @@ bridge, and `E-38` closes the bridge by awaiting the refresh before disposal.
 `E-18` makes guard decisions propagate while infrastructure faults stay
 fail-open with an audit line, `E-02` applies the permission repair at boot so a
 stale config is fixed, `E-25` refuses an unavailable question instead of
-answering it, `E-29` counts one web breaker failure per request, and `E-33`
-routes questions and notices through the transcript instead of a fake TUI. Next
-is the last tool fix (`E-36`).
+answering it, `E-29` counts one web breaker failure per request, `E-33` routes
+questions and notices through the transcript instead of a fake TUI, and `E-36`
+reports a failed or cancelled crawl as an error instead of a successful result.
+No S2 item is open.
 
 **Wave 4 — boot (S3, 2 days).** `B-01`, `B-02`, `B-03`, `B-05`, then the
 proofs `G-04`, `I-07`, `I-08`, `I-10`.
@@ -203,6 +200,8 @@ today.
   single bad URL no longer closes the whole web surface for a minute;
   `E-33` (S2) — the client shim no longer advertises a v1 TUI it cannot reach,
   so questions and rate-limit notices land in the transcript and `serverUrl`
-  keeps the host port instead of being hardcoded to `undefined`.
+  keeps the host port instead of being hardcoded to `undefined`; `E-36` (S2) —
+  a failed or cancelled crawl throws instead of returning a normal result, so
+  the host records the tool call as an error.
 - The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
   Wave 2 and should be re-scoped to the wave boundaries above.
