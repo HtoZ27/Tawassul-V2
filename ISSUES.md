@@ -554,9 +554,10 @@ reply, health + help`.
 
 ## Data and state (P1)
 
-### D-01 Three database paths — deferred by owner (2026-10-25)
+### D-01 Three database paths — resolved by role assignment (2026-10-26)
 
-Re-raised by evaluation finding E-08; the decision below is unchanged.
+Re-raised by evaluation finding E-08; the owner adopted the recommended roles
+on 2026-10-26.
 
 Owner instruction (2026-10-25): this plugin ships to end users. A missing
 session is data the user cannot recover, so the defect must be removed
@@ -577,9 +578,8 @@ Re-measured 2026-10-26 05:28: sidecar 22 `session_v2` rows, 2,541
 `session_message` rows, 5 `project` rows, 29,343,744 bytes plus a 10,460,712
 byte WAL (39,804,456 total); shared 14 `session_v2` plus 2 legacy `session`
 rows and 1,268 `session_message` rows, 24,780,800 bytes; launcher 14
-`session_v2` rows, 13,627,392 bytes, no `session` table. The doctor exits 1:
-`multiple databases contain sessions (OPENCODE_DB 22/22; shared 14/14;
-launcher 14/14)`. The 13/14/14 figure in the 2026-10-25 note is obsolete.
+`session_v2` rows, 13,627,392 bytes, no `session` table. The 13/14/14 figure
+in the 2026-10-25 note is obsolete.
 
 Schema check against the OpenCode 2.1.4 reference
 (`extracted_files/opt/OpenCode/resources/app.asar` and `opencode-cli`): the
@@ -591,44 +591,43 @@ therefore follows the same rule. The live v2 schema has **no** `message` or
 the legacy schema would have failed after taking a backup.
 
 The Desktop descriptor points every client at the sidecar, so the CLI and
-launcher paths are only used by isolated runs. Unifying them needs an explicit
-decision because it touches live sessions.
+launcher paths are only used by isolated runs.
 
-Measured on 2026-10-25, the sidecar already uses the dedicated DB, and the
-three files carry three different roles rather than three competing choices.
-Recommendation (not adopted): sidecar DB canonical, shared DB legacy read-only
-for the D-02 import, launcher DB test-only. Nothing would be deleted or moved.
-Owner deferred the decision; the three paths stay as they are.
+Decision (2026-10-26): the owner adopted the recommendation. The sidecar DB
+is the canonical single write path; the shared DB is legacy read-only for the
+D-02 import; the launcher DB is test-only. Nothing is deleted or moved.
+`scripts/doctor-v2.sh` now prints the canonical DB, labels the two
+non-canonical copies, passes when sessions exist only in those declared
+roles, and fails when an undeclared database holds sessions or when the
+canonical DB is empty while a copy holds them. The host still sees only the
+sidecar; recovering the 14 shared and 14 launcher sessions is D-02.
 
-Next: the owner names the three roles (pending decision 5). Until then this
-issue has no engineering action.
+Next: D-02 decides whether the legacy copies are imported; until then they
+stay read-only.
 
 ### D-02 Old sessions are not imported — open
 
 Source: `/home/htoz/Videos/New Folder/` (old DBs, storage, snapshots).
-Next: import only after D-01 is decided (pending decision 5), with a backup
-and a generation guard, and keep the import read-only.
+Next: decide the import scope now that D-01 roles are settled, take a verified
+backup, apply the generation guard, and keep the import read-only.
 
-### D-03 Project state moved to `.opencode` but root leftovers remain — open
+### D-03 Project state moved to `.opencode` but root leftovers remain — done (2026-10-26)
 
 E-06 fixed the write path: `stateFile` is
 `join(projectStateDir, fileName)` in `src/bootstrap/service-factory.ts:196`,
-so new state lands under `<project>/.opencode`. The root
-`collective-memory-515c5c5d.json` and its empty `.bak` are old leftovers;
-they are untracked and need owner approval before deletion.
+so new state lands under `<project>/.opencode`.
 
-Scan run 2026-10-26: the root holds exactly three leftovers —
+Scan run 2026-10-26: the root held exactly five leftovers —
 `collective-memory-515c5c5d.json` (2,752 bytes) plus a zero-byte
 `.bak.1792903295011.eb0c96a3c9c8`, and `cost-transparency.json` (25,718 bytes)
 plus two backups (24,216 and 24,563 bytes). No `trust-score*` or
-`background-coordinator*` files exist. The scratch area also holds 1.09 GB:
-four `v1tree-*` probe copies at 234–238 MB each (~946 MB total), plus
-`dual-v1` (8.6 MB), `smoke-run` (16 MB), `global-e2e` (23 MB),
-`gtttt-probe` (23 MB), `global-probe` (20 MB), `pkg-probe` (8.7 MB),
-`pkg-shape-probe` (6.8 MB), and `tawassul-v2` (7.6 MB).
+`background-coordinator*` files existed. The root copies were older than the
+live `.opencode` files, and nothing in the tree reads them.
 
-Next: delete the root leftovers and the scratch directories with owner
-approval (pending decision 6). Nothing in the current tree reads them.
+Resolved 2026-10-26: all five root leftovers were deleted with owner
+approval. The scratch area was also cleaned (1.09 GB under `/tmp/opencode`,
+including four `v1tree-*` copies at ~946 MB total). The live copies remain
+under `.opencode`.
 
 ### D-04 DB maintenance could mutate the wrong DB or schema — fixed (2026-10-26)
 
@@ -664,8 +663,9 @@ Fixed in `scripts/opencode-db-maintenance.sh` and
 Evidence: isolated proof passes; a real-schema copy of the live DB completed
 full maintenance with a verified backup (`session_v2=21`, `session=0`,
 `session_message=2519`), all protected counts unchanged, and 38 MB → 22 MB;
-the full `npm run ci` passes. D-01 stays open: the canonical path is still
-the owner's decision.
+the full `npm run ci` passes. D-01 roles were adopted on 2026-10-26: the
+sidecar is canonical, the shared DB is legacy read-only, and the launcher DB
+is test-only.
 
 ---
 
@@ -799,11 +799,13 @@ dynamic paths, and never boots with the v1 tree unreachable. It also misses
 the v1 tree's bootable package entry (H-09). Next: the expanded action is
 P-04; this entry adds the H-09 case to it.
 
-### E-08 Three database paths — deferred by owner (D-01)
+### E-08 Three database paths — resolved by role assignment (D-01)
 
-Original severity: major. Unchanged. The evaluation cites the 2026-10-25
-"cannot find this session" incident (`RECOVERY-20261025.md`). D-01 keeps the
-recommendation without moving files; the action is pending decision 5.
+Original severity: major. The evaluation cites the 2026-10-25
+"cannot find this session" incident (`RECOVERY-20261025.md`). D-01 adopted
+the recommendation on 2026-10-26 without moving files: sidecar canonical,
+shared legacy read-only, launcher test-only. The doctor enforces the roles
+and rejects undeclared session DBs; the legacy rows stay for D-02.
 
 ### E-09 SDK pin mismatch — fixed; agreement check in G-07
 
@@ -917,12 +919,12 @@ The gate result is not an artifact; the 2026-10-26 run is recorded in
 
 Corrections to existing entries:
 
-- B-03 now records 2,717,354 bytes and 1,908 runs (2026-10-26).
+- B-03 now records 3,288,019 bytes and 1,909 runs (2026-10-26 05:28).
 - B-04 cleanup arithmetic is corrected to 33 `.bak.*` plus 75 `*.tmp`.
-- D-01 now records 19/14/14 sessions at audit time and 21/14/14 at the
-  final check (2026-10-26).
-- G-09 is weakened: the smoke can still pass without a model reply; today it
-  did reply.
+- D-01 records 22/14/14 at the final check; the owner adopted the
+  canonical/legacy/test roles on 2026-10-26 (2026-10-26).
+- G-09 is tightened: a boot-only run is labelled, and
+  `TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY=1` makes it exit 5.
 - E-02: `plugin.config` is uninvoked, but dynamic model repair does run via
   `repairProjectConfigBoot`; only permission repair is missing.
 
@@ -942,29 +944,26 @@ Corrections to existing entries:
    `*.retired-20261024` files, and the six inert `dist`-only
    `.opencode/plugins/tawassul/` package dirs (`athan new vrsion`,
    `ciel-osk-workspace`, `dart22222222`, `vpro`, `vusial 2`, `vusual`).
-4. Delete the `/tmp/opencode` artifacts from this work: `global-probe`
-   (20 MB), `global-e2e` (23 MB), `pkg-probe` (8.7 MB),
-   `build-global-test` (2.2 MB), `build-self` (3.0 MB), `bundled-probe`
-   (404 KB), `pkg-shape-probe`, `gtttt-probe`, `v1tree-probe`,
-   `v1tree-verify`, `name-shape-probe`, `parse-test.ts`, and `ci-full.log`; also
-   the older `smoke-probe`
-   (orphan stopped, port 38335 closed), the dangling
-   `opencode-v1-bun-symlink-20261025`, and
-   `global-config-v1-backup-20261025`. The `~/.opencode` tree was already
-   deleted in H-02; there is no backup of it under `/tmp/opencode` (the
-   earlier pending text was wrong). `schema-payload` was deleted on
-   2026-10-25 after the quota diagnosis. `v1-retire-backup` (six old
-   `opencode.json` copies) needs a separate keep/delete decision.
-5. D-01: name the sidecar DB canonical, the shared DB legacy read-only, and the
-   launcher DB test-only. No file is deleted. Deferred on 2026-10-25.
-6. Keep or drop the untracked `scripts/check-shared-anchors.mjs`,
-   `scripts/port-from-v1.mjs`, and `test-utils.ts`, plus the root
-   `collective-memory*` files.
+4. ~~Delete the `/tmp/opencode` artifacts~~ — done 2026-10-26. All scratch
+   under `/tmp/opencode` was removed (about 1.09 GB, including the four
+   `v1tree-*` copies and the probe/build directories); the directory is empty.
+   The remaining exit items are P-07 (external v1 trees) and the real global
+   install (I-01).
+5. ~~D-01 roles~~ — done 2026-10-26. The sidecar is canonical, the shared DB
+   is legacy read-only for D-02, and the launcher DB is test-only; no file was
+   deleted or moved. `doctor-v2.sh` prints the canonical DB, labels the
+   non-canonical copies, and fails on an undeclared session DB.
+6. ~~Keep or drop the untracked `scripts/check-shared-anchors.mjs`,
+   `scripts/port-from-v1.mjs`, and `test-utils.ts`~~ — done 2026-10-26. All
+   three were deleted; the two transfer tools referenced the retired v1 tree
+   and the independence proof no longer whitelists them. The root
+   `collective-memory*` and `cost-transparency*` leftovers were deleted with
+   their backups; the live copies are under `.opencode`.
 7. Legacy state residue (done 2026-10-25): the 75 stale `*.tmp` files and the
    extra `.bak.*` files under `~/.config/tawassul/state/` were removed with the
    B-04 cleanup; the single remaining router file stays as the permitted
-   read-only legacy fallback. Its root-level siblings (`cost-transparency.json`,
-   `collective-memory-515c5c5d.json`) are still pending under item 6.
+   read-only legacy fallback. Its root-level siblings were deleted on
+   2026-10-26 under item 6.
 
 ## Verification baseline (for regression)
 

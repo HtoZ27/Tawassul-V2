@@ -128,9 +128,11 @@ stabilizing. Owner decision still pending.
 
 Round 2 (2026-10-26 05:28): sidecar 22 `session_v2` / 2,541
 `session_message`, 29,343,744 bytes + 10,460,712 WAL; shared 14 / 2 legacy
-/ 1,268, 24,780,800 bytes; launcher 14, 13,627,392 bytes. The doctor exits 1
-on `OPENCODE_DB 22/22; shared 14/14; launcher 14/14`. The live v2 schema has
-no `message`/`part`; history is `session_message` (register D-04).
+/ 1,268, 24,780,800 bytes; launcher 14, 13,627,392 bytes. The owner adopted
+the role assignment: sidecar canonical, shared legacy read-only, launcher
+test-only. The doctor now passes with `one canonical session DB` and warns
+that the 14+14 copies stay read-only for D-02. The live v2 schema has no
+`message`/`part`; history is `session_message` (register D-04).
 
 #### V-05 Sidecar session count drifted (register: D-01)
 
@@ -747,10 +749,10 @@ smoke 42 tools with a model reply).
 | G-09 smoke passes without a reply | Confirmed | Tightened; labelled pass + opt-in exit 5 | `release-smoke.sh` |
 | D-04 maintenance target/schema | New in round 2 | Fixed: explicit target, allowlist, census, cap | `prove-db-retention` PASS |
 | B-03 log size | 2.72 MB / 1,908 runs | 3,288,019 bytes / 1,909 runs | live file |
-| D-01 three DBs | 19/14/14 → 21/14/14 | 22/22, 14/14, 14/14; doctor exits 1 | `doctor-v2.sh` |
+| D-01 three DBs | 19/14/14 → 21/14/14 | Roles adopted: canonical/legacy/test; doctor passes with a warning | `doctor-v2.sh` |
 | H-04 descriptor | Done | Live PID 1537214, URL `127.0.0.1:49374` | `service.json` + `/proc` |
 | E-01 `blockTool` | Fixed | 8 occurrences: 1 definition + 7 calls | `tool-execute.ts` |
-| D-03 root leftovers | Open, scan missing | Scan done: 3 root files, 1.09 GB `/tmp` | `stat`, `du` |
+| D-03 root leftovers | Open, scan missing | Five root files deleted; 1.09 GB `/tmp` cleaned | `stat`, `du`, `git status` |
 
 ### D-04 DB protection evidence
 
@@ -770,5 +772,5 @@ A real-schema copy of the live sidecar completed full maintenance: backup
 verified `session_v2=21`, `session=0`, `session_message=2519`; protected
 counts unchanged; 38 MB → 22 MB DB+WAL. The live file was not mutated.
 
-Remaining owner decisions: D-01 canonical DB, D-02 import, P-07 v1 trees,
-D-03 cleanup, and the real global install (I-01).
+Remaining owner decisions: D-02 import, P-07 v1 trees, and the real global
+install (I-01). D-01 roles and D-03 cleanup were executed on 2026-10-26.
