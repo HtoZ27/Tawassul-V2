@@ -226,7 +226,7 @@ else
   elif [ -n "$db_canonical" ]; then
     pass "one canonical session DB: $db_canonical"
     if [ -n "$db_secondary" ]; then
-      warn "non-canonical session copies are present and must stay read-only for D-02: $db_secondary"
+      warn "non-canonical session copies are retained read-only; the D-02 import is complete: $db_secondary"
     fi
   else
     info "no sessions found in the probed databases"
