@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 44 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 45 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1614,22 +1614,29 @@ rotation guard, the read-only save, and the healed write that resumes rotation
 
 ### New P1
 
-#### E-14 Tool failures are recorded as successes — open (P1)
+#### E-14 Tool failures are recorded as successes — done (2026-10-26)
 
-`src/v2/setup.ts:292-307` receives the host's `execute.after` payload, which
+`src/v2/setup.ts:292-307` received the host's `execute.after` payload, which
 carries `status: "completed" | "error"` (authoritative in
-`node_modules/@opencode/plugin/dist/promise/tool.d.ts`), but maps both
-branches to the same v1 shape with `title: ""`. The v1 side then infers
-success from a non-empty output string (`src/hooks/tool-execute.ts:166`
-onward). A v2 error result is non-empty, so every failure is counted as a
-success.
+`node_modules/@opencode/plugin/dist/promise/tool.d.ts`), but mapped both
+branches to the same v1 shape with `title: ""`. The v1 side then inferred
+success from a non-empty output string. A v2 error result is non-empty, so
+every failure was counted as a success.
 
 Impact: agent health, capability success rate, rating, dedup, and the circuit
-breaker all consume this bit. A consistently failing agent is promoted, and a
-broken tool never trips the breaker.
+breaker all consume this bit. A consistently failing agent was promoted, and a
+broken tool never tripped the breaker.
 
-Next: carry `status` through the adapter and use it as the success signal;
-keep the string heuristic only as a fallback for v1-shaped results.
+Resolved 2026-10-26: the adapter already tagged the v1 metadata with
+`status: "error" | "completed"` (synthetic when the tool set none); the
+consumer now reads it. `src/hooks/tool-execute.ts` decides `success` from
+`metadata.status` first and only falls back to the non-empty-output heuristic
+when the result carries no recognised status, so v1-shaped results keep their
+old meaning. `prove-e14` drives the real after hook: an error result with a
+long message is logged as an error and three of them trip the tool-loop guard,
+a completed result with empty text counts as a success and clears that count,
+and untagged or unrecognised statuses fall back to the string heuristic
+(11 assertions).
 
 #### E-15 Streaming, auto-save, and notifiers listen for v1 events — open (P1)
 
