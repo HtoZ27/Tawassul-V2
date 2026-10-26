@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 46 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 47 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1971,20 +1971,26 @@ Next: compare with `path.relative` plus a separator check, resolve the parent
 directory rather than the file, and write the temp file inside the target
 directory.
 
-#### E-31 Event metrics are written to a collector that is thrown away — open (P2)
+#### E-31 Event metrics are written to a collector that is thrown away — done (2026-10-26)
 
-`src/context-class.ts:190` initialises `metricsCollector = new
-MetricsCollector()` with no path. The constructor passes it to
+`src/context-class.ts:190` initialised `metricsCollector = new
+MetricsCollector()` with no path. The constructor passed it to
 `new EventHub(this.timerManager, this.metricsCollector)` (`:423`) and then
-replaces the field with a path-backed collector (`:429`). `EventHub` keeps the
+replaced the field with a path-backed collector (`:429`). `EventHub` kept the
 original reference, and `MetricsCollector.saveToDisk()` returns early when
 `filePath` is null.
 
 Impact: `eventhub.dlq.added`, `eventhub.backpressure.drop`, and
 `eventhub.emitwait.timeout` — the only signals that listeners are failing or
-events are being dropped — are permanently unobservable.
+events are being dropped — were permanently unobservable.
 
-Next: construct the path-backed collector first and pass it to `EventHub`.
+Resolved 2026-10-26: the path-backed collector is built right after the
+install scope is known and before `EventHub` is constructed, so the hub and
+the context field are the same object; the later reassignment is gone.
+`prove-e31` builds a real context, emits an event whose listener throws,
+asserts `eventhub.dlq.added` lands on the context collector, saves it and
+reads the counter back from `metrics.json`, then checks a second context pairs
+its own hub and starts with no inherited count (8 assertions).
 
 #### E-32 The proof catalog enforces floors, not exact counts — open (P2)
 
