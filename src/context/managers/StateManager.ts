@@ -227,6 +227,12 @@ export class StateManager {
     } catch {
       return;
     }
+    if (this.rejectedStateFiles.has(fp)) {
+      logger.warn(
+        `[tawassul] Backup rotation skipped: ${fp} was rejected, so it must never overwrite .bak.0`,
+      );
+      return;
+    }
 
     
     try {
@@ -294,6 +300,21 @@ export class StateManager {
   
   private _lastWrittenJson: Map<string, string> = new Map();
   private static readonly MAX_LAST_WRITTEN = 8;
+  private rejectedStateFiles: Map<string, string> = new Map();
+
+  getRejectedStateFiles(): Array<{ path: string; reason: string }> {
+    return [...this.rejectedStateFiles.entries()].map(([path, reason]) => ({ path, reason }));
+  }
+
+  private markRejected(path: string, reason: string): null {
+    this.rejectedStateFiles.set(path, reason);
+    logger.warn(`State file rejected: ${path} (${reason})`);
+    return null;
+  }
+
+  private markReadable(path: string): void {
+    this.rejectedStateFiles.delete(path);
+  }
 
   
   
@@ -406,6 +427,7 @@ export class StateManager {
     }
     await atomicWriteFile(fp, signedPayload);
     this.setLastWritten(fp, jsonPayload);
+    this.markReadable(fp);
     this._readOnly = false;
     return true;
   }
@@ -417,10 +439,14 @@ export class StateManager {
       throw new Error(space.error);
     }
 
+    if (this.rejectedStateFiles.has(fp)) {
+      await this.quarantineCopy(fp);
+    }
     await this.rotateBackups(fp);
 
     await atomicWriteFile(fp, signedPayload);
     this.setLastWritten(fp, jsonPayload);
+    this.markReadable(fp);
     this._readOnly = false;
   }
 
@@ -429,6 +455,13 @@ export class StateManager {
   
   async getDiskRevision(fp: string = this.statePathFn()): Promise<number> {
     const data = await this.tryLoadFile(fp);
+    if (!data) {
+      const reason = this.rejectedStateFiles.get(fp) ?? "missing";
+      logger.warn(
+        `[tawassul] No readable primary state file (${reason}); using the loaded revision ${this._knownRevision}`,
+      );
+      return this._knownRevision;
+    }
     const meta = (data as { _meta?: { revision?: number } } | null)?._meta;
     return typeof meta?.revision === "number" ? meta.revision : 0;
   }
@@ -585,6 +618,7 @@ export class StateManager {
     try {
       await access(path);
     } catch {
+      this.markReadable(path);
       return null;
     }
     try {
@@ -593,8 +627,7 @@ export class StateManager {
       
       const verifiedPayload = unwrapWithHmac(fileContent);
       if (verifiedPayload === null) {
-        logger.warn(`State file rejected: ${path}`);
-        return null;
+        return this.markRejected(path, "hmac");
       }
 
       const rawData = JSON.parse(verifiedPayload) as Record<string, unknown>;
@@ -612,12 +645,14 @@ export class StateManager {
 
       
       if (!isFreeOfPrototypePollution(rawData)) {
-        logger.warn("BLOCKED: Prototype pollution detected in state file, rejecting");
-        return null;
+        return this.markRejected(path, "prototype-pollution");
       }
       const migratedData = migrateStateData(rawData);
       const validation = this.validateStateData(migratedData);
-      if (validation.valid) return validation.sanitized;
+      if (validation.valid) {
+        this.markReadable(path);
+        return validation.sanitized;
+      }
       logger.warn("State validation failed:", validation.errors);
       
       
@@ -631,12 +666,15 @@ export class StateManager {
             `and ${sanitized.droppedEvidenced} evidenced discussion(s)`,
         );
         const healedValidation = this.validateStateData(sanitized.data);
-        if (healedValidation.valid) return healedValidation.sanitized;
+        if (healedValidation.valid) {
+          this.markReadable(path);
+          return healedValidation.sanitized;
+        }
       }
-      return null;
+      return this.markRejected(path, "schema");
     } catch (e) {
       logger.warn(t("loadStateFailed"), e);
-      return null;
+      return this.markRejected(path, "unreadable");
     }
   }
 
@@ -689,6 +727,13 @@ export class StateManager {
 
     
     data = await this.tryLoadFile(fp);
+    const primaryRejection = this.rejectedStateFiles.get(fp);
+    if (primaryRejection) {
+      await this.quarantineCopy(fp);
+      logger.error(
+        `[tawassul] The canonical state file ${fp} exists but was rejected (${primaryRejection}); recovering from the newest readable backup. The rejected file is quarantined and is never rotated over .bak.0.`,
+      );
+    }
 
     
     if (!data) {
