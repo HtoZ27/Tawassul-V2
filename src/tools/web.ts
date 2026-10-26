@@ -486,8 +486,10 @@ async function firecrawlPost(
       _firecrawlBreaker.recordSuccess("firecrawl");
       return parsed;
     } catch (e) {
-      _firecrawlBreaker.recordFailure("firecrawl");
-      if (attempt === maxRetries || signal?.aborted || isClientError(e)) throw e;
+      if (attempt === maxRetries || signal?.aborted || isClientError(e)) {
+        if (!signal?.aborted) _firecrawlBreaker.recordFailure("firecrawl");
+        throw e;
+      }
       await new Promise((r) => setTimeout(r, jitteredDelay(Math.min(1000 * 2 ** attempt, 10_000))));
     }
   }
@@ -517,8 +519,10 @@ async function firecrawlGet(path: string, signal?: AbortSignal, maxRetries = 2):
       _firecrawlBreaker.recordSuccess("firecrawl");
       return parsed;
     } catch (e) {
-      _firecrawlBreaker.recordFailure("firecrawl");
-      if (attempt === maxRetries || signal?.aborted || isClientError(e)) throw e;
+      if (attempt === maxRetries || signal?.aborted || isClientError(e)) {
+        if (!signal?.aborted) _firecrawlBreaker.recordFailure("firecrawl");
+        throw e;
+      }
       await new Promise((r) => setTimeout(r, jitteredDelay(Math.min(1000 * 2 ** attempt, 5_000))));
     }
   }
