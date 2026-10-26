@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 47 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 48 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1638,20 +1638,32 @@ a completed result with empty text counts as a success and clears that count,
 and untagged or unrecognised statuses fall back to the string heuristic
 (11 assertions).
 
-#### E-15 Streaming, auto-save, and notifiers listen for v1 events — open (P1)
+#### E-15 Streaming, auto-save, and notifiers listen for v1 events — done (2026-10-26)
 
-`src/hooks/tool-output-stream.ts:86` and `:100` match
+`src/hooks/tool-output-stream.ts:86` and `:100` matched
 `message.part.delta` and `message.part.updated`. The v2 host emits
 `session.text.*`, `session.tool.*`, and `session.execution.*`
-(`src/v2/event-adapter.ts` maps only part of the family). On the supported
-host the stream therefore never sees a delta.
+(`src/v2/event-adapter.ts` mapped only the execution family). On the supported
+host the stream therefore never saw a delta.
 
-Impact: live tool output, auto-save triggers, compression triggers, and
-background notifications are silent on v2 while appearing healthy in tests
-that feed synthetic v1 events.
+Impact: live tool output was silent on v2 while appearing healthy in tests
+that fed synthetic v1 events. `n2-auto` already read `session.text.*`
+natively, so auto-save and compression kept working.
 
-Next: map the v2 families in the adapter and delete the v1 listeners from the
-v2 path; add a proof that a real `session.tool.*` event reaches the stream.
+Resolved 2026-10-26: the adapter now maps the text and tool families —
+`session.text.delta` to `message.part.delta`, and `session.tool.called`,
+`.progress`, `.success`, `.failed` to `message.part.updated` with a `tool`
+part whose state moves from `running` to `completed` or `error`. The v2 tool
+events carry only a call id, so the setup bridge records `id -> tool` in
+`execute.before` (capped at 500 entries) and passes a `toolOf` resolver to the
+mapper; a call with no recorded name maps to a part the stream skips instead
+of printing the wrong label. Every mapped event is still preceded by the raw
+v2 event, so the v2-native listeners keep their input. The stream hook gained
+an injectable `logLine` so the proof observes the emitted lines.
+`prove-e15` runs the called/progress/success/failed sequence through the real
+mapper and the real hook, asserts the head is printed once and the tail only
+once, checks the untracked and failed cases, and keeps a v1-shaped part
+working (15 assertions).
 
 #### E-16 The write-back drops later text parts — done (2026-10-26)
 
