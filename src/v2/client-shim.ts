@@ -37,6 +37,14 @@ function isNoReply(input: unknown): boolean {
   return (input as TranscriptPromptInput).body?.noReply === true;
 }
 
+function deliverWithoutReply(ctx: V2Context, sessionID: string, text: string): Promise<unknown> | undefined {
+  if (!ctx.session.synthetic) {
+    logger.warn("[tawassul] v2 shim: noReply requested but session.synthetic is unavailable; dropping the message");
+    return undefined;
+  }
+  return ctx.session.synthetic({ sessionID, text });
+}
+
 function buildSessionClient(ctx: V2Context) {
   return {
     prompt: async (input: unknown): Promise<unknown> => {
@@ -44,17 +52,18 @@ function buildSessionClient(ctx: V2Context) {
       if (!sessionID) return undefined;
       const text = readTranscriptText(input).trim();
       if (!text) return undefined;
-      const delivery = isNoReply(input) ? "queue" : "steer";
-      return ctx.session.prompt({ sessionID, text, delivery });
+      if (isNoReply(input)) return deliverWithoutReply(ctx, sessionID, text);
+      return ctx.session.prompt({ sessionID, text, delivery: "steer" });
     },
     promptAsync: async (input: unknown): Promise<unknown> => {
       const sessionID = readTranscriptId(input);
       if (!sessionID) return undefined;
       const text = readTranscriptText(input).trim();
       if (!text) return undefined;
-      const delivery = isNoReply(input) ? "queue" : "steer";
-      const pending = ctx.session.prompt({ sessionID, text, delivery });
-      pending.catch(() => undefined);
+      const pending = isNoReply(input)
+        ? deliverWithoutReply(ctx, sessionID, text)
+        : ctx.session.prompt({ sessionID, text, delivery: "steer" });
+      pending?.catch(() => undefined);
       return pending;
     },
   };

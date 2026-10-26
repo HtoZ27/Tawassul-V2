@@ -51,6 +51,7 @@ export type V2SessionEvent = {
 
 export type V2Session = {
   prompt: (input: { sessionID: string; text: string; delivery?: "steer" | "queue" }) => Promise<unknown>;
+  synthetic?: (input: { sessionID: string; text: string; description?: string }) => Promise<unknown>;
   interrupt: (input: { sessionID: string; continue?: boolean }) => Promise<unknown>;
   hook: (
     name: string,

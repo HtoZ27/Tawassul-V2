@@ -129,6 +129,10 @@
     {
       "name": "shell-alias",
       "cmd": ["bun", "scripts/prove-shell-alias.ts"]
+    },
+    {
+      "name": "v2-ask-bridge",
+      "cmd": ["bun", "scripts/prove-v2-ask-bridge.ts"]
     }
   ],
   "smoke": [

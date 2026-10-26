@@ -38,8 +38,12 @@ export function createAskBridge(
   if (!assert) return undefined;
   return async (title, options) => {
     if (options.type !== "confirm") {
-      logger.warn(`[tawassul] v2 ask: ${options.type} elicitation is not bridged to the host`);
-      return undefined;
+      logger.error(
+        `[tawassul] v2 ask: ${options.type} elicitation has no host bridge; failing closed instead of assuming an answer`,
+      );
+      throw new Error(
+        `[tawassul] ${options.type} questions cannot be delivered on this host; no answer was assumed`,
+      );
     }
     try {
       await assert({
