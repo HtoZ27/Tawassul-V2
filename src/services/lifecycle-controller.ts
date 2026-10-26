@@ -144,7 +144,7 @@ export class LifecycleController {
     try {
       await this.persistence.flushSaves();
     } catch (e) {
-      logger.warn("destroy: flushSaves failed:", e);
+      logger.error("destroy: flushSaves failed; the session state was not written:", e);
     }
     try {
       await drainStructuralAnalyses(2000);

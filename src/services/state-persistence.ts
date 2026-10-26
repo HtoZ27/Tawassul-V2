@@ -762,9 +762,12 @@ export class StatePersistence {
   }
 
   async flushSaves(): Promise<void> {
-    
-    
-    if (this.saveFailureCount >= StatePersistence.MAX_SAVE_FAILURES) return;
+    const exhausted = this.saveFailureCount >= StatePersistence.MAX_SAVE_FAILURES;
+    if (exhausted) {
+      logger.error(
+        `[tawassul] flushSaves: ${this.saveFailureCount} previous save failure(s); attempting one final forced write before exit`,
+      );
+    }
     if (this.saveTimeout) {
       if (this.timers) this.timers.clear(this.saveTimeout);
       else clearTimeout(this.saveTimeout);
@@ -777,7 +780,16 @@ export class StatePersistence {
         if (t?.unref) t.unref();
       })]);
     }
-    await this.doSave();
+    try {
+      await this.doSave();
+    } catch (e) {
+      this.saveFailureCount++;
+      logger.error(
+        `[tawassul] flushSaves: the final write failed after ${this.saveFailureCount} failure(s); this session's state is not on disk`,
+        e,
+      );
+      throw e;
+    }
     const deadline = Date.now() + 1000;
     let flushAttempts = 0;
     while (this.saveDirty && Date.now() < deadline && flushAttempts < 5) {
@@ -785,7 +797,9 @@ export class StatePersistence {
       await this.doSave();
       if (this.saveDirty) await new Promise((r) => setTimeout(r, 50));
     }
-    if (this.saveDirty) logger.warn("flushSaves: gave up after retries");
+    if (this.saveDirty) {
+      logger.error("[tawassul] flushSaves: gave up after retries; the newest state is memory-only");
+    }
   }
 
   
@@ -835,6 +849,7 @@ export class StatePersistence {
       if (this._saveCompletionPromise) await this._saveCompletionPromise;
       return;
     }
+    let savedCleanly = false;
     try {
       this.saveInProgress = true;
       this._saveCompletionPromise = new Promise<void>((resolve) => {
@@ -959,6 +974,7 @@ export class StatePersistence {
           }
           this.persistedGeneration = Math.max(this.persistedGeneration, savedGeneration);
           this.saveDirty = this.dirtyGeneration > this.persistedGeneration;
+          savedCleanly = true;
           this.ctx.eventHub.emit({ type: "STATE_SAVED", payload: { type } });
         } catch (e) {
           rollback();
@@ -975,7 +991,7 @@ export class StatePersistence {
       this._saveCompletionResolve?.();
       this._saveCompletionResolve = null;
       this._saveCompletionPromise = null;
-      if (!this.saveDirty) this.saveFailureCount = 0;
+      if (!this.saveDirty && savedCleanly) this.saveFailureCount = 0;
       this.scheduleDeferredSave();
     }
   }
