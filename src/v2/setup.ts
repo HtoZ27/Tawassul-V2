@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { TawassulHooks } from "../plugin-types.ts";
+import type { PluginInput, TawassulHooks } from "../plugin-types.ts";
 import { getInitReady, initPlugin } from "../bootstrap/plugin-init.ts";
 import { ToolBlockedError } from "../hooks/tool-execute.ts";
 import { BLOCKED_TOOLS } from "../security-policy.ts";
@@ -9,6 +9,7 @@ import { createAskBridge, registerAskPermission } from "./ask.ts";
 import { buildPluginInput } from "./client-shim.ts";
 import { isTaskTool, subagentArgsToV1, toolNameToV1, v1ArgsToSubagent } from "./delegation.ts";
 import { mapV2EventToV1 } from "./event-adapter.ts";
+import { startSchemaRefresh } from "./schema-refresh.ts";
 import { applyV1AfterOutput, metadataChanged, resultText, titleFromMetadata, withTitleMetadata } from "./result-bridge.ts";
 import type { V2Context, V2SessionEvent, V2ToolContext, V2ToolHookInput } from "./types.ts";
 
@@ -206,7 +207,12 @@ async function runCompactionBridge(plugin: TawassulHooks, event: V2SessionEvent)
   }
 }
 
-export function createV2Setup() {
+export type V2SetupDeps = {
+  init?: (input: PluginInput) => TawassulHooks;
+  refresh?: { attempts?: number; delayMs?: number };
+};
+
+export function createV2Setup(deps: V2SetupDeps = {}) {
   return async (rawCtx: unknown): Promise<() => Promise<void>> => {
     const ctx = rawCtx as V2Context;
     if (!ctx || !ctx.session || !ctx.tool) {
@@ -215,7 +221,7 @@ export function createV2Setup() {
     }
 
     const input = buildPluginInput(ctx);
-    const plugin = initPlugin(input);
+    const plugin = (deps.init ?? initPlugin)(input);
     const wrapped = plugin.tool ?? {};
     const registered: Array<() => Promise<void>> = [];
     const processedMessages = new Set<string>();
@@ -267,40 +273,17 @@ export function createV2Setup() {
       logger.error("[tawassul] v2 tool registration failed:", e);
     }
 
+    let refreshStop: (() => Promise<void>) | null = null;
     if (readyProbe) {
-      let stopRefresh = false;
-      const refresh = (async () => {
-        for (let attempt = 0; attempt < SCHEMA_RETRY_ATTEMPTS; attempt++) {
-          if (stopRefresh) return;
-          const status = await readyProbe();
-          if (status.ready) {
-            await refreshSchemas();
-            try {
-              await ctx.tool.reload();
-              logger.info(
-                `[tawassul] v2 tool schemas refreshed after init (${schemas.size} schemas, attempt ${attempt + 1})`,
-              );
-            } catch (e) {
-              logger.warn("[tawassul] v2 tool reload failed; placeholders stay until restart:", e);
-            }
-            return;
-          }
-          if (attempt === SCHEMA_RETRY_ATTEMPTS - 1) {
-            logger.warn(
-              `[tawassul] v2 schema refresh gave up after ${SCHEMA_RETRY_ATTEMPTS} attempts: init not ready (${status.error?.message ?? "pending"})`,
-            );
-            return;
-          }
-          await new Promise<void>((resolve) => {
-            const timer = setTimeout(resolve, SCHEMA_RETRY_DELAY_MS);
-            if (timer.unref) timer.unref();
-          });
-        }
-      })();
-      registered.push(async () => {
-        stopRefresh = true;
-        void refresh.catch(() => undefined);
+      const refresh = startSchemaRefresh({
+        probe: readyProbe,
+        refresh: refreshSchemas,
+        reload: () => ctx.tool.reload(),
+        describe: () => `${schemas.size} schemas`,
+        attempts: deps.refresh?.attempts ?? SCHEMA_RETRY_ATTEMPTS,
+        delayMs: deps.refresh?.delayMs ?? SCHEMA_RETRY_DELAY_MS,
       });
+      refreshStop = refresh.stop;
     }
 
     if (plugin["tool.execute.before"]) {
@@ -461,6 +444,13 @@ export function createV2Setup() {
     }
 
     return async () => {
+      if (refreshStop) {
+        try {
+          await refreshStop();
+        } catch (e) {
+          logger.debug("[tawassul] v2 schema refresh stop failed:", e);
+        }
+      }
       for (const cleanup of registered) {
         try {
           await cleanup();
