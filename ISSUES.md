@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 27 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 28 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 
 Purpose: one durable place for open issues, evidence, and the next action, so
@@ -598,12 +598,11 @@ owner approval (pending decision 6).
 
 ## Product gaps (P2 unless noted)
 
-- **P-01** `select`/`input` elicitation: host `permission.assert` returns only
-  confirm; `src/v2/ask.ts:40` returns `undefined` for every other type. In
-  addition, `isNoReply` maps AskChannel's `noReply: true` to
-  `delivery: "queue"` (`src/v2/client-shim.ts:47,55`), so a consent question
-  becomes a real queued user turn and burns a model turn. Next: bridge or
-  fail closed, and render the question without a queued turn. P1 per E-03.
+- **P-01** `select`/`input` elicitation: fixed in `ccb2cb6`. Unbridged types
+  now throw a visible error instead of returning `undefined`; `noReply` uses
+  `session.synthetic` and never queues a model turn. The host still has no
+  select bridge, so an unbridged tool call fails closed rather than guessing.
+  `prove-v2-ask-bridge` covers both paths. P1 per E-03.
 - **P-02** A goal closed from `completed` writes a `dropped` tombstone; the
   digest counts stay correct, the label is cosmetic. Next: accept the label as
   cosmetic, or write `completed` for a `completed`-origin close; no data is at
@@ -677,18 +676,19 @@ Next: apply the three helpers from the v2 boot path (a config writer or a
 `ctx.app`/`ctx.permission` bridge), then prove a denied tawa tool fails and
 addagent permissions are present. This is the live half of G-05.
 
-### E-03 noReply queues a user turn; select/input unbridged — open (P-01)
+### E-03 noReply queues a user turn; select/input unbridged — fixed (P-01)
 
-Original severity: major. `isNoReply` maps `body.noReply === true` to
+Original severity: major. `isNoReply` mapped `body.noReply === true` to
 `delivery: "queue"` (`src/v2/client-shim.ts:47,55`). AskChannel injects the
 question with `noReply: true` (`src/bootstrap/plugin-init.ts:308`), so every
-consent question becomes a queued user turn instead of a transcript-only
-render. `src/v2/ask.ts:40` handles only `type === "confirm"`; select/input
-return `undefined`.
+consent question became a queued user turn instead of a transcript-only
+render. `src/v2/ask.ts:40` handled only `type === "confirm"`; select/input
+returned `undefined`.
 
-Next: route AskChannel through `permission.assert`, fall back to `ctx.ask`,
-and either bridge select/input or fail closed with a visible error. Tracked
-as P-01; this entry keeps the evaluation evidence.
+Fixed in `ccb2cb6`: `noReply` now goes through `session.synthetic` (no model
+turn), and unbridged select/input throws a visible error. `prove-v2-ask-bridge`
+asserts both. The host still has no select result channel; a future host form
+API can replace the fail-closed path.
 
 ### E-04 Legacy state path and quarantine — fixed
 
@@ -752,7 +752,7 @@ baseline.
 The six reports were re-checked claim by claim; the full ledger is
 `VERIFICATION-20261026.md` (50 entries: 34 confirmed, 5 partial, 8 refuted
 or not observed, 3 sound). `npm run ci` was re-run on 2026-10-26 and passed
-(26 proof steps, smoke with a real model reply).
+(27 proof steps, smoke with a real model reply).
 
 New defects from that verification, not in the reports:
 
@@ -882,11 +882,11 @@ Both `gate:smoke` and the full `ci` now pass with the quota exhausted.
 
 - `npm run verify`: `gate:fast` plus the build (`dist/index.js` and `dist/global.js`).
 - `npm run gate:fast`: 6 steps, about 11.7 s.
-- `npm run gate:proofs`: 26 proofs, one child each, about 23.2 s.
-- `npm run gate:smoke`: build + release smoke, about 17.5 s.
-- `npm run ci`: rc=0, 27 `PROOF PASS` (26 proof steps plus the catalog),
-  `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`, about 55 s.
-- Re-verified 2026-10-26: `npm run ci` rc=0, 26 proof steps (23,153 ms),
+- `npm run gate:proofs`: 27 proofs, one child each, about 30.5 s.
+- `npm run gate:smoke`: build + release smoke, about 16.8 s.
+- `npm run ci`: rc=0, 28 `PROOF PASS` (27 proof steps plus the catalog),
+  `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`, about 61 s.
+- Re-verified 2026-10-26: `npm run ci` rc=0, 27 proof steps (30,501 ms),
   `SMOKE PASS` with a real model reply (the provider-refusal branch was not
   exercised). The full claim-by-claim audit is `VERIFICATION-20261026.md`.
 - The baseline above was measured with no `opencode` on PATH: the launcher and
@@ -894,7 +894,7 @@ Both `gate:smoke` and the full `ci` now pass with the quota exhausted.
 - Bundles identical: `dist/index.js` and `.opencode/plugin/tawassul.js`
   (1,858,782 bytes). The opt-in global bundle is `dist/global.js`
   (2,296,549 bytes, self-contained).
-- `prove-global-install` is one of the 26 proof steps: flat layout, bundle
+- `prove-global-install` is one of the 27 proof steps: flat layout, bundle
   hash, four wasm assets, `VERSION` marker, scope detection, v1/legacy
   refusal, unmarked target refusal, `--force`, tamper repair, coexistence
   unit claim, uninstall, dry run, purge, and verify-missing.

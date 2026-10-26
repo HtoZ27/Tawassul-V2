@@ -32,10 +32,10 @@ check is dead.
 `npm run ci` exited 0:
 
 - fast: 6 steps, pass.
-- proofs: 26 steps, 23,153 ms, `GATE PASS: proofs`.
-- catalog: the 27th `PROOF PASS` (26 proof steps plus the catalog).
+- proofs: 27 steps, 30,501 ms, `GATE PASS: proofs`.
+- catalog: the 28th `PROOF PASS` (27 proof steps plus the catalog).
 - smoke: `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`,
-  17,472 ms.
+  16,751 ms.
 - the smoke actually received a model reply in this run
   (`scratch boot loaded the plugin and replied`), so the provider-refusal
   tolerance branch was not exercised today. The weakened branch still exists;
@@ -84,21 +84,28 @@ in the v2 bridge, the consent set also accepts the raw alias, and
 
 Claim: select/multiselect/input elicitations are not bridged.
 
-Verdict: CONFIRMED, P0. `src/v2/ask.ts:40-43` logs a warning and returns
+Verdict: CONFIRMED, P0. `src/v2/ask.ts:40-43` logged a warning and returned
 `undefined` for every type except `confirm`.
 
-Impact: a tool that needs a choice silently proceeds without an answer.
+Impact: a tool that needs a choice silently proceeded without an answer.
+
+Fixed in `ccb2cb6`: unbridged types now throw a visible error instead of
+returning `undefined`; `prove-v2-ask-bridge` covers the block.
 
 #### V-03 `noReply` still becomes a queued user turn (register: P-01/E-03)
 
 Claim: `body.noReply === true` maps to `delivery: "queue"`.
 
-Verdict: CONFIRMED, P0. `src/v2/client-shim.ts:47` and `:55` map it in both
+Verdict: CONFIRMED, P0. `src/v2/client-shim.ts:47` and `:55` mapped it in both
 `prompt` and `promptAsync`.
 
-Impact: a consent question becomes a real model turn, so the agent can answer
-on the user's behalf and burn quota. This is exactly the failure the owner
-called out.
+Impact: a consent question became a real model turn, so the agent could
+answer on the user's behalf and burn quota.
+
+Fixed in `ccb2cb6`: `noReply` now uses `session.synthetic` (display without a
+model turn), and drops the message with a warning if that host method is
+missing; it never queues a user turn. `prove-v2-ask-bridge` covers both
+paths.
 
 #### V-04 Three database paths still coexist (register: D-01)
 

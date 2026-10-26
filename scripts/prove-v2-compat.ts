@@ -176,7 +176,13 @@ assert((await ask?.("Delete files?", { type: "confirm", default: false })) === t
 assert(asserted.length === 1 && asserted[0]?.action === "tawassul.ask", "confirm asserts the dedicated action");
 denyNext = true;
 assert((await ask?.("Delete files?", { type: "confirm", default: false })) === false, "confirm resolves false when rejected");
-assert((await ask?.("Pick one", { type: "select", options: ["a", "b"] })) === undefined, "select falls back to undefined");
+let selectRejected = false;
+try {
+  await ask?.("Pick one", { type: "select", options: ["a", "b"] });
+} catch {
+  selectRejected = true;
+}
+assert(selectRejected, "select fails closed instead of returning undefined");
 assert(createAskBridge(permissionCtx, toolContext, false) === undefined, "inactive registration exposes no ask");
 
 console.log("PROOF PASS: v2 host compatibility contract");
