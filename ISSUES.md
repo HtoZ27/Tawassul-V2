@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 50 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 51 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -2056,19 +2056,29 @@ string content, while array content keeps the part-level path. `prove-e34`
 drives role, agent, model, text, append, edit, no-op, invalid-role, and dedupe
 cases (13 assertions).
 
-#### E-35 Tool result titles and metadata are lost on v2 — open (P2)
+#### E-35 Tool result titles and metadata are lost on v2 — done (2026-10-26)
 
-`src/v2/adapters.ts:50-72` maps only `output` and `metadata`;
-`src/v2/setup.ts:295,304` hardcodes `title: ""` for both the completed and
+`src/v2/adapters.ts:50-72` mapped only `output` and `metadata`;
+`src/v2/setup.ts:295,304` hardcoded `title: ""` for both the completed and
 the error branch.
 
 Impact: every status title ("🌐 Web Fetch", "🚨 Panic Reset Complete", the
-cache-hit distinction) is invisible to the user and the model. Separately,
-`src/tools/direct-response.ts:37,45` returns a `requiresTask` field that no
+cache-hit distinction) was invisible to the user and the model. Separately,
+`src/tools/direct-response.ts:37,45` returned a `requiresTask` field that no
 consumer reads and that the adapter drops, while the schema description still
-tells the model it influences routing.
+told the model it influenced routing.
 
-Next: pass `title` through the adapter and delete `requiresTask` or wire it.
+Resolved 2026-10-26: the v2 result type has no title field, so `toV2Result`
+keeps the v1 title in the result metadata under `tawassul.title` instead of
+dropping it, and leaves a tool's own `metadata.title` (a web page title)
+untouched. The `execute.after` bridge seeds `output.title` from that key and
+writes a changed or cleared title back into the result or error metadata, so
+hooks see a real title instead of `""`. The model still receives only the
+content, but the title is no longer lost: the UI and any metadata consumer can
+read it. `requiresTask` is deleted from the direct-response schema and result
+because nothing read it. `prove-e35` covers the adapter round-trip, the
+after-hook edit and clear paths, and the reduced direct-response schema
+(18 assertions).
 
 #### E-36 A failed crawl is returned as a successful result — open (P2)
 
