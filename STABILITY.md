@@ -15,17 +15,17 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **43 are open**.
+with 99 entries, of which **42 are open**.
 
 ## The filter
 
-43 open items sound like 43 problems. They are not the same kind of problem:
+42 open items sound like 42 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
 | S0 | Does the plugin work at all? | 1 |
 | S1 | Does it lose or corrupt data silently? | 0 |
-| S2 | Does it tell the truth about what happened? | 10 |
+| S2 | Does it tell the truth about what happened? | 9 |
 | S3 | Does it start reliably and quickly? | 9 |
 | S4 | Can it be made to do something it should not? | 6 |
 | S5 | Can we prove any of the above? | 13 |
@@ -42,10 +42,9 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | --- | --- | --- |
 | `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
 
-## S2 — features silently dead or lying (10)
+## S2 — features silently dead or lying (9)
 
-`E-17` `tool.definition` unregistered, placeholder schemas · `E-18` hook
-errors swallowed, guard fails open ·
+`E-18` hook errors swallowed, guard fails open ·
 `E-02` config hook unbridged, permission repair missing · `E-25` AskChannel
 fabricates an answer at capacity · `E-29` one failing request trips the web
 breaker for 60 s · `E-33` client shim
@@ -84,13 +83,13 @@ entry, and no hook may turn a `bash` infrastructure error into a hard block.
 
 ## The three clusters
 
-The 16 entries in S0–S2 are not 16 independent jobs. They collapse into three
+The 15 entries in S0–S2 are not 15 independent jobs. They collapse into three
 engineering clusters, each of which is one coherent change.
 
 | Cluster | Members | One change |
 | --- | --- | --- |
 | **Persistence** | `E-12`, `E-13`, `E-20`, `E-21`, `E-22`, `D-05` | Make save/load/flush one generation-aware path: write before you report, quarantine instead of rolling back, await every flush. |
-| **Bridge** | `E-17`, `E-34`, `E-35`, `E-38` | Read the v2 payload explicitly instead of inferring it, and preserve every part. |
+| **Bridge** | `E-34`, `E-35`, `E-38` | Read the v2 payload explicitly instead of inferring it, and preserve every part. |
 | **Guards** | `C-03`, `P-10`, `E-18`, `E-25`, `E-28` | One guard chain on every path, capability seeded at boot, fail closed on decisions and open on infrastructure. |
 
 ## Execution order
@@ -111,8 +110,9 @@ cluster (`E-20`, `E-21`, `E-22`, `P-08`, `P-09`), `E-19`, `E-23`, `E-24`, and
 the stores cluster (`B-11`, `B-12`). No S1 item is open.
 
 **Wave 3 — stop lying (S2, 3–4 days).** Telemetry (`E-14`, `E-27`, `E-31`)
-is closed, and `E-15` now forwards the v2 text and tool events to the stream.
-Next is the rest of the bridge (`E-17`, `E-34`, `E-35`, `E-38`), then
+is closed, `E-15` now forwards the v2 text and tool events to the stream, and
+`E-17` validates arguments against the real schema. Next is the rest of the
+bridge (`E-34`, `E-35`, `E-38`), then
 guards (`E-18`, `E-02`, `E-25`), then the three small tool fixes (`E-29`,
 `E-33`, `E-36`).
 
@@ -185,6 +185,8 @@ today.
   that hangs after boot fails it; `E-31` (S2) — the event hub and the context
   share one path-backed metrics collector, so dead-letter and backpressure
   counters are observable; `E-15` (S2) — the adapter maps the v2 text and tool
-  families, so the console stream sees live tool output on the supported host.
+  families, so the console stream sees live tool output on the supported host;
+  `E-17` (S2) — `makeV2Tool` parses arguments against the tool's own schema
+  before dispatch, so invalid input throws instead of reaching a handler.
 - The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
   Wave 2 and should be re-scoped to the wave boundaries above.

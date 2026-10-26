@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 48 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 49 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1683,18 +1683,26 @@ inverted from asserting the loss to asserting preservation, with added cases
 for a no-text result (text prepended), a string result, and redaction to an
 empty string. `bun scripts/gate.ts proofs` green (29 steps).
 
-#### E-17 `tool.definition` is unregistered, so schemas are placeholders — open (P1)
+#### E-17 `tool.definition` is unregistered, so schemas are placeholders — done (2026-10-26)
 
-The v2 setup never registers the definition hook, so the host advertises the
-placeholder schema (`additionalProperties: true`) and `makeV2Tool` does not
-run a zod parse before dispatch.
+The v2 setup never registers a definition hook, so the host advertised the
+placeholder schema (`additionalProperties: true`) and `makeV2Tool` did not run
+a zod parse before dispatch.
 
-Impact: the model can send arbitrary arguments, invalid arguments reach
-handlers, and a schema regression cannot be detected from the host side. This
-is also why B-02's window is dangerous rather than merely slow.
+Impact: the model could send arbitrary arguments, invalid arguments reached
+handlers, and a schema regression could not be detected from the host side.
+This was also why B-02's window was dangerous rather than merely slow.
 
-Next: register the definition hook, or validate with the real schema in
-`makeV2Tool` before calling the handler.
+Resolved 2026-10-26: the host has no `definition` hook (only `transform`, the
+`tool` editor, and `execute.before/after`), so the fix takes the second path
+from the entry. `makeV2Tool` builds a `z.object(def.args)` validator at
+registration and parses the arguments before dispatch; a failed parse throws
+`Invalid input for tool "<name>": <path>: <message>`, which the host records
+as a tool error, and the handler is never called. A tool that declares no
+arguments keeps the permissive placeholder and dispatches unchanged. The
+advertised `input` remains the schema produced by `buildToolJsonSchema`, which
+`prove-e17` asserts is the real one with `required: ["count"]`. The stub
+`buildValidator` helper was removed in the same edit (16 assertions).
 
 #### E-18 Hook errors are swallowed and the guard fails open — open (P1)
 
