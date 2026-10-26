@@ -17,6 +17,16 @@ const INITIAL_SCHEMA_WAIT_MS = 750;
 const SCHEMA_RETRY_ATTEMPTS = 20;
 const SCHEMA_RETRY_DELAY_MS = 500;
 
+const HOST_MESSAGE_ROLES = ["system", "user", "assistant", "tool"] as const;
+
+type HostMessageRole = (typeof HOST_MESSAGE_ROLES)[number];
+
+function toHostMessageRole(value: unknown): HostMessageRole | undefined {
+  return typeof value === "string" && (HOST_MESSAGE_ROLES as readonly string[]).includes(value)
+    ? (value as HostMessageRole)
+    : undefined;
+}
+
 function toDynamicAgentModel(model: unknown): { providerID: string; modelID: string } | undefined {
   if (typeof model === "string") {
     const parts = model.split("/");
@@ -128,6 +138,20 @@ export async function runChatMessageBridge(
     logger.warn(`[tawassul] v2 chat.message bridge failed for ${sessionID}:`, e instanceof Error ? e.stack : e);
     return;
   }
+  let messageText: string | undefined;
+  const outMessage = v1Output.message as unknown;
+  if (outMessage && typeof outMessage === "object" && !Array.isArray(outMessage)) {
+    const message = outMessage as Record<string, unknown>;
+    const nextRole = toHostMessageRole(message["role"]);
+    if (nextRole && nextRole !== last["role"]) last["role"] = nextRole;
+    const nextAgent = typeof message["agent"] === "string" ? message["agent"].trim() : "";
+    if (nextAgent && nextAgent !== event.agent) event.agent = nextAgent;
+    const nextModel = toDynamicAgentModel(message["model"]);
+    if (nextModel) event.model = nextModel;
+    if (contentIsString && typeof message["text"] === "string" && message["text"] !== rawContent) {
+      messageText = message["text"];
+    }
+  }
   const added: Array<{ type: string; text: string }> = [];
   let editedString: string | undefined;
   for (const part of v1Output.parts) {
@@ -144,8 +168,9 @@ export async function runChatMessageBridge(
       added.push({ type: "text", text: part.text });
     }
   }
-  if (contentIsString && editedString !== undefined) {
-    last["content"] = editedString;
+  const finalText = contentIsString ? (messageText ?? editedString) : undefined;
+  if (finalText !== undefined) {
+    last["content"] = finalText;
   }
   if (added.length === 0) return;
   if (Array.isArray(rawContent)) {
@@ -153,7 +178,7 @@ export async function runChatMessageBridge(
     return;
   }
   if (contentIsString) {
-    last["content"] = [{ type: "text", text: editedString ?? rawContent }, ...added];
+    last["content"] = [{ type: "text", text: finalText ?? rawContent }, ...added];
   }
 }
 
