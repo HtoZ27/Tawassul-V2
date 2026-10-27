@@ -1,6 +1,6 @@
 # Tawassul V2 — Stability Triage
 
-Status: 2026-10-27 · HEAD `3fdb540` · gate `npm run ci` rc=0
+Status: 2026-10-27 · HEAD `b3b2318` · gate `npm run ci` rc=0
 
 Purpose: one prioritized view across every open fix, filtered to the single
 question that matters for day-to-day use — **does this stop the plugin from
@@ -8,24 +8,24 @@ working, lose data, or report success when it failed?**
 
 ## Where the fixes actually live
 
-All 102 issue entries are in `ISSUES.md`. `PLAN.md`, `TRIAGE.md`,
+All 104 issue entries are in `ISSUES.md`. `PLAN.md`, `TRIAGE.md`,
 `CUTOVER.md`, `RECOVERY-20261025.md`, `DECOUPLING.md`, and `SHARED.md` are
 historical records: they describe work already done or decisions already
 taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 102 entries, of which **24 are open**.
+with 104 entries, of which **25 are open**.
 
 ## The filter
 
-24 open items sound like 24 problems. They are not the same kind of problem:
+25 open items sound like 25 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
 | S0 | Does the plugin work at all? | 1 |
 | S1 | Does it lose or corrupt data silently? | 0 |
-| S2 | Does it tell the truth about what happened? | 0 |
+| S2 | Does it tell the truth about what happened? | 1 |
 | S3 | Does it start reliably and quickly? | 2 |
 | S4 | Can it be made to do something it should not? | 3 |
 | S5 | Can we prove any of the above? | 13 |
@@ -41,6 +41,11 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | ID | Defect | Why it blocks |
 | --- | --- | --- |
 | `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
+
+## S2 — truthfulness (1)
+
+`E-42` handoff create and every `override` action mutate state but return no
+tool result, so the caller cannot read the new id or confirm the action.
 
 ## S3 — boot and startup (2)
 
@@ -103,7 +108,8 @@ stale config is fixed, `E-25` refuses an unavailable question instead of
 answering it, `E-29` counts one web breaker failure per request, `E-33` routes
 questions and notices through the transcript instead of a fake TUI, and `E-36`
 reports a failed or cancelled crawl as an error instead of a successful result.
-No S2 item is open.
+`E-42` is the one open S2 item: the handoff mutations are correct but their
+results are missing.
 
 **Wave 4 — boot (S3, 2 days).** `I-08`, `I-10`. `I-07`, `D-05`, `B-01`, `B-02`, `B-03`, `B-05`, and `G-04` are closed.
 
@@ -221,5 +227,9 @@ today.
   and `rm -rf /` ask in every session; `E-28` (S4) — `patch` and `apply_patch`
   are blocked for tawa by name in both the policy stage and the v2 bridge,
   without adding invalid permission keys to the generated config.
+- `D-06` (S1) — goal item ids no longer collide with the archive, so a
+  `done` transition can no longer be skipped while the tool reports success.
+  The live `G-001-I3`/`G-001-I4` entries stay stuck until the host reloads the
+  new build (`G-13`).
 - The three open goals in the ledger (`G-001`, `G-002`, `G-003`) overlap the
   waves above and should be re-scoped to the wave boundaries.

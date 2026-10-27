@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 75 proof files, smoke pass)
+Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 76 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -847,6 +847,69 @@ non-OpenCode file, and source-hash immutability); it fails on `40b9c3a` and
 passes on `2cc8c25`. Live doctor: `PASS bounded census found 6 database
 file(s)`, canonical 71/72, shared 14/14, launcher 14/14, rc=0. `npm run ci`
 passes with 73 proof files / 72 registered steps.
+
+### D-06 Goal item ids are reused after archiving, so `done` is silently skipped — fixed (2026-10-27)
+
+`GoalStore.update` derived new item ids from `next.items.length` in the
+`itemsAdd` path, ignoring `completedItems`. Once a goal's items had been
+archived, the counter restarted and produced ids that already existed in the
+archive. The `done` branch then looked up the archived entry first and ran
+`if (archived) continue`, so the live item stayed at `in_progress`/`pending`
+while the tool returned success.
+
+Live evidence: `G-001-I3` and `G-001-I4` are in exactly this state. Two
+`goal` updates appended their evidence and reported success (09:19), the
+ledger `updatedAt` advanced, and both items stayed pending because round-2
+archives with the same ids still exist. Progress stayed at 82% and the goal
+could not close. The goal-level evidence note already recorded the symptom as
+"item ids I3/I4 are duplicated by the goal store".
+
+Fixed in `3082f73`:
+
+- `itemsAdd` takes the next index from the highest numeric suffix across
+  `items` and `completedItems`, so a new id never collides with the archive.
+- The `done` branch keys off the live item. It archives the live item even
+  when an archived duplicate exists, and treats a missing live item as already
+  archived (idempotent re-complete).
+- The restore path uses `findLast`, so the newest archive wins over a stale
+  duplicate.
+
+`scripts/prove-goal-item-ids.ts` runs 19 assertions and fails on `2806193` at
+"a new item never reuses an archived id"; it also covers the legacy duplicate
+repair, idempotent re-complete, and newest-archive restore. Wired as the
+`goal-item-ids` proofs step; `npm run verify` (`GATE PASS: fast`, build) and
+`npm run gate:proofs` (75 steps) are green.
+
+Residual: the live `G-001` snapshot keeps the stuck items until the host
+reloads the new build. Re-apply I3/I4 after the next restart; the repair path
+in the fix then archives them instead of skipping them.
+
+---
+
+## Handoff lifecycle (P1)
+
+### E-42 `handoff` create and every `override` action return no tool result — open (P1)
+
+Observed live on the restarted host (build `2806193`) on 2026-10-27:
+`handoff` create, `override` redirect, `override` force-complete, and
+`override` cancel each mutated state correctly — `status` showed H-009
+pending, then completed, then pending after `undo`, and a redirected H-010
+kept the new target — while the tool result was `Tool result missing`.
+Read-only and error paths returned normally: `handoff` undo printed
+`↩️ H-009 reverted to pending`, a refused rescue printed its message, and a
+`goal` update with `metadata: { goal }` returned normally, so metadata alone
+does not explain it.
+
+Impact: a caller cannot learn the new handoff id from the create result and
+cannot tell a successful override from a failed one without re-reading
+`status`. The lifecycle mutations themselves are sound, and RBAC is enforced:
+complete is limited to the assignee or `@analyst`, cancel to the creator, and
+rescue requires an already-accepted handoff.
+
+Next: reproduce through `toV2Result` with a captured entry, then check whether
+the host rejects `metadata.handoff` (nested `decision`, `checkpoint:
+undefined`) or the `→` character in the title. Do not change the lifecycle
+logic to work around it.
 
 ---
 
