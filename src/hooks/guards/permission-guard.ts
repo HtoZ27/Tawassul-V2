@@ -43,7 +43,6 @@ export type Tier = "user" | "agent" | "admin";
 const TIER_RANK: Record<Tier, number> = { user: 0, agent: 1, admin: 2 };
 
 const TOOL_TIERS: Record<string, Tier> = {
-  bash: "admin",
   edit: "admin",
   write: "admin",
   delete: "admin",
@@ -249,7 +248,7 @@ export const rosterBoundaryDeleteGuard = guardWithRetry("roster-boundary-delete"
 
 export const permissionGuard = guardWithRetry("3-tier-permissions", async (_ctx, input, output) => {
   const agentTier = getTier(input.agent ?? "");
-  const toolTier = TOOL_TIERS[input.tool] ?? "admin";
+  const toolTier = TOOL_TIERS[input.tool] ?? "agent";
   if (TIER_RANK[agentTier] < TIER_RANK[toolTier]) {
     logger.audit("PERMISSION_BLOCKED", { agent: input.agent, tool: input.tool, agentTier, toolTier });
     const callerRole = resolveRole(input.agent ?? "") ?? input.agent ?? "";
