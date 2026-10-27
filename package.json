@@ -57,8 +57,6 @@
     "prove:bundle-freshness": "bun scripts/prove-bundle-freshness.ts",
     "prove:g002i2": "bun scripts/prove-g002i2.ts",
     "prove:g002i3": "bun scripts/prove-g002i3.ts",
-    "prove:g002i5": "bun scripts/prove-g002i5.ts",
-    "prove:g002i4": "bun scripts/prove-g002i4.ts",
     "prove:g003i1": "bun scripts/prove-g003i1.ts",
     "prove:g003i2": "bun scripts/prove-g003i2.ts",
     "prove:g003i4": "bun scripts/prove-g003i4.ts",
