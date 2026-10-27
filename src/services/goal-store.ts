@@ -110,6 +110,16 @@ function sha1(text: string): string {
   return createHash("sha1").update(text, "utf8").digest("hex");
 }
 
+function nextItemIndex(goal: Pick<Goal, "items" | "completedItems">): number {
+  let max = 0;
+  for (const item of [...goal.items, ...goal.completedItems]) {
+    const match = /-I(\d+)$/u.exec(item.id);
+    const index = match?.[1] !== undefined ? Number(match[1]) : 0;
+    if (Number.isFinite(index) && index > max) max = index;
+  }
+  return max + 1;
+}
+
 function deriveProgress(goal: Pick<Goal, "items" | "completedItems" | "status">): number {
   const total = goal.items.length + goal.completedItems.length;
   if (total === 0) return goal.status === "completed" || goal.status === "verified" ? 100 : 0;
@@ -560,16 +570,17 @@ export class GoalStore {
       if (patch.linkedHandoffs !== undefined) next.linkedHandoffs = patch.linkedHandoffs;
       if (patch.linkedBoards !== undefined) next.linkedBoards = patch.linkedBoards;
       if (patch.itemsAdd !== undefined) {
-        const base = next.items.length;
-        for (const [n, t] of patch.itemsAdd.entries()) {
+        let nextIndex = nextItemIndex(next);
+        for (const t of patch.itemsAdd) {
           next.items.push({
-            id: `${next.id}-I${base + n + 1}`,
+            id: `${next.id}-I${nextIndex}`,
             title: t,
             state: "pending",
             evidence: [],
             verifiedBy: null,
             updatedAt: now,
           });
+          nextIndex += 1;
         }
       }
       if (patch.acceptanceAdd !== undefined) {
@@ -614,16 +625,11 @@ export class GoalStore {
       if (patch.itemStates !== undefined) {
         for (const { itemId, state } of patch.itemStates) {
           const item = next.items.find((i) => i.id === itemId);
-          const archived = next.completedItems.find((c) => c.id === itemId);
+          const archived = next.completedItems.findLast((c) => c.id === itemId);
           if (!item && !archived) return { ok: false, reason: "unknown-item", missing: [itemId] };
           if (state === "done") {
-            if (archived) continue; 
-            if (!item) return { ok: false, reason: "unknown-item", missing: [itemId] };
-            
-            
+            if (!item) continue;
             if (item.evidence.length === 0) return { ok: false, reason: "item-evidence", missing: [itemId] };
-            
-            
             next.completedItems.push({
               id: item.id,
               title: item.title,

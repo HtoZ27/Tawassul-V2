@@ -75,6 +75,7 @@
     "prove:s021": "bun scripts/prove-s021.ts",
     "prove:resurrection": "bun scripts/prove-goal-resurrection.ts",
     "prove:goal-capture": "bun scripts/prove-goal-capture.ts",
+    "prove:goal-item-ids": "bun scripts/prove-goal-item-ids.ts",
     "prove:early-exit": "bun scripts/prove-pipeline-early-exit.ts",
     "prove:priming": "bun scripts/prove-store-priming.ts",
     "prove:s024": "bun scripts/prove-s024.ts",

@@ -239,6 +239,10 @@
       "cmd": ["bun", "scripts/prove-goal-capture.ts"]
     },
     {
+      "name": "goal-item-ids",
+      "cmd": ["bun", "scripts/prove-goal-item-ids.ts"]
+    },
+    {
       "name": "early-exit",
       "cmd": ["bun", "scripts/prove-pipeline-early-exit.ts"]
     },
