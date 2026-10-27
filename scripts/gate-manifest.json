@@ -333,6 +333,10 @@
     {
       "name": "upstream-sync",
       "cmd": ["bun", "scripts/prove-upstream-sync.ts"]
+    },
+    {
+      "name": "e42-result-metadata",
+      "cmd": ["bun", "scripts/prove-e42.ts"]
     }
   ],
   "smoke": [

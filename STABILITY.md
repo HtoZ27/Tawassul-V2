@@ -15,17 +15,17 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 105 entries, of which **25 are open**.
+with 105 entries, of which **24 are open**.
 
 ## The filter
 
-25 open items sound like 25 problems. They are not the same kind of problem:
+24 open items sound like 24 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
 | S0 | Does the plugin work at all? | 1 |
 | S1 | Does it lose or corrupt data silently? | 0 |
-| S2 | Does it tell the truth about what happened? | 1 |
+| S2 | Does it tell the truth about what happened? | 0 |
 | S3 | Does it start reliably and quickly? | 2 |
 | S4 | Can it be made to do something it should not? | 3 |
 | S5 | Can we prove any of the above? | 13 |
@@ -42,12 +42,12 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | --- | --- | --- |
 | `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
 
-## S2 — truthfulness (1)
+## S2 — truthfulness (0)
 
-`E-42` handoff create and every `override` action mutate state but return no
-tool result, so the caller cannot read the new id or confirm the action. On
-2026-10-27 the redirect path returned normally after the host picked up
-`71c21f3`; create is still unobserved on that build.
+None open. `E-42` (missing handoff results) was fixed on 2026-10-27: the host
+encodes tool-part metadata as JSON, a fresh handoff entry carried undefined
+keys, and the completed-state encode failed. Result metadata is now
+sanitized, and live create and cancel both returned their confirmations.
 
 ## S3 — boot and startup (2)
 
@@ -110,8 +110,8 @@ stale config is fixed, `E-25` refuses an unavailable question instead of
 answering it, `E-29` counts one web breaker failure per request, `E-33` routes
 questions and notices through the transcript instead of a fake TUI, and `E-36`
 reports a failed or cancelled crawl as an error instead of a successful result.
-`E-42` is the one open S2 item: the handoff mutations are correct but their
-results are missing.
+`E-42` is closed: the handoff mutations were correct and their results now
+reach the caller.
 
 **Wave 4 — boot (S3, 2 days).** `I-08`, `I-10`. `I-07`, `D-05`, `B-01`, `B-02`, `B-03`, `B-05`, and `G-04` are closed.
 

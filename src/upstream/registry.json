@@ -81,7 +81,7 @@
           "topic": "response-encode-error-reference",
           "verdict": "adopted",
           "issue": "E-42",
-          "note": "Encode failures now carry a reference id, which localizes the missing handoff result."
+          "note": "Encode failures carry a reference id; the handoff result gap was located and fixed by sanitizing tool metadata."
         },
         {
           "pr": 51133,

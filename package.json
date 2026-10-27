@@ -78,6 +78,7 @@
     "prove:goal-capture": "bun scripts/prove-goal-capture.ts",
     "prove:goal-item-ids": "bun scripts/prove-goal-item-ids.ts",
     "prove:upstream-sync": "bun scripts/prove-upstream-sync.ts",
+    "prove:e42": "bun scripts/prove-e42.ts",
     "prove:early-exit": "bun scripts/prove-pipeline-early-exit.ts",
     "prove:priming": "bun scripts/prove-store-priming.ts",
     "prove:s024": "bun scripts/prove-s024.ts",

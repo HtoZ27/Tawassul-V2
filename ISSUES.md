@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 77 proof files, smoke pass)
+Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 78 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -9,7 +9,8 @@ Register note: the third-round evaluation (2026-10-26) added E-11..E-41 and
 re-confirmed C-02, C-03, P-10, B-02, E-02, and G-13 without duplicating them.
 Upstream watch (2026-10-27): `UPSTREAM.md` and
 `src/upstream/registry.json` assess OpenCode v2.2.0 item by item; the first
-result is E-43, registered and closed the same day.
+result is E-43, registered and closed the same day, and the encode-reference
+change led to the E-42 root cause and fix.
 Stability view: `STABILITY.md` classifies all open entries by whether they
 block use, lose data, or misreport, and gives the wave order.
 `SHARED.md` audit (2026-10-26): all 57 frozen entries are dispositioned in
@@ -891,7 +892,7 @@ in the fix then archives them instead of skipping them.
 
 ## Handoff lifecycle (P1)
 
-### E-42 `handoff` create and every `override` action return no tool result — open (P1)
+### E-42 `handoff` create and every `override` action return no tool result — fixed (2026-10-27)
 
 Observed live on the restarted host (build `2806193`) on 2026-10-27:
 `handoff` create, `override` redirect, `override` force-complete, and
@@ -900,25 +901,39 @@ pending, then completed, then pending after `undo`, and a redirected H-010
 kept the new target — while the tool result was `Tool result missing`.
 Read-only and error paths returned normally: `handoff` undo printed
 `↩️ H-009 reverted to pending`, a refused rescue printed its message, and a
-`goal` update with `metadata: { goal }` returned normally, so metadata alone
-does not explain it.
+`goal` update with `metadata: { goal }` returned normally.
 
-Impact: a caller cannot learn the new handoff id from the create result and
-cannot tell a successful override from a failed one without re-reading
+Impact: a caller could not learn the new handoff id from the create result
+and could not tell a successful override from a failed one without re-reading
 `status`. The lifecycle mutations themselves are sound, and RBAC is enforced:
 complete is limited to the assignee or `@analyst`, cancel to the creator, and
 rescue requires an already-accepted handoff.
 
-Live update (2026-10-27 09:59): on the same 2.2.0 host after it picked up
-build `71c21f3`, `override` redirect of H-008 returned its normal confirmation
-(`H-008 redirected ... tester → dev`) instead of `Tool result missing`. The
-create path still needs one reproduction on this build. Keep open until create
-and both mutation families are observed once on the current build.
+Root cause (2026-10-27): the host stores tool-part metadata as JSON. In
+`@opencode/schema@2.2.0`, `ToolStateCompleted.metadata` is
+`Record<string, Schema.Json>`, but the v1 bridge returned the live handoff
+entry unchanged. A freshly created entry carries `checkpoint: undefined` and
+`decisionRuleId: undefined`, so the completed-state encoding failed, the host
+left the part at `running`, and the provider-side normalizer replaced the
+absent result with `Tool result missing`. Entries loaded from disk have no
+undefined keys, which is why the `override` redirect of the older H-008
+returned normally while create and cancel of the fresh H-009/H-010/H-011 did
+not. The live session DB confirmed it: the create and cancel parts stayed
+`running`, while the H-008 redirect part was `completed`.
 
-Next: reproduce through `toV2Result` with a captured entry, then check whether
-the host rejects `metadata.handoff` (nested `decision`, `checkpoint:
-undefined`) or the `→` character in the title. Do not change the lifecycle
-logic to work around it.
+Fix: `jsonSafeValue` and `jsonSafeMetadata` in `src/v2/result-bridge.ts`
+drop undefined values, functions, symbols, and cycles, map non-finite numbers
+to null, convert dates and bigints, and turn undefined array slots into null.
+They are applied in `toV2Result`, the after-hook write-back, and the error
+write-back. `scripts/prove-e42.ts` covers 38 assertions: the fresh-entry
+precondition, the handoff metadata round trip, the no-mutation guarantee, and
+the after-hook path. Lifecycle logic is unchanged.
+
+Live verification (2026-10-27 10:33 UTC, 2.2.0 host after the bundle reload):
+`handoff` create returned `## 🤝 Handoff H-012` and `override` cancel returned
+`✅ **H-012 cancelled**`. The session DB records both parts as `completed`,
+with `metadata.handoff` present and JSON-safe; `feedback` and `helpRequest`
+survive on create.
 
 ---
 

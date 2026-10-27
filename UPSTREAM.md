@@ -67,7 +67,7 @@ still running), or `blocked` (a host defect prevents the work).
 
 | Release | Date | Audited | Host contract | Status | Summary |
 | --- | --- | --- | --- | --- | --- |
-| v2.2.0 | 2026-10-27 | 2026-10-27 | 2.1.4 | partial | 30 tracked changes: one guard (`E-43`), one adoption (`E-42`), three follow-ups, eight candidates, eleven aligned, six ignored |
+| v2.2.0 | 2026-10-27 | 2026-10-27 | 2.1.4 | partial | 30 tracked changes: one guard (`E-43`, fixed), one adoption (`E-42`, fixed), three follow-ups, eight candidates, eleven aligned, six ignored |
 
 ## v2.2.0 — what changed for us
 
@@ -76,7 +76,7 @@ still running), or `blocked` (a host defect prevents the work).
 | PR | Change | Verdict | Issue | Action |
 | --- | --- | --- | --- | --- |
 | #59315 | Code Mode exposes MCP tools when `execute` is denied | guarded | `E-43` | Tawa refuses `execute` by name; normal agents keep it |
-| #59459 | Server returns a reference id when a response cannot be encoded | adopted | `E-42` | Use the reference id to localize the missing handoff result |
+| #59459 | Server returns a reference id when a response cannot be encoded | adopted | `E-42` | Localized the missing handoff result; fixed with JSON-safe tool metadata |
 
 ### Reliability we already match
 
@@ -121,7 +121,10 @@ still running), or `blocked` (a host defect prevents the work).
 ## Open follow-ups from v2.2.0
 
 1. `E-43`: verify on a live 2.2.0 host that tawa cannot start Code Mode.
-2. `E-42`: read the new encode reference id when a handoff result goes missing.
+2. `E-42`: done 2026-10-27. The encode failure was undefined keys in a fresh
+   handoff entry; result metadata is now JSON-safe, and live create and cancel
+   both returned their results. Keep the reference id in mind for future
+   encode failures.
 3. Retry dedupe (`G-03`) and the ten-second shutdown budget (`E-20`).
 4. Fork/revert behavior for goals and handoffs once 2.2.0 is the running host.
 5. Compaction payload check after the host starts history at the latest

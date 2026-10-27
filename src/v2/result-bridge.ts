@@ -8,6 +8,48 @@ export type V1AfterOutput = {
 
 export const V1_TITLE_KEY = "tawassul.title";
 
+export function jsonSafeValue(value: unknown, seen?: WeakSet<object>): unknown {
+  if (value === null) return null;
+  const kind = typeof value;
+  if (kind === "string" || kind === "boolean") return value;
+  if (kind === "number") return Number.isFinite(value as number) ? value : null;
+  if (kind === "bigint") return (value as bigint).toString();
+  if (kind === "undefined" || kind === "function" || kind === "symbol") return undefined;
+  if (kind !== "object") return undefined;
+  const object = value as object;
+  if (object instanceof Date) {
+    return Number.isNaN(object.getTime()) ? null : object.toISOString();
+  }
+  const visited = seen ?? new WeakSet<object>();
+  if (visited.has(object)) return undefined;
+  visited.add(object);
+  let next: unknown;
+  if (Array.isArray(object)) {
+    next = object.map((item) => {
+      const safe = jsonSafeValue(item, visited);
+      return safe === undefined ? null : safe;
+    });
+  } else {
+    const record = object as Record<string, unknown>;
+    const safe: Record<string, unknown> = {};
+    for (const key of Object.keys(record)) {
+      const item = jsonSafeValue(record[key], visited);
+      if (item !== undefined) safe[key] = item;
+    }
+    next = safe;
+  }
+  visited.delete(object);
+  return next;
+}
+
+export function jsonSafeMetadata(
+  metadata: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!metadata) return undefined;
+  const safe = jsonSafeValue(metadata) as Record<string, unknown>;
+  return Object.keys(safe).length > 0 ? safe : undefined;
+}
+
 export function titleFromMetadata(metadata: Record<string, unknown> | undefined): string {
   const value = metadata?.[V1_TITLE_KEY];
   return typeof value === "string" ? value : "";
@@ -97,7 +139,7 @@ export function applyV1AfterOutput(
 ): void {
   writeBackV1Output(result, originalText, v1Output.output);
   if (syntheticStatus && v1Output.metadata) delete v1Output.metadata.status;
-  const nextMetadata = withTitleMetadata(v1Output.metadata, v1Output.title);
+  const nextMetadata = jsonSafeMetadata(withTitleMetadata(v1Output.metadata, v1Output.title));
   if (nextMetadata && metadataChanged(originalMetadata, nextMetadata)) {
     result.metadata = nextMetadata;
   }

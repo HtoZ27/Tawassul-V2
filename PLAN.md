@@ -310,7 +310,9 @@ Delivered:
 
 First assessment of v2.2.0 produced `E-43` (Code Mode `execute` was outside
 the tawa guard) and confirmed `E-42` as host-diagnosable through the new
-reference id. The remaining follow-ups are listed in `UPSTREAM.md`.
+reference id. Both are now fixed: `E-43` by the tawa name guard and `E-42` by
+JSON-safe tool metadata, with live create and cancel results confirmed. The
+remaining follow-ups are listed in `UPSTREAM.md`.
 
 Exit: `npm run gate:fast` includes `upstream-registry`; the live check reports
 `aligned: no release newer than v2.2.0`; `prove:upstream-sync` is green.

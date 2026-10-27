@@ -10,7 +10,7 @@ import { buildPluginInput } from "./client-shim.ts";
 import { isTaskTool, subagentArgsToV1, toolNameToV1, v1ArgsToSubagent } from "./delegation.ts";
 import { mapV2EventToV1 } from "./event-adapter.ts";
 import { startSchemaRefresh } from "./schema-refresh.ts";
-import { applyV1AfterOutput, metadataChanged, resultText, titleFromMetadata, withTitleMetadata } from "./result-bridge.ts";
+import { applyV1AfterOutput, jsonSafeMetadata, metadataChanged, resultText, titleFromMetadata, withTitleMetadata } from "./result-bridge.ts";
 import type { V2Context, V2SessionEvent, V2ToolContext, V2ToolHookInput } from "./types.ts";
 
 const MAX_PROCESSED_MESSAGES = 1024;
@@ -402,7 +402,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
             .then(() => {
               if (spec.status === "error") {
                 if (!spec.error) return;
-                const nextMetadata = withTitleMetadata(spec.error.metadata, v1Output.title);
+                const nextMetadata = jsonSafeMetadata(withTitleMetadata(spec.error.metadata, v1Output.title));
                 if (metadataChanged(spec.error.metadata, nextMetadata)) spec.error.metadata = nextMetadata;
                 return;
               }
