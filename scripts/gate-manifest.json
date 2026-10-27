@@ -21,6 +21,10 @@
       "cmd": ["bun", "src/scripts/facts.ts", "check"]
     },
     {
+      "name": "upstream-registry",
+      "cmd": ["bun", "scripts/check-upstream.ts", "--offline"]
+    },
+    {
       "name": "proof-catalog",
       "cmd": ["bun", "scripts/prove-proof-catalog.ts"]
     }
@@ -325,6 +329,10 @@
     {
       "name": "backup-cap",
       "cmd": ["bun", "scripts/prove-backup-cap.ts"]
+    },
+    {
+      "name": "upstream-sync",
+      "cmd": ["bun", "scripts/prove-upstream-sync.ts"]
     }
   ],
   "smoke": [

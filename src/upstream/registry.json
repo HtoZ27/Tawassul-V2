@@ -1,0 +1,205 @@
+{
+  "source": "https://opencode.ai/changelog",
+  "auditedThrough": "2.2.0",
+  "releases": [
+    {
+      "version": "2.2.0",
+      "date": "2026-10-27",
+      "auditedAt": "2026-10-27",
+      "hostContract": "2.1.4",
+      "status": "partial",
+      "items": [
+        {
+          "pr": 55246,
+          "topic": "desktop-plugin-sharing",
+          "verdict": "candidate",
+          "note": "Desktop plugin manager is experimental; install follow-ups stay frozen until it settles."
+        },
+        {
+          "pr": 59469,
+          "topic": "gui-plugin-api",
+          "verdict": "candidate",
+          "note": "Toasts, dialogs, and tabs could replace text-only notices after a host upgrade."
+        },
+        {
+          "pr": 59190,
+          "topic": "generate-image-api",
+          "verdict": "candidate",
+          "note": "Host image generation may replace the Codex imagegen transport later."
+        },
+        {
+          "pr": 59380,
+          "topic": "generate-decision-providers",
+          "verdict": "candidate",
+          "note": "Decision endpoints are not used; routing stays in the plugin for now."
+        },
+        {
+          "pr": 56550,
+          "topic": "session-instruction-entries",
+          "verdict": "candidate",
+          "note": "Keyed instructions survive compaction and skip a model turn; adopt after a 2.2.0 host."
+        },
+        {
+          "pr": 58864,
+          "topic": "event-type-filter",
+          "verdict": "aligned",
+          "note": "Whole-stream mapping is unchanged; filtering is available if profiling asks for it."
+        },
+        {
+          "pr": 59157,
+          "topic": "prompt-cache-ttl",
+          "verdict": "ignored",
+          "note": "Provider cache settings are host configuration; the plugin keeps no cache policy."
+        },
+        {
+          "pr": 58847,
+          "topic": "ai-promise-root",
+          "verdict": "aligned",
+          "note": "The plugin does not import @opencode/ai directly; the external list is unchanged."
+        },
+        {
+          "pr": 59295,
+          "topic": "opentui-07",
+          "verdict": "ignored",
+          "note": "TUI-only peer requirement; this plugin ships no TUI surface."
+        },
+        {
+          "pr": 59032,
+          "topic": "github-action-removed",
+          "verdict": "ignored",
+          "note": "This tree has no GitHub workflows or action references."
+        },
+        {
+          "pr": 59315,
+          "topic": "codemode-mcp-denied-execute",
+          "verdict": "guarded",
+          "issue": "E-43",
+          "note": "Code Mode can surface MCP tools; tawa now refuses execute by name."
+        },
+        {
+          "pr": 59459,
+          "topic": "response-encode-error-reference",
+          "verdict": "adopted",
+          "issue": "E-42",
+          "note": "Encode failures now carry a reference id, which localizes the missing handoff result."
+        },
+        {
+          "pr": 51133,
+          "topic": "wait-plugin-reload",
+          "verdict": "aligned",
+          "issue": "E-38",
+          "note": "The host waits for plugin reloads before steps; the fingerprint skip stays."
+        },
+        {
+          "pr": 58798,
+          "topic": "schema-conversion-once",
+          "verdict": "aligned",
+          "issue": "B-01",
+          "note": "Schemas convert once per tool; the placeholder and reload contract is unchanged."
+        },
+        {
+          "pr": 59082,
+          "topic": "wait-plugins-catalog",
+          "verdict": "aligned",
+          "issue": "E-17",
+          "note": "Agent and provider lists wait for plugins, narrowing the empty-catalog window."
+        },
+        {
+          "pr": 58331,
+          "topic": "dev-build-isolation",
+          "verdict": "tracked",
+          "issue": "D-01",
+          "note": "Separate dev server, database, and port; recheck expected DB paths on the next dev boot."
+        },
+        {
+          "pr": 58866,
+          "topic": "retry-throttled-requests",
+          "verdict": "tracked",
+          "issue": "G-03",
+          "note": "Host throttling retries overlap our retry path; narrow the plugin to daily limits."
+        },
+        {
+          "pr": 58817,
+          "topic": "shutdown-ten-second-cap",
+          "verdict": "tracked",
+          "issue": "E-20",
+          "note": "Shutdown now exits after ten seconds; keep the final flush inside that budget."
+        },
+        {
+          "pr": 59020,
+          "topic": "compaction-history-start",
+          "verdict": "candidate",
+          "note": "History starts at the latest completed compaction; recheck our context payload after the upgrade."
+        },
+        {
+          "pr": 58865,
+          "topic": "rewind-fork-any-message",
+          "verdict": "candidate",
+          "note": "Fork and rewind become message-level; plugin state has no message anchor yet."
+        },
+        {
+          "pr": 58448,
+          "topic": "tool-call-memory-release",
+          "verdict": "aligned",
+          "note": "The host releases tool-call memory; RSS is remeasured after the next restart."
+        },
+        {
+          "pr": 58562,
+          "topic": "provider-reported-costs",
+          "verdict": "candidate",
+          "note": "Host cost reporting may make our estimate redundant; compare after the upgrade."
+        },
+        {
+          "pr": 59101,
+          "topic": "sdk-discard-tool-images",
+          "verdict": "ignored",
+          "note": "SDK-only memory control; our tool results carry no inline file payloads."
+        },
+        {
+          "pr": 59090,
+          "topic": "machine-hostname-info",
+          "verdict": "ignored",
+          "note": "Informational endpoint field; the plugin does not identify the machine."
+        },
+        {
+          "pr": 58851,
+          "topic": "stream-after-finish-reason",
+          "verdict": "aligned",
+          "issue": "E-15",
+          "note": "Streamed text survives a finish reason, closing the truncation window tracked in E-15."
+        },
+        {
+          "pr": 59441,
+          "topic": "compaction-token-sizing",
+          "verdict": "aligned",
+          "note": "Compaction uses the provider token count; our context hook is unaffected."
+        },
+        {
+          "pr": 58997,
+          "topic": "deleted-project-sessions",
+          "verdict": "aligned",
+          "note": "Sessions and instruction entries survive a deleted project directory."
+        },
+        {
+          "pr": 58815,
+          "topic": "service-state-out-of-shells",
+          "verdict": "aligned",
+          "note": "The background service state directory stays out of tool shells."
+        },
+        {
+          "pr": 59207,
+          "topic": "kimi-tool-schemas",
+          "verdict": "ignored",
+          "note": "Provider-specific schema fix; no Kimi model is pinned in this tree."
+        },
+        {
+          "pr": 59089,
+          "topic": "external-dir-project-fs",
+          "verdict": "aligned",
+          "issue": "E-39",
+          "note": "External-directory checks use the project filesystem; the pre-flight URL check stays."
+        }
+      ]
+    }
+  ]
+}
