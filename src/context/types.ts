@@ -118,6 +118,10 @@ export type TawassulConfig = {
     apiRetryMax?: number;
     apiRetryBaseMs?: number;
   };
+  freeLimit?: {
+    notice?: boolean;
+    noRetry?: boolean;
+  };
   health?: {
     stuckTimeoutMs?: number;
     circuitBreakerThreshold?: number;

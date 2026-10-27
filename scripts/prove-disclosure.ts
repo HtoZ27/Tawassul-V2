@@ -14,7 +14,7 @@ const MARKERS = ["R-011", "disk-proven", "genuinely blocked"];
 const SILENT_CATCH_INVENTORY: Record<string, number> = {
   "bootstrap/event-integrations.ts": 8,
   "bootstrap/memory-integrations.ts": 2,
-  "bootstrap/plugin-init.ts": 2,
+  "bootstrap/plugin-init.ts": 1,
   "bootstrap/service-factory.ts": 2,
   "context-class.ts": 1,
   "context/managers/AgentManager.ts": 3,

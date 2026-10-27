@@ -78,6 +78,12 @@ export const configSchema = tool.schema.object({
       apiRetryBaseMs: tool.schema.number().min(100).max(60000).optional(),
     })
     .optional(),
+  freeLimit: tool.schema
+    .object({
+      notice: tool.schema.boolean().optional(),
+      noRetry: tool.schema.boolean().optional(),
+    })
+    .optional(),
   health: tool.schema
     .object({
       stuckTimeoutMs: tool.schema.number().min(1000).max(300000).optional(),

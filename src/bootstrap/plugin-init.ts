@@ -44,6 +44,7 @@ import {
 import { releaseFSLock } from "../infra/file-lock.ts";
 import { createHandoffEntry } from "../services/handoff-entry.ts";
 import { requiresConsent } from "../hooks/guards/shared/limits.ts";
+import { evaluateFreeLimitBridge } from "../services/free-limit.ts";
 import { detectInstallScope, claimCoexistence, isCoexistenceOwner, releaseCoexistence } from "../core/install-scope.ts";
 import { warnIfUnisolatedDb } from "./db-isolation.ts";
 import {
@@ -970,6 +971,18 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
           (ev?.sessionID as string | undefined) ??
           ((props?.payload as Record<string, unknown> | undefined)?.sessionID as string | undefined);
         const evType = (ev?.type as string | undefined) ?? (ev?.event as string | undefined) ?? "";
+        const freeLimitCfg = tawaCtx.configManager?.config?.freeLimit;
+        const structuredError =
+          (props?.error as unknown) ?? (ev?.error as unknown) ?? (props as Record<string, unknown> | undefined);
+        const bridge = evaluateFreeLimitBridge(freeLimitCfg, structuredError ?? errMsg);
+        if (bridge.action === "skip-retry") {
+          logger.info(
+            `[tawassul] free daily limit detected for session ${sessId ?? "unknown"}` +
+              (bridge.retryAfterMs !== undefined ? ` (resets in ${bridge.retryAfterMs}ms)` : "") +
+              " — backoff retry skipped",
+          );
+          return;
+        }
         if (
           (evType === "session.error" || evType === "session_error" || evType === "session_idle") &&
           errMsg &&
@@ -983,8 +996,8 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
           await handleRateLimitError(ctx, tawaCtx, sessId, errMsg);
           return;
         }
-      } catch {
-        void 0;
+      } catch (e) {
+        logger.debug("[tawassul] free-limit bridge failed open:", e);
       }
       const status = await ensureReady();
       if (!status.ready) {

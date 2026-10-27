@@ -119,3 +119,28 @@ export function isFreeDailyLimit(error: unknown): boolean {
 export function isTransientRateLimit(error: unknown): boolean {
   return parseFreeLimitSignal(error).signal === "transient-rate-limit";
 }
+
+export type FreeLimitBridgeConfig = { notice?: boolean; noRetry?: boolean };
+
+export type FreeLimitBridgeDecision =
+  | { action: "legacy"; reason: "flag-off" | "not-daily-limit" }
+  | { action: "skip-retry"; reason: "daily-limit"; retryAfterMs?: number };
+
+export function evaluateFreeLimitBridge(
+  config: FreeLimitBridgeConfig | undefined,
+  error: unknown,
+): FreeLimitBridgeDecision {
+  if (config?.noRetry !== true) {
+    return { action: "legacy", reason: "flag-off" };
+  }
+  let signal: FreeLimitParseResult;
+  try {
+    signal = parseFreeLimitSignal(error);
+  } catch {
+    return { action: "legacy", reason: "not-daily-limit" };
+  }
+  if (signal.signal !== "free-daily-limit") {
+    return { action: "legacy", reason: "not-daily-limit" };
+  }
+  return { action: "skip-retry", reason: "daily-limit", retryAfterMs: signal.retryAfterMs };
+}
