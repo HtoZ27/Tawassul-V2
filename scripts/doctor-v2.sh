@@ -141,9 +141,73 @@ else
 fi
 info "canonical DB (single write path): $CANONICAL_DB"
 
+section "database census"
+census_cap="${TAWASSUL_DOCTOR_DB_CAP:-32}"
+case "$census_cap" in ''|*[!0-9]*|0) census_cap=32 ;; esac
+allow_legacy_growth="${TAWASSUL_ALLOW_LEGACY_GROWTH:-0}"
+shared_baseline=14
+launcher_baseline=14
+census_total=0
+census_overflow=0
+census_scan_error=0
+declare -A census_seen=()
+census_paths=()
+census_dir="$(mktemp -d "$TMPROOT/tawassul-doctor.XXXXXX" 2>/dev/null || true)"
+if [ -n "$census_dir" ] && [ -d "$census_dir" ]; then
+  cleanup() { rm -rf "$census_dir"; }
+  trap cleanup EXIT
+else
+  census_dir=""
+fi
+census_add() {
+  path="$1"
+  if [ -n "${census_seen[$path]:-}" ]; then return 0; fi
+  census_seen[$path]=1
+  census_paths+=("$path")
+}
+census_scan() {
+  root="$1"
+  depth="$2"
+  [ "$census_overflow" -eq 0 ] || return 0
+  [ -d "$root" ] || return 0
+  errfile="${census_dir:+$census_dir/find.err}"
+  while IFS= read -r -d '' hit; do
+    census_total=$((census_total + 1))
+    if [ "$census_total" -gt "$census_cap" ]; then
+      census_overflow=1
+      break
+    fi
+    census_add "$hit"
+  done < <(find -P "$root" -maxdepth "$depth" -type f -name 'opencode.db' -print0 2>>"${errfile:-/dev/null}")
+  if [ -n "$errfile" ] && [ -s "$errfile" ]; then
+    census_scan_error=1
+    warn "census could not read part of $root: $(head -n1 "$errfile")"
+    : > "$errfile"
+  fi
+}
+census_scan "$HOME_DIR/.local/share/opencode" 4
+census_scan "$HOME_DIR/.local/share/tawassul-v2" 3
+census_scan "$HOME_DIR/.local/share/opencode-projects" 3
+if [ -n "$CANONICAL_DB" ] && [ -f "$CANONICAL_DB" ]; then
+  census_add "$CANONICAL_DB"
+fi
+if [ -n "$LAUNCHER_DB" ] && [ -f "$LAUNCHER_DB" ]; then
+  census_add "$LAUNCHER_DB"
+fi
+if [ "$census_overflow" -eq 1 ]; then
+  fail "database census hit the ${census_cap}-file cap — refusing to certify DB roles; raise TAWASSUL_DOCTOR_DB_CAP only after checking the tree (D-05)"
+fi
+if [ "$census_scan_error" -eq 1 ]; then
+  fail "database census could not read every root — refusing to certify DB roles (D-05)"
+fi
+if [ "${#census_paths[@]}" -eq 0 ]; then
+  info "census found no opencode.db files under the three data roots"
+else
+  pass "bounded census found ${#census_paths[@]} database file(s) within the ${census_cap}-file cap"
+fi
+
 section "database sizes"
-for candidate in "$db" "$SHARED_DB" "$LAUNCHER_DB" "$expected"; do
-  [ -n "$candidate" ] || continue
+for candidate in "${census_paths[@]}"; do
   [ -f "$candidate" ] || continue
   total=0
   for part in "$candidate" "$candidate-wal"; do
@@ -159,68 +223,147 @@ for candidate in "$db" "$SHARED_DB" "$LAUNCHER_DB" "$expected"; do
 done
 
 section "sessions"
-snapshot_dir="$(mktemp -d "$TMPROOT/tawassul-doctor.XXXXXX" 2>/dev/null || true)"
-if [ -n "$snapshot_dir" ] && [ -d "$snapshot_dir" ]; then
-  cleanup() { rm -rf "$snapshot_dir"; }
-  trap cleanup EXIT
-fi
+census_unreadable=0
+db_cli=""
+db_role() {
+  case "$1" in
+    "$CANONICAL_DB") printf 'canonical' ;;
+    "$SHARED_DB") printf 'shared' ;;
+    "$LAUNCHER_DB") printf 'launcher' ;;
+    "$SIDECAR_DB") printf 'sidecar' ;;
+    "$expected") printf 'hmac-isolated' ;;
+    "$HOME_DIR/.local/share/opencode/tawassul-v2/projects/"*/opencode.db) printf 'cli-test' ;;
+    *) printf 'undeclared' ;;
+  esac
+}
+db_label() {
+  case "$1" in
+    canonical) printf 'canonical' ;;
+    shared) printf 'shared' ;;
+    launcher) printf 'launcher' ;;
+    sidecar) printf 'sidecar' ;;
+    hmac-isolated) printf 'hmac-isolated' ;;
+    cli-test) printf 'v2-cli-test' ;;
+    *) printf 'undeclared:%s' "$(basename "$(dirname "$2")")" ;;
+  esac
+}
+check_growth() {
+  kind="$1"
+  path="$2"
+  count="$3"
+  baseline="$4"
+  if [ "$count" -gt "$baseline" ]; then
+    if [ "$allow_legacy_growth" = "1" ]; then
+      warn "$kind copy grew to $count session(s) over the $baseline baseline (allowed by TAWASSUL_ALLOW_LEGACY_GROWTH=1): $path"
+    else
+      fail "$kind copy grew to $count session(s) over the $baseline baseline — a process still writes a read-only/test copy (D-05): $path"
+    fi
+  elif [ "$count" -lt "$baseline" ]; then
+    warn "$kind copy holds $count session(s), below the $baseline baseline (sessions deleted?): $path"
+  fi
+}
 if ! command -v sqlite3 >/dev/null 2>&1; then
   warn "sqlite3 is missing — skipping session counts"
-elif [ -z "$snapshot_dir" ] || [ ! -d "$snapshot_dir" ]; then
+elif [ -z "$census_dir" ] || [ ! -d "$census_dir" ]; then
   warn "cannot create a temporary snapshot directory; skipping session counts"
 else
   count_db() {
     src="$1"
-    label="$2"
     if [ ! -f "$src" ]; then
       return 0
     fi
+    role="$(db_role "$src")"
+    label="$(db_label "$role" "$src")"
     snapshots=$((snapshots + 1))
-    dest="$snapshot_dir/db$snapshots"
-    mkdir -p "$dest" 2>/dev/null || { warn "$label: cannot prepare snapshot dir"; return 0; }
+    dest="$census_dir/db$snapshots"
+    mkdir -p "$dest" 2>/dev/null || { warn "$label: cannot prepare snapshot dir"; census_unreadable=1; return 0; }
     if ! cp "$src" "$dest/opencode.db" 2>/dev/null; then
       warn "$label: cannot snapshot $src"
+      census_unreadable=1
       return 0
     fi
     if [ -f "$src-wal" ]; then cp "$src-wal" "$dest/opencode.db-wal" 2>/dev/null || true; fi
     if [ -f "$src-shm" ]; then cp "$src-shm" "$dest/opencode.db-shm" 2>/dev/null || true; fi
     copy="$dest/opencode.db"
-    has_session="$(sqlite3 "$copy" "SELECT name FROM sqlite_master WHERE type='table' AND name='session_v2';" 2>/dev/null || true)"
-    if [ "$has_session" != "session_v2" ]; then
-      warn "$label: no session_v2 table in $src"
+    has_v2="$(sqlite3 "$copy" "SELECT name FROM sqlite_master WHERE type='table' AND name='session_v2';" 2>/dev/null || true)"
+    has_legacy="$(sqlite3 "$copy" "SELECT name FROM sqlite_master WHERE type='table' AND name='session';" 2>/dev/null || true)"
+    if [ "$has_v2" != "session_v2" ] && [ "$has_legacy" != "session" ]; then
+      warn "$label: no session tables in $src (not an OpenCode database)"
+      rm -rf "$dest"
       return 0
     fi
+    v2_total=""
+    legacy_total=""
+    if [ "$has_v2" = "session_v2" ]; then
+      v2_total="$(sqlite3 "$copy" "SELECT COUNT(*) FROM session_v2;" 2>/dev/null || true)"
+      case "$v2_total" in ''|*[!0-9]*) v2_total="" ;; esac
+    fi
+    if [ "$has_legacy" = "session" ]; then
+      legacy_total="$(sqlite3 "$copy" "SELECT COUNT(*) FROM session;" 2>/dev/null || true)"
+      case "$legacy_total" in ''|*[!0-9]*) legacy_total="" ;; esac
+    fi
+    if [ -z "$v2_total" ] && [ -z "$legacy_total" ]; then
+      warn "$label: cannot read session counts from $src"
+      census_unreadable=1
+      rm -rf "$dest"
+      return 0
+    fi
+    if [ -n "$v2_total" ]; then total="$v2_total"; else total="$legacy_total"; fi
+    legacy="${legacy_total:-0}"
+    any=$((total + legacy))
     has_project="$(sqlite3 "$copy" "SELECT name FROM sqlite_master WHERE type='table' AND name='project';" 2>/dev/null || true)"
     root_sql="$(printf '%s' "$ROOT" | sed "s/'/''/g")"
-    total="$(sqlite3 "$copy" "SELECT COUNT(*) FROM session_v2;" 2>/dev/null || printf '?')"
-    if [ "$has_project" = "project" ]; then
-      mine="$(sqlite3 "$copy" "SELECT COUNT(*) FROM session_v2 WHERE directory = '$root_sql' OR project_id IN (SELECT id FROM project WHERE worktree = '$root_sql');" 2>/dev/null || printf '?')"
-    else
-      mine="$(sqlite3 "$copy" "SELECT COUNT(*) FROM session_v2 WHERE directory = '$root_sql';" 2>/dev/null || printf '?')"
+    mine=""
+    if [ -n "$v2_total" ]; then
+      if [ "$has_project" = "project" ]; then
+        mine="$(sqlite3 "$copy" "SELECT COUNT(*) FROM session_v2 WHERE directory = '$root_sql' OR project_id IN (SELECT id FROM project WHERE worktree = '$root_sql');" 2>/dev/null || printf '?')"
+      else
+        mine="$(sqlite3 "$copy" "SELECT COUNT(*) FROM session_v2 WHERE directory = '$root_sql';" 2>/dev/null || printf '?')"
+      fi
     fi
-    info "$label: $mine project session(s) of $total — $src"
-    case "$total" in
-      ''|*[!0-9]*) return 0 ;;
+    info "$label: ${mine:-0} project session(s) of $total — $src"
+    case "$role" in
+      canonical)
+        db_canonical="${db_canonical}${db_canonical:+; }${label} ${mine:-0}/${total}"
+        ;;
+      shared)
+        db_secondary="${db_secondary}${db_secondary:+; }${label}(legacy-read-only) ${mine:-0}/${total}"
+        check_growth "shared" "$src" "$total" "$shared_baseline"
+        ;;
+      launcher)
+        db_secondary="${db_secondary}${db_secondary:+; }${label}(test-only) ${mine:-0}/${total}"
+        check_growth "launcher" "$src" "$total" "$launcher_baseline"
+        ;;
+      sidecar)
+        db_secondary="${db_secondary}${db_secondary:+; }${label}(canonical-path) ${mine:-0}/${total}"
+        ;;
+      cli-test)
+        if [ "$any" -gt 0 ]; then
+          db_cli="${db_cli}${db_cli:+; }${label} ${mine:-0}/${total}"
+        fi
+        ;;
+      undeclared)
+        if [ "$any" -gt 0 ]; then
+          db_unknown="${db_unknown}${db_unknown:+; }${label} ${mine:-0}/${total}"
+        else
+          info "$label: undeclared path holds no sessions (ignored): $src"
+        fi
+        ;;
     esac
-    if [ "$total" -eq 0 ]; then return 0; fi
-    if [ "$src" = "$CANONICAL_DB" ]; then
-      db_canonical="${db_canonical}${db_canonical:+; }${label} ${mine}/${total}"
-    elif [ "$src" = "$SHARED_DB" ]; then
-      db_secondary="${db_secondary}${db_secondary:+; }${label}(legacy-read-only) ${mine}/${total}"
-    elif [ "$src" = "$LAUNCHER_DB" ]; then
-      db_secondary="${db_secondary}${db_secondary:+; }${label}(test-only) ${mine}/${total}"
-    else
-      db_unknown="${db_unknown}${db_unknown:+; }${label} ${mine}/${total}"
-    fi
+    rm -rf "$dest"
   }
 
-  if [ -n "$db" ]; then count_db "$db" "OPENCODE_DB"; fi
-  if [ -n "$CANONICAL_DB" ] && [ "$CANONICAL_DB" != "$db" ] && [ "$CANONICAL_DB" != "$expected" ]; then count_db "$CANONICAL_DB" "canonical"; fi
-  if [ "$db" != "$SHARED_DB" ]; then count_db "$SHARED_DB" "shared"; fi
-  if [ "$db" != "$LAUNCHER_DB" ]; then count_db "$LAUNCHER_DB" "launcher"; fi
-  if [ -n "$expected" ] && [ "$db" != "$expected" ]; then count_db "$expected" "hmac-isolated"; fi
+  for candidate in "${census_paths[@]}"; do
+    count_db "$candidate"
+  done
+  if [ "$census_unreadable" -eq 1 ]; then
+    fail "one or more databases could not be snapshotted or read — refusing to certify DB roles (D-05)"
+  fi
+  if [ -n "$db_cli" ]; then
+    fail "the v2 CLI project namespace holds sessions ($db_cli) — that lane is test-only; export OPENCODE_DB explicitly instead of opening a second live DB (D-05)"
+  fi
   if [ -n "$db_unknown" ]; then
-    fail "an undeclared database contains sessions ($db_unknown) — only the canonical DB, the legacy shared copy, and the test copy are allowed (D-01)"
+    fail "an undeclared database contains sessions ($db_unknown) — only the canonical DB, the legacy shared copy, the launcher test copy, and the v1 HMAC path are allowed (D-01/D-05)"
   elif [ -z "$db_canonical" ] && [ -n "$db_secondary" ]; then
     fail "the canonical DB has no sessions while a legacy/test copy does ($db_secondary) — those sessions are invisible; import required (D-02)"
   elif [ -n "$db_canonical" ]; then

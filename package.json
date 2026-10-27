@@ -26,6 +26,7 @@
     "prove:web-ssrf": "bun scripts/prove-web-ssrf.ts",
     "prove:first-boot": "bun scripts/prove-first-boot-seed.ts",
     "prove:db-retention": "bun scripts/prove-db-retention.ts",
+    "prove:d05": "bun scripts/prove-d05.ts",
     "prove:disclosure": "bun scripts/prove-disclosure.ts",
     "prove:s020": "bun scripts/prove-s020.ts",
     "prove:e11": "bun scripts/prove-e11.ts",
