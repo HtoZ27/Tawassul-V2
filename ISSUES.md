@@ -1317,6 +1317,15 @@ executes; a `no` answer keeps it blocked. A mutation that disconnects the
 `onResolve` wiring fails the retry assertion, so the proof catches a dead
 answer loop (17 assertions).
 
+Extended 2026-10-27 (commit `ab270d0`): the proof now calls the real
+`tool.execute.before` hook from the booted plugin instead of a hand-built
+channel, so the question is rendered by the registered AskChannel through
+`session.synthetic` into the root session's transcript — the surface the
+OpenCode chat UI displays. It asserts the ask marker, the exact command, the
+acceptance tokens, root-session targeting, that the question is not queued as
+a model turn, and that the host permission dialog is not used; the chat `yes`
+and `no` replies then drive the gate. 21 assertions.
+
 ### G-03-A The daily free limit was blind-retried like a transient 429 — done (2026-10-26)
 
 When the OpenCode Zen free daily quota is spent the host emits the typed error
