@@ -1,6 +1,6 @@
 # Tawassul V2 — Stability Triage
 
-Status: 2026-10-26 · HEAD `b55f9df` · gate `npm run ci` rc=0
+Status: 2026-10-27 · HEAD `2cc8c25` · gate `npm run ci` rc=0
 
 Purpose: one prioritized view across every open fix, filtered to the single
 question that matters for day-to-day use — **does this stop the plugin from
@@ -8,7 +8,7 @@ working, lose data, or report success when it failed?**
 
 ## Where the fixes actually live
 
-All 99 issue entries are in `ISSUES.md`. `PLAN.md`, `TRIAGE.md`,
+All 102 issue entries are in `ISSUES.md`. `PLAN.md`, `TRIAGE.md`,
 `CUTOVER.md`, `RECOVERY-20261025.md`, `DECOUPLING.md`, and `SHARED.md` are
 historical records: they describe work already done or decisions already
 taken. The one exception was `SHARED.md` S-057, which had never been
@@ -42,9 +42,8 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | --- | --- | --- |
 | `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
 
-## S3 — boot and startup (4)
+## S3 — boot and startup (3)
 
-`D-05` doctor census gap ·
 `I-07` no bundle freshness check · `I-08` global boot cost unmeasured ·
 `I-10` successful host boot is manual.
 
@@ -76,7 +75,7 @@ into two engineering clusters, each of which is one coherent change.
 
 | Cluster | Members | One change |
 | --- | --- | --- |
-| **Persistence** | `E-12`, `E-13`, `E-20`, `E-21`, `E-22`, `D-05` | Make save/load/flush one generation-aware path: write before you report, quarantine instead of rolling back, await every flush. |
+| **Persistence** | `E-12`, `E-13`, `E-20`, `E-21`, `E-22` | Make save/load/flush one generation-aware path: write before you report, quarantine instead of rolling back, await every flush. |
 | **Guards** | `C-03`, `P-10`, `E-28` | One guard chain on every path, capability seeded at boot, fail closed on decisions and open on infrastructure. |
 
 ## Execution order
@@ -109,7 +108,7 @@ questions and notices through the transcript instead of a fake TUI, and `E-36`
 reports a failed or cancelled crawl as an error instead of a successful result.
 No S2 item is open.
 
-**Wave 4 — boot (S3, 2 days).** `I-07`, `I-08`, `I-10`. `B-01`, `B-02`, `B-03`, `B-05`, and `G-04` are closed.
+**Wave 4 — boot (S3, 2 days).** `I-07`, `I-08`, `I-10`. `D-05`, `B-01`, `B-02`, `B-03`, `B-05`, and `G-04` are closed.
 
 **Wave 5 — security (S4, 2–3 days).** `C-03`, `E-28`, `E-30`,
 `E-37`, `E-39`. `P-10` is closed.
@@ -218,6 +217,8 @@ today.
   blind-retried behind the `freeLimit.noRetry` flag, and renders one localized
   notice with the local reset time and shared-quota guidance behind the
   `freeLimit.notice` flag while typed transient limits keep their legacy
-  retries.
+  retries; `D-05` (S3) — the doctor now censuses all three data roots, fails
+  on undeclared session copies and on shared/launcher growth past the 14/14
+  baselines, and fails closed at the 32-file cap.
 - The three open goals in the ledger (`G-001`, `G-002`, `G-003`) overlap the
   waves above and should be re-scoped to the wave boundaries.

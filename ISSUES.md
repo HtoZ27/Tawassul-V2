@@ -1,13 +1,13 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 72 proof files, smoke pass)
+Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 73 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
 running host still predates the current build (G-13).
 Register note: the third-round evaluation (2026-10-26) added E-11..E-41 and
 re-confirmed C-02, C-03, P-10, B-02, E-02, and G-13 without duplicating them.
-Stability view: `STABILITY.md` classifies all 52 open entries by whether they
+Stability view: `STABILITY.md` classifies all open entries by whether they
 block use, lose data, or misreport, and gives the wave order.
 `SHARED.md` audit (2026-10-26): all 57 frozen entries are dispositioned in
 `VERIFICATION-20261026.md`; the only gaps that were actionable in this tree are
@@ -784,7 +784,7 @@ the full `npm run ci` passes. D-01 roles were adopted on 2026-10-26: the
 sidecar is canonical, the shared DB is legacy read-only, and the launcher DB
 is test-only.
 
-### D-05 Doctor census misses the v2 CLI namespace and accepts legacy growth — open (P1)
+### D-05 Doctor census misses the v2 CLI namespace and accepts legacy growth — done (2026-10-27)
 
 D-01 declared the roles, but `doctor-v2.sh` enforces them over a fixed list of
 five paths rather than a bounded census. It counts `$db`, the canonical path,
@@ -813,7 +813,7 @@ retained (`:229`). It does not compare their counts with the 14/14 D-02
 baseline, so a process that opens either copy and writes a session still
 passes. The declaration prevents nothing by itself; only a growth check does.
 
-Recommended shape (D-05, owner decision 8; not implemented):
+Recommended shape (D-05, owner decision 8; implemented 2026-10-27):
 
 - Bounded census: enumerate `opencode.db` up to depth 3 under
   `~/.local/share/opencode`, `~/.local/share/tawassul-v2`, and
@@ -837,6 +837,23 @@ Recommended shape (D-05, owner decision 8; not implemented):
 Verdict: the owner's role choice is correct as the stabilization step and
 should be kept. It becomes the structural guarantee the owner asked for only
 when D-05 closes the census and growth gaps.
+
+Evidence (2026-10-27, `2cc8c25`): `doctor-v2.sh` now runs a bounded census
+(depth 4 under `~/.local/share/opencode`, depth 3 under
+`~/.local/share/tawassul-v2` and `~/.local/share/opencode-projects`, symlinks
+skipped, 32-file cap) and classifies every hit as canonical, shared, launcher,
+sidecar, v1 HMAC, v2 CLI test, or undeclared. Undeclared databases with
+sessions, v2 CLI databases with sessions, unreadable snapshots, and a reached
+cap fail closed; a non-OpenCode file is skipped with a warning. The shared and
+launcher copies are held to the 14/14 D-02 baselines: growth fails unless
+`TAWASSUL_ALLOW_LEGACY_GROWTH=1` is set for a deliberate import, and a shrink
+warns. `scripts/prove-d05.ts` runs 28 assertions in an isolated HOME (clean
+layout, undeclared v2 and v1 databases, both baselines, the explicit import
+flag, the CLI namespace, the cap, symlink skip, an unreadable DB, a
+non-OpenCode file, and source-hash immutability); it fails on `40b9c3a` and
+passes on `2cc8c25`. Live doctor: `PASS bounded census found 6 database
+file(s)`, canonical 71/72, shared 14/14, launcher 14/14, rc=0. `npm run ci`
+passes with 73 proof files / 72 registered steps.
 
 ---
 
