@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 70 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 74 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1354,8 +1354,37 @@ can never become a hard block (`prove-g003i2`, 33 assertions). The config
 schema and config type gain the `freeLimit` block with `notice` and `noRetry`
 toggles.
 
-Still open: the user-visible notice (I4/I5), so today the bridge only stops the
-harmful retrying and logs the delay.
+### G-03-B The free-limit bridge had no user-visible notice and broke typed transients — done (2026-10-26)
+
+The bridge stopped the blind retry but the user still saw nothing: the reset
+delay only reached the log, so a spent daily quota looked like a silent stop.
+Wiring the prompt-shape change into the event hook also exposed a regression:
+the hook read only a string error, so a structured `provider.rate-limit`
+object flattened to nothing, never reached `matchesRateLimit`, and a transient
+limit silently stopped retrying while the bridge was on.
+
+Resolved 2026-10-26 in four commits. `buildFreeLimitNotice` (commit `cdf44d0`)
+renders one notice for a daily-limit decision: the reset time as the delay
+added to the current clock in ISO form with a whole-minute estimate, the
+shared-quota guidance (the free quota is shared across models on the same
+identity, so switching key or model does not help), and a plain statement that
+retrying will not help; a delay-less decision renders the same guidance with no
+invented reset time and a non-daily decision renders nothing (25 assertions).
+The notice strings come from `en.json` keys with the English text kept as the
+default, and the `freeLimit` block (`notice`, `noRetry`) is schema-validated
+and defaults off, so an unconfigured install is byte-for-byte legacy (29
+assertions, commit `c360b54`). The event hook now flattens a structured error
+into its message, type, and name before the legacy check and the default
+rate-limit patterns include the hyphenated `rate-limit` spelling, so typed
+transients keep retrying while the daily limit short-circuits to the notice
+(8 live assertions, commit `99ed373`). `prove-g003i6` collects the four
+contract cases the goal names — typed error, missing `retryAfterMs`, transient
+429 unchanged, and flag-off deep-equal to legacy across ten inputs and five
+off-configs — and its snake_case case caught one more parser gap, now fixed by
+`rate[ _-]?limit` (84 assertions, commit `afdfd34`).
+
+The bridge and the notice are additive and config-gated; AFRouter and
+free-provider routing stay external user-land setup only.
 
 ### B-11 Predictive-router rewrites its file every 5 minutes — done (2026-10-26)
 
