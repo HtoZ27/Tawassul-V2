@@ -1,6 +1,6 @@
 # Tawassul V2 — Stability Triage
 
-Status: 2026-10-27 · HEAD `2cc8c25` · gate `npm run ci` rc=0
+Status: 2026-10-27 · HEAD `078d895` · gate `npm run ci` rc=0
 
 Purpose: one prioritized view across every open fix, filtered to the single
 question that matters for day-to-day use — **does this stop the plugin from
@@ -15,21 +15,21 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **26 are open**.
+with 102 entries, of which **25 are open**.
 
 ## The filter
 
-26 open items sound like 26 problems. They are not the same kind of problem:
+25 open items sound like 25 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
 | S0 | Does the plugin work at all? | 1 |
 | S1 | Does it lose or corrupt data silently? | 0 |
 | S2 | Does it tell the truth about what happened? | 0 |
-| S3 | Does it start reliably and quickly? | 9 |
-| S4 | Can it be made to do something it should not? | 6 |
+| S3 | Does it start reliably and quickly? | 2 |
+| S4 | Can it be made to do something it should not? | 4 |
 | S5 | Can we prove any of the above? | 13 |
-| S6 | Does install and upgrade work? | 4 |
+| S6 | Does install and upgrade work? | 5 |
 
 **Stability is S0 + S1: 1 item.** S2 decides whether you can trust what you
 see. S3 through S6 matter, but none of them makes a working session fail.
@@ -42,15 +42,13 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | --- | --- | --- |
 | `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
 
-## S3 — boot and startup (3)
+## S3 — boot and startup (2)
 
-`I-07` no bundle freshness check · `I-08` global boot cost unmeasured ·
-`I-10` successful host boot is manual.
+`I-08` global boot cost unmeasured · `I-10` successful host boot is manual.
 
-## S4 — security (5)
+## S4 — security (4)
 
-`C-03` no-agent sessions skip every guard · `E-28` `patch`/`apply_patch`
-absent from `BLOCKED_TOOLS` ·
+`E-28` `patch`/`apply_patch` absent from `BLOCKED_TOOLS` ·
 `E-30` `applyPatch` prefix escape · `E-37` type shim weaker than the host
 contract · `E-39` SSRF check is pre-flight only.
 
@@ -62,9 +60,9 @@ entry, and no hook may turn a `bash` infrastructure error into a hard block.
 `E-32`, `E-40`, `E-41`, `E-07`, `G-05`, `G-06`, `G-07`, `G-08`, `G-10`,
 `G-11`, `G-12`, `I-09`, `I-11`.
 
-## S6 — install and parity (4)
+## S6 — install and parity (5)
 
-`I-02`, `I-03`, `I-05`, `I-06`.
+`I-02`, `I-03`, `I-04`, `I-05`, `I-06`.
 
 ---
 
@@ -76,14 +74,14 @@ into two engineering clusters, each of which is one coherent change.
 | Cluster | Members | One change |
 | --- | --- | --- |
 | **Persistence** | `E-12`, `E-13`, `E-20`, `E-21`, `E-22` | Make save/load/flush one generation-aware path: write before you report, quarantine instead of rolling back, await every flush. |
-| **Guards** | `C-03`, `P-10`, `E-28` | One guard chain on every path, capability seeded at boot, fail closed on decisions and open on infrastructure. |
+| **Guards** | `E-28` | One guard chain on every path, capability seeded at boot, fail closed on decisions and open on infrastructure. `C-03` and `P-10` are closed. |
 
 ## Execution order
 
 **Wave 0 — in parallel with everything (1 day).** `E-41`: invert the proofs
 that assert defects as expected behaviour. The first inversion is done —
 `prove-v2-compat.ts` now asserts part preservation and `E-16` is closed. The
-remaining targeted cases (C-03, E-12, E-14, E-19) land with their
+remaining targeted cases (E-12, E-14, E-19) land with their
 fixes. Without this, every later wave can be "verified" green while the bug is
 still there.
 
@@ -108,10 +106,10 @@ questions and notices through the transcript instead of a fake TUI, and `E-36`
 reports a failed or cancelled crawl as an error instead of a successful result.
 No S2 item is open.
 
-**Wave 4 — boot (S3, 2 days).** `I-07`, `I-08`, `I-10`. `D-05`, `B-01`, `B-02`, `B-03`, `B-05`, and `G-04` are closed.
+**Wave 4 — boot (S3, 2 days).** `I-08`, `I-10`. `I-07`, `D-05`, `B-01`, `B-02`, `B-03`, `B-05`, and `G-04` are closed.
 
-**Wave 5 — security (S4, 2–3 days).** `C-03`, `E-28`, `E-30`,
-`E-37`, `E-39`. `P-10` is closed.
+**Wave 5 — security (S4, 2–3 days).** `E-28`, `E-30`, `E-37`, `E-39`.
+`C-03` and `P-10` are closed.
 
 **Wave 6 — evidence and install (S5 + S6, 2 days).** Everything that remains.
 
@@ -136,8 +134,8 @@ today.
 ## Current position
 
 - Wave 0: in progress — `prove-v2-compat` (E-16), `prove-e11` (E-11),
-  `prove-c02` (C-02), and `prove-e12` (E-12) landed; the remaining targeted
-  cases are C-03, E-14, and E-19.
+  `prove-c02` (C-02), `prove-e12` (E-12), and `prove-c03` (C-03) landed; the
+  remaining targeted cases are E-14 and E-19.
 - Wave 1: `E-26` (iteration budget), `E-11` (skill gate), and `C-02` (consent
   loop) are closed. `E-26` is not in S0–S2 because it blocked long tasks, not
   normal use.
@@ -206,7 +204,7 @@ today.
   compact JSONL instead of pretty-printed JSON, with backward-compatible
   loading of the legacy envelope; `B-05` (S3) — the setup measures and logs the
   tool schema payload in bytes and estimated tokens whenever it changes; `G-04`
-  (S3) — a boot-budget proof fails when boot exceeds 2000 ms; `I-07` (S6) —
+  (S3) — a boot-budget proof fails when boot exceeds 2000 ms; `I-07` (S3) —
   the global bundle is stamped with the source SHA and the installer refuses a
   stale build; `P-10` (S4) — the plugin no longer hard-denies legitimate bash;
   the consent gate is the single by-design gate for dangerous commands and
@@ -219,6 +217,8 @@ today.
   `freeLimit.notice` flag while typed transient limits keep their legacy
   retries; `D-05` (S3) — the doctor now censuses all three data roots, fails
   on undeclared session copies and on shared/launcher growth past the 14/14
-  baselines, and fails closed at the 32-file cap.
+  baselines, and fails closed at the 32-file cap; `C-03` (S4) — a missing or
+  unrecognized agent no longer bypasses the consent gate, so sudo, `git push`,
+  and `rm -rf /` ask in every session.
 - The three open goals in the ledger (`G-001`, `G-002`, `G-003`) overlap the
   waves above and should be re-scoped to the wave boundaries.

@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 73 proof files, smoke pass)
+Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 74 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1260,7 +1260,7 @@ a different `git push origin dev` still asks, a `no` answer caches denial, and
 the original approval remains scoped to its command. Wired as the `c02`
 proofs step; `npm run ci` green (31 proof steps, smoke pass).
 
-### C-03 No-agent sessions skip every guard — open (P1)
+### C-03 No-agent sessions skip every guard — done (2026-10-27)
 
 `src/hooks/validation-pipeline.ts:273-276` returns `true` early when
 `!input.agent && !isTawaRelated`. `bash` is not a Tawassul tool, so a session
@@ -1274,6 +1274,29 @@ check.
 Next: require an agent identity for shell/delete/kick, or run the consent and
 pattern stages before the early return, and add a proof that a missing agent
 cannot bypass them.
+
+Fixed in `078d895` by taking the second shape. `src/hooks/tool-execute.ts`
+no longer returns early for a named but unrecognized agent: the call runs
+`runPipeline`, whose existing unmanaged-agent branch re-checks the tawa
+redirect and roster boundaries and runs the consent gate, and a rejection now
+throws the tool block instead of returning silently.
+`src/hooks/validation-pipeline.ts` runs `consentGateGuard.check` before the
+no-agent early return whenever `requiresConsent` matches, so a session without
+an agent identity can no longer execute sudo, `git push`, or `rm -rf /`
+unseen. Safe commands still take the early return, which keeps the P-10
+design: the consent gate is the by-design barrier for dangerous commands and
+host permissions remain the fallback for everything else.
+
+`scripts/prove-c03.ts` boots the plugin in an isolated HOME with a real
+AskChannel and asserts 19 behaviours: a no-agent dangerous command is blocked
+with one synthetic question in the root UI session and no host dialog, the
+chat `yes` lets it pass, an unrecognized agent (`build`) cannot push, its
+cached `no` keeps it blocked without a second question, safe commands from
+both lanes pass with no question, and a managed agent still parks its own
+question. The proof fails on `a35b344` at the first no-agent assertion and
+passes on `078d895`; it is wired as the `c03-agentless-guard` proofs step, and
+`npm run verify` plus the full proofs stage are green (74 proof files / 73
+registered steps).
 
 ### P-10 Bash guard coverage is split; the `permissionGuard` bash branch is dead — done (2026-10-26)
 
@@ -1291,8 +1314,8 @@ without an ask channel; the over-broad idioms (`> /dev/null`, `chown`,
 `chmod 777`, `eval`) fall back to host permissions by documented acceptance.
 `prove-g002i2` fails on the previous code at the first denied cleanup command
 and covers eight command families plus the intact refusal path (37
-assertions). The C-03 bypass for unmanaged and no-agent sessions remains open
-and tracked separately.
+assertions). The C-03 bypass for unmanaged and no-agent sessions was closed on
+2026-10-27 (see C-03).
 
 ### G-02-D The v1 bash tier and consent set are settled and were restored — done (2026-10-27)
 
@@ -2353,7 +2376,8 @@ for C-03, E-12, E-14, and E-19. Progress 2026-10-26:
 `prove-v2-compat.ts` now asserts part preservation (E-16 closed),
 `prove-e11` covers the skill-gate seed, fail-open, and persistence (E-11
 closed), and `prove-c02` covers the bridge seed/write-back plus the live
-consent answer/execute loop (C-02 closed).
+consent answer/execute loop (C-02 closed); `prove-c03` covers the no-agent and
+unrecognized-agent consent paths (C-03 closed).
 
 ### Corrections to existing entries
 
