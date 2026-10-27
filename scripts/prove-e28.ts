@@ -18,10 +18,12 @@ function assert(cond: unknown, name: string): void {
 
 const policy = (await import("../src/security-policy.ts")) as {
   BLOCKED_TOOL_ALIASES?: readonly string[];
+  BLOCKED_META_TOOLS?: readonly string[];
   isBlockedToolForTawa?: (tool: string) => boolean;
 };
 const blocked = new Set(BLOCKED_TOOLS);
 const aliases = new Set(policy.BLOCKED_TOOL_ALIASES ?? []);
+const meta = new Set(policy.BLOCKED_META_TOOLS ?? []);
 const isBlockedToolForTawa = policy.isBlockedToolForTawa;
 
 assert(blocked.has("edit"), "edit stays blocked");
@@ -35,12 +37,16 @@ assert(!blocked.has("patch"), "patch stays out of the permission-key list");
 assert(!blocked.has("apply_patch"), "apply_patch stays out of the permission-key list");
 assert(aliases.has("patch"), "patch is named as a blocked host-tool alias");
 assert(aliases.has("apply_patch"), "apply_patch is named as a blocked host-tool alias");
+assert(meta.has("execute"), "execute is named as a blocked meta tool");
+assert(!blocked.has("execute"), "execute stays out of the permission-key list");
 assert(typeof isBlockedToolForTawa === "function", "the blocked-tool helper is exported");
 if (!isBlockedToolForTawa) fail("the blocked-tool helper is missing");
 assert(isBlockedToolForTawa("patch"), "the helper refuses patch for tawa");
 assert(isBlockedToolForTawa("apply_patch"), "the helper refuses apply_patch for tawa");
+assert(isBlockedToolForTawa("execute"), "the helper refuses execute for tawa");
 assert(isBlockedToolForTawa("edit"), "the helper still refuses edit");
 assert(!isBlockedToolForTawa("bash_runner"), "the helper does not match unrelated tool names");
+assert(!isBlockedToolForTawa("exec"), "the helper does not match a truncated meta-tool name");
 
 const patchForTawa = SecurityPolicy.checkBlockedTools("tawa", "patch");
 assert(!patchForTawa.allowed, "checkBlockedTools refuses patch for tawa");
@@ -56,11 +62,15 @@ const enforcePatch = SecurityPolicy.enforce({ agent: "tawa", tool: "patch", args
 assert(!enforcePatch.allowed, "the security-policy stage refuses patch for tawa");
 const enforceApply = SecurityPolicy.enforce({ agent: "tawa", tool: "apply_patch", args: {} });
 assert(!enforceApply.allowed, "the security-policy stage refuses apply_patch for tawa");
+const enforceExecute = SecurityPolicy.enforce({ agent: "tawa", tool: "execute", args: { code: "1" } });
+assert(!enforceExecute.allowed, "the security-policy stage refuses execute for tawa");
 
 const devPatch = SecurityPolicy.checkBlockedTools("dev", "patch");
 assert(devPatch.allowed, "patch stays available to a normal managed agent");
 const devEnforce = SecurityPolicy.enforce({ agent: "dev", tool: "apply_patch", args: {} });
 assert(devEnforce.allowed, "apply_patch stays available to a normal managed agent");
+const devExecute = SecurityPolicy.enforce({ agent: "dev", tool: "execute", args: { code: "1" } });
+assert(devExecute.allowed, "execute stays available to a normal managed agent");
 
 const cfg = { agent: { tawa: { permission: {} as Record<string, unknown> } } };
 assert(ensureTawaToolPermissions(cfg), "the boot repair reports a change");
@@ -68,6 +78,10 @@ assert(cfg.agent.tawa.permission.patch === undefined, "the boot repair writes no
 assert(
   cfg.agent.tawa.permission.apply_patch === undefined,
   "the boot repair writes no unknown apply_patch permission key",
+);
+assert(
+  cfg.agent.tawa.permission.execute === undefined,
+  "the boot repair keeps execute out of the permission map",
 );
 assert(cfg.agent.tawa.permission.edit === "deny", "the boot repair still denies edit, which covers both tools");
 assert(!ensureTawaToolPermissions(cfg), "a second repair pass is a no-op");
@@ -88,5 +102,5 @@ assert(
 );
 
 console.log(
-  `PROOF PASS: patch and apply_patch are blocked for tawa by name without invalid permission keys (${passed} assertions)`,
+  `PROOF PASS: patch, apply_patch, and execute are blocked for tawa by name without invalid permission keys (${passed} assertions)`,
 );

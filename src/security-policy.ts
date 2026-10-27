@@ -48,10 +48,15 @@ export interface TaskValidationResult {
 
 export const BLOCKED_TOOLS: readonly string[] = ["edit", "write", "bash", "addagent", "kick", "pause", "resume"];
 export const BLOCKED_TOOL_ALIASES: readonly string[] = ["patch", "apply_patch"];
+export const BLOCKED_META_TOOLS: readonly string[] = ["execute"];
 
 
 export function isBlockedToolForTawa(tool: string): boolean {
-  return BLOCKED_TOOLS.includes(tool) || BLOCKED_TOOL_ALIASES.includes(tool);
+  return (
+    BLOCKED_TOOLS.includes(tool) ||
+    BLOCKED_TOOL_ALIASES.includes(tool) ||
+    BLOCKED_META_TOOLS.includes(tool)
+  );
 }
 
 

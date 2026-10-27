@@ -913,6 +913,35 @@ logic to work around it.
 
 ---
 
+## Upstream compatibility (2026-10-27)
+
+`UPSTREAM.md` is the standing watch for OpenCode releases, and
+`src/upstream/registry.json` records the audited subset with a verdict per
+change. The gate checks the registry offline; `npm run check:upstream` reads
+the live changelog and fails when a release has not been assessed.
+
+### E-43 `execute` (Code Mode) was not covered by the tawa tool guard — fixed (2026-10-27)
+
+`BLOCKED_TOOLS` lists `edit`, `write`, `bash`, and the lifecycle tools, and
+`BLOCKED_TOOL_ALIASES` adds `patch`/`apply_patch`. The host's Code Mode tool
+(`execute`) was in neither list, so `isBlockedToolForTawa("execute")` returned
+false and `execute.before` let tawa start a Code Mode script that can call
+`tools.*`, including the host's MCP proxies. The 2.2.0 note that MCP tools are
+exposed directly when `execute` is denied confirms that `execute` is the
+container the guard must refuse.
+
+Fixed by `BLOCKED_META_TOOLS = ["execute"]` and `isBlockedToolForTawa`, which
+keeps `execute` out of the permission-key list (no unknown host key) while
+refusing it by name for tawa. Normal managed agents keep `execute`.
+`scripts/prove-e28.ts` grows to 38 assertions: the helper, `checkBlockedTools`,
+`SecurityPolicy.enforce`, the permission repair, and the generator validator.
+
+Residual: this is hook-level enforcement. A host-level `execute: "deny"`
+entry is pending proof that the config schema accepts it on 2.1.4; until then
+the name check is the guard. Live verification needs a host restart (G-13).
+
+---
+
 ## Product gaps (P2 unless noted)
 
 - **P-01** `select`/`input` elicitation: fixed in `ccb2cb6`. Unbridged types
