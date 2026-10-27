@@ -4,7 +4,7 @@ import { getInitReady, initPlugin } from "../bootstrap/plugin-init.ts";
 import { ToolBlockedError } from "../hooks/tool-execute.ts";
 import { BLOCKED_TOOLS } from "../security-policy.ts";
 import { logger } from "../utils/logger.ts";
-import { collectToolSchemas, makeV2Tool, schemaFingerprint } from "./adapters.ts";
+import { collectToolSchemas, makeV2Tool, schemaFingerprint, measureSchemaPayload } from "./adapters.ts";
 import { createAskBridge, registerAskPermission } from "./ask.ts";
 import { buildPluginInput } from "./client-shim.ts";
 import { isTaskTool, subagentArgsToV1, toolNameToV1, v1ArgsToSubagent } from "./delegation.ts";
@@ -265,7 +265,14 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
         logger.error("[tawassul] v2 schema collection failed:", e);
         return false;
       }
-      return schemaFingerprint(schemas) !== registeredSchemaFingerprint;
+      const changed = schemaFingerprint(schemas) !== registeredSchemaFingerprint;
+      if (changed) {
+        const { bytes, estimatedTokens } = measureSchemaPayload(schemas);
+        logger.info(
+          `[tawassul] v2 tool schema payload: ${bytes} bytes (~${estimatedTokens} tokens) across ${schemas.size} tools`,
+        );
+      }
+      return changed;
     };
 
     if (readyProbe) {
