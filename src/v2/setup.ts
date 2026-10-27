@@ -14,9 +14,9 @@ import { applyV1AfterOutput, metadataChanged, resultText, titleFromMetadata, wit
 import type { V2Context, V2SessionEvent, V2ToolContext, V2ToolHookInput } from "./types.ts";
 
 const MAX_PROCESSED_MESSAGES = 1024;
-const INITIAL_SCHEMA_WAIT_MS = 750;
-const SCHEMA_RETRY_ATTEMPTS = 20;
-const SCHEMA_RETRY_DELAY_MS = 500;
+export const INITIAL_SCHEMA_WAIT_MS = 750;
+export const SCHEMA_RETRY_ATTEMPTS = 6;
+export const SCHEMA_RETRY_DELAY_MS = 500;
 
 const HOST_MESSAGE_ROLES = ["system", "user", "assistant", "tool"] as const;
 

@@ -19,8 +19,8 @@ export type SchemaRefreshHandle = {
   stop: () => Promise<void>;
 };
 
-const DEFAULT_ATTEMPTS = 20;
-const DEFAULT_DELAY_MS = 500;
+export const DEFAULT_ATTEMPTS = 6;
+export const DEFAULT_DELAY_MS = 500;
 
 export function startSchemaRefresh(options: SchemaRefreshOptions): SchemaRefreshHandle {
   const attempts = options.attempts ?? DEFAULT_ATTEMPTS;
