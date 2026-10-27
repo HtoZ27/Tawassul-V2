@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 74 proof files, smoke pass)
+Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 75 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -2132,7 +2132,7 @@ reporting for each (11 assertions).
 
 ### New P2
 
-#### E-28 `patch` and `apply_patch` are absent from `BLOCKED_TOOLS` — open (P2)
+#### E-28 `patch` and `apply_patch` are absent from `BLOCKED_TOOLS` — done (2026-10-27)
 
 The host maps `write`, `patch`, and `apply_patch` to the `edit` permission,
 and the tawa config denies `edit`, so the bypass is not currently
@@ -2140,6 +2140,32 @@ exploitable. It is not listed in `BLOCKED_TOOLS`, so the protection rests
 entirely on one config line that a regeneration can change.
 
 Next: add both names, and assert the list in a proof.
+
+Fixed in `3fdb540`, but not by adding the names to `BLOCKED_TOOLS`. That array
+is also the permission-key source for the generated and repaired `tawa`
+config (`gen-opencode-config.ts`, `agent-permission-repair.ts`), and
+`validateAgents` rejects keys that are neither official permission keys nor
+registered Tawassul tools; `patch`/`apply_patch` are neither, so adding them
+made `prove-e02` fail with `unknown permission key "patch"`. The host maps
+both to the `edit` permission, which the config already denies.
+
+The fix names them separately: `BLOCKED_TOOL_ALIASES =
+["patch", "apply_patch"]` and `isBlockedToolForTawa(tool)`, used by
+`SecurityPolicy.checkBlockedTools`, `SecurityPolicy.enforce` (the
+`security-policy` pipeline stage), and the v2 bridge's `isBlockedForAgent`
+pre-check in `src/v2/setup.ts`. Tawa is now refused by name even if the
+`edit: deny` line is regenerated away, while the generated config keeps only
+valid permission keys. `apply_patch` was already recognized as a mutating
+host tool in `code-state-auto.ts`, so the name is live, not hypothetical.
+
+`scripts/prove-e28.ts` asserts 31 behaviours: the seven original blocked
+tools, the two aliases, the helper, `checkBlockedTools` and `enforce` for
+`tawa`/`@tawa`, normal managed agents staying allowed, the boot repair writing
+`edit: deny` without invalid `patch`/`apply_patch` keys, the repaired set
+passing `validateAgents`, and an explicit scoped `patch` rule surviving
+untouched. It fails on `dee2ffb` at the alias assertion and passes on
+`3fdb540`; it is wired as the `e28-blocked-tools` proofs step, and the full
+`npm run ci` is green (75 proof files / 74 registered steps).
 
 #### E-29 One failing web request trips the Firecrawl breaker for 60 s — done (2026-10-26)
 

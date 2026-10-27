@@ -1,6 +1,6 @@
 # Tawassul V2 — Stability Triage
 
-Status: 2026-10-27 · HEAD `078d895` · gate `npm run ci` rc=0
+Status: 2026-10-27 · HEAD `3fdb540` · gate `npm run ci` rc=0
 
 Purpose: one prioritized view across every open fix, filtered to the single
 question that matters for day-to-day use — **does this stop the plugin from
@@ -15,11 +15,11 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 102 entries, of which **25 are open**.
+with 102 entries, of which **24 are open**.
 
 ## The filter
 
-25 open items sound like 25 problems. They are not the same kind of problem:
+24 open items sound like 24 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
@@ -27,7 +27,7 @@ with 102 entries, of which **25 are open**.
 | S1 | Does it lose or corrupt data silently? | 0 |
 | S2 | Does it tell the truth about what happened? | 0 |
 | S3 | Does it start reliably and quickly? | 2 |
-| S4 | Can it be made to do something it should not? | 4 |
+| S4 | Can it be made to do something it should not? | 3 |
 | S5 | Can we prove any of the above? | 13 |
 | S6 | Does install and upgrade work? | 5 |
 
@@ -46,9 +46,8 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 
 `I-08` global boot cost unmeasured · `I-10` successful host boot is manual.
 
-## S4 — security (4)
+## S4 — security (3)
 
-`E-28` `patch`/`apply_patch` absent from `BLOCKED_TOOLS` ·
 `E-30` `applyPatch` prefix escape · `E-37` type shim weaker than the host
 contract · `E-39` SSRF check is pre-flight only.
 
@@ -74,7 +73,7 @@ into two engineering clusters, each of which is one coherent change.
 | Cluster | Members | One change |
 | --- | --- | --- |
 | **Persistence** | `E-12`, `E-13`, `E-20`, `E-21`, `E-22` | Make save/load/flush one generation-aware path: write before you report, quarantine instead of rolling back, await every flush. |
-| **Guards** | `E-28` | One guard chain on every path, capability seeded at boot, fail closed on decisions and open on infrastructure. `C-03` and `P-10` are closed. |
+| **Guards** | — | One guard chain on every path, capability seeded at boot, fail closed on decisions and open on infrastructure. `C-03`, `P-10`, and `E-28` are closed. |
 
 ## Execution order
 
@@ -108,8 +107,8 @@ No S2 item is open.
 
 **Wave 4 — boot (S3, 2 days).** `I-08`, `I-10`. `I-07`, `D-05`, `B-01`, `B-02`, `B-03`, `B-05`, and `G-04` are closed.
 
-**Wave 5 — security (S4, 2–3 days).** `E-28`, `E-30`, `E-37`, `E-39`.
-`C-03` and `P-10` are closed.
+**Wave 5 — security (S4, 2–3 days).** `E-30`, `E-37`, `E-39`.
+`C-03`, `P-10`, and `E-28` are closed.
 
 **Wave 6 — evidence and install (S5 + S6, 2 days).** Everything that remains.
 
@@ -219,6 +218,8 @@ today.
   on undeclared session copies and on shared/launcher growth past the 14/14
   baselines, and fails closed at the 32-file cap; `C-03` (S4) — a missing or
   unrecognized agent no longer bypasses the consent gate, so sudo, `git push`,
-  and `rm -rf /` ask in every session.
+  and `rm -rf /` ask in every session; `E-28` (S4) — `patch` and `apply_patch`
+  are blocked for tawa by name in both the policy stage and the v2 bridge,
+  without adding invalid permission keys to the generated config.
 - The three open goals in the ledger (`G-001`, `G-002`, `G-003`) overlap the
   waves above and should be re-scoped to the wave boundaries.
