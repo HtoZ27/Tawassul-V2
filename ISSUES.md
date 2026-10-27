@@ -634,7 +634,7 @@ reply, health + help`.
 
 ## Data and state (P1)
 
-### D-01 Three database paths — resolved by role assignment (2026-10-26), residual risk D-05
+### D-01 Three database paths — done (2026-10-27)
 
 Re-raised by evaluation finding E-08; the owner adopted the recommended roles
 on 2026-10-26.
@@ -684,18 +684,11 @@ sidecar; D-02 imported the 14 shared and 14 launcher sessions on 2026-10-26
 (26 new sessions, 384 messages). The copies stay read-only as backup
 material.
 
-Residual risk (D-05, 2026-10-26): the roles are a declaration, not yet an
-enforced write barrier. The doctor's census is a fixed list: `$db`, the
-canonical path, `$SHARED_DB`, `$LAUNCHER_DB`, and the v1
-`opencode-projects/<hmac>` path (`doctor-v2.sh:89,218-221`). The current v2
-CLI launcher writes `opencode/tawassul-v2/projects/<hmac>/opencode.db`
-(`opencode-iso.sh:124,130,135`), which is never probed. The "read-only"
-shared and launcher copies are only warned about, never checked against their
-14/14 import baseline (`doctor-v2.sh:229`). A second v2 CLI database with
-sessions, or a new write into a legacy copy, therefore still passes. The
-roles remain the right stabilization choice; D-05 records the enforcement
-gap and the recommended bounded census, baseline guard, and no-auto-move
-decision.
+Residual risk (D-05) was closed on 2026-10-27: the doctor now runs a bounded
+census over all three data roots, fails on undeclared databases with
+sessions, holds the shared and launcher copies to their 14/14 import
+baselines, declares the v2 CLI namespace test-only, and fails closed at the
+32-file cap (see D-05). The roles are now enforced rather than declared.
 
 ### D-02 Old sessions are not imported — done (2026-10-26)
 
