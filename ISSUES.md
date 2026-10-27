@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 62 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 63 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -531,11 +531,17 @@ Resolution: `scripts/gate-manifest.json` is the source of truth.
 exactly once, every target exists, `ci` is the umbrella with no `&&`, and
 `verify` remains `gate:fast` plus the build). It runs in the fast stage.
 
-### G-04 No boot budget proof — open
+### G-04 No boot budget proof — done (2026-10-26)
 
-Nothing fails when boot time regresses. The smoke records `initPlugin` and
-`registered 42 tools` but does not enforce a budget. Next: `prove:boot-budget`
-with a measured budget (candidate 150 ms from init to 42 tools).
+Nothing failed when boot time regressed. The smoke records `initPlugin` and
+`registered 42 tools` but did not enforce a budget.
+
+Resolved 2026-10-26: `prove-boot-budget` boots the real plugin in an isolated
+HOME, measures the time from init to registered tools, and fails when it
+exceeds 2000 ms (measured ~780 ms). The candidate 150 ms figure from the
+issue was infeasible because the 750 ms readiness wait alone exceeds it, so
+the budget guards against a 2.5x regression instead. Registered in the gate
+catalog and package scripts (2 assertions).
 
 ### G-05 No live blocked-tool proof — open (P1)
 

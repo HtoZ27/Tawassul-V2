@@ -15,11 +15,11 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **29 are open**.
+with 99 entries, of which **28 are open**.
 
 ## The filter
 
-29 open items sound like 29 problems. They are not the same kind of problem:
+28 open items sound like 28 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
@@ -42,9 +42,9 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | --- | --- | --- |
 | `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
 
-## S3 — boot and startup (5)
+## S3 — boot and startup (4)
 
-`D-05` doctor census gap · `G-04` no boot budget proof ·
+`D-05` doctor census gap ·
 `I-07` no bundle freshness check · `I-08` global boot cost unmeasured ·
 `I-10` successful host boot is manual.
 
@@ -109,8 +109,7 @@ questions and notices through the transcript instead of a fake TUI, and `E-36`
 reports a failed or cancelled crawl as an error instead of a successful result.
 No S2 item is open.
 
-**Wave 4 — boot (S3, 2 days).** `G-04`, `I-07`, `I-08`, `I-10`. `B-01`,
-`B-02`, `B-03`, and `B-05` are closed.
+**Wave 4 — boot (S3, 2 days).** `I-07`, `I-08`, `I-10`. `B-01`, `B-02`, `B-03`, `B-05`, and `G-04` are closed.
 
 **Wave 5 — security (S4, 2–3 days).** `C-03`, `P-10`, `E-28`, `E-30`,
 `E-37`, `E-39`.
@@ -207,6 +206,7 @@ today.
   under four seconds instead of ten; `B-03` (S3) — the run log is stored as
   compact JSONL instead of pretty-printed JSON, with backward-compatible
   loading of the legacy envelope; `B-05` (S3) — the setup measures and logs the
-  tool schema payload in bytes and estimated tokens whenever it changes.
+  tool schema payload in bytes and estimated tokens whenever it changes; `G-04`
+  (S3) — a boot-budget proof fails when boot exceeds 2000 ms.
 - The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
   Wave 2 and should be re-scoped to the wave boundaries above.
