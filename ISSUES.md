@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 58 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 59 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -415,14 +415,26 @@ file installed, and asserts `loading plugin`, 42 tools, and one tool call.
 
 ## Runtime cost (P1)
 
-### B-01 Schema work is duplicated at boot — open
+### B-01 Schema work is duplicated at boot — done (2026-10-26)
 
 `collectToolSchemas` runs before registration and again after readiness, then
 `ctx.tool.reload()` reloads all tools. Observed boot: `initPlugin` 8–23 ms,
 then 350–550 ms to `registered 42 tools`.
 
-Next: generate schemas at build time, read one JSON file at boot, and skip
-`tool.reload()` when the schema hash is unchanged.
+Resolved 2026-10-26: the per-shape cache already makes the second collection
+cheap (measured in the isolated boot harness: 14.7 ms first, 0.3 ms cached,
+42/42 identical schema objects), so the real duplicate was the unconditional
+host reload. The setup now records a fingerprint of the schemas it registered
+with the host; the post-readiness refresh re-collects, compares the
+fingerprint, and only calls `ctx.tool.reload()` when it differs. On a boot
+where init is ready inside the 750 ms window the host has just registered
+those exact schemas, so the reload is skipped with a "reload skipped" line; a
+boot that registered placeholders because init was late still reloads once
+when the real schemas arrive. Build-time schema generation was evaluated and
+rejected: the registry depends on runtime services (`timeline` and `goal` are
+conditional), so a stub registry would emit a different tool set. `prove-b01`
+covers the fingerprint, the cached second collection, both boot paths, and the
+refresh contract (23 assertions).
 
 ### B-02 Retry budget can hide tools for 10 s — open
 
