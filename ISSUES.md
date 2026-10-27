@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 59 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 60 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -436,11 +436,17 @@ conditional), so a stub registry would emit a different tool set. `prove-b01`
 covers the fingerprint, the cached second collection, both boot paths, and the
 refresh contract (23 assertions).
 
-### B-02 Retry budget can hide tools for 10 s — open
+### B-02 Retry budget can hide tools for 10 s — done (2026-10-26)
 
 `SCHEMA_RETRY_ATTEMPTS=20` × `SCHEMA_RETRY_DELAY_MS=500`. During that window
-the host shows placeholder schemas. Next: readiness event or 6 attempts
-(about 3 s), with one warning line.
+the host showed placeholder schemas.
+
+Resolved 2026-10-26: the budget is now 6 attempts at 500 ms (about 3 s of
+retrying, under 4 s including the 750 ms initial wait), and the refresh
+lifecycle default matches. The give-up path emits exactly one warning naming
+the 6-attempt budget, and a refresh that becomes ready mid-way stops polling
+and reloads once. `prove-b02` covers the sleep count, the single warning, the
+mid-way ready path, the setup budget, and the constants (15 assertions).
 
 ### B-03 `tool-run-log.json` is 3.1 MB pretty-printed — open
 
