@@ -15,7 +15,7 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 106 entries, of which **24 are open**.
+with 107 entries, of which **24 are open**.
 
 ## The filter
 

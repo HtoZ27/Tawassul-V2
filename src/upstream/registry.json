@@ -122,8 +122,8 @@
           "pr": 58817,
           "topic": "shutdown-ten-second-cap",
           "verdict": "tracked",
-          "issue": "E-20",
-          "note": "Shutdown now exits after ten seconds; keep the final flush inside that budget."
+          "issue": "E-45",
+          "note": "Shutdown cleanup is bounded at 7.5 seconds under the host 10-second cap."
         },
         {
           "pr": 59020,

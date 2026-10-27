@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 79 proof files, smoke pass)
+Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 80 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -982,6 +982,25 @@ daily limits, unknown hosts, and malformed versions keep the legacy path.
 boundary, typed/text/throttled transients, daily-limit exclusion, the
 host-version mapping, and the `handleRateLimitError` wiring (no notice or
 timer when deferred, one of each on legacy).
+
+---
+
+### E-45 Shutdown cleanup could outlive the host's ten-second cap — fixed (2026-10-27)
+
+OpenCode 2.2.0 exits after ten seconds when shutdown hangs (`#58817`). The
+plugin's dispose path awaits the full `destroy()` chain (prefs flush, state
+flush, a two-second structural drain, several persistence flushes), so a slow
+disk or a hung writer could push the host past the cap and lose the final
+state flush.
+
+Fixed by `disposeWithinBudget` in `src/hooks/dispose.ts`: the hook returns
+after `DISPOSE_BUDGET_MS` (7,500 ms), leaves a 2.5-second margin under
+`HOST_SHUTDOWN_CAP_MS` (10,000 ms), and logs the release at warn level. The
+timer is unref'd, a fast destroy returns `completed`, and a hung destroy no
+longer blocks the host. The state flush remains early in `destroy()` so it
+runs before the optional drains. `scripts/prove-e45.ts` covers 14 assertions:
+the budget constants and margin, fast/hung/rejecting destroys, the hook
+outcome and elapsed time, and the pending-handoff warning path.
 
 ---
 

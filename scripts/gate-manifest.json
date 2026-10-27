@@ -341,6 +341,10 @@
     {
       "name": "e44-host-retry",
       "cmd": ["bun", "scripts/prove-e44.ts"]
+    },
+    {
+      "name": "e45-shutdown-budget",
+      "cmd": ["bun", "scripts/prove-e45.ts"]
     }
   ],
   "smoke": [
