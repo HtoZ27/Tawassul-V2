@@ -1,6 +1,8 @@
 import { build } from "bun";
-import { rmSync, existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, copyFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { execSync } from "node:child_process";
+import { rmSync, existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, appendFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const outdir = "./dist";
 rmSync(outdir, { recursive: true, force: true });
@@ -91,6 +93,18 @@ if (runtimeDependency) {
   process.exit(1);
 }
 console.log(`Global build complete: ${join(outdir, "global.js")}`);
+
+const sourceSha = (() => {
+  try {
+    return execSync("git rev-parse HEAD", { cwd: dirname(fileURLToPath(import.meta.url)), encoding: "utf8" }).trim();
+  } catch {
+    return "unknown";
+  }
+})();
+const shaMarker = `\n// TAWASSUL_SOURCE_SHA=${sourceSha}\n`;
+appendFileSync(join(outdir, "global.js"), shaMarker);
+if (existsSync(join(outdir, "index.js"))) appendFileSync(join(outdir, "index.js"), shaMarker);
+console.log(`Embedded source SHA: ${sourceSha}`);
 
 const pluginDir = join(".opencode", "plugin");
 mkdirSync(pluginDir, { recursive: true });

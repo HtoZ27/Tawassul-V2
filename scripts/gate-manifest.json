@@ -167,6 +167,10 @@
       "cmd": ["bun", "scripts/prove-boot-budget.ts"]
     },
     {
+      "name": "bundle-freshness",
+      "cmd": ["bun", "scripts/prove-bundle-freshness.ts"]
+    },
+    {
       "name": "e25",
       "cmd": ["bun", "scripts/prove-e25.ts"]
     },

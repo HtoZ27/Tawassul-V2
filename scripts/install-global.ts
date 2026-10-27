@@ -31,6 +31,7 @@ type Marker = {
   package?: string;
   version?: string;
   host?: string;
+  sourceSha?: string;
   bundle?: AssetRecord;
   wasm?: Record<string, AssetRecord>;
   installedAt?: string;
@@ -64,6 +65,18 @@ function fail(message: string): never {
 
 function hash(bytes: Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+function gitHead(): string | undefined {
+  const result = spawnSync("git", ["rev-parse", "HEAD"], { cwd: REPO, encoding: "utf-8", timeout: 10_000 });
+  if (result.status !== 0) return undefined;
+  const sha = (result.stdout ?? "").trim();
+  return /^[0-9a-f]{7,40}$/.test(sha) ? sha : undefined;
+}
+
+function readSourceSha(text: string): string | undefined {
+  const match = text.match(/TAWASSUL_SOURCE_SHA=([0-9a-f]{7,40})/);
+  return match?.[1];
 }
 
 function readJson<T>(file: string): T | undefined {
@@ -188,7 +201,7 @@ function readMarker(): Marker | undefined {
   return marker;
 }
 
-function requireBundle(): { bytes: Buffer; sha: string } {
+function requireBundle(): { bytes: Buffer; sha: string; sourceSha: string | undefined } {
   if (!existsSync(GLOBAL_BUNDLE)) {
     fail(`missing ${GLOBAL_BUNDLE}; run npm run build first`);
   }
@@ -200,7 +213,7 @@ function requireBundle(): { bytes: Buffer; sha: string } {
   if (bare) {
     fail(`dist/global.js is not self-contained: ${bare[0]}`);
   }
-  return { bytes, sha: hash(bytes) };
+  return { bytes, sha: hash(bytes), sourceSha: readSourceSha(text) };
 }
 
 function locateAssets(): { resolved: ResolvedAsset[]; missing: AssetSpec[] } {
@@ -273,12 +286,13 @@ function writeAtomic(file: string, data: string | Buffer): void {
   renameSync(tmp, file);
 }
 
-function writeMarker(bundleSha: string, wasm: Record<string, AssetRecord>): void {
+function writeMarker(bundleSha: string, wasm: Record<string, AssetRecord>, sourceSha: string | undefined): void {
   const bundleBytes = readFileSync(TARGET);
   const marker: Marker = {
     package: PLUGIN_ID,
     version: REPO_PACKAGE.version ?? "0.0.0",
     host: HOST_PIN,
+    sourceSha,
     bundle: {
       path: markerPath(TARGET),
       sha256: bundleSha,
@@ -294,6 +308,7 @@ function upToDate(
   marker: Marker | undefined,
   bundleSha: string,
   wasm: Record<string, AssetRecord>,
+  sourceSha: string | undefined,
 ): boolean {
   if (!marker || marker.package !== PLUGIN_ID) return false;
   if (marker.version !== (REPO_PACKAGE.version ?? "0.0.0")) return false;
@@ -301,6 +316,9 @@ function upToDate(
   if (marker.bundle?.sha256 !== bundleSha) return false;
   if (!existsSync(TARGET)) return false;
   if (hash(readFileSync(TARGET)) !== bundleSha) return false;
+  const head = gitHead();
+  if (head && marker.sourceSha !== head) return false;
+  if (sourceSha && marker.sourceSha !== sourceSha) return false;
   for (const asset of ASSETS) {
     const record = marker.wasm?.[asset.id];
     const want = wasm[asset.id];
@@ -328,7 +346,14 @@ function install(): void {
   if (existing && existing.package !== PLUGIN_ID && !flags.has("--force")) {
     fail(`target belongs to another plugin: ${TARGET}`);
   }
-  if (upToDate(existing, bundle.sha, wasm)) {
+  const head = gitHead();
+  if (head && bundle.sourceSha && bundle.sourceSha !== head && !flags.has("--force")) {
+    fail(
+      `bundle source SHA ${bundle.sourceSha} does not match HEAD ${head}; ` +
+        "run npm run build before installing",
+    );
+  }
+  if (upToDate(existing, bundle.sha, wasm, bundle.sourceSha)) {
     console.log(
       `install-global: already installed at ${TARGET} ` +
         `(v${existing?.version ?? "unknown"}, ${bundle.sha.slice(0, 12)})`,
@@ -349,7 +374,7 @@ function install(): void {
     mkdirSync(dirname(asset.dest), { recursive: true, mode: 0o700 });
     writeAtomic(asset.dest, readFileSync(asset.source));
   }
-  writeMarker(bundle.sha, wasm);
+  writeMarker(bundle.sha, wasm, bundle.sourceSha);
   console.log(
     `install-global: installed ${TARGET} (v${REPO_PACKAGE.version ?? "0.0.0"}, ${bundle.sha.slice(0, 12)})`,
   );
@@ -426,6 +451,16 @@ async function verify(): Promise<void> {
   }
   if (marker.version !== (REPO_PACKAGE.version ?? "0.0.0")) {
     fail(`marker version is ${marker.version ?? "unknown"}; repo is ${REPO_PACKAGE.version ?? "0.0.0"}`);
+  }
+  if (marker.sourceSha) {
+    const installedSourceSha = readSourceSha(installed.toString("utf8"));
+    if (installedSourceSha && installedSourceSha !== marker.sourceSha) {
+      fail(`bundle source SHA mismatch: installed ${installedSourceSha} vs marker ${marker.sourceSha}`);
+    }
+    const head = gitHead();
+    if (head && marker.sourceSha !== head) {
+      fail(`installed bundle is stale: marker ${marker.sourceSha} vs HEAD ${head}`);
+    }
   }
   if (existsSync(GLOBAL_BUNDLE)) {
     const distSha = hash(readFileSync(GLOBAL_BUNDLE));
