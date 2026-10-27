@@ -163,6 +163,10 @@
       "cmd": ["bun", "scripts/prove-b05.ts"]
     },
     {
+      "name": "boot-budget",
+      "cmd": ["bun", "scripts/prove-boot-budget.ts"]
+    },
+    {
       "name": "e25",
       "cmd": ["bun", "scripts/prove-e25.ts"]
     },
