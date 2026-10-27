@@ -523,5 +523,10 @@
   "vmVersionOrder": "Version order is wrong: version {a} must be less than {b}",
   "rateLimitRetrying": "Rate limit hit — retrying in {delay}s (attempt {attempt}/5)",
   "rateLimitRetryExhausted": "Rate limit: automatic retry stopped after {attempts} attempts. Nothing is lost — resend your last message when the provider recovers.",
-  "rateLimitRetryPrompt": "Continue after rate limit backoff — retry the last operation"
+  "rateLimitRetryPrompt": "Continue after rate limit backoff — retry the last operation",
+  "freeLimitHeading": "OpenCode Zen free daily limit reached.",
+  "freeLimitHeadingWithReset": "OpenCode Zen free daily limit reached — the quota resets in about {minutes} minute(s) at {time}.",
+  "freeLimitSharedQuota": "The free daily quota is shared across every free model on the same identity (key/IP/trial bucket), so switching key or model does not help until the quota resets.",
+  "freeLimitRetryNoHelp": "Retrying is not useful until the quota resets.",
+  "freeLimitNoticeDisabled": "Free-limit notice off: only the retry skip and the log line are active."
 }

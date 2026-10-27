@@ -128,33 +128,44 @@ export interface FreeLimitNotice {
   hasDelay: boolean;
 }
 
+export interface FreeLimitNoticeStrings {
+  heading: string;
+  headingWithReset: string;
+  sharedQuota: string;
+  retryNoHelp: string;
+}
+
+export const DEFAULT_FREE_LIMIT_NOTICE_STRINGS: FreeLimitNoticeStrings = {
+  heading: "OpenCode Zen free daily limit reached.",
+  headingWithReset: "OpenCode Zen free daily limit reached — the quota resets in about {minutes} minute(s) at {time}.",
+  sharedQuota:
+    "The free daily quota is shared across every free model on the same identity (key/IP/trial bucket), so switching key or model does not help until the quota resets.",
+  retryNoHelp: "Retrying is not useful until the quota resets.",
+};
+
 export function buildFreeLimitNotice(
   decision: FreeLimitBridgeDecision,
   now: number = Date.now(),
+  strings: FreeLimitNoticeStrings = DEFAULT_FREE_LIMIT_NOTICE_STRINGS,
 ): FreeLimitNotice {
   if (decision.action !== "skip-retry") {
     return { text: "", resetTime: null, hasDelay: false };
   }
-  const guidance = [
-    "The free daily quota is shared across every free model on the same",
-    "identity (key/IP/trial bucket), so switching key or model does not help",
-    "until the quota resets.",
-  ].join(" ");
+  const guidance = strings.sharedQuota;
   if (decision.retryAfterMs === undefined) {
     return {
-      text: `OpenCode Zen free daily limit reached. ${guidance} Retrying is not useful until the quota resets.`,
+      text: `${strings.heading} ${guidance} ${strings.retryNoHelp}`,
       resetTime: null,
       hasDelay: false,
     };
   }
   const resetTime = new Date(now + decision.retryAfterMs).toISOString();
   const minutes = Math.max(1, Math.round(decision.retryAfterMs / 60000));
+  const heading = strings.headingWithReset
+    .replace("{minutes}", String(minutes))
+    .replace("{time}", resetTime);
   return {
-    text: [
-      `OpenCode Zen free daily limit reached — the quota resets in about ${minutes} minute(s) at ${resetTime}.`,
-      guidance,
-      "Retrying is not useful until the quota resets.",
-    ].join(" "),
+    text: `${heading} ${guidance} ${strings.retryNoHelp}`,
     resetTime,
     hasDelay: true,
   };

@@ -981,7 +981,12 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
               (bridge.retryAfterMs !== undefined ? ` (resets in ${bridge.retryAfterMs}ms)` : "") +
               " — backoff retry skipped",
           );
-          const notice = buildFreeLimitNotice(bridge);
+          const notice = buildFreeLimitNotice(bridge, Date.now(), {
+            heading: t("freeLimitHeading"),
+            headingWithReset: t("freeLimitHeadingWithReset"),
+            sharedQuota: t("freeLimitSharedQuota"),
+            retryNoHelp: t("freeLimitRetryNoHelp"),
+          });
           if (notice.text && freeLimitCfg?.notice === true && sessId) {
             await notifySession(ctx, sessId, notice.text);
           }
