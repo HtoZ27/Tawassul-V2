@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 63 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 64 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -366,16 +366,21 @@ Next: either drop the auto-install and fail with the exact `npm install`
 command, or add a proof that injects an empty asset root and asserts the
 install path, with no network in CI.
 
-### I-07 No bundle freshness check — open (P1)
+### I-07 No bundle freshness check — done (2026-10-26)
 
-The installer only checks that `dist/global.js` exists and scans it for bare
-imports. It cannot tell whether the file matches the current `src/` or the
-current git commit, so an old build can be installed and then marked with the
-current package version.
+The installer only checked that `dist/global.js` exists and scanned it for bare
+imports. It could not tell whether the file matches the current `src/` or the
+current git commit, so an old build could be installed and then marked with
+the current package version.
 
-Next: embed the git SHA (or a source hash) at build time, compare it with
-`git rev-parse HEAD` (or a build stamp) in the installer, and record it in
-`VERSION`.
+Resolved 2026-10-26: `build-v2.mjs` stamps `dist/global.js` and
+`dist/index.js` with a `TAWASSUL_SOURCE_SHA=<sha>` marker taken from
+`git rev-parse HEAD`; the installer reads that marker, refuses to install a
+bundle whose SHA differs from HEAD, records `sourceSha` in the VERSION marker,
+and `verify()` fails when the installed bundle is stale against HEAD.
+`upToDate()` also treats a missing or mismatched `sourceSha` as outdated.
+`prove-bundle-freshness` rebuilds and asserts both bundles and the project
+entry carry the current SHA (7 assertions).
 
 ### I-08 Global bundle boot cost is unmeasured — open (P1)
 

@@ -15,11 +15,11 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **28 are open**.
+with 99 entries, of which **27 are open**.
 
 ## The filter
 
-28 open items sound like 28 problems. They are not the same kind of problem:
+27 open items sound like 27 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
@@ -207,6 +207,8 @@ today.
   compact JSONL instead of pretty-printed JSON, with backward-compatible
   loading of the legacy envelope; `B-05` (S3) — the setup measures and logs the
   tool schema payload in bytes and estimated tokens whenever it changes; `G-04`
-  (S3) — a boot-budget proof fails when boot exceeds 2000 ms.
+  (S3) — a boot-budget proof fails when boot exceeds 2000 ms; `I-07` (S6) —
+  the global bundle is stamped with the source SHA and the installer refuses a
+  stale build.
 - The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
   Wave 2 and should be re-scoped to the wave boundaries above.
