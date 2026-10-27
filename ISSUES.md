@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 61 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 62 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -489,10 +489,16 @@ Caveat (2026-10-26): the live host still wrote five router backups because the
 loaded process predates `fa8fd71`; the cap holds for the source and the
 rebuilt bundle, not for a running pre-fix process (G-13).
 
-### B-05 Tool schema payload is unmeasured — open
+### B-05 Tool schema payload is unmeasured — done (2026-10-26)
 
 42 tool schemas are sent with every request and may dominate session load.
-Next: measure total schema bytes and estimated tokens before changing
+
+Resolved 2026-10-26: the adapter now exposes `measureSchemaPayload`, which
+sums the serialized byte size of every registered schema and estimates tokens
+at one per four bytes, and the setup logs that measurement whenever the schema
+set changes (initial registration and a post-readiness refresh that actually
+differs). `prove-b05` covers the empty, single, multi, and real-collection
+cases plus determinism (10 assertions).
 anything; pair the result with G-04's boot budget.
 
 ---
