@@ -88,19 +88,6 @@ function getTier(agent: string): Tier {
   return "agent";
 }
 
-export const DANGEROUS_PATTERNS = [
-  /rm\s+-rf\s+\//,
-  /sudo/,
-  /chmod\s+777/,
-  /chown/,
-  />\s*\/dev/,
-  /dd\s+if=/,
-  /mkfs/,
-  /fdisk/,
-  /:\(\)\s*\{/,
-  /eval\s+\$\(/,
-];
-
 export async function checkRosterBoundaryDelete(input: Input, output: StageOutput, redirectNote?: string): Promise<string | null> {
   const args = output.args ?? {};
   if (["edit", "write", "delete"].includes(input.tool)) {
@@ -280,7 +267,6 @@ export const permissionGuard = guardWithRetry("3-tier-permissions", async (_ctx,
     });
   }
 
-  const args = output.args ?? {};
   if (input.tool === "addagent" && agentTier !== "admin") {
     logger.audit("PERMISSION_BLOCKED", { agent: input.agent, tool: "addagent", reason: "non-admin" });
     return "🚫 Only the main user can add new agents";
@@ -289,15 +275,6 @@ export const permissionGuard = guardWithRetry("3-tier-permissions", async (_ctx,
   if (input.tool === "kick" && agentTier !== "admin") {
     logger.audit("PERMISSION_BLOCKED", { agent: input.agent, tool: "kick", reason: "non-admin" });
     return "🚫 Only the main user can remove agents";
-  }
-
-  if (input.tool === "bash" && typeof args.command === "string") {
-    for (const pattern of DANGEROUS_PATTERNS) {
-      if (pattern.test(args.command)) {
-        logger.audit("PERMISSION_BLOCKED", { agent: input.agent, tool: "bash", pattern: pattern.source });
-        return `🚫 Dangerous bash command blocked: ${pattern.source}`;
-      }
-    }
   }
 
   if (["edit", "write", "delete"].includes(input.tool)) {

@@ -55,6 +55,7 @@
     "prove:b05": "bun scripts/prove-b05.ts",
     "prove:boot-budget": "bun scripts/prove-boot-budget.ts",
     "prove:bundle-freshness": "bun scripts/prove-bundle-freshness.ts",
+    "prove:g002i2": "bun scripts/prove-g002i2.ts",
     "prove:e25": "bun scripts/prove-e25.ts",
     "prove:e29": "bun scripts/prove-e29.ts",
     "prove:e33": "bun scripts/prove-e33.ts",

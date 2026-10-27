@@ -46,10 +46,11 @@ const dangerousAllowed = await permissionGuard.check(
   { tool: "bash", sessionID: "proof-shell-alias" },
   dangerousOutput,
 );
-check("permission guard blocks a dangerous shell command", dangerousAllowed === false);
+check("permission guard defers dangerous-shell handling to the consent gate", dangerousAllowed === true);
+check("permission guard leaves no dangerous-command denial", dangerousOutput.error === undefined);
 check(
-  "permission guard reports the dangerous command",
-  typeof dangerousOutput.error === "string" && dangerousOutput.error.includes("Dangerous"),
+  "consent owns absolute-path cleanup instead of a silent plugin denial",
+  requiresConsent("bash", { command: "rm -rf /tmp/tawassul-proof-target" }),
 );
 
 const safeOutput: { args: Record<string, unknown>; error?: string } = {

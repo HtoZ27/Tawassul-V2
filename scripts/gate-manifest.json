@@ -171,6 +171,10 @@
       "cmd": ["bun", "scripts/prove-bundle-freshness.ts"]
     },
     {
+      "name": "g002i2",
+      "cmd": ["bun", "scripts/prove-g002i2.ts"]
+    },
+    {
       "name": "e25",
       "cmd": ["bun", "scripts/prove-e25.ts"]
     },

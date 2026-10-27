@@ -20,7 +20,7 @@ import { isManagedAgent } from "../utils/agent.ts";
 import { normalizeToolName } from "../utils/name-utils.ts";
 import { escapeGoalText } from "../services/prompt-sanitizer.ts";
 import { scanText } from "./guards/threat_patterns.ts";
-import { DANGEROUS_PATTERNS, permissionGuard, rosterBoundaryDeleteGuard, checkRosterBoundaryDelete } from "./guards/permission-guard.ts";
+import { permissionGuard, rosterBoundaryDeleteGuard, checkRosterBoundaryDelete } from "./guards/permission-guard.ts";
 
 import {
   firstResponseGuard,
@@ -69,23 +69,6 @@ export const initAutoSweep = (ps: PipelineState) => ps.initAutoSweep();
 export const stopAutoSweep = (ps: PipelineState) => ps.stopAutoSweep();
 
 
-const bashDangerousPatternsStage = {
-  name: "bashDangerousPatterns",
-  check: async (_ctx: Ctx, input: Input, output: StageOutput) => {
-    if (input.tool !== "bash") return true;
-    const command = typeof output.args?.command === "string" ? output.args.command : "";
-    for (const pattern of DANGEROUS_PATTERNS) {
-      if (pattern.test(command)) {
-        logger.audit("BASH_DANGEROUS_BLOCKED", { command: command.slice(0, 100), pattern: pattern.source });
-        logger.warn(`[tawassul] bashDangerousPatterns: blocked dangerous command matching ${pattern.source}`);
-        return false;
-      }
-    }
-    return true;
-  },
-};
-
-
 const threatPatternStage = {
   name: "threatPatternDetection",
   check: async (_ctx: Ctx, _input: Input, output: StageOutput) => {
@@ -118,7 +101,7 @@ const promptSanitizationStage = {
 
 
 export const VALIDATION_PIPELINE = [
-  combinedStage("security-checks", [bashDangerousPatternsStage, threatPatternStage, promptSanitizationStage]),
+  combinedStage("security-checks", [threatPatternStage, promptSanitizationStage]),
   combinedStage("content-checks", [cacheSafeGuard, taskRejectionGuard]),
   combinedStage("resource-checks", [
     firstResponseGuard,
@@ -156,7 +139,7 @@ export const VALIDATION_PIPELINE = [
 
 export const DISCUSSION_TOOLS_SET = new Set(["discussion", "propose", "vote", "divide", "evidence"]);
 export const DISCUSSION_PIPELINE = [
-  combinedStage("security-checks", [bashDangerousPatternsStage, threatPatternStage]),
+  combinedStage("security-checks", [threatPatternStage]),
   pauseStateGuard,
   combinedStage("limit-checks", [tawassulToolPermissionsGuard]),
   combinedStage("enforcement-checks", [securityPolicyGuard]),
@@ -197,7 +180,7 @@ export const STAGE_TIMEOUT_MS = 5_000;
 export const SIMPLE_PIPELINE_TIMEOUT_MS = 30_000;
 
 const ESSENTIAL_STAGES = [
-  combinedStage("security-checks", [bashDangerousPatternsStage, threatPatternStage, promptSanitizationStage]),
+  combinedStage("security-checks", [threatPatternStage, promptSanitizationStage]),
   combinedStage("content-checks", [cacheSafeGuard, taskRejectionGuard]),
   combinedStage("resource-checks", [pauseStateGuard, agentAutoPauseGuard, planModeGuard]),
   taskToolAuthorizationGuard,
