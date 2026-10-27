@@ -10,3 +10,4 @@ cost-transparency.json
 cost-transparency.json.bak.*
 dist/
 node_modules/
+handoff-ledger.jsonl
