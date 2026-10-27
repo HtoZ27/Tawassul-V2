@@ -5,6 +5,7 @@ export const DEFAULT_RATE_LIMIT_PATTERNS: readonly string[] = [
   "429",
   "rate limit",
   "rate_limit",
+  "rate-limit",
   "overloaded",
   "too many requests",
   "quota exceeded",

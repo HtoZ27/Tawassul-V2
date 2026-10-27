@@ -961,19 +961,27 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
       try {
         const ev = input as Record<string, unknown>;
         const props = (ev?.properties as Record<string, unknown> | undefined) ?? ev;
-        const errMsg: string | undefined =
+        const stringError =
           (props?.error as string | undefined) ??
           (ev?.error as string | undefined) ??
-          ((props?.payload as Record<string, unknown> | undefined)?.error as string | undefined) ??
-          (typeof props?.message === "string" ? (props.message as string) : undefined);
+          ((props?.payload as Record<string, unknown> | undefined)?.error as string | undefined);
+        const structuredError =
+          (props?.error as unknown) ?? (ev?.error as unknown) ?? (props?.payload as Record<string, unknown> | undefined);
+        const flattenedError = (() => {
+          if (typeof stringError === "string") return stringError;
+          if (structuredError === undefined || structuredError === null) return undefined;
+          if (typeof structuredError === "string") return structuredError;
+          const record = structuredError as { message?: unknown; type?: unknown; name?: unknown };
+          const parts = [record.message, record.type, record.name].filter((v) => typeof v === "string") as string[];
+          return parts.length > 0 ? parts.join(" ") : undefined;
+        })();
+        const errMsg: string | undefined = flattenedError ?? (typeof props?.message === "string" ? (props.message as string) : undefined);
         const sessId: string | undefined =
           (props?.sessionID as string | undefined) ??
           (ev?.sessionID as string | undefined) ??
           ((props?.payload as Record<string, unknown> | undefined)?.sessionID as string | undefined);
         const evType = (ev?.type as string | undefined) ?? (ev?.event as string | undefined) ?? "";
         const freeLimitCfg = tawaCtx.configManager?.config?.freeLimit;
-        const structuredError =
-          (props?.error as unknown) ?? (ev?.error as unknown) ?? (props as Record<string, unknown> | undefined);
         const bridge = evaluateFreeLimitBridge(freeLimitCfg, structuredError ?? errMsg);
         if (bridge.action === "skip-retry") {
           logger.info(

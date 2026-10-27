@@ -203,6 +203,10 @@
       "cmd": ["bun", "scripts/prove-g003i5.ts"]
     },
     {
+      "name": "g003i3",
+      "cmd": ["bun", "scripts/prove-g003i3.ts"]
+    },
+    {
       "name": "e25",
       "cmd": ["bun", "scripts/prove-e25.ts"]
     },
