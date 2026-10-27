@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 74 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 72 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1284,37 +1284,23 @@ and covers eight command families plus the intact refusal path (37
 assertions). The C-03 bypass for unmanaged and no-agent sessions remains open
 and tracked separately.
 
-### G-02-A Consent set gated every push and every absolute cleanup — done (2026-10-26)
+### G-02-D The v1 bash tier and consent set are settled and were restored — done (2026-10-27)
 
-`CONSENT_DANGEROUS_PATTERNS` gated `git push` (plain and `--force`) and any
-`rm -rf /abs`, which blocks routine reversible work: a push to a normal branch
-is a team action, and `rm -rf /tmp/opencode/*` is a project cleanup the
-project's own workflow mandates.
+Two changes from the G-002 cluster widened what bash may do without the user's
+consent: `bash` was moved from admin tier to agent tier (and the guard fallback
+from admin to agent), and the consent set dropped every `git push` entry and
+the blanket absolute-path removal rule while adding `curl|bash`, `rm -rf ~`,
+and case-insensitive matching.
 
-Resolved 2026-10-26 (commit `9cec6b1`): the set is irreversible-actions-only.
-The rm rule gates root (`/`), `~`, `$HOME`/`${HOME}`, and the system
-directories (`/etc`, `/usr`, `/var`, `/boot`, `/root`, `/home` and its direct
-account entries, so `rm -rf /home/user/project/build` passes); every git push
-entry is dropped; `curl|bash` and `wget|sh` pipes are added as remote code
-execution; `sudo`, `fdisk`, `mkfs`, the fork bomb, and `dd if=` stay gated;
-and the destructive rules carry `/i` so `Rm -Rf /` and `RM -RF ~` are caught.
-`prove-g002i4` covers 16 gated and 11 ungated commands, the shell alias, and
-the set shape (37 assertions); it fails on the previous set at `rm -rf ~`.
-
-### G-02-B Bash sat at admin tier while the roster grants it allow — done (2026-10-26)
-
-`TOOL_TIERS` marked `bash` admin, but the roster (`.opencode/agents/dev.md`,
-`tester.md`, and `agent-data.ts`) grants `bash: allow` to every execution
-agent, so the tier table contradicted the roster it is supposed to enforce.
-
-Resolved 2026-10-26 (commit `d274d07`): the `bash` entry is dropped from the
-table and the guard fallback becomes `agent`, matching the default the
-tool-name loop already assigns, because `permissionGuard` owns tawa-tool tiers
-and host-executed shells are not admin work. `edit`, `write`, `delete`,
-`addagent`, and `kick` stay gated and the main session keeps admin access.
-`prove-g002i5` covers the subagent bash call, a variant agent, the still-gated
-kick and addagent, the unlisted-tool default, and the main session (8
-assertions).
+Owner correction 2026-10-27: bash permission handling was already settled in
+the v1 plugin and was not to be touched or widened. The v1 tree confirms the
+settled shape — `TOOL_TIERS` maps `bash` to `admin` with an `admin` fallback,
+and `CONSENT_DANGEROUS_PATTERNS` keeps the original eight patterns including
+both `git push` entries. Both changes are reverted here, `prove-g002i4` and
+`prove-g002i5` are removed with their registrations, and the affected proofs
+(`prove-g002i2`, `prove-shell-alias`, `prove-c02`) return to their pre-change
+assertions. The P-10 hard-denial removal and the live consent answer-loop proof
+stay: both were explicitly authorized and neither widens bash permissions.
 
 ### G-02-C The consent answer loop had no live proof — done (2026-10-26)
 

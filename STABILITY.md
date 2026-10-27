@@ -211,11 +211,10 @@ today.
   the global bundle is stamped with the source SHA and the installer refuses a
   stale build; `P-10` (S4) — the plugin no longer hard-denies legitimate bash;
   the consent gate is the single by-design gate for dangerous commands and
-  host permissions are the fallback for the rest; the `G-002` consent set
-  gates irreversible actions only (no git push, no absolute-path blanket,
-  added curl|bash and case-insensitive root/home rules); `bash` sits at agent
-  tier to match the roster; the consent answer loop has a live isolated-boot
-  proof; the daily free limit is recognized by type and delay, no longer
+  host permissions are the fallback for the rest; the v1 bash tier table and
+  consent set are restored unchanged after the owner clarified they are
+  settled and must not be widened; the consent answer loop has a live
+  isolated-boot proof; the daily free limit is recognized by type and delay, no longer
   blind-retried behind the `freeLimit.noRetry` flag, and renders one localized
   notice with the local reset time and shared-quota guidance behind the
   `freeLimit.notice` flag while typed transient limits keep their legacy
