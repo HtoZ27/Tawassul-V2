@@ -67,7 +67,7 @@ still running), or `blocked` (a host defect prevents the work).
 
 | Release | Date | Audited | Host contract | Status | Summary |
 | --- | --- | --- | --- | --- | --- |
-| v2.2.0 | 2026-10-27 | 2026-10-27 | 2.1.4 | partial | 30 tracked changes: one guard (`E-43`, fixed), one adoption (`E-42`, fixed), three follow-ups, eight candidates, eleven aligned, six ignored |
+| v2.2.0 | 2026-10-27 | 2026-10-27 | 2.1.4 | partial | 30 tracked changes: one guard (`E-43`, fixed), one adoption (`E-42`, fixed), three follow-ups (`E-44` fixed), eight candidates, eleven aligned, six ignored |
 
 ## v2.2.0 — what changed for us
 
@@ -92,7 +92,7 @@ still running), or `blocked` (a host defect prevents the work).
 | PR | Change | Verdict | Issue | Action |
 | --- | --- | --- | --- | --- |
 | #58331 | Dev builds use a separate server, database, and port | tracked | `D-01` | Recheck the expected DB path on the next dev boot |
-| #58866 | Throttled requests retry instead of reporting context overflow | tracked | `G-03` | Narrow the plugin retry to daily limits; avoid double retries |
+| #58866 | Throttled requests retry instead of reporting context overflow | tracked | `E-44` | Defer transient limits to the 2.2.0 host retry; keep the legacy path below it |
 | #58817 | Shutdown exits after ten seconds | tracked | `E-20` | Keep the final flush inside the ten-second budget |
 
 ### Candidates
@@ -125,7 +125,7 @@ still running), or `blocked` (a host defect prevents the work).
    handoff entry; result metadata is now JSON-safe, and live create and cancel
    both returned their results. Keep the reference id in mind for future
    encode failures.
-3. Retry dedupe (`G-03`) and the ten-second shutdown budget (`E-20`).
+3. Retry dedupe (`E-44`, fixed) and the ten-second shutdown budget (`E-20`).
 4. Fork/revert behavior for goals and handoffs once 2.2.0 is the running host.
 5. Compaction payload check after the host starts history at the latest
    completed compaction.

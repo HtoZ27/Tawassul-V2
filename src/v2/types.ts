@@ -89,6 +89,7 @@ export type V2Permission = {
 };
 
 export type V2Context = {
+  app?: { readonly version?: string };
   location?: { directory?: string };
   session: V2Session;
   tool: V2Tool;

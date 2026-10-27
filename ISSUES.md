@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 78 proof files, smoke pass)
+Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 79 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -963,6 +963,25 @@ refusing it by name for tawa. Normal managed agents keep `execute`.
 Residual: this is hook-level enforcement. A host-level `execute: "deny"`
 entry is pending proof that the config schema accepts it on 2.1.4; until then
 the name check is the guard. Live verification needs a host restart (G-13).
+
+---
+
+### E-44 The plugin retried transient rate limits that the 2.2.0 host already retries — fixed (2026-10-27)
+
+OpenCode 2.2.0 retries throttled provider requests itself (`#58866`) instead
+of reporting them as context overflows. The plugin still ran
+`handleRateLimitError` for every rate-limit message, so a transient 429 could
+be retried twice: once by the host and once by the plugin's backoff prompt. On
+a host without the change (2.1.4) the plugin retry is still the only one.
+
+Fixed by reading the host version from `ctx.app.version` into `PluginInput`,
+and by `shouldDeferRateLimitToHost` in `src/services/free-limit.ts`. On hosts
+at or above 2.2.0 a parsed transient rate limit is left to the host retry;
+daily limits, unknown hosts, and malformed versions keep the legacy path.
+`scripts/prove-e44.ts` covers 36 assertions: version parsing, the 2.1.4/2.2.0
+boundary, typed/text/throttled transients, daily-limit exclusion, the
+host-version mapping, and the `handleRateLimitError` wiring (no notice or
+timer when deferred, one of each on legacy).
 
 ---
 

@@ -337,6 +337,10 @@
     {
       "name": "e42-result-metadata",
       "cmd": ["bun", "scripts/prove-e42.ts"]
+    },
+    {
+      "name": "e44-host-retry",
+      "cmd": ["bun", "scripts/prove-e44.ts"]
     }
   ],
   "smoke": [

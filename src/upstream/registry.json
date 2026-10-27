@@ -115,8 +115,8 @@
           "pr": 58866,
           "topic": "retry-throttled-requests",
           "verdict": "tracked",
-          "issue": "G-03",
-          "note": "Host throttling retries overlap our retry path; narrow the plugin to daily limits."
+          "issue": "E-44",
+          "note": "The host retries throttled requests; transient limits defer to it on 2.2.0 and above."
         },
         {
           "pr": 58817,

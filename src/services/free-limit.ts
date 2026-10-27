@@ -120,6 +120,33 @@ export function isTransientRateLimit(error: unknown): boolean {
   return parseFreeLimitSignal(error).signal === "transient-rate-limit";
 }
 
+export function parseHostVersion(version: string | undefined): [number, number, number] | undefined {
+  if (typeof version !== "string") return undefined;
+  const match = /^v?(\d+)\.(\d+)(?:\.(\d+))?/.exec(version.trim());
+  if (!match) return undefined;
+  const parts = [Number(match[1]), Number(match[2]), match[3] === undefined ? 0 : Number(match[3])];
+  if (!parts.every((value) => Number.isInteger(value) && value >= 0)) return undefined;
+  return [parts[0], parts[1], parts[2]] as [number, number, number];
+}
+
+export function hostRetriesThrottledRequests(version: string | undefined): boolean {
+  const parsed = parseHostVersion(version);
+  if (!parsed) return false;
+  const [major, minor, patch] = parsed;
+  if (major !== 2) return major > 2;
+  if (minor !== 2) return minor > 2;
+  return patch >= 0;
+}
+
+export function shouldDeferRateLimitToHost(hostVersion: string | undefined, error: unknown): boolean {
+  if (!hostRetriesThrottledRequests(hostVersion)) return false;
+  try {
+    return parseFreeLimitSignal(error).signal === "transient-rate-limit";
+  } catch {
+    return false;
+  }
+}
+
 export type FreeLimitBridgeConfig = { notice?: boolean; noRetry?: boolean };
 
 export interface FreeLimitNotice {

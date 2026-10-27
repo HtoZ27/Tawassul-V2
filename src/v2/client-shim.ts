@@ -92,5 +92,6 @@ export function buildPluginInput(ctx: V2Context): PluginInput {
     directory,
     worktree: directory,
     serverUrl: resolveV2ServerUrl(),
+    hostVersion: ctx.app?.version,
   };
 }

@@ -44,7 +44,7 @@ import {
 import { releaseFSLock } from "../infra/file-lock.ts";
 import { createHandoffEntry } from "../services/handoff-entry.ts";
 import { requiresConsent } from "../hooks/guards/shared/limits.ts";
-import { evaluateFreeLimitBridge, buildFreeLimitNotice } from "../services/free-limit.ts";
+import { evaluateFreeLimitBridge, buildFreeLimitNotice, shouldDeferRateLimitToHost } from "../services/free-limit.ts";
 import { detectInstallScope, claimCoexistence, isCoexistenceOwner, releaseCoexistence } from "../core/install-scope.ts";
 import { warnIfUnisolatedDb } from "./db-isolation.ts";
 import {
@@ -204,6 +204,12 @@ export async function handleRateLimitError(
   errorMessage: string,
 ): Promise<boolean> {
   if (!matchesRateLimit(errorMessage)) return false;
+  if (shouldDeferRateLimitToHost(ctx.hostVersion, errorMessage)) {
+    logger.debug(
+      `[tawassul] transient rate limit for session ${sessionId} left to the host retry (${ctx.hostVersion})`,
+    );
+    return false;
+  }
   
   const rlCfg = tawaCtx.configManager.config.rateLimits ?? {};
   const apiRetryMax = rlCfg.apiRetryMax ?? 5;

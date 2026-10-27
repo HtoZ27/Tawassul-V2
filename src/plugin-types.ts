@@ -11,6 +11,7 @@ export type PluginInput = {
   directory: string;
   worktree: string;
   serverUrl?: string;
+  hostVersion?: string;
 };
 
 export interface DynamicAgentModel {
