@@ -15,11 +15,11 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **31 are open**.
+with 99 entries, of which **30 are open**.
 
 ## The filter
 
-31 open items sound like 31 problems. They are not the same kind of problem:
+30 open items sound like 30 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
@@ -42,9 +42,9 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 | --- | --- | --- |
 | `G-13` | The live host keeps pre-build code until restart | Every fix above appears not to work until the host is restarted. Operational, not code. |
 
-## S3 — boot and startup (7)
+## S3 — boot and startup (6)
 
-`B-03` 3.1 MB pretty-printed run log parsed at boot · `B-05` schema payload
+ `B-05` schema payload
 unmeasured · `D-05` doctor census gap · `G-04` no boot budget proof ·
 `I-07` no bundle freshness check · `I-08` global boot cost unmeasured ·
 `I-10` successful host boot is manual.
@@ -110,8 +110,8 @@ questions and notices through the transcript instead of a fake TUI, and `E-36`
 reports a failed or cancelled crawl as an error instead of a successful result.
 No S2 item is open.
 
-**Wave 4 — boot (S3, 2 days).** `B-03`, `B-05`, then the proofs `G-04`,
-`I-07`, `I-08`, `I-10`. `B-01` and `B-02` are closed. `B-01` is closed and removed from the wave.
+**Wave 4 — boot (S3, 2 days).** `B-05`, then the proofs `G-04`, `I-07`,
+`I-08`, `I-10`. `B-01`, `B-02`, and `B-03` are closed. `B-01` is closed and removed from the wave.
 
 **Wave 5 — security (S4, 2–3 days).** `C-03`, `P-10`, `E-28`, `E-30`,
 `E-37`, `E-39`.
@@ -205,6 +205,8 @@ today.
   fingerprints the schemas it registered and skips `tool.reload()` when the
   post-readiness refresh produces the same ones; `B-02` (S3) — the schema retry
   budget is six attempts instead of twenty, so a never-ready boot gives up in
-  under four seconds instead of ten.
+  under four seconds instead of ten; `B-03` (S3) — the run log is stored as
+  compact JSONL instead of pretty-printed JSON, with backward-compatible
+  loading of the legacy envelope.
 - The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
   Wave 2 and should be re-scoped to the wave boundaries above.

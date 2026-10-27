@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 60 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 61 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -448,14 +448,18 @@ the 6-attempt budget, and a refresh that becomes ready mid-way stops polling
 and reloads once. `prove-b02` covers the sleep count, the single warning, the
 mid-way ready path, the setup budget, and the constants (15 assertions).
 
-### B-03 `tool-run-log.json` is 3.1 MB pretty-printed — open
+### B-03 `tool-run-log.json` is 3.1 MB pretty-printed — done (2026-10-26)
 
-Measured 2026-10-26 05:28: 3,288,019 bytes and 1,909 runs, still growing
-(3,245,127 bytes / 1,867 runs at 05:24; the 2.72 MB / 1,908-run figure in the
-audit was already stale). `ToolRunLog.load()` parses the whole file at boot;
-`save()` serializes the whole array with `JSON.stringify(..., null, 2)` and
-rewrites the file. Next: append-only JSONL with rotation at 2000 entries and
-a compact save.
+Measured 2026-10-26 05:28: 3,288,019 bytes and 1,909 runs, still growing.
+`ToolRunLog.load()` parsed the whole file at boot and `save()` serialized the
+whole array with `JSON.stringify(..., null, 2)`.
+
+Resolved 2026-10-26: `save()` now writes one compact JSON object per line and
+`load()` accepts both the new JSONL form and the legacy `{ runs: [...] }`
+envelope, so existing state files keep working. The in-memory rotation cap
+(2000 entries, pruning to 1500) bounds the persisted file. `prove-b03` covers
+the JSONL format, round-trip load, rotation, and backward-compatible legacy
+load (12 assertions).
 
 ### B-04 Backups exceeded the owner cap — done (2026-10-25)
 
