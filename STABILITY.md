@@ -15,11 +15,11 @@ taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 99 entries, of which **27 are open**.
+with 99 entries, of which **26 are open**.
 
 ## The filter
 
-27 open items sound like 27 problems. They are not the same kind of problem:
+26 open items sound like 26 problems. They are not the same kind of problem:
 
 | Tier | Question it answers | Count |
 | --- | --- | --- |
@@ -48,10 +48,10 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 `I-07` no bundle freshness check · `I-08` global boot cost unmeasured ·
 `I-10` successful host boot is manual.
 
-## S4 — security (6)
+## S4 — security (5)
 
-`C-03` no-agent sessions skip every guard · `P-10` `permissionGuard` bash
-branch dead · `E-28` `patch`/`apply_patch` absent from `BLOCKED_TOOLS` ·
+`C-03` no-agent sessions skip every guard · `E-28` `patch`/`apply_patch`
+absent from `BLOCKED_TOOLS` ·
 `E-30` `applyPatch` prefix escape · `E-37` type shim weaker than the host
 contract · `E-39` SSRF check is pre-flight only.
 
@@ -111,8 +111,8 @@ No S2 item is open.
 
 **Wave 4 — boot (S3, 2 days).** `I-07`, `I-08`, `I-10`. `B-01`, `B-02`, `B-03`, `B-05`, and `G-04` are closed.
 
-**Wave 5 — security (S4, 2–3 days).** `C-03`, `P-10`, `E-28`, `E-30`,
-`E-37`, `E-39`.
+**Wave 5 — security (S4, 2–3 days).** `C-03`, `E-28`, `E-30`,
+`E-37`, `E-39`. `P-10` is closed.
 
 **Wave 6 — evidence and install (S5 + S6, 2 days).** Everything that remains.
 
@@ -209,6 +209,8 @@ today.
   tool schema payload in bytes and estimated tokens whenever it changes; `G-04`
   (S3) — a boot-budget proof fails when boot exceeds 2000 ms; `I-07` (S6) —
   the global bundle is stamped with the source SHA and the installer refuses a
-  stale build.
-- The two open goals in the ledger (`G-001`, `G-002`) both sit in Wave 1 and
-  Wave 2 and should be re-scoped to the wave boundaries above.
+  stale build; `P-10` (S4) — the plugin no longer hard-denies legitimate bash;
+  the consent gate is the single by-design gate for dangerous commands and
+  host permissions are the fallback for the rest.
+- The three open goals in the ledger (`G-001`, `G-002`, `G-003`) overlap the
+  waves above and should be re-scoped to the wave boundaries.

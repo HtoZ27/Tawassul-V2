@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 64 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 65 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1265,28 +1265,24 @@ Next: require an agent identity for shell/delete/kick, or run the consent and
 pattern stages before the early return, and add a proof that a missing agent
 cannot bypass them.
 
-### P-10 Bash guard coverage is split; the `permissionGuard` bash branch is dead — open (P1)
+### P-10 Bash guard coverage is split; the `permissionGuard` bash branch is dead — done (2026-10-26)
 
-`permissionGuard` appears only in `VALIDATION_PIPELINE`
-(`validation-pipeline.ts:144`), which runs for tawa-related tools only. It is
-not in `ESSENTIAL_STAGES` (`:199-213`), which is the path for an ordinary
-`bash` call. `bash` is not `isTawassulTool`, so the tier check
-(`bash: "admin"` at `permission-guard.ts:46`) and the `DANGEROUS_PATTERNS`
-loop at `:295` are unreachable for bash at HEAD. The only live pattern check
-is `bashDangerousPatternsStage` (`:72-87`), and it runs only for managed
-agents; an unmanaged name such as `build` and a no-agent session do not reach
-it (C-03).
+`permissionGuard` appeared only in `VALIDATION_PIPELINE`, which runs for
+tawa-related tools only, so the `DANGEROUS_PATTERNS` bash loop was unreachable
+for bash. The only live pattern check was `bashDangerousPatternsStage`, and it
+ran only for managed agents; the 11 `PERMISSION_BLOCKED` entries in the live
+log came from the stale build (G-13).
 
-Consequence for evidence: the 11 `PERMISSION_BLOCKED` entries with
-`pattern: "rm\\s+-rf\\s+\\/"` in
-`~/.local/share/tawassul-v2/tawassul/tawassul.log` cannot be produced by
-HEAD. HEAD would log `BASH_DANGEROUS_BLOCKED`, and that event has zero
-entries. Those blocks came from the stale build in G-13.
-
-Next: keep exactly one bash pattern stage on every path that can execute a
-shell command, or delete the dead branch and document that host permissions
-are the only bash gate. Do not "fix" `permissionGuard.ts:295` alone; it is not
-the active blocker.
+Resolved 2026-10-26 (G-002-I2, commit `02ee382`): the dead branch and the live
+stage are both deleted; bash is no longer hard-denied by any plugin stage.
+The by-design gate for dangerous commands is the consent gate, which asks
+(sudo, `rm -rf` on absolute paths, fork bombs, disk tools) and still refuses
+without an ask channel; the over-broad idioms (`> /dev/null`, `chown`,
+`chmod 777`, `eval`) fall back to host permissions by documented acceptance.
+`prove-g002i2` fails on the previous code at the first denied cleanup command
+and covers eight command families plus the intact refusal path (37
+assertions). The C-03 bypass for unmanaged and no-agent sessions remains open
+and tracked separately.
 
 ### B-11 Predictive-router rewrites its file every 5 minutes — done (2026-10-26)
 
