@@ -44,7 +44,7 @@ import {
 import { releaseFSLock } from "../infra/file-lock.ts";
 import { createHandoffEntry } from "../services/handoff-entry.ts";
 import { requiresConsent } from "../hooks/guards/shared/limits.ts";
-import { evaluateFreeLimitBridge } from "../services/free-limit.ts";
+import { evaluateFreeLimitBridge, buildFreeLimitNotice } from "../services/free-limit.ts";
 import { detectInstallScope, claimCoexistence, isCoexistenceOwner, releaseCoexistence } from "../core/install-scope.ts";
 import { warnIfUnisolatedDb } from "./db-isolation.ts";
 import {
@@ -981,6 +981,10 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
               (bridge.retryAfterMs !== undefined ? ` (resets in ${bridge.retryAfterMs}ms)` : "") +
               " — backoff retry skipped",
           );
+          const notice = buildFreeLimitNotice(bridge);
+          if (notice.text && freeLimitCfg?.notice === true && sessId) {
+            await notifySession(ctx, sessId, notice.text);
+          }
           return;
         }
         if (

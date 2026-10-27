@@ -122,6 +122,44 @@ export function isTransientRateLimit(error: unknown): boolean {
 
 export type FreeLimitBridgeConfig = { notice?: boolean; noRetry?: boolean };
 
+export interface FreeLimitNotice {
+  text: string;
+  resetTime: string | null;
+  hasDelay: boolean;
+}
+
+export function buildFreeLimitNotice(
+  decision: FreeLimitBridgeDecision,
+  now: number = Date.now(),
+): FreeLimitNotice {
+  if (decision.action !== "skip-retry") {
+    return { text: "", resetTime: null, hasDelay: false };
+  }
+  const guidance = [
+    "The free daily quota is shared across every free model on the same",
+    "identity (key/IP/trial bucket), so switching key or model does not help",
+    "until the quota resets.",
+  ].join(" ");
+  if (decision.retryAfterMs === undefined) {
+    return {
+      text: `OpenCode Zen free daily limit reached. ${guidance} Retrying is not useful until the quota resets.`,
+      resetTime: null,
+      hasDelay: false,
+    };
+  }
+  const resetTime = new Date(now + decision.retryAfterMs).toISOString();
+  const minutes = Math.max(1, Math.round(decision.retryAfterMs / 60000));
+  return {
+    text: [
+      `OpenCode Zen free daily limit reached — the quota resets in about ${minutes} minute(s) at ${resetTime}.`,
+      guidance,
+      "Retrying is not useful until the quota resets.",
+    ].join(" "),
+    resetTime,
+    hasDelay: true,
+  };
+}
+
 export type FreeLimitBridgeDecision =
   | { action: "legacy"; reason: "flag-off" | "not-daily-limit" }
   | { action: "skip-retry"; reason: "daily-limit"; retryAfterMs?: number };

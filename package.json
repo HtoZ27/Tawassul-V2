@@ -61,6 +61,7 @@
     "prove:g002i4": "bun scripts/prove-g002i4.ts",
     "prove:g003i1": "bun scripts/prove-g003i1.ts",
     "prove:g003i2": "bun scripts/prove-g003i2.ts",
+    "prove:g003i4": "bun scripts/prove-g003i4.ts",
     "prove:e25": "bun scripts/prove-e25.ts",
     "prove:e29": "bun scripts/prove-e29.ts",
     "prove:e33": "bun scripts/prove-e33.ts",
