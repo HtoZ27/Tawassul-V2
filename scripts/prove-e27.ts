@@ -34,7 +34,7 @@ function stub(mode: Mode): string {
   writeFileSync(
     path,
     `#!/usr/bin/env bash
-if [ "$1" = "--version" ]; then printf '2.1.4\\n'; exit 0; fi
+if [ "$1" = "--version" ]; then printf '2.2.0\\n'; exit 0; fi
 if [ "$1" = "run" ]; then
   printf 'initPlugin=1\\n' >> "$TAWASSUL_LOG_FILE"
   printf 'v2 registered 42 tools\\n' >> "$TAWASSUL_LOG_FILE"

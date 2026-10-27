@@ -17,7 +17,10 @@ const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 const GLOBAL_BUNDLE = join(REPO, "dist", "global.js");
 const PROJECT_BUNDLE = join(REPO, ".opencode", "plugin", "tawassul.js");
 const HOME = process.env.HOME?.trim() || homedir();
-const HOST_PIN = process.env.TAWASSUL_OPENCODE_VERSION?.trim() || "2.1.4";
+const HOST_MIN = "2.2.0";
+const HOST_AUDITED = "2.2.0";
+const HOST_MAJOR = 2;
+const HOST_OVERRIDE = process.env.TAWASSUL_OPENCODE_VERSION?.trim();
 const PLUGIN_ID = "tawassul-v2";
 const MARKER_NAME = "VERSION";
 const REPO_PACKAGE = JSON.parse(readFileSync(join(REPO, "package.json"), "utf-8")) as {
@@ -120,6 +123,58 @@ function parseVersion(text: string): string | undefined {
   return match?.[1];
 }
 
+function versionParts(version: string): [number, number, number] | undefined {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) return undefined;
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function compareHostVersions(left: string, right: string): number {
+  const a = versionParts(left);
+  const b = versionParts(right);
+  if (!a || !b) return left.localeCompare(right);
+  for (let index = 0; index < 3; index += 1) {
+    const leftPart = a[index] ?? 0;
+    const rightPart = b[index] ?? 0;
+    if (leftPart !== rightPart) return leftPart - rightPart;
+  }
+  return 0;
+}
+
+function isSupportedHost(version: string): boolean {
+  const parts = versionParts(version);
+  if (!parts) return false;
+  if (parts[0] !== HOST_MAJOR) return false;
+  if (compareHostVersions(version, HOST_MIN) < 0) return false;
+  return HOST_OVERRIDE ? version === HOST_OVERRIDE : true;
+}
+
+function overrideRangeError(): string | undefined {
+  if (!HOST_OVERRIDE) return undefined;
+  const parts = versionParts(HOST_OVERRIDE);
+  if (!parts) {
+    return `TAWASSUL_OPENCODE_VERSION=v${HOST_OVERRIDE} is not a semantic version`;
+  }
+  if (parts[0] !== HOST_MAJOR || compareHostVersions(HOST_OVERRIDE, HOST_MIN) < 0) {
+    return `TAWASSUL_OPENCODE_VERSION=v${HOST_OVERRIDE} is outside the supported range >=${HOST_MIN} <${HOST_MAJOR + 1}.0.0`;
+  }
+  return undefined;
+}
+
+function hostRange(): string {
+  return HOST_OVERRIDE
+    ? `the pinned v${HOST_OVERRIDE}`
+    : `a supported host v>=${HOST_MIN} <${HOST_MAJOR + 1}.0.0`;
+}
+
+function hostWarning(version: string): string | undefined {
+  if (HOST_OVERRIDE || !isSupportedHost(version)) return undefined;
+  if (compareHostVersions(version, HOST_AUDITED) > 0) {
+    return `host v${version} is newer than the audited v${HOST_AUDITED}; run npm run check:upstream`;
+  }
+  return undefined;
+}
+
 function readHost(bin: string): Host | undefined {
   if (!existsSync(bin)) return undefined;
   const result = spawnSync(bin, ["--version"], { encoding: "utf-8", timeout: 10_000 });
@@ -153,20 +208,28 @@ function hosts(): Host[] {
   return found;
 }
 
-function checkHosts(): void {
-  const found = hosts();
+function checkHosts(): Host {
+  const overrideError = overrideRangeError();
+  if (overrideError) fail(overrideError);
+  const all = hosts();
+  const found = all.filter((host) => isSupportedHost(host.version));
+  for (const host of all) {
+    if (isSupportedHost(host.version)) continue;
+    console.warn(`install-global: ignoring ${host.bin} (v${host.version}); expected ${hostRange()}`);
+  }
   if (found.length === 0) {
-    console.warn(`install-global: no OpenCode host found; installing for the pinned v${HOST_PIN}`);
-    return;
-  }
-  for (const host of found) {
-    if (host.version !== HOST_PIN) {
-      console.warn(`install-global: ignoring ${host.bin} (v${host.version}); the pinned host is v${HOST_PIN}`);
+    if (all.length > 0) {
+      fail(`no supported OpenCode host found; expected ${hostRange()}`);
     }
+    const fallback = HOST_OVERRIDE ?? HOST_AUDITED;
+    console.warn(`install-global: no OpenCode host found; installing for v${fallback}`);
+    return { bin: "", version: fallback };
   }
-  if (!found.some((host) => host.version === HOST_PIN)) {
-    fail(`no v${HOST_PIN} OpenCode host found; set TAWASSUL_OPENCODE_VERSION deliberately`);
-  }
+  found.sort((left, right) => compareHostVersions(right.version, left.version));
+  const selected = found[0]!;
+  const warning = hostWarning(selected.version);
+  if (warning) console.warn(`install-global: ${warning}`);
+  return selected;
 }
 
 function v1Artifacts(): string[] {
@@ -286,12 +349,17 @@ function writeAtomic(file: string, data: string | Buffer): void {
   renameSync(tmp, file);
 }
 
-function writeMarker(bundleSha: string, wasm: Record<string, AssetRecord>, sourceSha: string | undefined): void {
+function writeMarker(
+  bundleSha: string,
+  wasm: Record<string, AssetRecord>,
+  sourceSha: string | undefined,
+  host: string,
+): void {
   const bundleBytes = readFileSync(TARGET);
   const marker: Marker = {
     package: PLUGIN_ID,
     version: REPO_PACKAGE.version ?? "0.0.0",
-    host: HOST_PIN,
+    host,
     sourceSha,
     bundle: {
       path: markerPath(TARGET),
@@ -312,7 +380,7 @@ function upToDate(
 ): boolean {
   if (!marker || marker.package !== PLUGIN_ID) return false;
   if (marker.version !== (REPO_PACKAGE.version ?? "0.0.0")) return false;
-  if (marker.host !== HOST_PIN) return false;
+  if (!marker.host || !isSupportedHost(marker.host)) return false;
   if (marker.bundle?.sha256 !== bundleSha) return false;
   if (!existsSync(TARGET)) return false;
   if (hash(readFileSync(TARGET)) !== bundleSha) return false;
@@ -330,7 +398,7 @@ function upToDate(
 }
 
 function install(): void {
-  checkHosts();
+  const host = checkHosts();
   const artifacts = v1Artifacts();
   if (artifacts.length > 0) {
     fail(`v1 artifacts must be removed before a global install:\n  ${artifacts.join("\n  ")}`);
@@ -374,7 +442,7 @@ function install(): void {
     mkdirSync(dirname(asset.dest), { recursive: true, mode: 0o700 });
     writeAtomic(asset.dest, readFileSync(asset.source));
   }
-  writeMarker(bundle.sha, wasm, bundle.sourceSha);
+  writeMarker(bundle.sha, wasm, bundle.sourceSha, host.version);
   console.log(
     `install-global: installed ${TARGET} (v${REPO_PACKAGE.version ?? "0.0.0"}, ${bundle.sha.slice(0, 12)})`,
   );
@@ -432,6 +500,8 @@ function uninstall(): void {
 }
 
 async function verify(): Promise<void> {
+  const overrideError = overrideRangeError();
+  if (overrideError) fail(overrideError);
   if (!existsSync(TARGET)) fail(`not installed: ${TARGET}`);
   const marker = readMarker();
   if (!marker || marker.package !== PLUGIN_ID) {
@@ -446,8 +516,8 @@ async function verify(): Promise<void> {
   if (marker.bundle.bytes !== installed.length) {
     fail(`bundle size mismatch: installed ${installed.length} vs marker ${marker.bundle.bytes}`);
   }
-  if (marker.host !== HOST_PIN) {
-    fail(`marker host pin is v${marker.host ?? "unknown"}; expected v${HOST_PIN}`);
+  if (!marker.host || !isSupportedHost(marker.host)) {
+    fail(`marker host is v${marker.host ?? "unknown"}; expected ${hostRange()}`);
   }
   if (marker.version !== (REPO_PACKAGE.version ?? "0.0.0")) {
     fail(`marker version is ${marker.version ?? "unknown"}; repo is ${REPO_PACKAGE.version ?? "0.0.0"}`);

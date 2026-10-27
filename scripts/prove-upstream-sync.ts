@@ -74,7 +74,7 @@ assert(compareVersions("2.2.0", "2.2.0") === 0, "equal versions compare at zero"
 assert(validateRegistry(registry).length === 0, "the checked-in registry is valid");
 assert(registry.source === "https://opencode.ai/changelog", "registry points at the changelog");
 assert(registry.auditedThrough === registry.releases[0]?.version, "auditedThrough is the newest release");
-assert(registry.releases[0]?.hostContract === "2.1.4", "the audited release records the built host contract");
+assert(registry.releases[0]?.hostContract === "2.2.0", "the audited release records the built host contract");
 assert(
   (registry.releases[0]?.items.length ?? 0) >= 20,
   "the audited release tracks at least 20 changes",

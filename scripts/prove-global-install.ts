@@ -66,7 +66,7 @@ function proofEnv(): NodeJS.ProcessEnv {
     XDG_STATE_HOME: join(HOME, ".local", "state"),
     XDG_CACHE_HOME: join(HOME, ".cache"),
     PATH: "/usr/bin:/bin",
-    TAWASSUL_OPENCODE_VERSION: "2.1.4",
+    TAWASSUL_OPENCODE_VERSION: "2.2.0",
   };
   delete next.TAWASSUL_GLOBAL_DIR;
   delete next.TAWASSUL_SCOPE;
@@ -74,16 +74,20 @@ function proofEnv(): NodeJS.ProcessEnv {
   return next;
 }
 
-function run(args: string[]): { code: number; out: string } {
+function runWith(args: string[], env: NodeJS.ProcessEnv): { code: number; out: string } {
   const result = spawnSync(
     process.execPath,
     [join(REPO, "scripts", "install-global.ts"), ...args],
-    { env: proofEnv(), encoding: "utf-8" },
+    { env, encoding: "utf-8" },
   );
   return {
     code: result.status ?? -1,
     out: `${result.stdout ?? ""}${result.stderr ?? ""}`,
   };
+}
+
+function run(args: string[]): { code: number; out: string } {
+  return runWith(args, proofEnv());
 }
 
 function sha256(path: string): string {
@@ -115,7 +119,7 @@ try {
   assert(existsSync(MARKER), "runtime marker is written");
   const record = marker();
   assert(record.package === "tawassul-v2", "marker identifies the plugin");
-  assert(record.host === "2.1.4", "marker records the host pin");
+  assert(record.host === "2.2.0", "marker records the host override");
   assert(record.bundle?.sha256 === sha256(TARGET), "marker records the bundle hash");
   assert(record.bundle?.path === "plugins/tawassul.js", "marker records the plugin path");
   assert(Object.keys(record.wasm ?? {}).length === WASM_FILES.length, "marker records every wasm asset");
@@ -127,6 +131,24 @@ try {
     assert(existsSync(join(GLOBAL, entry.path ?? "")), `${id} path resolves under the global config`);
   }
   assert(readFileSync(USER_CONFIG, "utf-8") === BODY, "install leaves the user config byte-identical");
+
+  const rangeEnv = proofEnv();
+  delete rangeEnv.TAWASSUL_OPENCODE_VERSION;
+  assert(runWith(["--verify"], rangeEnv).code === 0, "verify accepts a marker inside the supported range");
+
+  const badPin = proofEnv();
+  badPin.TAWASSUL_OPENCODE_VERSION = "2.1.4";
+  const refusedPin = runWith(["--verify"], badPin);
+  assert(
+    refusedPin.code !== 0 && refusedPin.out.includes("outside the supported range"),
+    "verify refuses an out-of-range pin",
+  );
+
+  const newer = marker();
+  newer.host = "2.2.1";
+  writeFileSync(MARKER, `${JSON.stringify(newer, null, 2)}\n`);
+  assert(runWith(["--verify"], rangeEnv).code === 0, "verify accepts a newer 2.x marker");
+  assert(run([]).code === 0, "install restores the selected host marker");
 
   const again = run([]);
   assert(again.code === 0 && again.out.includes("already installed"), "second install is a no-op");

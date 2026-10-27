@@ -58,7 +58,7 @@ launcher_pinned_get() { # $1=key
 }
 
 # Resolve the watcher flag the pinned build actually consumes.
-# 2.1.4 reads OPENCODE_DISABLE_FILEWATCHER; older builds used the
+# 2.2.0 reads OPENCODE_DISABLE_FILEWATCHER; older builds used the
 # OPENCODE_EXPERIMENTAL_ prefix. The verdict is cached by size+mtime so a
 # binary update re-probes and a rename is loud, never a silent no-op.
 launcher_watcher_flag() { # $1=binary → flag on stdout; rc!=0 when unsupported
@@ -207,7 +207,10 @@ launcher_host_bin() {
 }
 
 # Pin the host binary version: a v1/mismatched CLI must not open a v2 DB.
-OPENCODE_VERSION_PIN="${TAWASSUL_OPENCODE_VERSION:-2.1.4}"
+OPENCODE_VERSION_MIN="2.2.0"
+OPENCODE_VERSION_AUDITED="2.2.0"
+OPENCODE_VERSION_MAJOR="2"
+OPENCODE_VERSION_PIN="${TAWASSUL_OPENCODE_VERSION:-}"
 OPENCODE_BIN="$(launcher_host_bin)" || OPENCODE_BIN=""
 if [ -z "$OPENCODE_BIN" ]; then
   echo "opencode-v2-iso: host binary not found (set TAWASSUL_OPENCODE_BIN or install OpenCode)." >&2
@@ -217,10 +220,24 @@ if ! command -v "$OPENCODE_BIN" >/dev/null 2>&1; then
   echo "opencode-v2-iso: host binary not found: $OPENCODE_BIN (set OPENCODE or install it)." >&2
   exit 2
 fi
+version_at_least() {
+  [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n1)" = "$2" ]
+}
 _OPENCODE_ACTUAL="$("$OPENCODE_BIN" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)"
-if [ "$_OPENCODE_ACTUAL" != "$OPENCODE_VERSION_PIN" ]; then
-  echo "opencode-v2-iso: refusing binary ${_OPENCODE_ACTUAL:-unknown} at $OPENCODE_BIN — pinned v$OPENCODE_VERSION_PIN (override: TAWASSUL_OPENCODE_VERSION)." >&2
+if [ -n "$OPENCODE_VERSION_PIN" ]; then
+  if [ "${OPENCODE_VERSION_PIN%%.*}" != "$OPENCODE_VERSION_MAJOR" ] || ! version_at_least "$OPENCODE_VERSION_PIN" "$OPENCODE_VERSION_MIN"; then
+    echo "opencode-v2-iso: pin v$OPENCODE_VERSION_PIN is outside the supported range v>=$OPENCODE_VERSION_MIN <$((OPENCODE_VERSION_MAJOR + 1)).0.0." >&2
+    exit 2
+  fi
+  if [ "$_OPENCODE_ACTUAL" != "$OPENCODE_VERSION_PIN" ]; then
+    echo "opencode-v2-iso: refusing binary ${_OPENCODE_ACTUAL:-unknown} at $OPENCODE_BIN — pinned v$OPENCODE_VERSION_PIN (override: TAWASSUL_OPENCODE_VERSION)." >&2
+    exit 2
+  fi
+elif [ -z "$_OPENCODE_ACTUAL" ] || [ "${_OPENCODE_ACTUAL%%.*}" != "$OPENCODE_VERSION_MAJOR" ] || ! version_at_least "$_OPENCODE_ACTUAL" "$OPENCODE_VERSION_MIN"; then
+  echo "opencode-v2-iso: refusing binary ${_OPENCODE_ACTUAL:-unknown} at $OPENCODE_BIN — supported v>=$OPENCODE_VERSION_MIN <$((OPENCODE_VERSION_MAJOR + 1)).0.0 (override: TAWASSUL_OPENCODE_VERSION)." >&2
   exit 2
+elif [ "$_OPENCODE_ACTUAL" != "$OPENCODE_VERSION_AUDITED" ]; then
+  echo "opencode-v2-iso: host v$_OPENCODE_ACTUAL is newer than the audited v$OPENCODE_VERSION_AUDITED; run npm run check:upstream." >&2
 fi
 
 # ── file-watcher policy (D1/D7) ─────────────────────────────────────────────

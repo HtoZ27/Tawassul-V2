@@ -4,7 +4,8 @@ Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 81 proof 
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
-running host still predates the current build (G-13).
+running host now loads the current build; G-13 stays open as the missing
+automatic staleness check.
 Register note: the third-round evaluation (2026-10-26) added E-11..E-41 and
 re-confirmed C-02, C-03, P-10, B-02, E-02, and G-13 without duplicating them.
 Upstream watch (2026-10-27): `UPSTREAM.md` and
@@ -961,7 +962,7 @@ refusing it by name for tawa. Normal managed agents keep `execute`.
 `SecurityPolicy.enforce`, the permission repair, and the generator validator.
 
 Residual: this is hook-level enforcement. A host-level `execute: "deny"`
-entry is pending proof that the config schema accepts it on 2.1.4; until then
+entry is pending proof that the config schema accepts it on 2.2.0; until then
 the name check is the guard. Live verification needs a host restart (G-13).
 
 ---

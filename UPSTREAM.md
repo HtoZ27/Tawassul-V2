@@ -1,6 +1,6 @@
 # Upstream Watch — OpenCode Compatibility
 
-Status: 2026-10-27 · audited through v2.2.0 · built host contract 2.1.4
+Status: 2026-10-27 · audited through v2.2.0 · built host contract 2.2.0
 
 Purpose: one standing section that answers, for every OpenCode release, four
 questions — what changed, does it touch Tawassul, what did we do about it, and
@@ -43,6 +43,25 @@ offline gate is.
 4. Do the work one fix per commit, each with an isolated proof.
 5. Raise `auditedThrough` only when the release is fully assessed, and update
    `hostContract` only when the built dependency actually moves.
+
+## Host compatibility policy
+
+Frequent OpenCode releases must not block end users. The plugin entry has no
+host-version gate: any host that loads it runs it, and an unknown host keeps
+the legacy rate-limit path (`E-44`). The launcher, the global installer,
+`doctor-v2.sh`, and the release smoke enforce a **supported range** instead of
+an exact pin:
+
+- accepted: `>= 2.2.0 < 3.0.0`;
+- a newer 2.x host runs with a warning and the audited ceiling stays visible;
+- a host below `2.2.0` is refused (v1/legacy contract);
+- a `3.x` host is refused until a major release is audited, because it can
+  change the plugin API and the database contract;
+- `TAWASSUL_OPENCODE_VERSION` is an optional exact pin for reproducible runs
+  and wins over the range.
+
+`auditedThrough` is the newest *assessed* release, not the installed one, so a
+patch release on a user machine never turns into a hard failure.
 6. Record the outcome in `ISSUES.md` and in the ledger below.
 
 Never: auto-bump dependencies, auto-edit a permission entry, or adopt an
@@ -67,7 +86,7 @@ still running), or `blocked` (a host defect prevents the work).
 
 | Release | Date | Audited | Host contract | Status | Summary |
 | --- | --- | --- | --- | --- | --- |
-| v2.2.0 | 2026-10-27 | 2026-10-27 | 2.1.4 | partial | 30 tracked changes: one guard (`E-43`, fixed), one adoption (`E-42`, fixed), three follow-ups (`E-44`, `E-45`, and `E-46` fixed), eight candidates, eleven aligned, six ignored |
+| v2.2.0 | 2026-10-27 | 2026-10-27 | 2.2.0 | partial | 30 tracked changes: one guard (`E-43`, fixed), one adoption (`E-42`, fixed), three follow-ups (`E-44`, `E-45`, and `E-46` fixed), eight candidates, eleven aligned, six ignored |
 
 ## v2.2.0 — what changed for us
 
@@ -132,7 +151,7 @@ still running), or `blocked` (a host defect prevents the work).
    completed compaction.
 6. Adopt `session.instructions.entry` to replace synthetic notices.
 7. Decide whether a host-level `execute: "deny"` entry is accepted by the
-   config schema on 2.1.4; until then the name guard is the only layer.
+   config schema on 2.2.0; until then the name guard is the only layer.
 
 ## Boundaries
 

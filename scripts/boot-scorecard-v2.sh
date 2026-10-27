@@ -13,7 +13,7 @@
 # n2-auto.jsonl. Auto N2 requires an explicit --since <boot-t0> and discards
 # records that predate the assistant-role gate (no role_gate marker).
 # N5 is N/A when the host log shows no project-copy refresh support at all
-# (OpenCode 2.1.4 retired the v1 watcher metric); the watcher gate is then the
+# (OpenCode 2.2.0 retired the v1 watcher metric); the watcher gate is then the
 # launcher line plus N1. A host that logs the signal but has no pair in-window
 # stays INCOMPLETE.
 #
@@ -288,7 +288,7 @@ else:
     add("N4", "PASS" if n4 == 0 else "FAIL", n4, f'"State validation failed": {n4} (target 0)')
 if not durations:
     if o_seen > 0 and not host_has_refresh:
-        add("N5", "N/A", None, "host 2.1.4 emits no project-copy refresh lines (v1 watcher metric retired; watcher gate = launcher line + N1)")
+        add("N5", "N/A", None, "host 2.2.0 emits no project-copy refresh lines (v1 watcher metric retired; watcher gate = launcher line + N1)")
     else:
         add("N5", "INCOMPLETE", None, "no project-copy refresh pairs in window")
 else:

@@ -416,9 +416,16 @@ if grep -qs "\.opencode/bin" "$HOME_DIR/.bashrc" 2>/dev/null; then
 fi
 if [ -n "$resolved" ] && [ -x "$resolved" ]; then
   cli_version="$("$resolved" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)"
-  expected="${TAWASSUL_OPENCODE_VERSION:-2.1.4}"
-  if [ -n "$cli_version" ] && [ "$cli_version" != "$expected" ]; then
-    warn "opencode on PATH is v$cli_version; the pinned host is v$expected (v1 hosts must not run)"
+  if [ -n "${TAWASSUL_OPENCODE_VERSION:-}" ]; then
+    if [ -n "$cli_version" ] && [ "$cli_version" != "$TAWASSUL_OPENCODE_VERSION" ]; then
+      warn "opencode on PATH is v$cli_version; the pinned host is v$TAWASSUL_OPENCODE_VERSION (v1 hosts must not run)"
+    fi
+  elif [ -n "$cli_version" ]; then
+    if [ "${cli_version%%.*}" != "2" ] || [ "$(printf '%s\n%s\n' "2.2.0" "$cli_version" | sort -V | head -n1)" != "2.2.0" ]; then
+      warn "opencode on PATH is v$cli_version; supported hosts are v>=2.2.0 <3.0.0 (v1 hosts must not run)"
+    elif [ "$cli_version" != "2.2.0" ]; then
+      warn "opencode on PATH is v$cli_version, newer than the audited v2.2.0; run npm run check:upstream"
+    fi
   fi
 fi
 BUN_GLOBAL="$HOME_DIR/.bun/install/global/node_modules/opencode-ai"

@@ -5,8 +5,8 @@ handoffs, a goal ledger, mission boards, checkpoints, and a 42-tool surface.
 This tree is the only runnable Tawassul plugin. The v1 tree is retired and
 read-only.
 
-- Host: OpenCode `2.1.4` (pinned)
-- Plugin API: `@opencode/plugin` 2.1.4
+- Host: OpenCode `2.2.0` (pinned)
+- Plugin API: `@opencode/plugin` 2.2.0
 - Runtime: Node 24+ and Bun
 - Language: English only; no code comments
 
@@ -29,7 +29,7 @@ once inside the workspace:
 
 ```
 mkdir -p .opencode
-printf '{"type":"module","dependencies":{"@opencode/plugin":"2.1.4"}}\n' > .opencode/package.json
+printf '{"type":"module","dependencies":{"@opencode/plugin":"2.2.0"}}\n' > .opencode/package.json
 bun install --cwd .opencode
 ```
 
@@ -40,7 +40,8 @@ scripts/opencode-v2-iso.sh run --standalone --auto --format json \
   --model opencode/big-pickle "Reply with exactly: OK"
 ```
 
-The launcher pins the host, refuses a binary that is not 2.1.4, applies the
+The launcher enforces the supported host range `>=2.2.0 <3.0.0`, refuses a
+binary outside it, applies the
 generation guard, runs DB maintenance at the cap, and logs one
 `[launcher] watcher mode=… decision=…` line per launch.
 
@@ -183,10 +184,10 @@ its own description. Common entry points:
 
 ## Host process model
 
-OpenCode 2.1.4 is a client plus a background service:
+OpenCode 2.2.0 is a client plus a background service:
 
 - The Desktop app (`/opt/OpenCode/ai.opencode`) starts its own engine:
-  `~/.config/ai.opencode.desktop/cli/2.1.4-x64/opencode-cli serve --service`.
+  `~/.config/ai.opencode.desktop/cli/2.2.0-x64/opencode-cli serve --service`.
   That process is expected and must not be killed.
 - The engine writes `~/.local/state/opencode/service.json` (URL, PID,
   password). Every `opencode` client that shares that state directory attaches
@@ -219,7 +220,7 @@ Rules:
 | A stray `opencode serve` keeps running | It is a separate host, not the sidecar. `npm run doctor` fails on `~/.opencode/bin/opencode serve`; stop that PID. |
 | Terminal `opencode` still resolves after uninstall | `~/.opencode/bin` is still on PATH (`~/.bashrc`). `opencode uninstall` also stops the shared service, so do not run it while the Desktop is open. |
 | `generation guard refused` | The DB belongs to the other generation; use the v2 DB or a fresh file. |
-| `refusing host vX — pinned v2.1.4` | Install 2.1.4 or set `TAWASSUL_OPENCODE_VERSION` deliberately. |
+| `refusing host vX — supported v>=2.2.0 <3.0.0` | Install a supported host or set `TAWASSUL_OPENCODE_VERSION` deliberately to an exact version. |
 | Plugin registered 0 tools | Run `npm run build`; confirm `.opencode/plugin/tawassul.js` exists. |
 | Boot has no watcher line | Use `scripts/opencode-v2-iso.sh`; a bare host binary skips the launcher policy. |
 | Plugin log is empty | `TAWASSUL_LOG_FILE` is unset or set to empty (empty disables the sink). Default is under the data root. |

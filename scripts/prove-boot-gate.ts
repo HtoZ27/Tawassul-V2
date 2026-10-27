@@ -40,7 +40,7 @@ function supportedBinary(dir: string, name: string): string {
   const path = join(dir, name);
   writeExecutable(
     path,
-    "#!/usr/bin/env bash\nif [ \"${1:-}\" = \"--version\" ]; then echo \"opencode v2.1.4\"; exit 0; fi\nprintf 'FLAG=%s\\n' \"${OPENCODE_DISABLE_FILEWATCHER:-unset}\"\n",
+    "#!/usr/bin/env bash\nif [ \"${1:-}\" = \"--version\" ]; then echo \"opencode v2.2.0\"; exit 0; fi\nprintf 'FLAG=%s\\n' \"${OPENCODE_DISABLE_FILEWATCHER:-unset}\"\n",
   );
   return path;
 }
@@ -49,7 +49,7 @@ function unsupportedBinary(dir: string, name: string): string {
   const path = join(dir, name);
   writeExecutable(
     path,
-    "#!/usr/bin/env bash\nif [ \"${1:-}\" = \"--version\" ]; then echo \"opencode v2.1.4\"; exit 0; fi\nenv | sort\n",
+    "#!/usr/bin/env bash\nif [ \"${1:-}\" = \"--version\" ]; then echo \"opencode v2.2.0\"; exit 0; fi\nenv | sort\n",
   );
   return path;
 }
@@ -58,7 +58,18 @@ function argsBinary(dir: string, name: string): string {
   const path = join(dir, name);
   writeExecutable(
     path,
-    "#!/usr/bin/env bash\nif [ \"${1:-}\" = \"--version\" ]; then echo \"opencode v2.1.4\"; exit 0; fi\nprintf 'ARGS=%s\\n' \"$*\"\n",
+    "#!/usr/bin/env bash\nif [ \"${1:-}\" = \"--version\" ]; then echo \"opencode v2.2.0\"; exit 0; fi\nprintf 'ARGS=%s\\n' \"$*\"\n",
+  );
+  return path;
+}
+
+function versionBinary(dir: string, name: string, version: string): string {
+  const path = join(dir, name);
+  writeExecutable(
+    path,
+    "#!/usr/bin/env bash\nif [ \"${1:-}\" = \"--version\" ]; then echo \"opencode v" +
+      version +
+      "\"; exit 0; fi\nprintf 'FLAG=%s\\n' \"${OPENCODE_DISABLE_FILEWATCHER:-unset}\"\n",
   );
   return path;
 }
@@ -165,7 +176,7 @@ try {
 
   {
     const dHome = tempHome("desktop-cli");
-    const dDir = join(dHome, ".config", "ai.opencode.desktop", "cli", "2.1.4-x64");
+    const dDir = join(dHome, ".config", "ai.opencode.desktop", "cli", "2.2.0-x64");
     mkdirSync(dDir, { recursive: true });
     argsBinary(dDir, "opencode-cli");
     const res = runLauncherArgs(dHome, ["run"]);
@@ -182,6 +193,35 @@ try {
     assert(tui.stdout.includes("ARGS=--standalone"), "bare TUI gets a private server");
     const missing = runLauncherArgs(tempHome("no-host"), ["run"]);
     assert(missing.status === 2 && missing.stderr.includes("host binary not found"), "no host anywhere refuses with rc 2");
+  }
+
+  {
+    const future = versionBinary(lBin, "opencode-future", "2.2.1");
+    const newer = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: future, TAWASSUL_WATCHER: "off" });
+    assert(newer.status === 0, "a newer 2.x host is accepted");
+    assert(newer.stderr.includes("newer than the audited v2.2.0"), "a newer 2.x host warns about the audited ceiling");
+
+    const major = versionBinary(lBin, "opencode-major", "3.0.0");
+    const refusedMajor = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: major });
+    assert(refusedMajor.status === 2, "a 3.x host is refused");
+    assert(refusedMajor.stderr.includes("supported v>=2.2.0 <3.0.0"), "the refusal names the supported range");
+
+    const old = versionBinary(lBin, "opencode-old", "2.1.4");
+    const refusedOld = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: old });
+    assert(refusedOld.status === 2 && refusedOld.stderr.includes("supported v>=2.2.0 <3.0.0"), "a pre-2.2 host is refused");
+
+    const pinned = runLauncher(lHome, {
+      TAWASSUL_OPENCODE_BIN: future,
+      TAWASSUL_OPENCODE_VERSION: "2.2.1",
+      TAWASSUL_WATCHER: "off",
+    });
+    assert(pinned.status === 0, "an explicit pin accepts its exact version");
+    const pinnedMismatch = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: supported, TAWASSUL_OPENCODE_VERSION: "2.2.1" });
+    assert(pinnedMismatch.status === 2 && pinnedMismatch.stderr.includes("pinned v2.2.1"), "an explicit pin refuses another version");
+
+    const pinBelowRange = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: old, TAWASSUL_OPENCODE_VERSION: "2.1.4" });
+    assert(pinBelowRange.status === 2, "an explicit pin below the supported range is refused");
+    assert(pinBelowRange.stderr.includes("outside the supported range"), "the pin refusal names the range");
   }
 
   {
