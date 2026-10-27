@@ -215,6 +215,7 @@ today.
   gates irreversible actions only (no git push, no absolute-path blanket,
   added curl|bash and case-insensitive root/home rules); `bash` sits at agent
   tier to match the roster; the consent answer loop has a live isolated-boot
-  proof.
+  proof; the daily free limit is recognized by type and delay and no longer
+  blind-retried behind the `freeLimit.noRetry` flag.
 - The three open goals in the ledger (`G-001`, `G-002`, `G-003`) overlap the
   waves above and should be re-scoped to the wave boundaries.

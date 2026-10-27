@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 67 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 70 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1330,6 +1330,32 @@ channel instead of the model, and the same command passes on retry and
 executes; a `no` answer keeps it blocked. A mutation that disconnects the
 `onResolve` wiring fails the retry assertion, so the proof catches a dead
 answer loop (17 assertions).
+
+### G-03-A The daily free limit was blind-retried like a transient 429 — done (2026-10-26)
+
+When the OpenCode Zen free daily quota is spent the host emits the typed error
+`provider.free-limit` (FreeUsageLimitError, 429) with a `retryAfterMs` reset
+delay. The plugin's event hook read only the error message string, so a spent
+daily quota looked like any other rate limit: it blind-retried an already dead
+session up to five times on the backoff budget and injected retry prompts,
+while the reset delay never reached the user.
+
+Resolved 2026-10-26 in two steps: `src/services/free-limit.ts` (commit
+`35b212e`) recognizes the typed error — including the form nested under an
+`error` field — and its delay in milliseconds, a seconds string, or an absolute
+reset timestamp, with a text fallback for `Free usage limit reached` and its
+variants and a distinct transient signal for a plain rate limit; the parser
+never guesses a missing delay (`prove-g003i1`, 43 assertions). The event hook
+(commit `a775d1b`) runs `evaluateFreeLimitBridge` behind the `freeLimit.noRetry`
+config flag, which is off by default: when on, a recognized daily limit skips
+the retry entirely and logs the reset delay, a transient rate limit keeps the
+legacy retries, and any parse failure falls back to legacy so a malformed error
+can never become a hard block (`prove-g003i2`, 33 assertions). The config
+schema and config type gain the `freeLimit` block with `notice` and `noRetry`
+toggles.
+
+Still open: the user-visible notice (I4/I5), so today the bridge only stops the
+harmful retrying and logs the delay.
 
 ### B-11 Predictive-router rewrites its file every 5 minutes — done (2026-10-26)
 
