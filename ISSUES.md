@@ -889,6 +889,37 @@ Residual: the live `G-001` snapshot keeps the stuck items until the host
 reloads the new build. Re-apply I3/I4 after the next restart; the repair path
 in the fix then archives them instead of skipping them.
 
+### D-07 Goal items could not record owner wording changes or owner drops — fixed (2026-10-27)
+
+The `goal` update path accepted item state transitions only. An item title was
+immutable, so an owner wording correction could not be recorded, and there was
+no way to say that the owner decided an item is not needed. Every non-`done`
+item also counted as unfinished, so a retained-but-cancelled item blocked close
+forever, and `runTodoReconcile` could flip it back through a later todo status.
+
+Fixed in the goal store and tool:
+
+- `GoalItemState` adds `dropped` in both `src/types/goal-types.ts` and
+  `GoalItemStateSchema`, so the tool enum accepts it.
+- `GoalUpdatePatch` adds `itemTitles`; the update path rewrites an active item
+  or the newest archived copy, refuses a blank title with `required`, and
+  refuses an unknown id with `unknown-item`.
+- `itemStates: dropped` requires the same recorded item evidence as `done`
+  (`item-evidence`), keeps the item visible in `items`, and can move a closed
+  archived item back as dropped without losing its evidence.
+- Progress, `checkCloseInvariant`, `hasIncompleteItems`, and the roster
+  fraction count dropped as resolved; `applyReconcileTodo` skips an owner-
+  dropped item so a later todo can never resurrect the owner's decision.
+- The tool gains `itemTitle`, the update guard accepts `itemId` with a title
+  or evidence alone, and the `itemState`/`itemEvidence` descriptions name the
+  dropped contract.
+
+`scripts/prove-goal-item-update.ts` runs 19 assertions: title rewrite, blank
+and unknown refusals, evidence-required drop, progress at 50%, done archive,
+pending vs dropped close invariants, full close at 100%, and a dropped item
+surviving todo reconcile. Wired as the `goal-item-update` proofs step;
+`npm run verify` is green at 83 proofs.
+
 ---
 
 ## Handoff lifecycle (P1)
@@ -1024,6 +1055,140 @@ exact-path comparison. Sibling prefixes (`tawassul-v2-backup`,
 covers 31 assertions: every lane, whitespace handling, the keyed path from a
 temp HMAC key, the sibling boundaries, and the health output for
 sidecar/shared/keyed/custom/unset.
+
+### E-47 Operator cancellation was scored as a dropped handoff — fixed (2026-10-27)
+
+The cancellation saga in `src/services/handoff-service.ts` ran
+`core.recordHandoffDropped` against the sender on every deliberate cancel, so
+`buildCancellationEffects` turned operator cleanup into a red
+`handoffsDropped` flag and a -20 health score per cancel. The live state showed
+three false drops for `tawa` (H-005..H-007), five for `build` (H-009..H-013),
+and four for `general` (H-001..H-004). Every one was a deliberate cancellation,
+so no work was lost. `detectDroppedHandoffs` already covers the real case: an
+accepted handoff left unfinished at shutdown.
+
+Fix:
+
+- The cancellation effect is removed, so a deliberate cancel no longer touches
+  `handoffsDropped` for either side.
+- `STATE_VERSION` is 5 with migration 5: for every cancelled handoff the
+  migration subtracts one false drop from the sender's counter, clamped at
+  zero, so the inflated live counts are repaired on the next load. Genuine
+  drops survive, recipients are never charged for cancellations they received,
+  and a current-version state is never repaired twice.
+
+`scripts/prove-cancel-metric.ts` runs 17 assertions: a real cancel through
+`HandoffService` leaves both ratings at zero and stays zero after shutdown, and
+leaves the recipient health counts, circuit state, capability tracker, shared
+memory, and training evaluator unchanged; the migration zeroes tawa (three
+cancellations), leaves build at 2 of 3 (one genuine drop), never charges the
+recipient (general stays 1), and a second pass does not subtract again. Wired as
+the `cancel-metric` proofs step; `npm run verify` is green at 87 proofs.
+
+### E-48 Deliberate cancellation still scored failures in the tracker stack — fixed (2026-10-27)
+
+After E-47 removed `recordHandoffDropped`, `buildCancellationEffects` still ran
+the failure side of six effects against the recipient:
+`healthTracker.onHandoffFailed`, `circuitBreaker.recordFailure`,
+`trainingEvaluator.markOutcomeByAgent(..., "failure")`,
+`sharedMemory.addHandoffRecord(... success: false)`,
+`capabilityTracker.updateCapability(..., false)`, and a negative
+`conflictLearner` CANCEL outcome. A deliberate operator cancel therefore lowered
+the recipient capability score, could open its circuit after three cancels, and
+wrote a failed handoff into shared memory even though no work was attempted.
+
+Fix: a cancellation keeps only the status change, file-lock release, and queue
+removal. Health, circuit-breaker, capability, training, shared-memory, and
+conflict-learning state stay untouched. The `cancel-metric` proof now asserts the
+five tracker snapshots and the conflict-learner memory are identical after the
+cancel.
+
+### E-49 `handoff` undo double-charged `agentErrors` and kept every completion credit — fixed (2026-10-27)
+
+`handoff(undo:)` set the status back to pending and then ran
+`agentErrors[from] -= 1` a second time: completion had already decremented it, so
+undo either removed an unrelated error or clamped at zero. It also left the
+recipient rating credit, health completion count, capability attempt, team stat,
+gamification points, and shared-memory record in place, and recorded a negative
+conflict-learner outcome for a handoff that had actually completed. Undoing a
+cancelled handoff decremented the sender error too.
+
+Fix: `HandoffService.undoHandoff` is the single path. It restores the sender
+error (`+1`) only when the previous status was completed; removes the rating
+completion, health completion count, capability attempt and success (the exact
+inverse of the decay update), team stat, gamification count and action points
+(awarded achievements remain sticky), and the shared-memory record; records no
+conflict-learner outcome; and reopens a cancelled handoff without touching
+counters. The tool fallback mirrors it. New inverses:
+`RatingManager.revertHandoffCompleted`,
+`HealthTracker.onHandoffCompletionReverted`,
+`CapabilityTracker.revertCapabilityUpdate`, `StatsCollector.revertHandoff`, and
+`GamificationManager.revertAction`. `scripts/prove-handoff-undo.ts` runs 35
+assertions, including the second completion/undo cycle, the cancelled reopen, and
+the refused recipient undo.
+
+### E-50 `handoff` rescue credited the stalled recipient as completed — fixed (2026-10-27)
+
+`handoff(rescue:)` set the stalled original to completed and called
+`recordHandoffCompleted(original.to)`, so an agent that never finished the work
+received the full completion credit while the completion saga's health,
+capability, and memory credits were skipped. The precondition only rejected
+pending and completed, so a cancelled or already closed handoff could be rescued
+again.
+
+Fix: `HandoffService.closeForRescue` requires an accepted or paused original,
+sets `status = "closed"` with `rescue = true`, records a health failure (not a
+completion), releases file locks and the queue, and leaves `handoffsDropped` at
+zero. The tool creates the rescue entry as before and no longer calls
+`recordHandoffCompleted`. `parallel-aggregator` and `resumeInterruptedSagas`
+treat `closed` as terminal. `scripts/prove-handoff-rescue.ts` runs 22 assertions:
+the stalled original is closed, the completion rating/health/memory credits stay
+untouched, the health failure is recorded, a double rescue and a pending rescue
+are refused, a non-analyst cannot rescue, and a paused original can.
+
+---
+
+## English-only surface (2026-10-27)
+
+The owner required every shipped string to be English, with no Arabic matchers
+left in code and no Arabic left in the stored feature index. Seven files were
+exempt by exact path in `scripts/check-v2-rules.mjs`; the exemption list and the
+`arabicAllowedFile` branch are now deleted, so every scanned file is checked.
+
+- `src/hooks/message-updated.ts`: the Arabic `tawa` mention and Arabic dispatch
+  verbs are gone; English mention and dispatch patterns are unchanged.
+- `src/hooks/guards/consent-gate-guard.ts` and `src/services/ask-channel-parse.ts`:
+  approval and rejection accept English tokens only. An Arabic "yes" no longer
+  passes the consent gate; it is treated as an unrecognized answer.
+- `src/hooks/guards/task-rejection-guard.ts`: the analytical-framing and
+  execution-intent patterns are English-only.
+- `src/tools/agent-add-helpers.ts` and `src/tools/agent-management.ts`: add and
+  remove commands parse English verbs and `with model ... from ...` only, so the
+  Arabic command form stops working.
+- `src/i18n/en.json`: the consent prompt and kick examples are English-only.
+
+`src/services/feature-index-english.ts` keeps the stored feature index English:
+`FeatureIndex.fromJSON` routes entries through `normalizeLegacyFeatureEntry`,
+which restores the English text for the six legacy entries and strips Arabic
+runs (or applies an English fallback) for anything else; `register` sanitizes new
+entries the same way. This survives the previous build rewriting the file from
+memory, because the normalization runs again on every load.
+`scripts/prove-feature-index-english.ts` covers 13 assertions: legacy names and
+descriptions, unknown mixed entries, registration remainders and fallbacks, and
+idempotent normalization.
+
+The shipped bundles are covered too. The global build inlines zod with
+`external: []`, so `dist/global.js` carried every `zod/v4/locales/*.js` table,
+including 173 lines of Arabic, even though no Tawassul string is Arabic. The
+source gate never sees build output. `build-v2.mjs` now rewrites each
+non-English zod locale module to re-export the English one and fails the build
+if any Arabic code point survives in `global.js`. After the rebuild,
+`dist/global.js`, `dist/index.js`, and `.opencode/plugin/tawassul.js` contain
+zero Arabic lines; `dist/global.js`, `dist/index.js`, and the plugin entry all
+define `GoalItemStateSchema` with the `dropped` state.
+
+`npm run check:rules` scans 428 files with zero exemptions; `npm run verify` is
+green at 87 proofs.
 
 ---
 
@@ -1494,23 +1659,25 @@ and covers eight command families plus the intact refusal path (37
 assertions). The C-03 bypass for unmanaged and no-agent sessions was closed on
 2026-10-27 (see C-03).
 
-### G-02-D The v1 bash tier and consent set are settled and were restored — done (2026-10-27)
+### G-02-D The bash tier stays settled and the consent set is irreversible-only — done (2026-10-27)
 
-Two changes from the G-002 cluster widened what bash may do without the user's
-consent: `bash` was moved from admin tier to agent tier (and the guard fallback
-from admin to agent), and the consent set dropped every `git push` entry and
-the blanket absolute-path removal rule while adding `curl|bash`, `rm -rf ~`,
-and case-insensitive matching.
+The first G-002 change moved `bash` from admin tier to agent tier and changed
+the guard fallback from admin to agent. The owner correction restored the
+settled v1 bash model: `TOOL_TIERS` maps `bash` to `admin` with an `admin`
+fallback, and no bash permission entry in the roster or `opencode.json` was
+touched.
 
-Owner correction 2026-10-27: bash permission handling was already settled in
-the v1 plugin and was not to be touched or widened. The v1 tree confirms the
-settled shape — `TOOL_TIERS` maps `bash` to `admin` with an `admin` fallback,
-and `CONSENT_DANGEROUS_PATTERNS` keeps the original eight patterns including
-both `git push` entries. Both changes are reverted here, `prove-g002i4` and
-`prove-g002i5` are removed with their registrations, and the affected proofs
-(`prove-g002i2`, `prove-shell-alias`, `prove-c02`) return to their pre-change
-assertions. The P-10 hard-denial removal and the live consent answer-loop proof
-stay: both were explicitly authorized and neither widens bash permissions.
+The second change is kept: `CONSENT_DANGEROUS_PATTERNS` is now
+irreversible-only. Every `git push` entry is removed, the blanket absolute
+path removal rule is replaced by root, home, HOME expansion, and the system
+directories (`/etc`, `/usr`, `/var`, `/boot`, `/root`, `/home` and its direct
+accounts), `curl|bash` and `wget|sh` are added, and the destructive rules are
+case-insensitive so `Rm -Rf /` and `RM -RF ~` are caught. `prove-g002i4`
+covers 16 gated and 11 ungated commands plus the shell alias and the set shape
+(37 assertions); `prove-g002i2`, `prove-shell-alias`, and the `prove-c02` live
+chain drive their consent walkthrough through `sudo git push`, which still
+reaches a real remote after approval. The P-10 hard-denial removal and the live
+consent answer-loop proof stay.
 
 ### G-02-C The consent answer loop had no live proof — done (2026-10-26)
 

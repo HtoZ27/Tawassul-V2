@@ -5,8 +5,8 @@ export type AskKind =
 
 export type AskReply = boolean | string | string[];
 
-const YES_RE = /^(yes|y|yep|yeah|sure|ok|okay|aye|fine|go ahead|نعم|أجل|اكيد|موافق|تمام|حسنا|تفضل|ايوا|1|true)$/i;
-const NO_RE = /^(no|n|nope|nah|nay|stop|reject|rejected|refuse|refused|forbidden|deny|decline|لا|كلا|مرفوض|لأ|لاء|ممنوع|رفض|0|false)$/i;
+const YES_RE = /^(yes|y|yep|yeah|sure|ok|okay|aye|fine|go ahead|1|true)$/i;
+const NO_RE = /^(no|n|nope|nah|nay|stop|reject|rejected|refuse|refused|forbidden|deny|decline|0|false)$/i;
 
 export const ASK_MARKER = "\u0002TAWASSUL_ASK\u0002";
 

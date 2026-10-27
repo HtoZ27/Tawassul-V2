@@ -185,8 +185,20 @@ export class GamificationManager {
     return newAchievements;
   }
 
-  private checkAchievement(achievement: Achievement, score: AgentScore, metrics: AgentMetrics): boolean {
-    switch (achievement.requirement.type) {
+  revertAction(agent: string, metric: string, value: number = 1): void {
+    const key = normalizeName(agent);
+    const metrics = this.metrics.get(key);
+    const score = this.scores.get(key);
+    if (!metrics || !score) return;
+    if (metric === "averageRating" || !(metric in metrics)) return;
+    const field = metric as keyof AgentMetrics;
+    metrics[field] = Math.max(0, metrics[field] - value);
+    score.points = Math.max(0, score.points - value * 10);
+    score.level = Math.floor(score.points / 100) + 1;
+    score.rank = this.calculateRank(score.level);
+  }
+
+  private checkAchievement(achievement: Achievement, score: AgentScore, metrics: AgentMetrics): boolean {    switch (achievement.requirement.type) {
       case "count": {
         const metricValue = metrics[achievement.requirement.metric as keyof AgentMetrics] ?? 0;
         return metricValue >= achievement.requirement.count;

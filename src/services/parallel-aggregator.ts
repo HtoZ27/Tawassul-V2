@@ -39,7 +39,9 @@ export class ParallelAggregator {
       completedAt: h.timestamp,
     }));
 
-    const allDone = group.length > 0 && group.every((h) => h.status === "completed" || h.status === "cancelled");
+    const allDone =
+      group.length > 0 &&
+      group.every((h) => h.status === "completed" || h.status === "cancelled" || h.status === "closed");
 
     let bestResult: string | undefined;
     let bestAgent: string | undefined;

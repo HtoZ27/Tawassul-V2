@@ -111,6 +111,13 @@ export class RatingManager {
     r.handoffsDropped++;
   }
 
+  revertHandoffCompleted(agent: string): void {
+    const r = this.getOrCreateRating(agent);
+    r.handoffsCompletedAsRecipient = Math.max(0, r.handoffsCompletedAsRecipient - 1);
+    r.lastActionType = "reverted";
+    r.lastActionAt = new Date().toISOString();
+  }
+
   recordRecordCreated(agent: string): void {
     const r = this.getOrCreateRating(agent);
     r.recordsCreated++;

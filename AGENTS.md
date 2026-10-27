@@ -8,11 +8,8 @@ is a retired, read-only reference.
 
 1. **English only.** All code, strings, tool descriptions, and docs are English.
    Arabic is forbidden. Enforced by `scripts/check-v2-rules.mjs` (`npm run check:rules`).
-   Seven paths carry functional Arabic matchers or user-facing Arabic prompts and
-   are exempt by exact path (`ARABIC_ALLOWED_FILES`): `consent-gate-guard.ts`,
-   `task-rejection-guard.ts`, `message-updated.ts`, `i18n/en.json`,
-   `ask-channel-parse.ts`, `agent-add-helpers.ts`, and `agent-management.ts`.
-   Any new file needs an explicit entry plus a reason; a global word allow-list is forbidden.
+   No exemption list exists; every `.ts`, `.mjs`, and `.json` file under `src/`,
+   `scripts/`, and `tests/` is scanned. A global word allow-list is forbidden.
 2. **No comments in code.** Comments are forbidden, including JSDoc and empty
    comments. Only these exact directive shapes are permitted: `// @ts-expect-error`,
    `// @ts-ignore`, `/* eslint-disable ... */`, `// eslint-disable-next-line ... */`,
@@ -52,7 +49,7 @@ re-open the v1 transfer channel.
 
 ## Porting from v1
 
-- Never copy Arabic code or comments.
+- Never copy non-English code, strings, or comments.
 - Strip all comments while porting.
 - Tool executions run in the promise domain: wrap effect pipelines with
   `Effect.runPromise`.

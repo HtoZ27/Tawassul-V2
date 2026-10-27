@@ -568,6 +568,9 @@ export class TawassulContext implements TawaOrchestratorContext {
   recordHandoffDropped(agent: string): void {
     RatingFacade.ratingRecordHandoffDropped(this, agent);
   }
+  revertHandoffCompleted(agent: string): void {
+    RatingFacade.ratingRevertHandoffCompleted(this, agent);
+  }
   recordRecordCreated(agent: string): void {
     RatingFacade.ratingRecordRecordCreated(this, agent);
   }

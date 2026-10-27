@@ -48,6 +48,7 @@ export interface GoalUpdatePatch {
   parentId?: string | null;
   pinned?: boolean;
   itemStates?: Array<{ itemId: string; state: GoalItemState }>;
+  itemTitles?: Array<{ itemId: string; title: string }>;
   
   itemEvidence?: Array<{ itemId: string; text: string }>;
   
@@ -123,7 +124,7 @@ function nextItemIndex(goal: Pick<Goal, "items" | "completedItems">): number {
 function deriveProgress(goal: Pick<Goal, "items" | "completedItems" | "status">): number {
   const total = goal.items.length + goal.completedItems.length;
   if (total === 0) return goal.status === "completed" || goal.status === "verified" ? 100 : 0;
-  const done = goal.items.filter((i) => i.state === "done").length + goal.completedItems.length;
+  const done = goal.items.filter((i) => i.state === "done" || i.state === "dropped").length + goal.completedItems.length;
   return Math.round((done / total) * 100);
 }
 
@@ -134,7 +135,7 @@ export function checkCloseInvariant(goal: Pick<Goal, "items" | "completedItems" 
     return { ok: false, missing };
   }
   for (const item of goal.items) {
-    if (item.state !== "done") missing.push(`item:${item.id} (${item.state})`);
+    if (item.state !== "done" && item.state !== "dropped") missing.push(`item:${item.id} (${item.state})`);
   }
   for (const dod of goal.acceptance) {
     if (dod.status !== "met") missing.push(`dod:${dod.criterion}`);
@@ -144,7 +145,7 @@ export function checkCloseInvariant(goal: Pick<Goal, "items" | "completedItems" 
 
 
 function hasIncompleteItems(goal: Pick<Goal, "items" | "acceptance">): boolean {
-  return goal.items.some((i) => i.state !== "done") || goal.acceptance.some((d) => d.status !== "met");
+  return goal.items.some((i) => i.state !== "done" && i.state !== "dropped") || goal.acceptance.some((d) => d.status !== "met");
 }
 
 export class GoalStore {
@@ -611,6 +612,20 @@ export class GoalStore {
           dod.status = status;
         }
       }
+      if (patch.itemTitles !== undefined) {
+        for (const { itemId, title } of patch.itemTitles) {
+          const clean = title?.trim() ?? "";
+          if (!clean) return { ok: false, reason: "required" };
+          const item = next.items.find((i) => i.id === itemId);
+          const archived = next.completedItems.findLast((c) => c.id === itemId);
+          if (!item && !archived) return { ok: false, reason: "unknown-item", missing: [itemId] };
+          if (item) {
+            item.title = clean;
+            item.updatedAt = now;
+          }
+          if (archived) archived.title = clean;
+        }
+      }
       if (patch.itemEvidence !== undefined) {
         for (const { itemId, text } of patch.itemEvidence) {
           const item = next.items.find((i) => i.id === itemId);
@@ -627,7 +642,23 @@ export class GoalStore {
           const item = next.items.find((i) => i.id === itemId);
           const archived = next.completedItems.findLast((c) => c.id === itemId);
           if (!item && !archived) return { ok: false, reason: "unknown-item", missing: [itemId] };
-          if (state === "done") {
+          if (state === "dropped") {
+            if (item) {
+              if (item.evidence.length === 0) return { ok: false, reason: "item-evidence", missing: [itemId] };
+              item.state = "dropped";
+              item.updatedAt = now;
+            } else if (archived) {
+              next.completedItems.splice(next.completedItems.indexOf(archived), 1);
+              next.items.push({
+                id: archived.id,
+                title: archived.title,
+                state: "dropped",
+                evidence: archived.evidence,
+                verifiedBy: null,
+                updatedAt: now,
+              });
+            }
+          } else if (state === "done") {
             if (!item) continue;
             if (item.evidence.length === 0) return { ok: false, reason: "item-evidence", missing: [itemId] };
             next.completedItems.push({
@@ -864,7 +895,7 @@ export class GoalStore {
       if (roster.length < rosterCap) {
         const total = g.items.length + g.completedItems.length;
         const frac =
-          total > 0 ? ` · ${g.items.filter((i) => i.state === "done").length + g.completedItems.length}/${total}` : "";
+          total > 0 ? ` · ${g.items.filter((i) => i.state === "done" || i.state === "dropped").length + g.completedItems.length}/${total}` : "";
         roster.push(`▫️ ${g.id} · ${g.status} ${g.progressPct}%${frac} · ${g.title}`);
       } else {
         overflow++;
@@ -996,6 +1027,8 @@ export class GoalStore {
     const completed = status === "completed" || status === "done";
     const iIdx = GoalStore.findItemIndex(goal.items, title);
     const cIdx = GoalStore.findItemIndex(goal.completedItems, title);
+    const active = iIdx >= 0 ? goal.items[iIdx] : undefined;
+    if (active?.state === "dropped") return false;
     const AUTO = "auto: marked complete in todowrite";
     if (completed) {
       if (cIdx >= 0) return false; 

@@ -78,6 +78,19 @@ const globalResult = await build({
         );
       },
     },
+    {
+      name: "tawassul-english-locales",
+      setup(pluginBuild) {
+        pluginBuild.onLoad(
+          { filter: /[\\/]zod[\\/]v4[\\/]locales[\\/]([^\\/]+)\.js$/ },
+          async (args) => {
+            const base = args.path.slice(args.path.lastIndexOf("/") + 1);
+            if (base === "en.js" || base === "index.js") return;
+            return { contents: 'export { default } from "./en.js";\n', loader: "js" };
+          },
+        );
+      },
+    },
   ],
 });
 
@@ -87,6 +100,11 @@ if (!globalResult.success) {
 }
 
 const globalText = readFileSync(join(outdir, "global.js"), "utf8");
+const arabicInGlobal = globalText.match(/[\u0600-\u06FF]/);
+if (arabicInGlobal) {
+  console.error("Global build contains Arabic characters");
+  process.exit(1);
+}
 const runtimeDependency = globalText.match(/from\s+"(?:@opencode|zod|web-tree-sitter|effect)[^"]*"/);
 if (runtimeDependency) {
   console.error(`Global build is not self-contained: ${runtimeDependency[0]}`);

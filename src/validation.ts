@@ -117,7 +117,7 @@ export const AgentRatingSchema = z.object({
   helpRequestsSent: z.number().int().min(0),
   helpRequestsFulfilled: z.number().int().min(0),
   lastAcceptedHandoffId: z.string().nullable().optional(),
-  lastActionType: z.enum(["initiated", "accepted", "completed", "recorded", "none"]),
+  lastActionType: z.enum(["initiated", "accepted", "completed", "recorded", "reverted", "none"]),
   lastActionAt: z.string(),
   toolCallStats: z
     .object({
@@ -406,7 +406,7 @@ export const GoalStatusSchema = z.enum([
   "stale",
 ]);
 
-export const GoalItemStateSchema = z.enum(["pending", "in_progress", "partial", "done", "failed"]);
+export const GoalItemStateSchema = z.enum(["pending", "in_progress", "partial", "done", "failed", "dropped"]);
 
 export const GoalListFilterSchema = z.enum([
   "active",

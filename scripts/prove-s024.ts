@@ -150,8 +150,8 @@ try {
   const confirm = { type: "confirm", default: false } as const;
   const arabicYes = String.fromCodePoint(0x0646, 0x0639, 0x0645);
   const arabicNo = String.fromCodePoint(0x0644, 0x0627);
-  assert(parseUserReply(arabicYes, confirm) === true, "chat path honors Arabic approval");
-  assert(parseUserReply(arabicNo, confirm) === false, "chat path honors Arabic denial");
+  assert(parseUserReply(arabicYes, confirm) === undefined, "chat path ignores a non-English approval");
+  assert(parseUserReply(arabicNo, confirm) === undefined, "chat path ignores a non-English denial");
   assert(parseUserReply("ok", confirm) === true, "chat path honors ok");
   assert(parseUserReply("please help me with the code", confirm) === undefined, "chat path ignores prose");
   const guardSrc = readFileSync("src/hooks/guards/consent-gate-guard.ts", "utf-8");

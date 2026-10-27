@@ -16,9 +16,7 @@ function isApprovalWord(value: unknown): boolean {
   if (value === true) return true;
   if (typeof value !== "string") return false;
   const norm = value.toLowerCase().trim();
-  return (
-    norm === "true" || norm === "yes" || norm === "ok" || norm === "نعم" || norm === "once"
-  );
+  return norm === "true" || norm === "yes" || norm === "ok" || norm === "once";
 }
 
 function buildDryRunPreview(tool: string, args: Record<string, unknown>): string {

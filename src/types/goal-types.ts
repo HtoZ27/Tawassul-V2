@@ -3,7 +3,7 @@
 export type GoalStatus =
   "open" | "in_progress" | "partial" | "blocked" | "completed" | "verified" | "dropped" | "stale";
 
-export type GoalItemState = "pending" | "in_progress" | "partial" | "done" | "failed";
+export type GoalItemState = "pending" | "in_progress" | "partial" | "done" | "failed" | "dropped";
 
 export type DoDVerification = "automated" | "manual" | "agent_check";
 

@@ -4,7 +4,7 @@ import { buildAgentsMdDefault } from "../agent-templates.ts";
 import { ALL_AGENTS } from "../core/agent-data.ts";
 import type { EvaluationConfig } from "./types.ts";
 
-export const STATE_VERSION = 4;
+export const STATE_VERSION = 5;
 export const STATE_FILE_DEFAULT = "tawassul-state.json";
 export const TAWA_PREFS_FILE = "tawa-prefs.json";
 

@@ -52,20 +52,20 @@ rejects("src/services/example.ts", "// @ts-expect-error-everything\nconst a = 1;
 rejects("src/services/example.ts", "// @ts-ignorer\nconst a = 1;\n", "a glued ts-ignore lookalike");
 rejects("src/services/example.ts", "/*#__PURE__ write a poem about water */\nconst a = 1;\n", "a PURE annotation used as prose");
 rejects("src/services/example.ts", "/* eslint-disabled */\nconst a = 1;\n", "an eslint lookalike");
-rejects("src/services/example.ts", `const s = "${yes}";\n`, "an Arabic literal outside the exempt files");
-rejects("src/services/example.ts", `const s = "${no}";\n`, "an Arabic denial literal outside the exempt files");
+rejects("src/services/example.ts", `const s = "${yes}";\n`, "an Arabic literal in a service file");
+rejects("src/services/example.ts", `const s = "${no}";\n`, "an Arabic denial literal in a service file");
 rejects("scripts/helper.ts", `const s = "${yes}";\n`, "an Arabic literal in a script");
 rejects("src/data/strings.json", `{"k": "${yes}"}\n`, "an Arabic literal in JSON");
 rejects("src/services/example.d.ts", `export declare const s: string; // ${yes}\nexport declare const t: string;\n`, "an Arabic literal in a declaration file");
 rejects(
   "src/services/example.ts",
   `const s = "${[particleQ, particleYa, particleFrom, particleNo, particleAll].join(" ")}";\n`,
-  "Arabic assembled only from formerly allow-listed particles",
+  "Arabic assembled from single-letter particles",
 );
 
-accepts("src/services/ask-channel-parse.ts", `const s = "${yes}";\n`, "an Arabic literal in a path-exempt matcher");
-accepts("src/hooks/guards/consent-gate-guard.ts", `const s = "${yes}";\n`, "an Arabic literal in a path-exempt guard");
-accepts("src/i18n/en.json", `{"k": "${yes}"}\n`, "an Arabic literal in a path-exempt locale file");
+rejects("src/services/ask-channel-parse.ts", `const s = "${yes}";\n`, "an Arabic literal in a formerly exempt matcher");
+rejects("src/hooks/guards/consent-gate-guard.ts", `const s = "${yes}";\n`, "an Arabic literal in a formerly exempt guard");
+rejects("src/i18n/en.json", `{"k": "${yes}"}\n`, "an Arabic literal in the locale file");
 
 const identifiersPass = checkSource("src/services/example.ts", `const ${ar(0x0633) + ar(0x0624) + ar(0x0627)} = 1;\n`);
 assert(identifiersPass.length === 0, "known limitation: non-literal identifiers are not Arabic-checked");

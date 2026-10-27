@@ -76,6 +76,25 @@ export class CapabilityTracker {
     return this.agents.get(normalizeName(agent))?.capabilities || [];
   }
 
+  revertCapabilityUpdate(
+    agent: string,
+    capability: string,
+    success: boolean,
+    alpha: number = CapabilityTracker.DEFAULT_ALPHA,
+  ): void {
+    const cap = this.agents.get(normalizeName(agent));
+    if (!cap) return;
+    const key = capability;
+    if (!(key in cap.successRates) || !(key in cap.attempts)) return;
+    if ((cap.attempts[key] ?? 0) <= 0) return;
+    const rate = cap.successRates[key]!;
+    const previous = success ? (rate - alpha) / (1 - alpha) : rate / (1 - alpha);
+    cap.successRates[key] = Math.min(1, Math.max(0, previous));
+    cap.attempts[key] = Math.max(0, cap.attempts[key]! - 1);
+    cap.successes[key] = Math.max(0, cap.successes[key]! - (success ? 1 : 0));
+    cap.lastUpdated = new Date().toISOString();
+  }
+
   getSuccessRate(agent: string, capability: string): number {
     return this.agents.get(normalizeName(agent))?.successRates[capability] || 0.5;
   }

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { TawassulEvaluationReport } from "../context/evaluation-report.ts";
+import { normalizeLegacyFeatureEntry, sanitizeFeatureText } from "./feature-index-english.ts";
 
 type FeatureStatus = "discovered" | "in-progress" | "completed" | "closed" | "regressed";
 
@@ -81,8 +82,11 @@ export class FeatureIndex {
   }): FeatureEntry {
     const entry: FeatureEntry = {
       id: `feat-${randomUUID()}`,
-      name: params.name,
-      description: params.description,
+      name: sanitizeFeatureText(params.name, "Session task"),
+      description: sanitizeFeatureText(
+        params.description,
+        "Registered from a non-English message; see the session transcript.",
+      ),
       status: "discovered",
       files: [...new Set(params.files ?? [])],
       algorithms: [...new Set(params.algorithms ?? [])],
@@ -327,6 +331,7 @@ export class FeatureIndex {
 
   static fromJSON(data: { entries: FeatureEntry[] }): FeatureIndex {
     const index = new FeatureIndex();
+    for (const entry of data.entries) normalizeLegacyFeatureEntry(entry);
     index.entries = data.entries;
     index._bumpVersion();
     return index;

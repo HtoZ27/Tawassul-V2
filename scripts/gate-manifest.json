@@ -183,6 +183,10 @@
       "cmd": ["bun", "scripts/prove-g002i3.ts"]
     },
     {
+      "name": "g002i4",
+      "cmd": ["bun", "scripts/prove-g002i4.ts"]
+    },
+    {
       "name": "g003i1",
       "cmd": ["bun", "scripts/prove-g003i1.ts"]
     },
@@ -245,6 +249,10 @@
     {
       "name": "goal-item-ids",
       "cmd": ["bun", "scripts/prove-goal-item-ids.ts"]
+    },
+    {
+      "name": "goal-item-update",
+      "cmd": ["bun", "scripts/prove-goal-item-update.ts"]
     },
     {
       "name": "early-exit",
@@ -321,6 +329,22 @@
     {
       "name": "v2-ask-bridge",
       "cmd": ["bun", "scripts/prove-v2-ask-bridge.ts"]
+    },
+    {
+      "name": "cancel-metric",
+      "cmd": ["bun", "scripts/prove-cancel-metric.ts"]
+    },
+    {
+      "name": "handoff-undo",
+      "cmd": ["bun", "scripts/prove-handoff-undo.ts"]
+    },
+    {
+      "name": "handoff-rescue",
+      "cmd": ["bun", "scripts/prove-handoff-rescue.ts"]
+    },
+    {
+      "name": "feature-index-english",
+      "cmd": ["bun", "scripts/prove-feature-index-english.ts"]
     },
     {
       "name": "c02",

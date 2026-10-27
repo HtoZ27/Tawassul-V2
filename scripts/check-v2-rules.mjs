@@ -7,15 +7,6 @@ const ROOT = resolve(fileURLToPath(import.meta.url), "..", "..");
 const SCAN_DIRS = ["src", "scripts", "tests"];
 const SINGLE_FILES = ["build-v2.mjs", "check-v2-rules.mjs"];
 const ARABIC_RE = /\p{Script=Arabic}/u;
-const ARABIC_ALLOWED_FILES = [
-  "src/hooks/guards/consent-gate-guard.ts",
-  "src/hooks/guards/task-rejection-guard.ts",
-  "src/hooks/message-updated.ts",
-  "src/i18n/en.json",
-  "src/services/ask-channel-parse.ts",
-  "src/tools/agent-add-helpers.ts",
-  "src/tools/agent-management.ts",
-];
 const ALLOWED_COMMENT_PATTERNS = [
   /^@ts-expect-error(?:\s|:|--|$)/,
   /^@ts-ignore(?:\s|:|--|$)/,
@@ -47,11 +38,6 @@ function collectFiles() {
   return files;
 }
 
-function arabicAllowedFile(file) {
-  const rel = relative(ROOT, file).split("\\").join("/");
-  return ARABIC_ALLOWED_FILES.includes(rel);
-}
-
 function stripComment(text) {
   return text
     .replace(/^\/\*+/, "")
@@ -76,9 +62,8 @@ function checkFile(file) {
 export function checkSource(relPath, source) {
   const file = relPath;
   const errors = [];
-  const arabicExempt = arabicAllowedFile(file);
   if (extname(file) === ".json") {
-    if (!arabicExempt && ARABIC_RE.test(source)) {
+    if (ARABIC_RE.test(source)) {
       errors.push(`${file}:1: non-English literal in JSON`);
     }
     return errors;
@@ -141,7 +126,7 @@ export function checkSource(relPath, source) {
     } else if (ts.isRegularExpressionLiteral(node)) {
       text = node.text;
     }
-    if (text !== null && !arabicExempt && ARABIC_RE.test(text)) {
+    if (text !== null && ARABIC_RE.test(text)) {
       const line = source.slice(0, node.getStart(sf)).split("\n").length;
       errors.push(`${file}:${line}: non-English literal (${JSON.stringify(text.slice(0, 40))})`);
       return;

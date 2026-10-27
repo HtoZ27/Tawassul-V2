@@ -163,7 +163,7 @@ export type AgentRating = {
   helpRequestsSent: number;
   helpRequestsFulfilled: number;
   lastAcceptedHandoffId: string | null;
-  lastActionType: "initiated" | "accepted" | "completed" | "recorded" | "none";
+  lastActionType: "initiated" | "accepted" | "completed" | "recorded" | "reverted" | "none";
   lastActionAt: string;
   toolCallStats?: {
     total: number;

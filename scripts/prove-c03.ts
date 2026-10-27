@@ -20,8 +20,8 @@ function assert(cond: unknown, name: string): void {
 const SESSION = "ses-c03-root";
 const CHILD = "ses-c03-child";
 const NO_AGENT_CMD = "sudo systemctl status sshd";
-const UNKNOWN_CMD = "git push origin main";
-const KNOWN_CMD = "rm -rf /tmp/c03-known";
+const UNKNOWN_CMD = "fdisk /dev/sdz9";
+const KNOWN_CMD = "sudo rm -rf /tmp/c03-known";
 const SAFE_NO_AGENT = "ls -la";
 const SAFE_UNKNOWN = "echo c03-safe";
 

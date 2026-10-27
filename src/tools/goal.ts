@@ -39,7 +39,7 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
       "here. Do not grep plugin files for goal storage.",
       "",
       "WRITE — create: goal(create: <title>) [+ detail, items, acceptance, linkedRecords, linkedHandoffs, parentId]",
-      "WRITE — update: goal(update: <G-xxx>) [+ title, detail, state, itemId+itemState, acceptId+acceptState, itemsAdd, acceptanceAdd, pinned]",
+      "WRITE — update: goal(update: <G-xxx>) [+ title, detail, state, itemId+itemState, itemId+itemTitle, itemEvidence, acceptId+acceptState, itemsAdd, acceptanceAdd, pinned]",
       "WRITE — evidence: goal(evidence: <G-xxx>, evidenceText: <text>)",
       "WRITE — DoD: goal(update: <G-xxx>, acceptId: <criterion>, acceptState: met|not_met[, acceptEvidence: <note>]) — met requires evidence (≥8 chars)",
       "WRITE — close: goal(close: <G-xxx>) [+ verify: true] — completed/verified ONLY if every DoD is met and no items are unfinished (mechanical gate, never prompt-based)",
@@ -82,11 +82,12 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
           }),
         )
         .optional()
-        .describe("Item evidence applied before itemState (P2: done needs evidence)"),
+        .describe("Item evidence applied before itemState (P2: done and dropped need evidence)"),
       itemState: tool.schema
         .enum(VALID_GOAL_ITEM_STATES as [string, ...string[]])
         .optional()
-        .describe("New item state"),
+        .describe("New item state; dropped means the owner decided the item is not needed (records evidence first)"),
+      itemTitle: tool.schema.string().optional().describe("New item title (with itemId)"),
       items: tool.schema.array(tool.schema.string()).optional().describe("Item titles (create)"),
       itemsAdd: tool.schema.array(tool.schema.string()).optional().describe("Item titles to append (update)"),
       acceptance: tool.schema.array(tool.schema.string()).optional().describe("DoD criteria (create)"),
@@ -193,7 +194,14 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
         if (args.state === "completed" || args.state === "verified") {
           return { output: t("goalUseClose", { id }) };
         }
-        if (args.itemId && !args.itemState) return { output: t("goalItemStateRequired") };
+        if (
+          args.itemId &&
+          args.itemState === undefined &&
+          args.itemTitle === undefined &&
+          args.itemEvidence === undefined
+        ) {
+          return { output: t("goalItemStateRequired") };
+        }
         const res = await store.update(id, {
           ...(args.title !== undefined ? { title: str(args.title) } : {}),
           ...(args.detail !== undefined ? { detail: str(args.detail) } : {}),
@@ -202,6 +210,9 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
           ...(args.pinned !== undefined ? { pinned: args.pinned === true } : {}),
           ...(args.itemId && args.itemState
             ? { itemStates: [{ itemId: str(args.itemId), state: args.itemState as GoalItemState }] }
+            : {}),
+          ...(args.itemId && args.itemTitle !== undefined
+            ? { itemTitles: [{ itemId: str(args.itemId), title: str(args.itemTitle) }] }
             : {}),
           ...(args.itemEvidence !== undefined
             ? { itemEvidence: args.itemEvidence as Array<{ itemId: string; text: string }> }

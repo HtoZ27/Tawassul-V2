@@ -555,7 +555,7 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
           try {
             const raw = String(args.name || "").trim();
             const m = raw.match(
-              /^([@\w\s*/\-\u0600-\u06FF]+?)\s+(?:بنموذج|with\s+model)\s+(.+?)\s+(?:من|from)\s+([\w\s.-]+)$/i,
+              /^([@\w\s*/\-]+?)\s+with\s+model\s+(.+?)\s+from\s+([\w\s.-]+)$/i,
             );
             if (!m) return "";
             const spec = m[1]!.trim().split(/\s+/)[0] ?? "";
@@ -923,7 +923,7 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
       const hintFromInput = (() => {
         try {
           const m = input.match(
-            /^([@\w\s*/\-\u0600-\u06FF]+?)\s+(?:بنموذج|with\s+model)\s+(.+?)\s+(?:من|from)\s+([\w\s.-]+)$/i,
+            /^([@\w\s*/\-]+?)\s+with\s+model\s+(.+?)\s+from\s+([\w\s.-]+)$/i,
           );
           if (!m) return null;
           const specsPart = m[1]!

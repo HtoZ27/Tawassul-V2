@@ -400,6 +400,9 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
         if (!original) return { output: t("handoffRescueNotFound", { id: rescueId }) };
         if (original.status === "completed") return { output: t("handoffRescueAlreadyComplete", { id: rescueId }) };
         if (original.status === "pending") return { output: t("handoffRescuePending", { id: rescueId }) };
+        if (original.status !== "accepted" && original.status !== "paused") {
+          return { output: t("handoffRescueNotActive", { id: rescueId, status: original.status }) };
+        }
         if (!args.to) return { output: t("handoffRescueRequiresTo", { id: rescueId }) };
         if (normalizeName(cctx.agent) !== "analyst") {
           return { output: t("handoffRescueNotAnalyst", { agent: cctx.agent }) };
@@ -410,12 +413,16 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
           return { output: t("handoffRescueTawa") };
         }
 
-        original.status = "completed";
-        original.rescue = true;
-        ctx.recordHandoffCompleted(original.to);
-        await ctx.fileLocks.releaseAllForHandoff(original.id);
-        ctx.taskPriority.removeFromQueue(original.id);
-        ctx.updateLastActive(cctx.agent);
+        if (ctx.handoffService) {
+          const closed = await ctx.handoffService.closeForRescue(original.id, cctx.agent);
+          if (!closed.success) return { output: closed.message };
+        } else {
+          original.status = "closed";
+          original.rescue = true;
+          await ctx.fileLocks.releaseAllForHandoff(original.id);
+          ctx.taskPriority.removeFromQueue(original.id);
+          ctx.updateLastActive(cctx.agent);
+        }
 
         const rescueEntry = {
           id: ctx.nextHandoffId(),
@@ -485,19 +492,30 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
         if (normalizeName(h.from) !== normalizeName(cctx.agent) && normalizeName(cctx.agent) !== "analyst") {
           return { output: t("handoffUndoNoPermission", { id, from: h.from }) };
         }
-        h.status = "pending";
-        const nu = normalizeName(h.from);
-        ctx.agentErrors[nu] = Math.max(0, (ctx.agentErrors[nu] ?? 0) - 1);
-        await ctx.fileLocks.releaseAllForHandoff(h.id);
-        ctx.taskPriority.removeFromQueue(h.id);
-        ctx.updateLastActive(cctx.agent);
-        ctx.saveState();
-        ctx.conflictLearner?.recordOutcome(
-          h.decisionRuleId ?? "UNKNOWN",
-          h.decision ?? { action: "allow", reason: "Handoff reverted", confidence: 1 },
-          false,
-          cctx.agent,
-        );
+        if (ctx.handoffService) {
+          const result = await ctx.handoffService.undoHandoff(id, cctx.agent);
+          if (!result.success) return { output: result.message };
+        } else {
+          const wasCompleted = h.status === "completed";
+          h.status = "pending";
+          if (wasCompleted) {
+            const nf = normalizeName(h.from);
+            ctx.agentErrors[nf] = (ctx.agentErrors[nf] ?? 0) + 1;
+            ctx.revertHandoffCompleted(h.to);
+            const nt = normalizeName(h.to);
+            const cap = ctx.config.agentModels?.[nt]?.capability || ctx.readAgentMd(nt)?.capability;
+            if (cap) ctx.capabilityTracker.revertCapabilityUpdate(nt, cap, true);
+            ctx.statsCollector.revertHandoff(nt, true);
+            ctx.gamification.revertAction(nt, "completedHandoffs");
+            const memory = ctx.sharedMemory.get();
+            const idx = memory.handoffHistory.findIndex((r) => r.id === h.id);
+            if (idx !== -1) memory.handoffHistory.splice(idx, 1);
+          }
+          await ctx.fileLocks.releaseAllForHandoff(h.id);
+          ctx.taskPriority.removeFromQueue(h.id);
+          ctx.updateLastActive(cctx.agent);
+          ctx.saveState();
+        }
         return { title: `↩️ ${id} reverted`, output: t("handoffUndoReverted", { id }) };
       }
 

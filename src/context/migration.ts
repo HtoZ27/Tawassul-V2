@@ -2,6 +2,7 @@
 
 import { STATE_VERSION } from "./constants.ts";
 import { logger } from "../utils/logger.ts";
+import { normalizeName } from "../utils/name-utils.ts";
 
 type MigrationFn = (data: Record<string, unknown>) => Record<string, unknown>;
 
@@ -76,6 +77,31 @@ export const STATE_MIGRATIONS: Record<number, MigrationFn> = {
       for (const r of data.records) {
         if (r && typeof r === "object" && !("provenance" in r)) {
           (r as Record<string, unknown>).provenance = "agent_inferred";
+        }
+      }
+    }
+    return data;
+  },
+  5: (data) => {
+    const handoffs = Array.isArray(data.handoffs) ? data.handoffs : [];
+    const cancelledBySender = new Map<string, number>();
+    for (const entry of handoffs) {
+      if (!entry || typeof entry !== "object") continue;
+      const handoff = entry as Record<string, unknown>;
+      if (handoff.status !== "cancelled") continue;
+      const sender = normalizeName(handoff.from);
+      if (!sender) continue;
+      cancelledBySender.set(sender, (cancelledBySender.get(sender) ?? 0) + 1);
+    }
+    const ratings = data.agentRatings;
+    if (ratings && typeof ratings === "object" && !Array.isArray(ratings)) {
+      for (const [agent, value] of Object.entries(ratings as Record<string, unknown>)) {
+        if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+        const rating = value as Record<string, unknown>;
+        const dropped = typeof rating.handoffsDropped === "number" ? rating.handoffsDropped : 0;
+        const falseDrops = cancelledBySender.get(normalizeName(agent)) ?? 0;
+        if (dropped > 0 && falseDrops > 0) {
+          rating.handoffsDropped = Math.max(0, dropped - falseDrops);
         }
       }
     }

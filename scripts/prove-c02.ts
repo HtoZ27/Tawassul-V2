@@ -288,7 +288,7 @@ async function liveChain(): Promise<void> {
 
     const rootSession = "ses_c02_root";
     const childSession = "ses_c02_child";
-    const firstContent: Part[] = [{ type: "text", text: "please push the release" }];
+    const firstContent: Part[] = [{ type: "text", text: "please push the release with elevated privileges" }];
     await contextHook({
       sessionID: rootSession,
       messages: [{ role: "user", id: "msg_c02_first", content: firstContent }],
@@ -298,10 +298,10 @@ async function liveChain(): Promise<void> {
       "the live bridge runs the real hook and writes its guidance into the message",
     );
 
-    const firstBlock = await gate(childSession, "call_c02_push_1", "git push origin main");
+    const firstBlock = await gate(childSession, "call_c02_push_1", "sudo git push origin main");
     assert(
       firstBlock instanceof Error && firstBlock.name === "ConsentBlockedError",
-      "the first git push is blocked by the consent gate",
+      "the first elevated push is blocked by the consent gate",
     );
     assert(
       firstBlock instanceof Error && firstBlock.message.includes("blocked awaiting your approval"),
@@ -310,7 +310,7 @@ async function liveChain(): Promise<void> {
     await flush();
     assert(injected.length === 1, "the deferred question is injected into the transcript");
     assert(injected[0]?.startsWith(ASK_MARKER) === true, "the injected question carries the ask marker");
-    assert(injected[0]?.includes("git push origin main") === true, "the injected question names the exact command");
+    assert(injected[0]?.includes("sudo git push origin main") === true, "the injected question names the exact command");
     assert(
       isAskInjection({ parts: [{ type: "text", text: injected[0] ?? "" }] }),
       "the injected question is a recognized ask injection",
@@ -320,8 +320,8 @@ async function liveChain(): Promise<void> {
       sessionID: rootSession,
       messages: [{ role: "user", id: "msg_c02_yes", content: [{ type: "text", text: "yes" }] }],
     });
-    const retry = await gate(childSession, "call_c02_push_2", "git push origin main");
-    assert(retry === undefined, "the retried git push passes the gate after the chat approval");
+    const retry = await gate(childSession, "call_c02_push_2", "sudo git push origin main");
+    assert(retry === undefined, "the retried elevated push passes the gate after the chat approval");
     assert(injected.length === 1, "the approval adds no new question");
 
     const push = git(["push", "origin", "main"], repoDir);
@@ -337,20 +337,20 @@ async function liveChain(): Promise<void> {
     const remoteFile = git(["--git-dir", remoteDir, "show", "main:README.md"]);
     assert(remoteFile.stdout === "consent proof\n", "the pushed commit carries the expected file");
 
-    const otherBlock = await gate(childSession, "call_c02_push_3", "git push origin dev");
+    const otherBlock = await gate(childSession, "call_c02_push_3", "sudo git push origin dev");
     assert(
       otherBlock instanceof Error && otherBlock.name === "ConsentBlockedError",
-      "a different git push is still blocked",
+      "a different elevated push is still blocked",
     );
     await flush();
     assert(injected.length === 2, "the different command gets its own question");
-    assert(injected[1]?.includes("git push origin dev") === true, "the second question names the different command");
+    assert(injected[1]?.includes("sudo git push origin dev") === true, "the second question names the different command");
 
     await contextHook({
       sessionID: rootSession,
       messages: [{ role: "user", id: "msg_c02_no", content: [{ type: "text", text: "no" }] }],
     });
-    const denied = await gate(childSession, "call_c02_push_4", "git push origin dev");
+    const denied = await gate(childSession, "call_c02_push_4", "sudo git push origin dev");
     assert(denied instanceof Error && denied.name === "ConsentBlockedError", "the denied command stays blocked on retry");
     assert(
       denied instanceof Error && denied.message.includes("previously denied"),
@@ -359,7 +359,7 @@ async function liveChain(): Promise<void> {
     await flush();
     assert(injected.length === 2, "a cached denial creates no new question");
 
-    const stillApproved = await gate(childSession, "call_c02_push_5", "git push origin main");
+    const stillApproved = await gate(childSession, "call_c02_push_5", "sudo git push origin main");
     assert(stillApproved === undefined, "the approval stays scoped to its own command");
   } finally {
     try {

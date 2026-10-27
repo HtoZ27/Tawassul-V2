@@ -236,6 +236,6 @@ today.
   `done` transition can no longer be skipped while the tool reports success.
   After the host picked up `71c21f3`, both stale items archived on the first
   attempt and `G-001` closed verified at 100%.
-- The two remaining goals (`G-002`, `G-003`) overlap the waves above and
-  should be re-scoped to the wave boundaries; `G-001` closed verified at 100%
-  on 2026-10-27.
+- All three goals closed verified at 100% on 2026-10-27: `G-001` after the
+  item-id fix, `G-002` after reconciling its four items against the owner
+  revert `30a7398`, and `G-003` after the free-limit bridge proofs.

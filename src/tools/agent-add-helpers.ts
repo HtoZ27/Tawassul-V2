@@ -29,7 +29,7 @@ export function examplesText(): string {
 }
 
 export function stripLeadingVerb(s: string): string {
-  return s.trim().replace(/^(?:أضف|اضف|أحذف|احذف|احذفوا|احسم|add|remove|delete)[\s]+/i, "");
+  return s.trim().replace(/^(?:add|remove|delete)[\s]+/i, "");
 }
 
 export function isVariantName(spec: string): boolean {
@@ -46,7 +46,7 @@ export function parseCompoundSpec(spec: string): { base: string; suffix: string 
 }
 
 export function expandAllSuffixToken(token: string, bases: readonly string[]): string[] | null {
-  const m = token.match(/^(?:all|كل|الكل|الجميع)-([^\s]+)$/i);
+  const m = token.match(/^all-([^\s]+)$/i);
   if (!m) return null;
   const tag = m[1]!;
   if (!tag || tag.startsWith("-") || tag === ".") return null;

@@ -23,12 +23,12 @@ const BLOCKED_PHRASES = [
 ];
 
 const ANALYTICAL_FRAMING =
-  /\b(?:analy[sz]e?|evaluat|assess|consider|review|discuss|explain|summar|compar|investigat|inspect|explor|identif|determin|check\s+whether|verif|confirm|plan|propos|recommend|suggest|weigh|justif|argu|critic|debate|reflect|outline|describ|assess|what\s+if|should\s+(?:we|i|it)|is\s+it\s+(?:safe|ok|wise)|weighing)\b|(?:هل|قيّم|ناقش|حلّل|راجع|اشرح|وضّح|استكشف|حقّق|خطّط|اقترح)\b/i;
+  /\b(?:analy[sz]e?|evaluat|assess|consider|review|discuss|explain|summar|compar|investigat|inspect|explor|identif|determin|check\s+whether|verif|confirm|plan|propos|recommend|suggest|weigh|justif|argu|critic|debate|reflect|outline|describ|assess|what\s+if|should\s+(?:we|i|it)|is\s+it\s+(?:safe|ok|wise)|weighing)\b/i;
 
 const BLOCKED_ROLES = ["root", "admin", "superuser", "sudo"];
 
 const EXECUTION_INTENT =
-  /\b(?:execut|run\b|implement|carry\s+out|go\s+ahead|proceed|do\s+it|apply\b|invoke|perform\b|trigger|actually\s+do)\b|(?:نفّذ|شغّل|طبّق|احذف|فعّل)\b/i;
+  /\b(?:execut|run\b|implement|carry\s+out|go\s+ahead|proceed|do\s+it|apply\b|invoke|perform\b|trigger|actually\s+do)\b/i;
 
 export { parseTask };
 export type { ParsedTask };

@@ -10,6 +10,7 @@ export interface IRatingOperations {
   recordHandoffInitiated(agent: string, ctx: string, task: string, hcp: boolean, ce: boolean): void;
   recordHandoffAccepted(agent: string, id: string): void;
   recordHandoffDropped(agent: string): void;
+  revertHandoffCompleted(agent: string): void;
   recordRecordCreated(agent: string): void;
   recordValidationError(agent: string): void;
   recordHelpRequestSent(agent: string): void;
@@ -37,6 +38,7 @@ export function createRatingOperations(
     recordHandoffInitiated(agent, c, task, hcp, ce) { ratingManager.recordHandoffInitiated(agent, c, task, hcp, ce, handoffsRef()); },
     recordHandoffAccepted(agent, id) { ratingManager.recordHandoffAccepted(agent, id); },
     recordHandoffDropped(agent) { ratingManager.recordHandoffDropped(agent); },
+    revertHandoffCompleted(agent) { ratingManager.revertHandoffCompleted(agent); },
     recordRecordCreated(agent) { ratingManager.recordRecordCreated(agent); },
     recordValidationError(agent) { ratingManager.recordValidationError(agent); },
     recordHelpRequestSent(agent) { ratingManager.recordHelpRequestSent(agent); },

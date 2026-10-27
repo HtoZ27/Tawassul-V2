@@ -35,6 +35,21 @@ export class StatsCollector {
     }
   }
 
+  revertHandoff(agent: string, completed: boolean): void {
+    const stats = this.agentStats.get(normalizeName(agent));
+    if (stats) {
+      stats.handoffsInitiated = Math.max(0, stats.handoffsInitiated - 1);
+      if (completed) stats.handoffsCompleted = Math.max(0, stats.handoffsCompleted - 1);
+      stats.lastActive = new Date().toISOString();
+    }
+    for (let i = this.dailyCompletions.length - 1; i >= 0; i--) {
+      if (this.dailyCompletions[i]!.success === completed) {
+        this.dailyCompletions.splice(i, 1);
+        break;
+      }
+    }
+  }
+
   recordRecord(agent: string): void {
     const stats = this.getOrCreate(agent);
     stats.records++;

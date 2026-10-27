@@ -47,10 +47,10 @@ import { isValidMessageId } from "../lib/tool-schema-injection.ts";
 import { DEFAULT_PRICING_MODELS } from "../services/cost-transparency/types.ts";
 import type { ScoredContextEntry } from "../context/priority-types.ts";
 
-export const TAWA_MENTION_REGEX = /(?:^|\s|[\W])@tawa\b|يا tawa|(?<![\p{L}])tawa(?![\p{L}])|(?<![\p{L}])تاوا(?![\p{L}])/iu;
+export const TAWA_MENTION_REGEX = /(?:^|\s|[\W])@tawa\b|(?<![\p{L}])tawa(?![\p{L}])/iu;
 
 export const EXPLICIT_DISPATCH_REGEX =
-  /وزّع|أوزع(?![\p{L}])|(?:(?<![\p{L}])|[وفبلس])وزع(?![\p{L}])|أرسل[\s\S]{0,25}الوكلاء|إرسال[\s\S]{0,25}الوكلاء|سلّم[\s\S]{0,15}الوكيل|سلِّم[\s\S]{0,15}الوكيل|كِل[\s\S]{0,25}الوكلاء|كلف[\s\S]{0,25}الوكلاء|حوّل[\s\S]{0,25}الوكلاء|فوّض[\s\S]{0,25}الوكلاء|فوض[\s\S]{0,25}الوكلاء|توزيع[\s\S]{0,20}وكلاء|توزيع[\s\S]{0,20}مهام|تقسيم[\s\S]{0,20}وكلاء|\bdispatch\b|\bdistribute\b|\bdelegate\b|\bhand[ -]?off\b|send[\s\S]{0,25}to agents|assign[\s\S]{0,25}to agents|route[\s\S]{0,25}to agents/iu;
+  /\bdispatch\b|\bdistribute\b|\bdelegate\b|\bhand[ -]?off\b|send[\s\S]{0,25}to agents|assign[\s\S]{0,25}to agents|route[\s\S]{0,25}to agents/iu;
 
 export const DISPATCH_QA_IN_ROOT = false;
 

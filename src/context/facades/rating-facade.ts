@@ -9,6 +9,7 @@ export function ratingRecordHandoffCompleted(ctx: TawassulContext, agent: string
 export function ratingRecordHandoffInitiated(ctx: TawassulContext, agent: string, c: string, task: string, hcp: boolean, ce: boolean): void { ctx.ratingOps.recordHandoffInitiated(agent, c, task, hcp, ce); }
 export function ratingRecordHandoffAccepted(ctx: TawassulContext, agent: string, id: string): void { ctx.ratingOps.recordHandoffAccepted(agent, id); }
 export function ratingRecordHandoffDropped(ctx: TawassulContext, agent: string): void { ctx.ratingOps.recordHandoffDropped(agent); }
+export function ratingRevertHandoffCompleted(ctx: TawassulContext, agent: string): void { ctx.ratingOps.revertHandoffCompleted(agent); }
 export function ratingRecordRecordCreated(ctx: TawassulContext, agent: string): void { ctx.ratingOps.recordRecordCreated(agent); }
 export function ratingRecordValidationError(ctx: TawassulContext, agent: string): void { ctx.ratingOps.recordValidationError(agent); }
 export function ratingRecordHelpRequestSent(ctx: TawassulContext, agent: string): void { ctx.ratingOps.recordHelpRequestSent(agent); }

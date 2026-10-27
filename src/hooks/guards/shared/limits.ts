@@ -35,9 +35,8 @@ export function isShellTool(name: string): boolean {
 }
 
 export const CONSENT_DANGEROUS_PATTERNS = [
-  /rm\s+-rf\s+\//,
-  /git\s+push/,
-  /git\s+push\s+\S+\s+--force/,
+  /rm\s+-rf\s+(\/\s*$|~(\/|\s|$)|(\$HOME|\$\{HOME\})(\/|\s|$)|\/(etc|usr|var|boot)(\/|\s|$)|\/root(\/|\s|$)|\/home\s*$|\/home\/[^/\s]+\s*$)/i,
+  /(curl|wget)\s+[^|]*\|\s*(sudo\s+)?(ba|z|da)?sh\b/i,
   /sudo/,
   /fdisk/,
   /mkfs/,

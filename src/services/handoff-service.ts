@@ -184,10 +184,7 @@ function buildCompletionEffects(
   ];
 }
 
-function buildCancellationEffects(
-  healthTracker?: { onHandoffCompleted: (agent: string) => void; onHandoffFailed: (agent: string) => void },
-  circuitBreaker?: CircuitBreaker,
-): SagaEffect<TawaOrchestratorContext>[] {
+function buildCancellationEffects(): SagaEffect<TawaOrchestratorContext>[] {
   return [
     effect(
       "core.handoffStatus",
@@ -211,96 +208,6 @@ function buildCancellationEffects(
         ctx.taskPriority.removeFromQueue(h.id);
       },
       () => {},
-    ),
-    effect(
-      "core.recordHandoffDropped",
-      (h, ctx) => {
-        ctx.recordHandoffDropped(normalizeName(h.from));
-      },
-      (_h, _ctx) => {},
-    ),
-    effect(
-      "healthTracker.onHandoffFailed",
-      (h) => {
-        const to = normalizeName(h.to);
-        if (healthTracker) healthTracker.onHandoffFailed(to);
-      },
-      (h) => {
-        const to = normalizeName(h.to);
-        if (healthTracker) healthTracker.onHandoffCompleted(to);
-      },
-    ),
-    effect(
-      "circuitBreaker.recordFailure",
-      (h) => {
-        const to = normalizeName(h.to);
-        if (circuitBreaker) circuitBreaker.recordFailure(to);
-      },
-      (h) => {
-        const to = normalizeName(h.to);
-        if (circuitBreaker) circuitBreaker.recordSuccess(to);
-      },
-    ),
-    effect(
-      "capabilityTracker.updateCapability",
-      (h, ctx) => {
-        const to = normalizeName(h.to);
-        const cap = ctx.config.agentModels?.[to]?.capability || ctx.readAgentMd(to)?.capability;
-        if (cap) ctx.capabilityTracker.updateCapability(to, cap, false);
-      },
-      (h, ctx) => {
-        const to = normalizeName(h.to);
-        const cap = ctx.config.agentModels?.[to]?.capability || ctx.readAgentMd(to)?.capability;
-        if (cap) ctx.capabilityTracker.updateCapability(to, cap, true);
-      },
-    ),
-    effect(
-      "trainingEvaluator.markOutcomeByAgent",
-      (h, ctx) => {
-        ctx.trainingEvaluator.markOutcomeByAgent(normalizeName(h.to), "failure");
-      },
-      (h, ctx) => {
-        ctx.trainingEvaluator.markOutcomeByAgent(normalizeName(h.to), "success");
-      },
-    ),
-    effect(
-      "sharedMemory.addHandoffRecord",
-      (h, ctx) => {
-        ctx.sharedMemory.addHandoffRecord({
-          id: h.id,
-          from: normalizeName(h.from),
-          to: normalizeName(h.to),
-          task: h.task,
-          timestamp: new Date().toISOString(),
-          success: false,
-          duration: 0,
-        });
-      },
-      (h, ctx) => {
-        const memory = ctx.sharedMemory.get();
-        const idx = memory.handoffHistory.findIndex((r) => r.id === h.id);
-        if (idx !== -1) memory.handoffHistory.splice(idx, 1);
-      },
-    ),
-    effect(
-      "conflictLearner.recordOutcome",
-      (_h, ctx) => {
-        ctx.conflictLearner.recordOutcome(
-          "CANCEL",
-          { action: "block", reason: "Handoff cancelled by user", confidence: 1 },
-          false,
-          "",
-        );
-        logRuleAdjustments(ctx.conflictLearner);
-      },
-      (_h, ctx) => {
-        ctx.conflictLearner.recordOutcome(
-          "ROLLBACK",
-          { action: "block", reason: "Cancel saga rollback", confidence: 0.5 },
-          false,
-          "",
-        );
-      },
     ),
   ];
 }
@@ -384,7 +291,7 @@ export class HandoffService {
         if (record.state === "COMPLETED" || record.state === "COMPENSATED" || record.state === "FAILED") continue;
         if (!record.taskId || !this.ctx.handoffs.has(record.taskId)) continue;
         const h = this.ctx.handoffs.get(record.taskId)!;
-        if (h.status === "completed" || h.status === "cancelled") continue;
+        if (h.status === "completed" || h.status === "cancelled" || h.status === "closed") continue;
         const effects = buildCompletionEffects(this.healthTracker, this.circuitBreaker);
         const result = await this._sagaCoordinator.resumeSaga(
           effects,
@@ -409,7 +316,11 @@ export class HandoffService {
 
   constructor(
     private ctx: TawaOrchestratorContext,
-    private healthTracker?: { onHandoffCompleted: (agent: string) => void; onHandoffFailed: (agent: string) => void },
+    private healthTracker?: {
+      onHandoffCompleted: (agent: string) => void;
+      onHandoffFailed: (agent: string) => void;
+      onHandoffCompletionReverted: (agent: string) => void;
+    },
     private circuitBreaker?: CircuitBreaker,
   ) {
     this._sagaCoordinator = new SagaCoordinator<{ handoff: HandoffEntry; ctx: TawaOrchestratorContext }>(ctx.stateDir);
@@ -525,7 +436,7 @@ export class HandoffService {
         };
       }
 
-      const effects = buildCancellationEffects(this.healthTracker, this.circuitBreaker);
+      const effects = buildCancellationEffects();
       const failedEffect = await runSideEffects(effects, h, this.ctx);
 
       if (failedEffect) {
@@ -551,6 +462,93 @@ export class HandoffService {
       return {
         success: true,
         message: `Handoff ${handoffId} cancelled`,
+        handoff: h,
+      };
+    });
+  }
+
+  async undoHandoff(handoffId: string, undoneBy: string): Promise<HandoffCompletionResult> {
+    return this._withLock(handoffId, async (_signal) => {
+      const h = this.ctx.handoffs.get(handoffId);
+      if (!h) {
+        return { success: false, message: `Handoff ${handoffId} not found`, handoff: null };
+      }
+      if (h.status === "pending") {
+        return { success: false, message: `Handoff ${handoffId} is already pending`, handoff: h };
+      }
+      const actor = normalizeName(undoneBy);
+      if (actor !== normalizeName(h.from) && actor !== "analyst") {
+        return {
+          success: false,
+          message: `Handoff ${handoffId} not reverted — ${undoneBy} not authorized`,
+          handoff: h,
+        };
+      }
+
+      const wasCompleted = h.status === "completed";
+      h.status = "pending";
+      if (wasCompleted) {
+        const from = normalizeName(h.from);
+        this.ctx.agentErrors[from] = (this.ctx.agentErrors[from] ?? 0) + 1;
+        const to = normalizeName(h.to);
+        this.ctx.ratingOps.revertHandoffCompleted(to);
+        if (this.healthTracker) this.healthTracker.onHandoffCompletionReverted(to);
+        const cap = this.ctx.config.agentModels?.[to]?.capability || this.ctx.readAgentMd(to)?.capability;
+        if (cap) this.ctx.capabilityTracker.revertCapabilityUpdate(to, cap, true);
+        this.ctx.statsCollector.revertHandoff(to, true);
+        this.ctx.gamification.revertAction(to, "completedHandoffs");
+        const memory = this.ctx.sharedMemory.get();
+        const idx = memory.handoffHistory.findIndex((r) => r.id === h.id);
+        if (idx !== -1) memory.handoffHistory.splice(idx, 1);
+      }
+      await this.ctx.fileLocks.releaseAllForHandoff(h.id);
+      this.ctx.taskPriority.removeFromQueue(h.id);
+      this.ctx.updateLastActive(undoneBy);
+      try {
+        await this.ctx.flushSaves();
+      } catch (e) {
+        logger.error("[tawassul] flushSaves failed after undo:", e);
+      }
+
+      return {
+        success: true,
+        message: `Handoff ${handoffId} reverted to pending`,
+        handoff: h,
+      };
+    });
+  }
+
+  async closeForRescue(handoffId: string, rescuedBy: string): Promise<HandoffCompletionResult> {
+    return this._withLock(handoffId, async (_signal) => {
+      const h = this.ctx.handoffs.get(handoffId);
+      if (!h) {
+        return { success: false, message: `Handoff ${handoffId} not found`, handoff: null };
+      }
+      if (h.status === "completed") {
+        return { success: false, message: `Handoff ${handoffId} already completed`, handoff: h };
+      }
+      if (h.status !== "accepted" && h.status !== "paused") {
+        return {
+          success: false,
+          message: `Handoff ${handoffId} is ${h.status} — only an accepted or paused handoff can be rescued`,
+          handoff: h,
+        };
+      }
+      h.status = "closed";
+      h.rescue = true;
+      const to = normalizeName(h.to);
+      if (this.healthTracker) this.healthTracker.onHandoffFailed(to);
+      await this.ctx.fileLocks.releaseAllForHandoff(h.id);
+      this.ctx.taskPriority.removeFromQueue(h.id);
+      this.ctx.updateLastActive(rescuedBy);
+      try {
+        await this.ctx.flushSaves();
+      } catch (e) {
+        logger.error("[tawassul] flushSaves failed after rescue close:", e);
+      }
+      return {
+        success: true,
+        message: `Handoff ${handoffId} closed for rescue`,
         handoff: h,
       };
     });
