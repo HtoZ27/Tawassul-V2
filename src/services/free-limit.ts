@@ -17,7 +17,7 @@ const FREE_LIMIT_TEXT_PATTERNS = [
   /exceeded your free (message|request) limit/i,
 ];
 const TRANSIENT_TEXT_PATTERNS = [
-  /rate ?limit/i,
+  /rate[ _-]?limit/i,
   /too many requests/i,
   /\b429\b/,
   /throttled/i,
