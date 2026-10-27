@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 65 proof files, smoke pass)
+Status date: 2026-10-26 · Gate: `npm run ci` rc=0 (3 isolated stages, 67 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1283,6 +1283,53 @@ without an ask channel; the over-broad idioms (`> /dev/null`, `chown`,
 and covers eight command families plus the intact refusal path (37
 assertions). The C-03 bypass for unmanaged and no-agent sessions remains open
 and tracked separately.
+
+### G-02-A Consent set gated every push and every absolute cleanup — done (2026-10-26)
+
+`CONSENT_DANGEROUS_PATTERNS` gated `git push` (plain and `--force`) and any
+`rm -rf /abs`, which blocks routine reversible work: a push to a normal branch
+is a team action, and `rm -rf /tmp/opencode/*` is a project cleanup the
+project's own workflow mandates.
+
+Resolved 2026-10-26 (commit `9cec6b1`): the set is irreversible-actions-only.
+The rm rule gates root (`/`), `~`, `$HOME`/`${HOME}`, and the system
+directories (`/etc`, `/usr`, `/var`, `/boot`, `/root`, `/home` and its direct
+account entries, so `rm -rf /home/user/project/build` passes); every git push
+entry is dropped; `curl|bash` and `wget|sh` pipes are added as remote code
+execution; `sudo`, `fdisk`, `mkfs`, the fork bomb, and `dd if=` stay gated;
+and the destructive rules carry `/i` so `Rm -Rf /` and `RM -RF ~` are caught.
+`prove-g002i4` covers 16 gated and 11 ungated commands, the shell alias, and
+the set shape (37 assertions); it fails on the previous set at `rm -rf ~`.
+
+### G-02-B Bash sat at admin tier while the roster grants it allow — done (2026-10-26)
+
+`TOOL_TIERS` marked `bash` admin, but the roster (`.opencode/agents/dev.md`,
+`tester.md`, and `agent-data.ts`) grants `bash: allow` to every execution
+agent, so the tier table contradicted the roster it is supposed to enforce.
+
+Resolved 2026-10-26 (commit `d274d07`): the `bash` entry is dropped from the
+table and the guard fallback becomes `agent`, matching the default the
+tool-name loop already assigns, because `permissionGuard` owns tawa-tool tiers
+and host-executed shells are not admin work. `edit`, `write`, `delete`,
+`addagent`, and `kick` stay gated and the main session keeps admin access.
+`prove-g002i5` covers the subagent bash call, a variant agent, the still-gated
+kick and addagent, the unlisted-tool default, and the main session (8
+assertions).
+
+### G-02-C The consent answer loop had no live proof — done (2026-10-26)
+
+The consent gate only ever rejected commands in tests; no proof walked the
+production defer path end to end, so a dead answer loop would ship silently.
+
+Resolved 2026-10-26 (commit `27054e6`): `prove-g002i3` boots the real plugin in
+an isolated HOME with the ask channel enabled, then drives the same wiring the
+hooks register (`chatOnlyAsk`, `askChannelInstance`): a consent-gated bash call
+parks exactly one question in the channel, the first attempt is blocked with
+the awaiting-approval message, a root user answer of `yes` is consumed by the
+channel instead of the model, and the same command passes on retry and
+executes; a `no` answer keeps it blocked. A mutation that disconnects the
+`onResolve` wiring fails the retry assertion, so the proof catches a dead
+answer loop (17 assertions).
 
 ### B-11 Predictive-router rewrites its file every 5 minutes — done (2026-10-26)
 

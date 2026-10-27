@@ -211,6 +211,10 @@ today.
   the global bundle is stamped with the source SHA and the installer refuses a
   stale build; `P-10` (S4) — the plugin no longer hard-denies legitimate bash;
   the consent gate is the single by-design gate for dangerous commands and
-  host permissions are the fallback for the rest.
+  host permissions are the fallback for the rest; the `G-002` consent set
+  gates irreversible actions only (no git push, no absolute-path blanket,
+  added curl|bash and case-insensitive root/home rules); `bash` sits at agent
+  tier to match the roster; the consent answer loop has a live isolated-boot
+  proof.
 - The three open goals in the ledger (`G-001`, `G-002`, `G-003`) overlap the
   waves above and should be re-scoped to the wave boundaries.
