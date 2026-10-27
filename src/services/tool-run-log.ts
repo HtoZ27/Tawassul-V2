@@ -79,29 +79,60 @@ export class ToolRunLog {
   async load(): Promise<void> {
     if (this.loaded) return;
     this.loaded = true;
-    if (isIsolationActiveSync()) return; 
+    if (isIsolationActiveSync()) return;
     try {
       const { readFile } = await import("node:fs/promises");
       const raw = await readFile(this.logPath(), "utf-8");
-      const parsed = JSON.parse(raw) as { runs?: unknown };
-      if (Array.isArray(parsed.runs)) {
-        this.runs = parsed.runs.filter(isToolRunEntry);
+      const trimmed = raw.trim();
+      if (!trimmed) return;
+      let parsed: unknown[] | null = null;
+      try {
+        const single = JSON.parse(trimmed) as unknown;
+        if (Array.isArray(single)) {
+          parsed = single;
+        } else if (
+          single &&
+          typeof single === "object" &&
+          Array.isArray((single as { runs?: unknown }).runs)
+        ) {
+          parsed = (single as { runs: unknown[] }).runs;
+        } else if (single && typeof single === "object" && "tool" in (single as object)) {
+          parsed = [single];
+        }
+      } catch {
+        parsed = null;
+      }
+      if (parsed === null) {
+        parsed = trimmed
+          .split("\n")
+          .map((line) => {
+            try {
+              return JSON.parse(line);
+            } catch {
+              return null;
+            }
+          })
+          .filter((value): value is unknown => value !== null);
+      }
+      if (Array.isArray(parsed)) {
+        this.runs = parsed.filter(isToolRunEntry);
       }
     } catch {
-
     }
   }
 
   async save(): Promise<void> {
-    if (isIsolationActiveSync()) return; 
+    if (isIsolationActiveSync()) return;
     for (const sessionId of this.turnSeq.keys()) this.purgeAgedFailures(sessionId);
+    if (this.runs.length > PRUNE_KEEP) {
+      this.runs = this.runs.slice(-PRUNE_KEEP);
+    }
     const p = this.logPath();
     try {
       await mkdir(dirname(p), { recursive: true });
     } catch {
-
     }
-    const data = JSON.stringify({ runs: this.runs }, null, 2);
+    const data = this.runs.map((entry) => JSON.stringify(entry)).join("\n") + (this.runs.length ? "\n" : "");
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         await atomicWriteFile(p, data);
