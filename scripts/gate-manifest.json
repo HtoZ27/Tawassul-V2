@@ -287,6 +287,10 @@
       "cmd": ["bun", "scripts/prove-c03.ts"]
     },
     {
+      "name": "e28-blocked-tools",
+      "cmd": ["bun", "scripts/prove-e28.ts"]
+    },
+    {
       "name": "v2-compat",
       "cmd": ["bun", "scripts/prove-v2-compat.ts"]
     },

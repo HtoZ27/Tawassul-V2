@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { PluginInput, TawassulHooks } from "../plugin-types.ts";
 import { getInitReady, initPlugin } from "../bootstrap/plugin-init.ts";
 import { ToolBlockedError } from "../hooks/tool-execute.ts";
-import { BLOCKED_TOOLS } from "../security-policy.ts";
+import { isBlockedToolForTawa } from "../security-policy.ts";
 import { logger } from "../utils/logger.ts";
 import { collectToolSchemas, makeV2Tool, schemaFingerprint, measureSchemaPayload } from "./adapters.ts";
 import { createAskBridge, registerAskPermission } from "./ask.ts";
@@ -73,7 +73,7 @@ function isBlockedForAgent(agent: unknown, tool: string): boolean {
   if (typeof agent !== "string") return false;
   const id = agent.trim().toLowerCase();
   const isTawa = id === "tawa" || id.endsWith(":tawa") || id.endsWith("/tawa");
-  return isTawa && BLOCKED_TOOLS.includes(toolNameToV1(tool));
+  return isTawa && isBlockedToolForTawa(toolNameToV1(tool));
 }
 
 function reportSafetyHookFailure(hook: string, detail: string, error: unknown): void {

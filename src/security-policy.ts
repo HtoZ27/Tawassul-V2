@@ -47,6 +47,12 @@ export interface TaskValidationResult {
 
 
 export const BLOCKED_TOOLS: readonly string[] = ["edit", "write", "bash", "addagent", "kick", "pause", "resume"];
+export const BLOCKED_TOOL_ALIASES: readonly string[] = ["patch", "apply_patch"];
+
+
+export function isBlockedToolForTawa(tool: string): boolean {
+  return BLOCKED_TOOLS.includes(tool) || BLOCKED_TOOL_ALIASES.includes(tool);
+}
 
 
 const BLOCKED_HANDOFF_ACTIONS: readonly string[] = ["complete", "undo", "rescue", "helpRequest"];
@@ -257,7 +263,7 @@ export class SecurityPolicy {
   static checkBlockedTools(agent: string, tool: string): SecurityCheckResult {
     const a = normalizeName(agent);
 
-    if (a === "tawa" && BLOCKED_TOOLS.includes(tool)) {
+    if (a === "tawa" && isBlockedToolForTawa(tool)) {
       return {
         allowed: false,
         error: t("spTawaBlocked"),
