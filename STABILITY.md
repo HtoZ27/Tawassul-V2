@@ -1,6 +1,6 @@
 # Tawassul V2 — Stability Triage
 
-Status: 2026-10-27 · HEAD `b3b2318` · gate `npm run ci` rc=0
+Status: 2026-10-27 · HEAD `b4a0eb3` · gate `npm run ci` rc=0
 
 Purpose: one prioritized view across every open fix, filtered to the single
 question that matters for day-to-day use — **does this stop the plugin from
@@ -8,14 +8,14 @@ working, lose data, or report success when it failed?**
 
 ## Where the fixes actually live
 
-All 104 issue entries are in `ISSUES.md`. `PLAN.md`, `TRIAGE.md`,
+All 105 issue entries are in `ISSUES.md`. `PLAN.md`, `TRIAGE.md`,
 `CUTOVER.md`, `RECOVERY-20261025.md`, `DECOUPLING.md`, and `SHARED.md` are
 historical records: they describe work already done or decisions already
 taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 104 entries, of which **25 are open**.
+with 105 entries, of which **25 are open**.
 
 ## The filter
 
@@ -45,7 +45,9 @@ see. S3 through S6 matter, but none of them makes a working session fail.
 ## S2 — truthfulness (1)
 
 `E-42` handoff create and every `override` action mutate state but return no
-tool result, so the caller cannot read the new id or confirm the action.
+tool result, so the caller cannot read the new id or confirm the action. On
+2026-10-27 the redirect path returned normally after the host picked up
+`71c21f3`; create is still unobserved on that build.
 
 ## S3 — boot and startup (2)
 
@@ -78,7 +80,7 @@ into two engineering clusters, each of which is one coherent change.
 | Cluster | Members | One change |
 | --- | --- | --- |
 | **Persistence** | `E-12`, `E-13`, `E-20`, `E-21`, `E-22` | Make save/load/flush one generation-aware path: write before you report, quarantine instead of rolling back, await every flush. |
-| **Guards** | — | One guard chain on every path, capability seeded at boot, fail closed on decisions and open on infrastructure. `C-03`, `P-10`, and `E-28` are closed. |
+| **Guards** | — | One guard chain on every path, capability seeded at boot, fail closed on decisions and open on infrastructure. `C-03`, `P-10`, `E-28`, and `E-43` are closed. |
 
 ## Execution order
 
@@ -226,10 +228,14 @@ today.
   unrecognized agent no longer bypasses the consent gate, so sudo, `git push`,
   and `rm -rf /` ask in every session; `E-28` (S4) — `patch` and `apply_patch`
   are blocked for tawa by name in both the policy stage and the v2 bridge,
-  without adding invalid permission keys to the generated config.
+  without adding invalid permission keys to the generated config; `E-43` (S4) —
+  the Code Mode `execute` tool is refused for tawa by name, so a Code Mode
+  script cannot reach the tools tawa's own policy denies, while normal agents
+  keep `execute`.
 - `D-06` (S1) — goal item ids no longer collide with the archive, so a
   `done` transition can no longer be skipped while the tool reports success.
-  The live `G-001-I3`/`G-001-I4` entries stay stuck until the host reloads the
-  new build (`G-13`).
-- The three open goals in the ledger (`G-001`, `G-002`, `G-003`) overlap the
-  waves above and should be re-scoped to the wave boundaries.
+  After the host picked up `71c21f3`, both stale items archived on the first
+  attempt and `G-001` closed verified at 100%.
+- The two remaining goals (`G-002`, `G-003`) overlap the waves above and
+  should be re-scoped to the wave boundaries; `G-001` closed verified at 100%
+  on 2026-10-27.

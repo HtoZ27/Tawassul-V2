@@ -286,6 +286,37 @@ per project could still contend on one global router file.
 Exit: met — sessions restored, per-project router live, doctor and health cover
 the failure mode. Full write-up: `RECOVERY-20261025.md`.
 
+## Continuous — upstream compatibility watch (2026-10-27)
+
+Why: the host moved from 2.1.4 to 2.2.0 while the plugin was mid-hardening.
+Nothing tracked release-to-release, so a host change could only be discovered
+by reading the changelog by hand after a live failure.
+
+Delivered:
+
+- `UPSTREAM.md` — the standing section: routine, verdict vocabulary, version
+  ledger, and the per-change assessment of v2.2.0.
+- `src/upstream/registry.json` — 30 assessed changes for v2.2.0, each with a
+  pull request, topic, verdict, issue id where required, and one-line reason.
+- `src/upstream/changelog.ts` — changelog parser, registry validator, and
+  drift report, with no network or filesystem side effects.
+- `scripts/check-upstream.ts` — `--offline` validation (wired into `gate:fast`
+  as `upstream-registry`) and a live read of
+  <https://opencode.ai/changelog> that exits 1 on a release above the audited
+  ceiling.
+- `scripts/prove-upstream-sync.ts` — 40 assertions: parser shape and order,
+  the checked-in registry, the drift thresholds, and twelve corruptions that
+  must each fail validation.
+
+First assessment of v2.2.0 produced `E-43` (Code Mode `execute` was outside
+the tawa guard) and confirmed `E-42` as host-diagnosable through the new
+reference id. The remaining follow-ups are listed in `UPSTREAM.md`.
+
+Exit: `npm run gate:fast` includes `upstream-registry`; the live check reports
+`aligned: no release newer than v2.2.0`; `prove:upstream-sync` is green.
+Next: bump the dev dependency to `@opencode/plugin` 2.2.0 after the running
+host is restarted on this build, then adopt the follow-ups in the order listed.
+
 ## P2 backlog (after cutover)
 
 - S-044 select/multiselect elicitation with the same fail-closed contract.

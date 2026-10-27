@@ -1,12 +1,15 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 76 proof files, smoke pass)
+Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 77 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
 running host still predates the current build (G-13).
 Register note: the third-round evaluation (2026-10-26) added E-11..E-41 and
 re-confirmed C-02, C-03, P-10, B-02, E-02, and G-13 without duplicating them.
+Upstream watch (2026-10-27): `UPSTREAM.md` and
+`src/upstream/registry.json` assess OpenCode v2.2.0 item by item; the first
+result is E-43, registered and closed the same day.
 Stability view: `STABILITY.md` classifies all open entries by whether they
 block use, lose data, or misreport, and gives the wave order.
 `SHARED.md` audit (2026-10-26): all 57 frozen entries are dispositioned in
@@ -905,6 +908,12 @@ cannot tell a successful override from a failed one without re-reading
 `status`. The lifecycle mutations themselves are sound, and RBAC is enforced:
 complete is limited to the assignee or `@analyst`, cancel to the creator, and
 rescue requires an already-accepted handoff.
+
+Live update (2026-10-27 09:59): on the same 2.2.0 host after it picked up
+build `71c21f3`, `override` redirect of H-008 returned its normal confirmation
+(`H-008 redirected ... tester → dev`) instead of `Tool result missing`. The
+create path still needs one reproduction on this build. Keep open until create
+and both mutation families are observed once on the current build.
 
 Next: reproduce through `toV2Result` with a captured entry, then check whether
 the host rejects `metadata.handoff` (nested `decision`, `checkpoint:

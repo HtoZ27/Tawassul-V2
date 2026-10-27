@@ -232,6 +232,7 @@ Rules:
 
 - `PLAN.md` — priority plan and day-by-day history
 - `ISSUES.md` — live issue register (hosts, runtime cost, gate, data)
+- `UPSTREAM.md` — OpenCode release watch, per-change verdicts, compatibility routine
 - `CUTOVER.md` — dual-generation evidence, freeze, retirement, rollback
 - `TRIAGE.md` — S-055 A–L verdicts with evidence
 - `RECOVERY-20261025.md` — desktop DB split, session merge, multi-project hardening
