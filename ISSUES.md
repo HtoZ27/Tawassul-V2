@@ -1181,8 +1181,8 @@ The shipped bundles are covered too. The global build inlines zod with
 `external: []`, so `dist/global.js` carried every `zod/v4/locales/*.js` table,
 including 173 lines of Arabic, even though no Tawassul string is Arabic. The
 source gate never sees build output. `build-v2.mjs` now rewrites each
-non-English zod locale module to re-export the English one and warns on the next
-build if any Arabic code point reappears in `global.js`. After the rebuild,
+non-English zod locale module to re-export the English one; the build does not
+inspect its output for Arabic at all. After the rebuild,
 `dist/global.js`, `dist/index.js`, and `.opencode/plugin/tawassul.js` contain
 zero Arabic lines; `dist/global.js`, `dist/index.js`, and the plugin entry all
 define `GoalItemStateSchema` with the `dropped` state.
