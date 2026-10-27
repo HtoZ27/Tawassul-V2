@@ -163,7 +163,11 @@ export function createToolExecuteBeforeHook(ctx: ToolExecuteBeforeContext) {
       
       
       
-      if (normalizedAgent && !isManagedAgent(normalizedAgent)) return;
+      if (normalizedAgent && !isManagedAgent(normalizedAgent)) {
+        const allowed = await runPipeline(ctx, input, output);
+        if (!allowed) blockTool(output.error ?? "🚫 Blocked by tawassul validation pipeline (unrecognized agent)");
+        return;
+      }
 
       
       const toolDedup = ctx.toolDeduplicator;

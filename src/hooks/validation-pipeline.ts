@@ -254,6 +254,9 @@ export async function runPipeline(ctx: Ctx, input: Input, output: StageOutput): 
   
   
   if (!input.agent && !isTawaRelated) {
+    if (requiresConsent(input.tool, output.args ?? {})) {
+      return await consentGateGuard.check(ctx, input, output);
+    }
     return true;
   }
   

@@ -283,6 +283,10 @@
       "cmd": ["bun", "scripts/prove-d05.ts"]
     },
     {
+      "name": "c03-agentless-guard",
+      "cmd": ["bun", "scripts/prove-c03.ts"]
+    },
+    {
       "name": "v2-compat",
       "cmd": ["bun", "scripts/prove-v2-compat.ts"]
     },
