@@ -81,6 +81,7 @@
     "prove:e42": "bun scripts/prove-e42.ts",
     "prove:e44": "bun scripts/prove-e44.ts",
     "prove:e45": "bun scripts/prove-e45.ts",
+    "prove:e46": "bun scripts/prove-e46.ts",
     "prove:early-exit": "bun scripts/prove-pipeline-early-exit.ts",
     "prove:priming": "bun scripts/prove-store-priming.ts",
     "prove:s024": "bun scripts/prove-s024.ts",

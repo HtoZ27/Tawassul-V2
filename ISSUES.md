@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 80 proof files, smoke pass)
+Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 81 proof files, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -1001,6 +1001,28 @@ longer blocks the host. The state flush remains early in `destroy()` so it
 runs before the optional drains. `scripts/prove-e45.ts` covers 14 assertions:
 the budget constants and margin, fast/hung/rejecting destroys, the hook
 outcome and elapsed time, and the pending-handoff warning path.
+
+---
+
+### E-46 `health` called the desktop sidecar DB a mismatch — fixed (2026-10-27)
+
+The 2.2.0 Desktop host pins `OPENCODE_DB` to
+`~/.local/share/opencode/tawassul-v2/opencode.db` (the per-project sidecar),
+which `scripts/doctor-v2.sh` already accepts as isolated. `health` knew only
+the HMAC-keyed CLI path `~/.local/share/opencode-projects/<hash>/opencode.db`
+and printed `DB matches isolation: no`, so a correctly isolated runtime looked
+like a misconfiguration.
+
+Fixed by `classifyDbLane` and `isDesktopSidecarDbPath` in
+`src/bootstrap/db-isolation.ts` (five lanes: `desktop-sidecar`, `shared`,
+`isolated`, `custom`, `unset`) and by the `DB lane` line in
+`src/tools/tawa/health.ts`. The sidecar lane reports
+`DB matches isolation: yes`; shared, custom, unset, and keyed lanes keep their
+exact-path comparison. Sibling prefixes (`tawassul-v2-backup`,
+`opencode-projects-old`) do not match either lane. `scripts/prove-e46.ts`
+covers 31 assertions: every lane, whitespace handling, the keyed path from a
+temp HMAC key, the sibling boundaries, and the health output for
+sidecar/shared/keyed/custom/unset.
 
 ---
 

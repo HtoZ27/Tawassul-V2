@@ -24,6 +24,25 @@ export function isSharedDbPath(dbPath: string): boolean {
   return SHARED_DB_SUFFIXES.some((s) => canon.endsWith(s));
 }
 
+export type DbLane = "desktop-sidecar" | "shared" | "isolated" | "custom" | "unset";
+
+export function isDesktopSidecarDbPath(dbPath: string): boolean {
+  const canon = canonicalize(dbPath);
+  const base = resolve(homedir(), ".local", "share", "opencode", "tawassul-v2");
+  return canon === base || canon.startsWith(`${base}${sep}`);
+}
+
+export function classifyDbLane(dbPath: string | undefined): DbLane {
+  const trimmed = dbPath?.trim() ?? "";
+  if (!trimmed) return "unset";
+  if (isSharedDbPath(trimmed)) return "shared";
+  if (isDesktopSidecarDbPath(trimmed)) return "desktop-sidecar";
+  const isolatedBase = resolve(homedir(), ".local", "share", DB_ISOLATION_BASE_SUBDIR);
+  const canon = canonicalize(trimmed);
+  if (canon === isolatedBase || canon.startsWith(`${isolatedBase}${sep}`)) return "isolated";
+  return "custom";
+}
+
 export function isolatedDbPathFor(projectRoot: string, keyFile = defaultKeyFile()): string | null {
   const key = readHmacKey(keyFile);
   if (!key) return null;

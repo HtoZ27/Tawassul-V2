@@ -8,14 +8,14 @@ working, lose data, or report success when it failed?**
 
 ## Where the fixes actually live
 
-All 105 issue entries are in `ISSUES.md`. `PLAN.md`, `TRIAGE.md`,
+All 108 issue entries are in `ISSUES.md`. `PLAN.md`, `TRIAGE.md`,
 `CUTOVER.md`, `RECOVERY-20261025.md`, `DECOUPLING.md`, and `SHARED.md` are
 historical records: they describe work already done or decisions already
 taken. The one exception was `SHARED.md` S-057, which had never been
 registered; it is now `P-11`, and S-053's guard-fixture remainder is `G-14`.
 `VERIFICATION-20261026.md` is the evidence ledger behind the
 register. So the "huge number spread across documents" collapses to one file
-with 107 entries, of which **24 are open**.
+with 108 entries, of which **24 are open**.
 
 ## The filter
 

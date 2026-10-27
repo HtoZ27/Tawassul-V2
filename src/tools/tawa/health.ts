@@ -5,7 +5,7 @@ import { countPendingPersists } from "../../services/persist-utils.ts";
 import { logger } from "../../utils/logger.ts";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { defaultKeyFile, isolatedDbPathFor, isSharedDbPath } from "../../bootstrap/db-isolation.ts";
+import { defaultKeyFile, classifyDbLane, isolatedDbPathFor } from "../../bootstrap/db-isolation.ts";
 import { scopedStatePath, statePath } from "../../utils/state-paths.ts";
 
 const LAG_WARN_THRESHOLD_MS = 500;
@@ -71,12 +71,17 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
       const rss = rssMb();
       const activeTimers = ctx.timerManager?.activeCount ?? 0;
       const dbEnv = process.env.OPENCODE_DB?.trim() ?? "";
-      const dbShared = dbEnv ? isSharedDbPath(dbEnv) : false;
-      const dbIsolated = Boolean(dbEnv) && !dbShared;
+      const dbLane = classifyDbLane(dbEnv);
+      const dbIsolated = dbLane !== "shared" && dbLane !== "unset";
       const keyFile = defaultKeyFile();
       const keyPresent = existsSync(keyFile);
       const expectedDb = keyPresent ? isolatedDbPathFor(ctx.stateDir, keyFile) : null;
-      const dbMatches = dbEnv && expectedDb ? resolve(dbEnv) === resolve(expectedDb) : null;
+      const desktopSidecar = dbLane === "desktop-sidecar";
+      const dbMatches = desktopSidecar
+        ? true
+        : dbEnv && expectedDb
+          ? resolve(dbEnv) === resolve(expectedDb)
+          : null;
       const routerFile = scopedStatePath(ctx.stateDir, ctx.scope, "predictive-router.json");
       const legacyRouterFile = statePath("predictive-router.json");
       const flushes = pendingFlushes();
@@ -88,6 +93,7 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
           `- RSS: ${rss} MiB`,
           `- Active timers: ${activeTimers}`,
           `- DB: ${dbIsolated ? "isolated" : "shared"}`,
+          `- DB lane: ${dbLane}`,
           `- DB path: ${dbEnv || "(unset)"}`,
           `- DB expected: ${expectedDb ?? "(no HMAC key)"}`,
           `- DB matches isolation: ${dbMatches === null ? "unknown" : dbMatches ? "yes" : "no"}`,

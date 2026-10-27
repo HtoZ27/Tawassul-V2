@@ -67,7 +67,7 @@ still running), or `blocked` (a host defect prevents the work).
 
 | Release | Date | Audited | Host contract | Status | Summary |
 | --- | --- | --- | --- | --- | --- |
-| v2.2.0 | 2026-10-27 | 2026-10-27 | 2.1.4 | partial | 30 tracked changes: one guard (`E-43`, fixed), one adoption (`E-42`, fixed), three follow-ups (`E-44` and `E-45` fixed), eight candidates, eleven aligned, six ignored |
+| v2.2.0 | 2026-10-27 | 2026-10-27 | 2.1.4 | partial | 30 tracked changes: one guard (`E-43`, fixed), one adoption (`E-42`, fixed), three follow-ups (`E-44`, `E-45`, and `E-46` fixed), eight candidates, eleven aligned, six ignored |
 
 ## v2.2.0 — what changed for us
 
@@ -91,7 +91,7 @@ still running), or `blocked` (a host defect prevents the work).
 
 | PR | Change | Verdict | Issue | Action |
 | --- | --- | --- | --- | --- |
-| #58331 | Dev builds use a separate server, database, and port | tracked | `D-01` | Recheck the expected DB path on the next dev boot |
+| #58331 | Dev builds use a separate server, database, and port | tracked | `E-46` | `health` now names the desktop sidecar DB lane instead of calling it a mismatch |
 | #58866 | Throttled requests retry instead of reporting context overflow | tracked | `E-44` | Defer transient limits to the 2.2.0 host retry; keep the legacy path below it |
 | #58817 | Shutdown exits after ten seconds | tracked | `E-45` | Bound dispose at 7.5 s with a 2.5 s margin under the host cap |
 
@@ -125,7 +125,8 @@ still running), or `blocked` (a host defect prevents the work).
    handoff entry; result metadata is now JSON-safe, and live create and cancel
    both returned their results. Keep the reference id in mind for future
    encode failures.
-3. Retry dedupe (`E-44`, fixed) and the ten-second shutdown budget (`E-45`, fixed).
+3. Retry dedupe (`E-44`, fixed), the ten-second shutdown budget (`E-45`,
+   fixed), and the dev/sidecar DB lane (`E-46`, fixed).
 4. Fork/revert behavior for goals and handoffs once 2.2.0 is the running host.
 5. Compaction payload check after the host starts history at the latest
    completed compaction.

@@ -345,6 +345,10 @@
     {
       "name": "e45-shutdown-budget",
       "cmd": ["bun", "scripts/prove-e45.ts"]
+    },
+    {
+      "name": "e46-db-lane",
+      "cmd": ["bun", "scripts/prove-e46.ts"]
     }
   ],
   "smoke": [

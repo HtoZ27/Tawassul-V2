@@ -108,8 +108,8 @@
           "pr": 58331,
           "topic": "dev-build-isolation",
           "verdict": "tracked",
-          "issue": "D-01",
-          "note": "Separate dev server, database, and port; recheck expected DB paths on the next dev boot."
+          "issue": "E-46",
+          "note": "The dev lane is the desktop sidecar DB; health reports its lane instead of a keyed-path mismatch."
         },
         {
           "pr": 58866,
