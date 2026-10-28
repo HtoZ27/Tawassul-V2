@@ -299,6 +299,10 @@
       "cmd": ["bun", "scripts/prove-portability.ts"]
     },
     {
+      "name": "partial-install",
+      "cmd": ["bun", "scripts/prove-partial-install.ts"]
+    },
+    {
       "name": "d05-doctor-census",
       "cmd": ["bun", "scripts/prove-d05.ts"]
     },

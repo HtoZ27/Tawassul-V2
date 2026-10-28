@@ -70,17 +70,22 @@ export const CONSENT_BLOCKING_TIMEOUT_MS = 25_000;
 
 
 
-async function passiveSelfCheck(projectDir: string, pluginDir: string): Promise<void> {
+export async function passiveSelfCheck(projectDir: string, pluginDir: string): Promise<void> {
   try {
+    if (!existsSync(pluginDir)) return;
     const checks: string[] = [];
     const distJs = resolve(pluginDir, "dist/index.js");
     const altDistJs = resolve(projectDir, "dist/index.js");
-    if (!existsSync(distJs) && !existsSync(altDistJs)) checks.push("dist/index.js missing — run: bun build-v2.mjs or bun --cwd .opencode/plugins/tawassul build.mjs");
-    
+    if (!existsSync(distJs) && !existsSync(altDistJs)) {
+      checks.push(
+        `project plugin dir ${pluginDir} has no built dist/index.js — the supported install is npm run install:global`,
+      );
+    }
+
     const nm = resolve(projectDir, ".opencode/node_modules");
     if (!existsSync(nm)) checks.push(".opencode/node_modules missing — opencode will run bun install on next start");
 
-    if (checks.length === 0) return; 
+    if (checks.length === 0) return;
     logger.warn(`[tawassul] self-check: ${checks.join(" | ")}`);
   } catch (e) {
     logger.debug("[tawassul] passiveSelfCheck skipped:", (e as Error)?.message ?? e);

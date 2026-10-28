@@ -78,7 +78,26 @@ gate) covers every rung of every helper plus fail-closed refusals and the
 end-to-end macOS-like run (BSD shims shadow GNU stat/date/df, free and
 vm_stat truly absent, python3 present): maintenance --check completes with
 correct sizes and a small prune completes deleting 320 rows. No automation
-claim changed. `npm run ci` is green end to end. Open: P5, P6, P7.
+claim changed. `npm run ci` is green end to end. Seventh batch, same day — P5
+landed in full: the AST degradation path collapsed to one warning per process
+(a module-level once-guard shared by both former warn sites, the message
+naming `tawassul-runtime/wasm` and `npm run install:global`, and a
+`web-tree-sitter` wasm-root pre-check that skips `Parser.init` entirely so the
+wasm runtime emits no emscripten abort noise at all — 9 noise lines before,
+zero now, verified in an isolated four-file module copy); `passiveSelfCheck`
+now returns silently unless the project plugin directory exists, so a global
+install or a fresh workspace never warns and never names repo-only build
+commands (the dist branch names `npm run install:global` instead); the
+installer refuses with one actionable line when the runtime layout cannot be
+created (a plain file occupying `tawassul-runtime`, `plugins`, or `db`), and
+never writes the bundle in that state. `prove-partial-install.ts` (24
+assertions, in the proof gate) covers the degraded lane (exactly one
+tawassul line, the message contract, no abort noise, repeated init attempts
+still one line), the healthy lane (zero warnings, parser ready), all three
+self-check projects (fresh, present-but-unbuilt, built), the installer
+refusal plus dry-run behavior, the shipped bundle text, and the absence of
+repo-only build commands in `src/`. DoD 8 and DoD 10 are now satisfied.
+`npm run ci` is green end to end. Open: P6, P7.
 Scope: this tree only. The v1 tree is read-only reference.
 Evidence: every anchor below was read on 2026-10-27 or 2026-10-28 from the
 named file at the named line, or measured on the installed host 2.2.0 and on a

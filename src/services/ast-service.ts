@@ -10,6 +10,24 @@ const _dirname = dirname(fileURLToPath(import.meta.url));
 type TreeSitterModule = typeof import("web-tree-sitter");
 let _wtsModule: TreeSitterModule | null = null;
 let _wtsPromise: Promise<TreeSitterModule | null> | null = null;
+let _degradationWarned = false;
+
+function compactReason(e: unknown, fallback: string): string {
+  const text = e instanceof Error ? e.message : typeof e === "string" ? e : "";
+  const first = text.split("\n")[0]?.trim() ?? "";
+  if (!first) return fallback;
+  return first.length > 120 ? `${first.slice(0, 117)}...` : first;
+}
+
+function warnAstDegraded(reason: string): void {
+  if (_degradationWarned) return;
+  _degradationWarned = true;
+  logger.warn(
+    `⚠️ AST degraded — tawassul-runtime/wasm is missing (${reason}): ` +
+      `astquery/depmap features are disabled for this session. ` +
+      `Fix: run npm run install:global (stages tawassul-runtime/wasm), then restart opencode.`,
+  );
+}
 
 function loadTreeSitter(): Promise<TreeSitterModule | null> {
   if (!_wtsPromise) {
@@ -19,10 +37,7 @@ function loadTreeSitter(): Promise<TreeSitterModule | null> {
         return m;
       },
       (e) => {
-        logger.warn(
-          `[tawassul] ⚠️ web-tree-sitter is not available — astquery/depmap features are disabled for this session. ` +
-            `Fix: install web-tree-sitter and the tree-sitter language packs, then restart opencode (${e?.message ?? e})`,
-        );
+        warnAstDegraded(`web-tree-sitter unavailable: ${compactReason(e, "not installed")}`);
         return null;
       },
     );
@@ -143,6 +158,10 @@ export class AstService {
       this._initPromise = (async () => {
         const wts = await loadTreeSitter();
         if (!wts) return;
+        if (!existsSync(resolvePath(WASM_ROOT, "web-tree-sitter", "web-tree-sitter.wasm"))) {
+          warnAstDegraded(`wasm root not found (${WASM_ROOT})`);
+          return;
+        }
         try {
           await wts.Parser.init({
             locateFile(script: string) {
@@ -151,7 +170,7 @@ export class AstService {
           });
           this._ready = true;
         } catch (e) {
-          logger.warn("[tawassul] AST init failed:", e instanceof Error ? e.message : String(e));
+          warnAstDegraded(`parser init failed: ${compactReason(e, "unknown error")}`);
           this._ready = false;
           this._initPromise = null;
         }

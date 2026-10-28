@@ -749,9 +749,17 @@ function install(): void {
     console.log(`install-global: dry run — would write ${DB_SHIP.length} db scripts under ${DB_DIR}`);
     return;
   }
-  mkdirSync(PLUGIN_DIR, { recursive: true, mode: 0o700 });
-  mkdirSync(RUNTIME, { recursive: true, mode: 0o700 });
-  mkdirSync(DB_DIR, { recursive: true, mode: 0o700 });
+  try {
+    mkdirSync(PLUGIN_DIR, { recursive: true, mode: 0o700 });
+    mkdirSync(RUNTIME, { recursive: true, mode: 0o700 });
+    mkdirSync(DB_DIR, { recursive: true, mode: 0o700 });
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException)?.code ?? "unknown";
+    fail(
+      `cannot create the runtime layout under ${RUNTIME} (${code}) — refusing to write ${TARGET}. ` +
+        "A plain file may occupy that path, or it may be read-only; remove it or point TAWASSUL_GLOBAL_DIR elsewhere.",
+    );
+  }
   writeAtomic(TARGET, bundle.bytes);
   for (const asset of assets) {
     mkdirSync(dirname(asset.dest), { recursive: true, mode: 0o700 });
