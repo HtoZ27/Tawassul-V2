@@ -97,7 +97,22 @@ still one line), the healthy lane (zero warnings, parser ready), all three
 self-check projects (fresh, present-but-unbuilt, built), the installer
 refusal plus dry-run behavior, the shipped bundle text, and the absence of
 repo-only build commands in `src/`. DoD 8 and DoD 10 are now satisfied.
-`npm run ci` is green end to end. Open: P6, P7.
+`npm run ci` is green end to end. Open: P6, P7. Eighth batch, same day — P6
+landed: before writing anything the installer refuses when the directory it
+runs from carries a project copy of the plugin at
+`<cwd>/.opencode/plugins/tawassul.js`, failing closed with one message that
+names both the project copy and the global target and states the plugin would
+be loaded twice (the check sits before the bundle read, so it also fires under
+`--force` and under `--dry-run`, and no partial write can happen); the README
+documents the reverse case without enforcing it. `prove-global-install.ts`
+grew to 115 assertions (the duplicate refusal, both named paths, no write
+while the copy exists, and success once it is removed, all against a separate
+isolated global dir). Isolated trials in `/tmp/opencode/tw-isol/p6` also
+confirmed: the repo lane itself is not blocked (its own `.opencode/plugin`
+singular dev entry is outside the guard), an install from another directory
+succeeds while the project copy stays byte-identical (no enforcement, no
+removal — DoD 9), and uninstall removes only the global bundle and runtime.
+DoD 9 is now satisfied. `npm run ci` is green end to end. Open: P7.
 Scope: this tree only. The v1 tree is read-only reference.
 Evidence: every anchor below was read on 2026-10-27 or 2026-10-28 from the
 named file at the named line, or measured on the installed host 2.2.0 and on a

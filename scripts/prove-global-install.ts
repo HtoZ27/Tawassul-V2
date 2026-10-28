@@ -91,11 +91,11 @@ function proofEnv(): NodeJS.ProcessEnv {
   return next;
 }
 
-function runWith(args: string[], env: NodeJS.ProcessEnv): { code: number; out: string } {
+function runWith(args: string[], env: NodeJS.ProcessEnv, cwd?: string): { code: number; out: string } {
   const result = spawnSync(
     process.execPath,
     [join(REPO, "scripts", "install-global.ts"), ...args],
-    { env, encoding: "utf-8" },
+    { env, encoding: "utf-8", ...(cwd ? { cwd } : {}) },
   );
   return {
     code: result.status ?? -1,
@@ -160,6 +160,25 @@ try {
   writeFileSync(USER_CONFIG, BODY);
   mkdirSync(SMOKE_ROOT, { recursive: true });
   createSyntheticDb();
+
+  const dupGlobal = join(ROOT, "dup-global");
+  const dupProject = join(ROOT, "dup-project");
+  const dupCopy = join(dupProject, ".opencode", "plugins", "tawassul.js");
+  mkdirSync(dirname(dupCopy), { recursive: true });
+  writeFileSync(dupCopy, "// project duplicate\n");
+  const dupEnv: NodeJS.ProcessEnv = { ...proofEnv(), TAWASSUL_GLOBAL_DIR: dupGlobal };
+  const dup = runWith(["--force"], dupEnv, dupProject);
+  assert(dup.code !== 0, "install refuses a project that already carries the plugin");
+  assert(dup.out.includes(dupCopy), "the refusal names the project copy path");
+  assert(dup.out.includes(join(dupGlobal, "plugins", "tawassul.js")), "the refusal names the global target path");
+  assert(
+    !existsSync(join(dupGlobal, "plugins", "tawassul.js")),
+    "no global bundle is written while the project copy exists",
+  );
+  rmSync(join(dupProject, ".opencode"), { recursive: true, force: true });
+  const dupOk = runWith(["--force"], dupEnv, dupProject);
+  assert(dupOk.code === 0, "install proceeds once the project copy is removed");
+  assert(existsSync(join(dupGlobal, "plugins", "tawassul.js")), "the global bundle lands once the duplicate is gone");
 
   const installed = run([]);
   assert(installed.code === 0, "install exits 0");

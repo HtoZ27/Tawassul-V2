@@ -275,6 +275,19 @@ function refuseLegacyPackage(): void {
   }
 }
 
+function projectDuplicatePath(): string {
+  return resolve(process.cwd(), ".opencode", "plugins", "tawassul.js");
+}
+
+function refuseProjectDuplicate(): void {
+  const duplicate = projectDuplicatePath();
+  if (!existsSync(duplicate)) return;
+  fail(
+    `a project copy of this plugin exists at ${duplicate} while the global target is ${TARGET} — ` +
+      "the plugin would be loaded twice. Remove the project copy, or run this installer from another directory.",
+  );
+}
+
 function readMarker(): Marker | undefined {
   const marker = readJson<Marker>(MARKER_FILE);
   return marker;
@@ -716,6 +729,7 @@ function install(): void {
     fail(`v1 artifacts must be removed before a global install:\n  ${artifacts.join("\n  ")}`);
   }
   refuseLegacyPackage();
+  refuseProjectDuplicate();
   const bundle = requireBundle();
   const assets = resolveAssets(!flags.has("--dry-run"));
   const wasm = assetRecords(assets);

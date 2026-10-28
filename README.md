@@ -59,6 +59,12 @@ npm run uninstall:global        # keeps the global roster and state
 npm run uninstall:global -- --purge
 ```
 
+Before writing anything, the installer refuses when the directory it runs from
+already carries a project copy of the plugin at `.opencode/plugins/tawassul.js`,
+naming both that path and the global target, so the same plugin cannot be
+installed twice. The reverse case is documented only: when a project copy and a
+global copy both exist, the project copy wins at runtime and the plugin never
+enforces or removes either one.
 | Path | Contents |
 | --- | --- |
 | `~/.config/opencode/plugins/tawassul.js` | self-contained bundle (`dist/global.js`) |
