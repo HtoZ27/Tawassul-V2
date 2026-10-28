@@ -96,7 +96,7 @@ replaces an unmarked file.
 
 ```
 npm run gate:fast    # rules + shell syntax + typecheck + config + facts + catalog
-npm run gate:proofs  # 89 proofs, one isolated child process each
+npm run gate:proofs  # 90 proofs, one isolated child process each
 npm run gate:smoke   # build + release smoke (one scratch boot)
 npm run ci           # all three stages, sequentially, each in its own process
 npm run verify       # gate:fast + build
@@ -118,6 +118,35 @@ provider refusal code (quota or auth) is accepted in place of the reply.
 `TAWASSUL_SMOKE_REQUIRE_MODEL_REPLY=0` restores the older transport tolerance
 for a machine that cannot reach the provider; a missing plugin boot always
 fails.
+
+## Host refresh
+
+A build replaces `.opencode/plugin/tawassul.js`, but the live host keeps the
+module it imported. Reloading the host is therefore part of deploying any
+plugin change, and no operator command is needed:
+
+```
+npm run host:refresh                    # reload + wait for a fresh plugin init
+npm run host:refresh -- --verify-only   # check freshness without touching the host
+npm run host:refresh -- --restart       # detached service restart (last resort)
+```
+
+The helper refuses to reload when the entry's embedded content SHA differs from
+`scripts/source-digest.ts` (run `npm run build` first), so a reload never
+pretends to load unbuilt code. It resolves the host CLI (env
+`TAWASSUL_HOST_CLI`, then the newest Desktop-bundled CLI, then PATH), runs
+`opencode-cli reload` from this repository, waits for a new
+`Background init completed successfully` line in the plugin log, and compares
+the `v2 bundle sha256=` fingerprint the plugin logs at init with the SHA-256 of
+the entry file, so the check is content-exact rather than mtime-only. It prints
+the live service PID from `~/.local/state/opencode/service.json`. A reload keeps
+the PID: the same service process re-imports the plugin. When a reload cannot
+produce a fresh init, `-- --restart` schedules
+`systemd-run --user --unit=… --on-active=… opencode-cli service restart`
+detached (it writes a report to `~/.local/state/tawassul-v2/host-refresh.json`),
+because a restart of the running service would end the current session.
+`scripts/prove-host-refresh.ts` (the `host-refresh` proofs step, 56 assertions)
+exercises all of it against a fake service, log, and CLI.
 
 ## Independence
 
@@ -242,6 +271,7 @@ Rules:
 | `generation guard refused` | The DB belongs to the other generation; use the v2 DB or a fresh file. |
 | `refusing host vX — supported v>=2.2.0 <3.0.0` | Install a supported host or set `TAWASSUL_OPENCODE_VERSION` deliberately to an exact version. |
 | Plugin registered 0 tools | Run `npm run build`; confirm `.opencode/plugin/tawassul.js` exists. |
+| Plugin behaves as if a fix were absent | The live host still holds the pre-build module; run `npm run host:refresh` (it reloads and verifies a fresh init). |
 | Boot has no watcher line | Use `scripts/opencode-v2-iso.sh`; a bare host binary skips the launcher policy. |
 | Plugin log is empty | `TAWASSUL_LOG_FILE` is unset or set to empty (empty disables the sink). Default is under the data root. |
 | State looks stale | Read `health` and the plugin log; do not copy v1 state. |

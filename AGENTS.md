@@ -69,7 +69,9 @@ re-open the v1 transfer channel.
 - `npm run uninstall:global` — remove the global file and runtime (`-- --purge` for state)
 - `npm run prove:independence` — no v1 tree reference; one host entry
 - `npm run gate:fast` — rules, shell syntax, typecheck, config, facts, catalog
-- `npm run gate:proofs` — 89 proofs, one isolated child process each
+- `npm run gate:proofs` — 90 proofs, one isolated child process each
 - `npm run gate:smoke` — build + release smoke
 - `npm run ci` — all three stages sequentially, each in its own process
 - `npm run verify` — `gate:fast` plus the build
+- `npm run host:refresh` — reload the live host after a build and verify a fresh plugin init
+  (`-- --verify-only` checks without touching the host, `-- --restart` schedules a detached service restart)

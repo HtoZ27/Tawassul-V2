@@ -1,11 +1,11 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-28 · Gate: `npm run ci` rc=0 (3 isolated stages, 90 proof files / 89 proof steps, smoke pass)
+Status date: 2026-10-28 · Gate: `npm run ci` rc=0 (3 isolated stages, 91 proof files / 90 proof steps, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
-project entry is rebuilt from this tree; G-13 stays open as the missing
-automatic staleness check for the live host process.
+project entry is rebuilt from this tree, and `npm run host:refresh` reloads the
+live host and verifies a fresh plugin init, so G-13 is resolved.
 Register note: the third-round evaluation (2026-10-26) added E-11..E-41 and
 re-confirmed C-02, C-03, P-10, B-02, E-02, and G-13 without duplicating them.
 Upstream watch (2026-10-27): `UPSTREAM.md` and
@@ -1007,7 +1007,8 @@ refusing it by name for tawa. Normal managed agents keep `execute`.
 
 Residual: this is hook-level enforcement. A host-level `execute: "deny"`
 entry is pending proof that the config schema accepts it on 2.2.0; until then
-the name check is the guard. Live verification needs a host restart (G-13).
+the name check is the guard. Live verification needs a host reload
+(`npm run host:refresh`; G-13, E-51).
 
 ---
 
@@ -1816,7 +1817,7 @@ The `ALLOWED_AGENTS = ["@analyst"]` allow-list is left as it is: widening it
 is a policy decision about who may wipe history, not a defect in the backup
 path, and the operator can already reach it through `@analyst`.
 
-### G-13 The live host keeps pre-build code until restart — open (P1)
+### G-13 The live host keeps pre-build code until restart — fixed (2026-10-28)
 
 The Desktop process started 2026-10-26 03:46:40
 (`~/.local/state/opencode/service.json`, pid 1537214), while
@@ -1861,6 +1862,64 @@ Corrections to the side evaluation:
   but `@opencode/plugin` 2.1.4 does not expose it (zero `session.form`
   references in `dist`). The fail-closed path stays until the SDK exposes
   forms or the plugin calls the protocol client directly.
+
+Resolved 2026-10-28 by `scripts/host-refresh.sh` (the E-51 fix, below). The
+suggested doctor check — process start time against the entry-file mtime — is
+the wrong clock after a reload: a reload re-imports the entry without starting
+a new process, so process start only ever grows older. The supported signal is
+the newest plugin-init line in `~/.local/share/tawassul-v2/tawassul/tawassul.log`
+plus the `v2 bundle sha256=` fingerprint logged at init, compared with the entry
+file; `npm run host:refresh -- --verify-only` reports it on demand.
+
+### E-51 Deploying a plugin fix still required a manual host restart — fixed (2026-10-28)
+
+`npm run build` rewrote `.opencode/plugin/tawassul.js`, but the Desktop service
+kept the module it had imported, so a repair shipped in `dist/` stayed
+unreachable until the operator restarted the service by hand: the only
+documented refresh path was `opencode-cli service restart`, which kills the
+running session (G-13 records the same defect as a missing staleness check).
+`opencode-cli reload` exists and was never verified, so nobody could tell
+whether it re-read the entry file, and nothing failed when a stale host kept
+running.
+
+Fix: `scripts/host-refresh.sh` (`npm run host:refresh`) is the single refresh
+path. It parses the embedded `TAWASSUL_CONTENT_SHA` out of
+`.opencode/plugin/tawassul.js`, recomputes the source digest through
+`scripts/source-digest.ts`, and refuses a reload when they differ
+("plugin entry is stale ...; run npm run build"). It resolves the host CLI
+(`TAWASSUL_HOST_CLI`, then the newest Desktop-bundled CLI, then PATH), runs
+`opencode-cli reload` from this repository, and polls the plugin log until a
+`Background init completed successfully` line is newer than the moment the
+reload started, so a reload that cannot load the entry fails instead of
+reporting success. The plugin now logs
+`v2 bundle sha256=<hash> bytes=<n> entry=<path>` immediately before that line,
+and the helper compares the hash with the SHA-256 of the entry file, so the
+check is content-exact: rebuilding an unchanged entry updates its mtime without
+creating a false stale result, and a reload that loaded different bytes fails.
+`-- --verify-only` performs the same check without touching the host. A log
+from a host that predates the fingerprint falls back to the entry mtime.
+`-- --restart` is the automated fallback: it schedules
+`systemd-run --user --collect --unit=… --on-active=… opencode-cli service
+restart` detached, and the detached job restarts the host, verifies the init,
+and writes `~/.local/state/tawassul-v2/host-refresh.json` (status, init
+timestamp, service PID, unit). The detached schedule is required because
+restarting the running service from inside a session ends that session.
+
+`scripts/prove-host-refresh.ts` (the `host-refresh` proofs step, 56 assertions)
+covers CLI discovery from the Desktop tree, a successful reload, a reload with
+no fresh init, a reload whose live bundle differs, a missing plugin log,
+`--verify-only` (fresh, stale, digest mismatch, and live-bundle mismatch), the
+fingerprint utility, the mtime fallback, the restart dry run, and the detached
+restart path producing a fresh and a stale report. `prove-proof-catalog` now
+counts 91 proof files / 90 steps.
+
+Live check 2026-10-28 (the server restart reset the PID to 3157):
+`npm run host:refresh -- --verify-only` matched the logged bundle fingerprint
+with the entry file's SHA-256; `npm run host:refresh` then printed
+`host-refresh: OK mode=reload init=2026-10-28T22:06:08.241Z pid=3157`, the log
+recorded `v2 registered 42 tools` at 22:06:08.833Z, and the service PID stayed
+3157. The earlier reload at 12:30:27.054Z kept pid 1249993 and registered 42
+tools, so both runs load the new bundle without an operator restart.
 
 ### G-14 The generation guard's orphaned-WAL branch has no fixture — done (2026-10-26)
 

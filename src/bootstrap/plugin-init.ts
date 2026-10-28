@@ -27,6 +27,7 @@ import { initAutoSweep, stopAutoSweep, resetAllState } from "../hooks/validation
 import { resetModelCache } from "../hooks/guards/shared.ts";
 import { buildToolRegistry } from "./tool-registry.ts";
 import { logger } from "../utils/logger.ts";
+import { bundleFingerprint } from "../utils/bundle-fingerprint.ts";
 import { isHomeProject, forceQuietMode, clearQuietModeForce, quietModeForceReason } from "../utils/quiet.ts";
 import { lruSet } from "../utils/bounded-map.ts";
 import { runWithContext } from "../context/context-store.ts";
@@ -700,6 +701,12 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
       measure("initPromise:start", "initPromise:complete", "initPromise() async chunk");
 
       initResolved = true;
+      const fingerprint = bundleFingerprint();
+      if (fingerprint) {
+        logger.info(
+          `[tawassul] v2 bundle sha256=${fingerprint.sha256} bytes=${fingerprint.bytes} entry=${fingerprint.entry}`,
+        );
+      }
       logger.info("[tawassul] ✅ Background init completed successfully");
 
       
