@@ -267,8 +267,9 @@ export class SecurityPolicy {
   
   static checkBlockedTools(agent: string, tool: string): SecurityCheckResult {
     const a = normalizeName(agent);
+    const toolName = normalizeToolName(tool);
 
-    if (a === "tawa" && isBlockedToolForTawa(tool)) {
+    if (a === "tawa" && isBlockedToolForTawa(toolName)) {
       return {
         allowed: false,
         error: t("spTawaBlocked"),

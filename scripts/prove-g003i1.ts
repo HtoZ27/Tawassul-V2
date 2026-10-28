@@ -72,6 +72,24 @@ function typedPaths(): void {
     "an absolute reset converts to a relative wait",
   );
 
+  const secondsReset = parseFreeLimitSignal({
+    type: "provider.free-limit",
+    data: { resetAt: Math.floor((Date.now() + 60_000) / 1000) },
+  });
+  assert(
+    typeof secondsReset.retryAfterMs === "number" &&
+      secondsReset.retryAfterMs > 50_000 &&
+      secondsReset.retryAfterMs <= 60_000,
+    "an epoch-seconds reset converts to a relative wait",
+  );
+
+  const bareType = parseFreeLimitSignal({ name: "FreeUsageLimitError" });
+  assert(bareType.signal === "free-daily-limit", "a bare FreeUsageLimitError type is the daily limit");
+  assert(bareType.matchedBy === "error-type", "the bare class name decides by type, not text");
+
+  const quota = parseFreeLimitSignal(new Error("quota exceeded"));
+  assert(quota.signal === "transient-rate-limit", "a generic quota-exceeded message is a transient limit");
+
   const transient = parseFreeLimitSignal({ type: "provider.rate-limit", message: "slow down" });
   assert(transient.signal === "transient-rate-limit", "a typed provider.rate-limit stays transient");
   assert(transient.retryAfterMs === undefined, "a transient typed error has no daily reset delay");

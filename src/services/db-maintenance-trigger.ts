@@ -1,12 +1,12 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dataRoot } from "../bootstrap/db-isolation.ts";
 import { logger } from "../utils/logger.ts";
 
 const RUN_INTERVAL_MS = 6 * 60 * 60 * 1000;
-const STALE_LOCK_MS = 25 * 60 * 60 * 1000;
+const STALE_LOCK_MS = 3 * 60 * 60 * 1000;
 const MIN_RUN_GAP_MS = 24 * 60 * 60 * 1000;
 
 function dbMaintenanceRoot(): string {
@@ -43,6 +43,22 @@ function stampFresh(): boolean {
   }
 }
 
+function lockOwnerAlive(lock: string): boolean | undefined {
+  try {
+    const raw = readFileSync(resolve(lock, "pid"), "utf-8").trim();
+    const pid = Number(raw);
+    if (!Number.isInteger(pid) || pid <= 0) return undefined;
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  } catch {
+    return undefined;
+  }
+}
+
 function acquireLock(): boolean {
   const lock = lockPath();
   mkdirSync(dirname(lock), { recursive: true });
@@ -52,10 +68,14 @@ function acquireLock(): boolean {
   } catch (error) {
     const err = error as { code?: string };
     if (err.code !== "EEXIST") throw error;
-    try {
-      if (Date.now() - statSync(lock).mtimeMs < STALE_LOCK_MS) return false;
-    } catch {
-      return false;
+    const alive = lockOwnerAlive(lock);
+    if (alive === true) return false;
+    if (alive === undefined) {
+      try {
+        if (Date.now() - statSync(lock).mtimeMs < STALE_LOCK_MS) return false;
+      } catch {
+        return false;
+      }
     }
     rmSync(lock, { recursive: true, force: true });
     try {
@@ -64,6 +84,15 @@ function acquireLock(): boolean {
     } catch {
       return false;
     }
+  }
+}
+
+function recordLockOwner(pid: number | undefined): void {
+  if (pid === undefined) return;
+  try {
+    writeFileSync(resolve(lockPath(), "pid"), `${pid}\n`, { mode: 0o600 });
+  } catch {
+    return;
   }
 }
 
@@ -93,6 +122,7 @@ function attemptRun(projectDir: string, why: string): void {
       stdio: "ignore",
       env: { ...process.env, TAWASSUL_TRIGGER_LOCK: lockPath() },
     });
+    recordLockOwner(child.pid);
     child.unref();
     child.on("error", releaseLock);
     logger.debug(`[tawassul] db maintenance spawned (${why})`);

@@ -1092,12 +1092,6 @@ export class GoalStore {
   }
 
   private nextItemId(goal: Goal): string {
-    const existing = [...goal.items, ...goal.completedItems];
-    let max = 0;
-    for (const i of existing) {
-      const m = /-I(\d+)$/.exec(i.id);
-      if (m?.[1]) max = Math.max(max, parseInt(m[1], 10));
-    }
-    return `${goal.id}-I${max + 1}`;
+    return `${goal.id}-I${nextItemIndex(goal)}`;
   }
 }

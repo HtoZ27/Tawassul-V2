@@ -12,9 +12,10 @@ GLOBAL_ROUTER="$CONFIG_BASE/tawassul-v2/state/predictive-router.json"
 LEGACY_ROUTER="$HOME_DIR/.config/tawassul/state/predictive-router.json"
 KEY_DIR="${TAWASSUL_HMAC_KEY_DIR:-$HOME_DIR/.config/tawassul}"
 KEY_FILE="$KEY_DIR/.tawassul-hmac-key"
-SHARED_DB="$HOME_DIR/.local/share/opencode/opencode.db"
-LAUNCHER_DB="$HOME_DIR/.local/share/tawassul-v2/opencode-v2.db"
-SIDECAR_DB="$HOME_DIR/.local/share/opencode/tawassul-v2/opencode.db"
+DATA_HOME="${XDG_DATA_HOME:-$HOME_DIR/.local/share}"
+SHARED_DB="$DATA_HOME/opencode/opencode.db"
+LAUNCHER_DB="$DATA_HOME/tawassul-v2/opencode-v2.db"
+SIDECAR_DB="$DATA_HOME/opencode/tawassul-v2/opencode.db"
 CAP_BYTES="${TAWASSUL_DB_CAP_BYTES:-4294967296}"
 case "$CAP_BYTES" in ''|*[!0-9]*) CAP_BYTES=4294967296 ;; esac
 SERVICE_DESC="${XDG_STATE_HOME:-$HOME_DIR/.local/state}/opencode/service.json"
@@ -96,7 +97,8 @@ PY
   else
     info "cron trigger: crontab missing"
   fi
-  MAINT_STAMP="$HOME_DIR/.local/share/tawassul-v2/db-maintenance/last-run.stamp"
+  MAINT_STAMP="$DATA_HOME/tawassul-v2/db-maintenance/last-run.stamp"
+  MAINT_FAILURE="$DATA_HOME/tawassul-v2/db-maintenance/last-failure.stamp"
   if [ -f "$MAINT_STAMP" ]; then
     stamp_rc="$(sed -n 's/^rc=//p' "$MAINT_STAMP" | head -n1)"
     stamp_at="$(sed -n 's/^at=//p' "$MAINT_STAMP" | head -n1)"
@@ -106,6 +108,13 @@ PY
     info "last scheduled run: rc=$stamp_rc at=$stamp_at ($stamp_age): $MAINT_STAMP"
   else
     info "last scheduled run: no stamp yet ($MAINT_STAMP)"
+  fi
+  if [ -f "$MAINT_FAILURE" ]; then
+    failure_rc="$(sed -n 's/^rc=//p' "$MAINT_FAILURE" | head -n1)"
+    failure_at="$(sed -n 's/^at=//p' "$MAINT_FAILURE" | head -n1)"
+    warn "last scheduled failure: rc=$failure_rc at=$failure_at: $MAINT_FAILURE"
+  else
+    info "last scheduled failure: none recorded"
   fi
   db_resolve_path
   contract_resolved="$RESOLVED_DB"

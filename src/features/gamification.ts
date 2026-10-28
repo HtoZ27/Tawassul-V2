@@ -198,7 +198,8 @@ export class GamificationManager {
     score.rank = this.calculateRank(score.level);
   }
 
-  private checkAchievement(achievement: Achievement, score: AgentScore, metrics: AgentMetrics): boolean {    switch (achievement.requirement.type) {
+  private checkAchievement(achievement: Achievement, score: AgentScore, metrics: AgentMetrics): boolean {
+    switch (achievement.requirement.type) {
       case "count": {
         const metricValue = metrics[achievement.requirement.metric as keyof AgentMetrics] ?? 0;
         return metricValue >= achievement.requirement.count;

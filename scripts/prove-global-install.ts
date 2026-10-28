@@ -7,6 +7,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   renameSync,
   rmSync,
   statSync,
@@ -157,6 +158,12 @@ function runInstalledMaintenance(args: string[]): { code: number; out: string } 
 }
 
 try {
+  const build = spawnSync("npm", ["run", "build"], { cwd: REPO, encoding: "utf-8", timeout: 300_000 });
+  assert(build.status === 0, "the bundle builds before the install trials");
+  const help = run(["--help"]);
+  assert(help.code === 0 && help.out.includes("--takeover"), "help documents --takeover");
+  assert(help.out.includes("--purge --yes"), "help documents the purge confirmation");
+  assert(help.out.includes("agent roster"), "help states that purge keeps the agent roster");
   mkdirSync(GLOBAL, { recursive: true });
   writeFileSync(USER_CONFIG, BODY);
   mkdirSync(SMOKE_ROOT, { recursive: true });
@@ -180,6 +187,22 @@ try {
   const dupOk = runWith(["--force"], dupEnv, dupProject);
   assert(dupOk.code === 0, "install proceeds once the project copy is removed");
   assert(existsSync(join(dupGlobal, "plugins", "tawassul.js")), "the global bundle lands once the duplicate is gone");
+
+  const singDir = join(dupProject, ".opencode", "plugin");
+  mkdirSync(singDir, { recursive: true });
+  writeFileSync(join(singDir, "tawassul.js"), "// singular duplicate\n");
+  const singularDup = runWith(["--force"], dupEnv, dupProject);
+  assert(singularDup.code !== 0, "install refuses a duplicate in the singular plugin directory");
+  assert(singularDup.out.includes(join(singDir, "tawassul.js")), "the singular refusal names the copy path");
+  rmSync(join(dupProject, ".opencode"), { recursive: true, force: true });
+
+  const renamedDir = join(dupProject, ".opencode", "plugins");
+  mkdirSync(renamedDir, { recursive: true });
+  writeFileSync(join(renamedDir, "renamed-copy.js"), 'const id = "tawassul-v2";\n');
+  const renamedDup = runWith(["--force"], dupEnv, dupProject);
+  assert(renamedDup.code !== 0, "install refuses a renamed copy that carries the plugin id");
+  assert(renamedDup.out.includes(join(renamedDir, "renamed-copy.js")), "the renamed refusal names the copy path");
+  rmSync(join(dupProject, ".opencode"), { recursive: true, force: true });
 
   const installed = run([]);
   assert(installed.code === 0, "install exits 0");
@@ -269,6 +292,19 @@ try {
   const again = run([]);
   assert(again.code === 0 && again.out.includes("already installed"), "second install is a no-op");
 
+  const ownerFile = join(GLOBAL, "tawassul-install-owner");
+  assert(readFileSync(ownerFile, "utf-8").trim() === REPO, "install records this tree as the owner");
+  mkdirSync(join(ROOT, "other-tree"), { recursive: true });
+  writeFileSync(ownerFile, `${join(ROOT, "other-tree")}\n`);
+  const foreignOwner = run([]);
+  assert(
+    foreignOwner.code !== 0 && foreignOwner.out.includes("owns the global install"),
+    "install refuses a live owner from another tree",
+  );
+  const takeover = run(["--takeover"]);
+  assert(takeover.code === 0, "--takeover transfers the global install");
+  assert(readFileSync(ownerFile, "utf-8").trim() === REPO, "takeover rewrites the owner record");
+
   process.env.HOME = HOME;
   process.env.XDG_CONFIG_HOME = CONFIG;
   delete process.env.TAWASSUL_GLOBAL_DIR;
@@ -354,9 +390,13 @@ try {
   writeFileSync(backupFile, "sentinel-backup\n");
   const dbHashBefore = sha256(SMOKE_DB);
   const backupHashBefore = sha256(backupFile);
+  const userNote = join(RUNTIME, "notes.txt");
+  writeFileSync(userNote, "keep me\n");
   const removed = run(["--uninstall"]);
   assert(removed.code === 0 && !existsSync(TARGET), "uninstall removes the flat plugin file");
-  assert(!existsSync(RUNTIME), "uninstall removes the runtime directory");
+  assert(!existsSync(MARKER), "uninstall removes the marker it wrote");
+  assert(existsSync(userNote), "uninstall keeps a runtime file it did not write");
+  assert(removed.out.includes("did not write"), "the uninstall report names the kept user files");
   assert(!existsSync(DB_DIR), "uninstall removes the staged db scripts with the runtime");
   assert(readFileSync(USER_CONFIG, "utf-8") === BODY, "uninstall leaves the user config byte-identical");
   assert(sha256(SMOKE_DB) === dbHashBefore, "uninstall leaves the database byte-identical (P3.7)");
@@ -364,6 +404,8 @@ try {
     existsSync(backupFile) && sha256(backupFile) === backupHashBefore,
     "uninstall leaves every backup byte-identical (P3.7)",
   );
+  rmSync(userNote, { force: true });
+  rmSync(RUNTIME, { recursive: true, force: true });
 
   const dry = run(["--dry-run"]);
   assert(dry.code === 0 && !existsSync(TARGET) && !existsSync(RUNTIME), "dry run writes nothing");
@@ -381,6 +423,16 @@ try {
   assert(forced.code === 0, "--force replaces an unmarked target");
   assert(run(["--uninstall"]).code === 0, "uninstall removes a forced install");
 
+  assert(run([]).code === 0, "install succeeds before the marker-loss trial");
+  const orphanNote = join(RUNTIME, "notes.txt");
+  writeFileSync(orphanNote, "keep me\n");
+  rmSync(MARKER, { force: true });
+  const noMarker = run(["--uninstall", "--force"]);
+  assert(noMarker.code === 0, "uninstall --force proceeds without a marker");
+  assert(!existsSync(DB_DIR), "uninstall --force removes the staged db scripts without a marker");
+  assert(existsSync(orphanNote), "uninstall --force keeps a runtime file it did not write");
+  rmSync(RUNTIME, { recursive: true, force: true });
+
   const stateRoot = join(CONFIG, "tawassul-v2", "state");
   const runtimeRoot = join(GLOBAL, "tawassul-v2-state");
   mkdirSync(stateRoot, { recursive: true });
@@ -388,17 +440,61 @@ try {
   writeFileSync(join(stateRoot, "state.json"), "{}\n");
   writeFileSync(join(runtimeRoot, "metrics.json"), "{}\n");
   writeFileSync(join(GLOBAL, "tawassul.jsonc"), "{}\n");
+  mkdirSync(join(GLOBAL, "agent"), { recursive: true });
+  writeFileSync(join(GLOBAL, "agent", "keeper.md"), "# keeper\n");
+
+  const cronDir = join(ROOT, "bin");
+  mkdirSync(cronDir, { recursive: true });
+  const cronState = join(ROOT, "crontab.txt");
+  const cronShim = join(cronDir, "crontab");
+  writeFileSync(
+    cronShim,
+    `#!/bin/sh\nif [ "$1" = "-l" ]; then\n  if [ -f "${cronState}" ]; then cat "${cronState}"; exit 0; fi\n  echo "no crontab for tester" >&2\n  exit 1\nfi\ncat > "${cronState}"\n`,
+  );
+  chmodSync(cronShim, 0o755);
+  const cronEnv: NodeJS.ProcessEnv = {
+    ...proofEnv(),
+    PATH: `${cronDir}:/usr/bin:/bin`,
+    TAWASSUL_REGISTER_TRIGGERS: "cron",
+  };
+  const cronInstall = runWith([], cronEnv);
+  assert(cronInstall.code === 0, "install registers through a fresh crontab account");
+  assert(cronInstall.out.includes("registered cron line"), "the installer reports cron registration");
+  const cronText = readFileSync(cronState, "utf-8");
+  assert(cronText.includes(`OPENCODE_DB='${SMOKE_DB}'`), "the cron line pins the resolved OPENCODE_DB");
+  assert(
+    cronText.includes(`'${join(DB_DIR, "opencode-db-scheduled.sh")}' --run`),
+    "the cron line quotes the scheduled script path",
+  );
+  assert(cronInstall.out.includes("smoke ok"), "the cron install still smoke-checks the DB");
+  assert(runWith(["--uninstall"], cronEnv).code === 0, "uninstall through the cron account exits 0");
+  assert(
+    !readFileSync(cronState, "utf-8").includes("tawassul-db-maintenance"),
+    "uninstall removes the tagged cron line",
+  );
+
   assert(run([]).code === 0, "install succeeds before purge");
   const purged = run(["--uninstall", "--purge"]);
-  assert(purged.code === 0, "uninstall --purge exits 0");
+  assert(purged.code !== 0 && purged.out.includes("--yes"), "purge without --yes refuses and moves nothing");
   assert(
-    !existsSync(TARGET) &&
-      !existsSync(RUNTIME) &&
-      !existsSync(stateRoot) &&
-      !existsSync(runtimeRoot) &&
-      !existsSync(join(GLOBAL, "tawassul.jsonc")),
-    "uninstall --purge removes the runtime, state, and roster",
+    existsSync(TARGET) && existsSync(join(stateRoot, "state.json")) && existsSync(join(GLOBAL, "tawassul.jsonc")),
+    "the purge refusal leaves the install and state intact",
   );
+  const purgedYes = run(["--uninstall", "--purge", "--yes"]);
+  assert(purgedYes.code === 0, "uninstall --purge --yes exits 0");
+  assert(!existsSync(TARGET) && !existsSync(RUNTIME), "purge still removes the plugin and runtime");
+  assert(
+    !existsSync(stateRoot) && !existsSync(runtimeRoot) && !existsSync(join(GLOBAL, "tawassul.jsonc")),
+    "purge moves the state paths off their names",
+  );
+  const archives = readdirSync(CONFIG).filter((name) => name.startsWith("tawassul-v2.purged-"));
+  assert(archives.length === 1, "purge leaves exactly one archived state directory");
+  assert(
+    existsSync(join(CONFIG, archives[0] as string, "state", "state.json")),
+    "the archived state keeps the original payload",
+  );
+  assert(existsSync(join(GLOBAL, "agent", "keeper.md")), "purge keeps the global agent roster");
+  assert(purgedYes.out.includes("kept 1 agent file"), "purge reports the kept agent roster");
 
   const verifiedMissing = run(["--verify"]);
   assert(verifiedMissing.code !== 0, "verify fails when nothing is installed");

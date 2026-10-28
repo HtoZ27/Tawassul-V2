@@ -195,6 +195,12 @@ export class HealthTracker {
     status.lastActive = Date.now();
   }
 
+  onHandoffFailureReverted(agent: string): void {
+    const status = this.getOrCreate(agent);
+    status.failedCount = Math.max(0, status.failedCount - 1);
+    status.lastActive = Date.now();
+  }
+
   onHandoffCompletionReverted(agent: string): void {
     const status = this.getOrCreate(agent);
     status.completedCount = Math.max(0, status.completedCount - 1);

@@ -3,6 +3,7 @@ import { execSync } from "node:child_process";
 import { rmSync, existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, appendFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { sourceDigest } from "./scripts/source-digest.ts";
 
 const outdir = "./dist";
 rmSync(outdir, { recursive: true, force: true });
@@ -114,10 +115,14 @@ const sourceSha = (() => {
     return "unknown";
   }
 })();
-const shaMarker = `\n// TAWASSUL_SOURCE_SHA=${sourceSha}\n`;
+const contentSha = sourceDigest();
+const shaMarker =
+  `\n// TAWASSUL_SOURCE_SHA=${sourceSha}\n` +
+  `// TAWASSUL_CONTENT_SHA=${contentSha}\n`;
 appendFileSync(join(outdir, "global.js"), shaMarker);
 if (existsSync(join(outdir, "index.js"))) appendFileSync(join(outdir, "index.js"), shaMarker);
 console.log(`Embedded source SHA: ${sourceSha}`);
+console.log(`Embedded content SHA: ${contentSha.slice(0, 12)}`);
 
 const pluginDir = join(".opencode", "plugin");
 mkdirSync(pluginDir, { recursive: true });

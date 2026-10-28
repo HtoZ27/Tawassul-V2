@@ -11,8 +11,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { sourceDigest } from "./source-digest.ts";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 const GLOBAL_BUNDLE = join(REPO, "dist", "global.js");
@@ -36,6 +37,7 @@ type Marker = {
   version?: string;
   host?: string;
   sourceSha?: string;
+  contentSha?: string;
   bundle?: AssetRecord;
   wasm?: Record<string, AssetRecord>;
   db?: Record<string, AssetRecord>;
@@ -61,6 +63,8 @@ const KNOWN_FLAGS = new Set([
   "--purge",
   "--force",
   "--dry-run",
+  "--takeover",
+  "--yes",
   "--help",
   "-h",
 ]);
@@ -74,15 +78,13 @@ function hash(bytes: Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-function gitHead(): string | undefined {
-  const result = spawnSync("git", ["rev-parse", "HEAD"], { cwd: REPO, encoding: "utf-8", timeout: 10_000 });
-  if (result.status !== 0) return undefined;
-  const sha = (result.stdout ?? "").trim();
-  return /^[0-9a-f]{7,40}$/.test(sha) ? sha : undefined;
-}
-
 function readSourceSha(text: string): string | undefined {
   const match = text.match(/TAWASSUL_SOURCE_SHA=([0-9a-f]{7,40})/);
+  return match?.[1];
+}
+
+function readContentSha(text: string): string | undefined {
+  const match = text.match(/TAWASSUL_CONTENT_SHA=([0-9a-f]{64})/);
   return match?.[1];
 }
 
@@ -275,17 +277,106 @@ function refuseLegacyPackage(): void {
   }
 }
 
-function projectDuplicatePath(): string {
-  return resolve(process.cwd(), ".opencode", "plugins", "tawassul.js");
+function projectDuplicatePaths(): string[] {
+  const dirs = [
+    resolve(process.cwd(), ".opencode", "plugin"),
+    resolve(process.cwd(), ".opencode", "plugins"),
+  ];
+  const ownEntry = resolve(REPO, ".opencode", "plugin", "tawassul.js");
+  const fromRepoRoot = resolve(process.cwd()) === resolve(REPO);
+  const found: string[] = [];
+  for (const dir of dirs) {
+    if (!existsSync(dir)) continue;
+    for (const name of readdirSync(dir).sort()) {
+      if (!/\.(?:ts|js|mjs|cjs)$/.test(name)) continue;
+      const candidate = join(dir, name);
+      if (fromRepoRoot && resolve(candidate) === ownEntry) continue;
+      let entry;
+      try {
+        entry = statSync(candidate);
+      } catch {
+        continue;
+      }
+      if (!entry.isFile() && !entry.isSymbolicLink()) continue;
+      let text = "";
+      try {
+        text = readFileSync(candidate, "utf-8");
+      } catch {
+        continue;
+      }
+      if (text.includes(PLUGIN_ID) || /^tawassul(?:-v2)?\.(?:ts|js|mjs|cjs)$/u.test(name)) {
+        found.push(candidate);
+      }
+    }
+  }
+  return found;
 }
 
 function refuseProjectDuplicate(): void {
-  const duplicate = projectDuplicatePath();
-  if (!existsSync(duplicate)) return;
+  const duplicates = projectDuplicatePaths();
+  if (duplicates.length === 0) return;
   fail(
-    `a project copy of this plugin exists at ${duplicate} while the global target is ${TARGET} — ` +
+    `a project copy of this plugin exists at ${duplicates.join(", ")} while the global target is ${TARGET} — ` +
       "the plugin would be loaded twice. Remove the project copy, or run this installer from another directory.",
   );
+}
+
+function noteRepoOwnEntry(): void {
+  const ownEntry = resolve(REPO, ".opencode", "plugin", "tawassul.js");
+  const fromRepoRoot = resolve(process.cwd()) === resolve(REPO);
+  if (!fromRepoRoot || !existsSync(ownEntry)) return;
+  console.log(
+    "install-global: this tree keeps its own project entry at .opencode/plugin/tawassul.js; " +
+      "the project copy supersedes the global copy when this repository is opened",
+  );
+}
+
+const OWNER_FILE = join(GLOBAL_DIR, "tawassul-install-owner");
+
+function readOwner(): string | undefined {
+  if (!existsSync(OWNER_FILE)) return undefined;
+  const value = readFileSync(OWNER_FILE, "utf-8").trim();
+  return value.length > 0 ? value : undefined;
+}
+
+function claimOwnership(): void {
+  const owner = readOwner();
+  if (owner === REPO) return;
+  if (owner !== undefined && existsSync(owner) && !flags.has("--takeover")) {
+    fail(
+      `another Tawassul v2 tree owns the global install: ${owner}. ` +
+        "Pass --takeover to transfer ownership here, or run that tree's installer.",
+    );
+  }
+  if (owner !== undefined) {
+    console.log(
+      existsSync(owner)
+        ? `install-global: taking over the global install from ${owner}`
+        : `install-global: the recorded owner ${owner} is gone — transferring ownership here`,
+    );
+  }
+  writeAtomic(OWNER_FILE, `${REPO}\n`);
+}
+
+function refuseForeignOwner(): void {
+  const owner = readOwner();
+  if (owner === undefined || owner === REPO) return;
+  if (existsSync(owner) && !flags.has("--takeover")) {
+    fail(
+      `another Tawassul v2 tree owns the global install: ${owner}. ` +
+        "Pass --takeover to transfer ownership here, or run that tree's installer.",
+    );
+  }
+}
+
+function releaseOwnership(): void {
+  const owner = readOwner();
+  if (owner === undefined) return;
+  if (owner !== REPO) {
+    console.log(`install-global: the owner record points at ${owner} — left untouched`);
+    return;
+  }
+  rmSync(OWNER_FILE, { force: true });
 }
 
 function readMarker(): Marker | undefined {
@@ -293,7 +384,12 @@ function readMarker(): Marker | undefined {
   return marker;
 }
 
-function requireBundle(): { bytes: Buffer; sha: string; sourceSha: string | undefined } {
+function requireBundle(): {
+  bytes: Buffer;
+  sha: string;
+  sourceSha: string | undefined;
+  contentSha: string | undefined;
+} {
   if (!existsSync(GLOBAL_BUNDLE)) {
     fail(`missing ${GLOBAL_BUNDLE}; run npm run build first`);
   }
@@ -305,7 +401,25 @@ function requireBundle(): { bytes: Buffer; sha: string; sourceSha: string | unde
   if (bare) {
     fail(`dist/global.js is not self-contained: ${bare[0]}`);
   }
-  return { bytes, sha: hash(bytes), sourceSha: readSourceSha(text) };
+  return {
+    bytes,
+    sha: hash(bytes),
+    sourceSha: readSourceSha(text),
+    contentSha: readContentSha(text),
+  };
+}
+
+function assertBundleMatchesSource(contentSha: string | undefined): void {
+  if (!contentSha) {
+    fail("dist/global.js has no content digest; run npm run build to refresh it");
+  }
+  const live = sourceDigest();
+  if (contentSha !== live) {
+    fail(
+      `dist/global.js was built from different sources (bundle ${contentSha.slice(0, 12)} vs tree ${live.slice(0, 12)}); ` +
+        "run npm run build before installing",
+    );
+  }
 }
 
 function locateAssets(): { resolved: ResolvedAsset[]; missing: AssetSpec[] } {
@@ -441,11 +555,9 @@ function preflightLaptop(): void {
   }
 }
 
-function dbSmoke(): void {
-  const maint = join(DB_DIR, "opencode-db-maintenance.sh");
-  let resolved = "";
+function resolveDbPath(): string {
   try {
-    resolved = execFileSync(
+    return execFileSync(
       "bash",
       ["-c", `. '${join(DB_DIR, "db-env.sh")}'; db_resolve_path >/dev/null 2>&1; printf '%s' "$RESOLVED_DB"`],
       { stdio: "pipe" },
@@ -455,6 +567,10 @@ function dbSmoke(): void {
   } catch {
     fail("install-global: db-env resolution failed — the lane cannot find the DB (see P1.7 smoke)");
   }
+}
+
+function dbSmoke(resolved: string): void {
+  const maint = join(DB_DIR, "opencode-db-maintenance.sh");
   if (!resolved || !existsSync(resolved)) {
     console.log(`install-global: smoke skipped — no DB yet at ${resolved || "(unresolved)"}`);
     return;
@@ -495,7 +611,19 @@ function scheduledPath(): string {
 }
 
 function unitContentSafe(script: string): boolean {
-  return !/[`'"%$\\]/.test(script);
+  return !/["%\n\r]/.test(script);
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function systemdQuote(value: string): string {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function triggerPrefix(dbPath: string): string[] {
+  return dbPath.length > 0 ? [`OPENCODE_DB=${dbPath}`] : [];
 }
 
 function runTriggerCommand(cmd: string, args: string[], input?: string): number {
@@ -509,8 +637,9 @@ function removeUnitFiles(): void {
   console.log(`install-global: removed ${TRIGGER_UNITS.service} and ${TRIGGER_UNITS.timer} under ${systemdUnitDir()}`);
 }
 
-function writeUnitFiles(script: string): void {
+function writeUnitFiles(script: string, dbPath: string): void {
   mkdirSync(systemdUnitDir(), { recursive: true, mode: 0o755 });
+  const environment = dbPath.length > 0 ? [`Environment=${systemdQuote(`OPENCODE_DB=${dbPath}`)}`] : [];
   writeAtomic(
     systemdUnitPath(TRIGGER_UNITS.service),
     [
@@ -519,7 +648,8 @@ function writeUnitFiles(script: string): void {
       "",
       "[Service]",
       "Type=oneshot",
-      `ExecStart=/usr/bin/env bash ${script} --run`,
+      ...environment,
+      `ExecStart=/usr/bin/env bash ${systemdQuote(script)} --run`,
       "",
     ].join("\n"),
     0o644,
@@ -543,9 +673,9 @@ function writeUnitFiles(script: string): void {
   );
 }
 
-function trySystemd(script: string): string | undefined {
+function trySystemd(script: string, dbPath: string): string | undefined {
   if (!unitContentSafe(script)) return undefined;
-  writeUnitFiles(script);
+  writeUnitFiles(script, dbPath);
   if (runTriggerCommand("systemctl", ["--user", "daemon-reload"]) !== 0) {
     removeUnitFiles();
     return undefined;
@@ -557,31 +687,38 @@ function trySystemd(script: string): string | undefined {
   return "systemd";
 }
 
-function cronLine(script: string): string {
-  return `17 4 * * * /usr/bin/env bash ${script} --run # ${TRIGGER_TAG}`;
+function cronLine(script: string, dbPath: string): string {
+  const prefix = triggerPrefix(dbPath)
+    .map((entry) => `${entry.split("=")[0]}=${shellQuote(entry.slice(entry.indexOf("=") + 1))}`)
+    .join(" ");
+  const env = prefix.length > 0 ? `${prefix} ` : "";
+  return `17 4 * * * ${env}/usr/bin/env bash ${shellQuote(script)} --run # ${TRIGGER_TAG}`;
 }
 
 function readCrontab(): { ok: boolean; lines: Array<string> } {
   const result = spawnSync("crontab", ["-l"], { encoding: "utf-8", timeout: 15_000 });
-  if ((result.status ?? -1) !== 0) return { ok: false, lines: [] };
-  return { ok: true, lines: (result.stdout ?? "").split("\n") };
+  if ((result.status ?? -1) === 0) return { ok: true, lines: (result.stdout ?? "").split("\n") };
+  if (result.error === undefined && /no crontab for/i.test(`${result.stderr ?? ""}`)) {
+    return { ok: true, lines: [] };
+  }
+  return { ok: false, lines: [] };
 }
 
 function writeCrontab(lines: Array<string>): boolean {
   return runTriggerCommand("crontab", ["-"], lines.join("\n")) === 0;
 }
 
-function tryCron(script: string): string | undefined {
+function tryCron(script: string, dbPath: string): string | undefined {
   if (!unitContentSafe(script)) return undefined;
   const listing = readCrontab();
   if (!listing.ok) return undefined;
   if (listing.lines.some((line) => line.includes(TRIGGER_TAG))) return "cron";
   const kept = listing.lines.filter((line) => line.trim() !== "");
-  if (!writeCrontab([...kept, cronLine(script)])) return undefined;
+  if (!writeCrontab([...kept, cronLine(script, dbPath)])) return undefined;
   return "cron";
 }
 
-function registerTriggers(): string {
+function registerTriggers(dbPath: string): string {
   const mode = triggerMode();
   if (mode === "off") {
     console.log("install-global: trigger registration skipped (TAWASSUL_REGISTER_TRIGGERS=off)");
@@ -597,7 +734,7 @@ function registerTriggers(): string {
   }
   const script = scheduledPath();
   if (mode === "systemd") {
-    const systemd = trySystemd(script);
+    const systemd = trySystemd(script, dbPath);
     if (systemd) {
       console.log("install-global: registered systemd user timer tawassul-db-maintenance.timer");
       return systemd;
@@ -606,7 +743,7 @@ function registerTriggers(): string {
     return "manual";
   }
   if (mode === "cron") {
-    const cron = tryCron(script);
+    const cron = tryCron(script, dbPath);
     if (cron) {
       console.log("install-global: registered cron line (tagged) for the daily run");
       return cron;
@@ -614,12 +751,12 @@ function registerTriggers(): string {
     console.log("install-global: cron registration failed (TAWASSUL_REGISTER_TRIGGERS=cron) — trigger is manual");
     return "manual";
   }
-  const systemd = trySystemd(script);
+  const systemd = trySystemd(script, dbPath);
   if (systemd) {
     console.log("install-global: registered systemd user timer tawassul-db-maintenance.timer");
     return systemd;
   }
-  const cron = tryCron(script);
+  const cron = tryCron(script, dbPath);
   if (cron) {
     console.log("install-global: systemd unavailable — registered cron line (tagged) for the daily run");
     return cron;
@@ -666,6 +803,7 @@ function writeMarker(
   wasm: Record<string, AssetRecord>,
   db: Record<string, AssetRecord>,
   sourceSha: string | undefined,
+  contentSha: string | undefined,
   host: string,
   trigger: string,
 ): void {
@@ -675,6 +813,7 @@ function writeMarker(
     version: REPO_PACKAGE.version ?? "0.0.0",
     host,
     sourceSha,
+    contentSha,
     bundle: {
       path: markerPath(TARGET),
       sha256: bundleSha,
@@ -694,6 +833,7 @@ function upToDate(
   bundleSha: string,
   wasm: Record<string, AssetRecord>,
   sourceSha: string | undefined,
+  contentSha: string | undefined,
   db: Record<string, AssetRecord>,
 ): boolean {
   if (!marker || marker.package !== PLUGIN_ID) return false;
@@ -702,9 +842,8 @@ function upToDate(
   if (marker.bundle?.sha256 !== bundleSha) return false;
   if (!existsSync(TARGET)) return false;
   if (hash(readFileSync(TARGET)) !== bundleSha) return false;
-  const head = gitHead();
-  if (head && marker.sourceSha !== head) return false;
   if (sourceSha && marker.sourceSha !== sourceSha) return false;
+  if (contentSha ? marker.contentSha !== contentSha : marker.contentSha !== undefined) return false;
   for (const asset of ASSETS) {
     const record = marker.wasm?.[asset.id];
     const want = wasm[asset.id];
@@ -731,6 +870,8 @@ function install(): void {
   }
   refuseLegacyPackage();
   refuseProjectDuplicate();
+  refuseForeignOwner();
+  noteRepoOwnEntry();
   const bundle = requireBundle();
   const assets = resolveAssets(!flags.has("--dry-run"));
   const wasm = assetRecords(assets);
@@ -742,14 +883,9 @@ function install(): void {
   if (existing && existing.package !== PLUGIN_ID && !flags.has("--force")) {
     fail(`target belongs to another plugin: ${TARGET}`);
   }
-  const head = gitHead();
-  if (head && bundle.sourceSha && bundle.sourceSha !== head && !flags.has("--force")) {
-    fail(
-      `bundle source SHA ${bundle.sourceSha} does not match HEAD ${head}; ` +
-        "run npm run build before installing",
-    );
-  }
-  if (upToDate(existing, bundle.sha, wasm, bundle.sourceSha, db)) {
+  if (!flags.has("--force")) assertBundleMatchesSource(bundle.contentSha);
+  if (upToDate(existing, bundle.sha, wasm, bundle.sourceSha, bundle.contentSha, db)) {
+    claimOwnership();
     console.log(
       `install-global: already installed at ${TARGET} ` +
         `(v${existing?.version ?? "unknown"}, ${bundle.sha.slice(0, 12)})`,
@@ -775,6 +911,7 @@ function install(): void {
         "A plain file may occupy that path, or it may be read-only; remove it or point TAWASSUL_GLOBAL_DIR elsewhere.",
     );
   }
+  claimOwnership();
   writeAtomic(TARGET, bundle.bytes);
   for (const asset of assets) {
     mkdirSync(dirname(asset.dest), { recursive: true, mode: 0o700 });
@@ -784,9 +921,10 @@ function install(): void {
     writeAtomic(join(DB_DIR, item.file), readFileSync(dbShipSource(item)), 0o700);
   }
   preflightLaptop();
-  const trigger = registerTriggers();
-  writeMarker(bundle.sha, wasm, db, bundle.sourceSha, host.version, trigger);
-  dbSmoke();
+  const dbPath = resolveDbPath();
+  const trigger = registerTriggers(dbPath);
+  writeMarker(bundle.sha, wasm, db, bundle.sourceSha, bundle.contentSha, host.version, trigger);
+  dbSmoke(dbPath);
   console.log(
     `install-global: installed ${TARGET} (v${REPO_PACKAGE.version ?? "0.0.0"}, ${bundle.sha.slice(0, 12)})`,
   );
@@ -794,22 +932,79 @@ function install(): void {
   console.log("install-global: no opencode.json edit is needed; the host discovers this file");
 }
 
-function purge(): void {
-  const paths = [
+function insideGlobalDir(path: string): boolean {
+  const rel = relative(GLOBAL_DIR, path);
+  return rel.length > 0 && !rel.startsWith("..") && !isAbsolute(rel);
+}
+
+function ownedRuntimeFiles(marker: Marker | undefined): string[] {
+  const files = new Set<string>();
+  files.add(MARKER_FILE);
+  if (marker?.bundle?.path) files.add(fromMarker(marker.bundle.path));
+  for (const record of Object.values(marker?.wasm ?? {})) files.add(fromMarker(record.path));
+  for (const record of Object.values(marker?.db ?? {})) files.add(fromMarker(record.path));
+  return [...files].filter(insideGlobalDir);
+}
+
+function fallbackRuntimeFiles(): string[] {
+  const files: string[] = [MARKER_FILE];
+  for (const item of DB_SHIP) files.push(join(DB_DIR, item.file));
+  for (const asset of ASSETS) files.push(join(WASM_DIR, asset.relative));
+  return files;
+}
+
+function countFiles(dir: string): number {
+  let total = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) total += countFiles(join(dir, entry.name));
+    else total += 1;
+  }
+  return total;
+}
+
+function removeEmptyTree(dir: string): void {
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) removeEmptyTree(join(dir, entry.name));
+  }
+  try {
+    if (readdirSync(dir).length === 0) rmSync(dir, { recursive: true, force: true });
+  } catch {
+    return;
+  }
+}
+
+function purgePaths(): string[] {
+  return [
     join(configBase(), "tawassul-v2"),
     join(GLOBAL_DIR, "tawassul-v2-state"),
     join(GLOBAL_DIR, "tawassul.jsonc"),
     join(GLOBAL_DIR, "tawassul.json"),
     join(GLOBAL_DIR, "tawassul-pins.json"),
   ];
-  for (const path of paths) {
-    if (!existsSync(path)) continue;
+}
+
+function requirePurgeConsent(): void {
+  if (flags.has("--dry-run") || flags.has("--yes")) return;
+  const present = purgePaths().filter((path) => existsSync(path));
+  if (present.length === 0) return;
+  fail(
+    `purge would move ${present.length} state path(s) aside (${present.join(", ")}); ` +
+      "pass --yes to confirm, or omit --purge to keep them",
+  );
+}
+
+function purge(): void {
+  const present = purgePaths().filter((path) => existsSync(path));
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  for (const path of present) {
     if (flags.has("--dry-run")) {
-      console.log(`install-global: dry run — would purge ${path}`);
+      console.log(`install-global: dry run — would archive ${path}`);
       continue;
     }
-    rmSync(path, { recursive: true, force: true });
-    console.log(`install-global: purged ${path}`);
+    const archive = `${path}.purged-${stamp}`;
+    renameSync(path, archive);
+    console.log(`install-global: archived ${path} to ${archive}`);
   }
   const agents = join(GLOBAL_DIR, "agent");
   if (existsSync(agents)) {
@@ -821,6 +1016,7 @@ function purge(): void {
 }
 
 function uninstall(): void {
+  if (flags.has("--purge")) requirePurgeConsent();
   const targetExists = existsSync(TARGET);
   const runtimeExists = existsSync(RUNTIME);
   if (!targetExists && !runtimeExists) {
@@ -832,23 +1028,41 @@ function uninstall(): void {
     fail(`refusing to remove ${TARGET}: no Tawassul marker (use --force)`);
   }
   if (flags.has("--dry-run")) {
-    console.log(`install-global: dry run — would remove ${TARGET} and ${RUNTIME}`);
+    console.log(`install-global: dry run — would remove ${TARGET} and the files this install recorded under ${RUNTIME}`);
     uninstallTriggers();
     return;
   }
   uninstallTriggers();
   if (targetExists) rmSync(TARGET, { force: true });
-  if (runtimeExists) rmSync(RUNTIME, { recursive: true, force: true });
+  const owned = marker?.package === PLUGIN_ID ? ownedRuntimeFiles(marker) : [];
+  const files = [...new Set([...owned, ...fallbackRuntimeFiles()])];
+  let removed = 0;
+  for (const file of files) {
+    if (!existsSync(file)) continue;
+    rmSync(file, { force: true });
+    removed += 1;
+  }
+  removeEmptyTree(RUNTIME);
   console.log(`install-global: removed ${TARGET}`);
-  console.log(`install-global: removed ${RUNTIME}`);
+  console.log(`install-global: removed ${removed} installed runtime file(s) under ${RUNTIME}`);
+  if (existsSync(RUNTIME)) {
+    console.log(
+      `install-global: kept ${countFiles(RUNTIME)} file(s) under ${RUNTIME} that this install did not write`,
+    );
+  }
+  releaseOwnership();
   if (flags.has("--purge")) purge();
-  else console.log("install-global: kept global roster and state; pass --purge to remove them");
+  else console.log("install-global: kept global roster and state; pass --purge with --yes to archive them");
 }
 
 async function verify(): Promise<void> {
   const overrideError = overrideRangeError();
   if (overrideError) fail(overrideError);
   if (!existsSync(TARGET)) fail(`not installed: ${TARGET}`);
+  const owner = readOwner();
+  if (owner !== undefined && owner !== REPO) {
+    console.warn(`install-global: the owner record points at ${owner}; this tree did not write the global copy`);
+  }
   const marker = readMarker();
   if (!marker || marker.package !== PLUGIN_ID) {
     fail(`missing Tawassul marker: ${MARKER_FILE}`);
@@ -868,15 +1082,23 @@ async function verify(): Promise<void> {
   if (marker.version !== (REPO_PACKAGE.version ?? "0.0.0")) {
     fail(`marker version is ${marker.version ?? "unknown"}; repo is ${REPO_PACKAGE.version ?? "0.0.0"}`);
   }
-  if (marker.sourceSha) {
-    const installedSourceSha = readSourceSha(installed.toString("utf8"));
-    if (installedSourceSha && installedSourceSha !== marker.sourceSha) {
-      fail(`bundle source SHA mismatch: installed ${installedSourceSha} vs marker ${marker.sourceSha}`);
+  const installedText = installed.toString("utf8");
+  if (marker.contentSha) {
+    const installedContentSha = readContentSha(installedText);
+    if (installedContentSha && installedContentSha !== marker.contentSha) {
+      fail(
+        `bundle content SHA mismatch: installed ${installedContentSha.slice(0, 12)} vs marker ${marker.contentSha.slice(0, 12)}`,
+      );
     }
-    const head = gitHead();
-    if (head && marker.sourceSha !== head) {
-      fail(`installed bundle is stale: marker ${marker.sourceSha} vs HEAD ${head}`);
+    const live = sourceDigest();
+    if (live !== marker.contentSha) {
+      fail(
+        `installed bundle is stale: marker ${marker.contentSha.slice(0, 12)} vs source tree ${live.slice(0, 12)}; ` +
+          "run npm run build && npm run install:global",
+      );
     }
+  } else if (marker.sourceSha) {
+    console.warn("install-global: marker predates the content digest; run npm run install:global to refresh it");
   }
   if (existsSync(GLOBAL_BUNDLE)) {
     const distSha = hash(readFileSync(GLOBAL_BUNDLE));
@@ -939,11 +1161,15 @@ async function verify(): Promise<void> {
 
 function usage(): void {
   console.log("install-global: manage the opt-in OpenCode global plugin install");
-  console.log("  bun scripts/install-global.ts [--dry-run] [--force]");
+  console.log("  bun scripts/install-global.ts [--dry-run] [--force] [--takeover]");
   console.log("  bun scripts/install-global.ts --verify");
-  console.log("  bun scripts/install-global.ts --uninstall [--purge] [--dry-run]");
+  console.log("  bun scripts/install-global.ts --uninstall [--purge --yes] [--dry-run]");
   console.log(`  plugin:  ${TARGET}`);
   console.log(`  runtime: ${RUNTIME}`);
+  console.log(`  owner:   ${OWNER_FILE}`);
+  console.log("  --takeover treats a live owner record from another tree as transferable");
+  console.log("  --purge --yes archives Tawassul state beside its old paths");
+  console.log("  the purge keeps the global agent roster (~/.config/opencode/agent)");
   console.log("  the installer never edits the global opencode.json(c)");
 }
 

@@ -56,15 +56,29 @@ npm run build
 npm run install:global          # flat file plus wasm assets and VERSION marker
 npm run verify:global           # hashes, host pin, scope, wasm integrity
 npm run uninstall:global        # keeps the global roster and state
-npm run uninstall:global -- --purge
+npm run uninstall:global -- --purge --yes   # archives state beside its old path
 ```
 
 Before writing anything, the installer refuses when the directory it runs from
-already carries a project copy of the plugin at `.opencode/plugins/tawassul.js`,
-naming both that path and the global target, so the same plugin cannot be
-installed twice. The reverse case is documented only: when a project copy and a
+already carries a project copy of this plugin in `.opencode/plugin/` or
+`.opencode/plugins/` — any `.ts`/`.js` file whose content names the plugin, or
+the canonical `tawassul.js` name — naming every copy and the global target, so
+the same plugin cannot be installed twice. This tree's own project entry
+`.opencode/plugin/tawassul.js` is exempt only when the installer runs from the
+repository root. The reverse case is documented only: when a project copy and a
 global copy both exist, the project copy wins at runtime and the plugin never
 enforces or removes either one.
+
+The global install is single-owner: the first tree records itself in
+`tawassul-install-owner`, and a live owner from another tree is refused before
+any write. `--takeover` transfers ownership when a different tree must install.
+Uninstall removes only the files the marker recorded, keeps unknown files under
+the runtime directory, and leaves state in place unless `--purge --yes` is
+given; the purge moves Tawassul state to `<path>.purged-<timestamp>` instead of
+deleting it. The global agent roster under `~/.config/opencode/agent/` is kept
+either way and must be removed manually. The installer smoke-checks the
+resolved DB with `--check` and registers the daily lane (systemd user timer or
+cron) with the resolved `OPENCODE_DB` pinned in the unit or cron line.
 | Path | Contents |
 | --- | --- |
 | `~/.config/opencode/plugins/tawassul.js` | self-contained bundle (`dist/global.js`) |
@@ -82,7 +96,7 @@ replaces an unmarked file.
 
 ```
 npm run gate:fast    # rules + shell syntax + typecheck + config + facts + catalog
-npm run gate:proofs  # 25 proofs, one isolated child process each
+npm run gate:proofs  # 89 proofs, one isolated child process each
 npm run gate:smoke   # build + release smoke (one scratch boot)
 npm run ci           # all three stages, sequentially, each in its own process
 npm run verify       # gate:fast + build

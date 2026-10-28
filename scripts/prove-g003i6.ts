@@ -21,6 +21,16 @@ function assert(cond: unknown, name: string): void {
 }
 
 const NOW = Date.UTC(2026, 9, 27, 12, 0, 0);
+
+function localStamp(epochMs: number): string {
+  const date = new Date(epochMs);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}`
+  );
+}
+
 const DAILY_TYPED = {
   type: "provider.free-limit",
   message: "Free usage limit reached",
@@ -36,7 +46,10 @@ function caseTypedError(): void {
   const decision = evaluateFreeLimitBridge({ noRetry: true }, DAILY_TYPED);
   assert(decision.action === "skip-retry", "the typed daily limit skips the backoff retry");
   const notice = buildFreeLimitNotice(decision, NOW);
-  assert(notice.resetTime === "2026-10-27T13:00:00.000Z", "the typed delay becomes a local reset stamp");
+  assert(
+    notice.resetTime === localStamp(NOW + 3_600_000),
+    "the typed delay becomes a local reset stamp",
+  );
   assert(
     notice.resetTime !== null && notice.text.includes(notice.resetTime),
     "the notice text names that reset stamp",

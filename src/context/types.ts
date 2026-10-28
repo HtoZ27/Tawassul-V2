@@ -44,6 +44,7 @@ export type HandoffEntry = {
   status: "pending" | "accepted" | "completed" | "cancelled" | "paused" | "closed";
   checkpoint?: Checkpoint;
   rescue?: boolean;
+  senderErrorCleared?: boolean;
   result?: string;
   parallelId?: string;
   sourceLocations?: FileLocation[];

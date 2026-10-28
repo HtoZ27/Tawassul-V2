@@ -1,5 +1,8 @@
-const NON_ENGLISH_SCRIPT = /\p{Script=Arabic}/u;
-const NON_ENGLISH_RUN = /\p{Script=Arabic}[\p{Script=Arabic}\s]*/gu;
+const NON_ENGLISH_SCRIPT =
+  /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Devanagari}\p{Script=Bengali}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Thai}\p{Script=Armenian}\p{Script=Georgian}\p{Script=Ethiopic}\p{Script=Khmer}\p{Script=Lao}\p{Script=Myanmar}\p{Script=Thaana}]/u;
+
+const NON_ENGLISH_RUN =
+  /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\p{M}\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Devanagari}\p{Script=Bengali}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Thai}\p{Script=Armenian}\p{Script=Georgian}\p{Script=Ethiopic}\p{Script=Khmer}\p{Script=Lao}\p{Script=Myanmar}\p{Script=Thaana}]+/gu;
 
 interface FeatureText {
   name: string;
@@ -52,9 +55,8 @@ export function sanitizeFeatureText(value: string, fallback: string): string {
 export function normalizeLegacyFeatureEntry(entry: FeatureText & { id: string }): void {
   const legacy = LEGACY_ENGLISH[entry.id];
   if (legacy) {
-    entry.name = legacy.name;
-    entry.description = legacy.description;
-    return;
+    if (NON_ENGLISH_SCRIPT.test(entry.name)) entry.name = legacy.name;
+    if (NON_ENGLISH_SCRIPT.test(entry.description)) entry.description = legacy.description;
   }
   entry.name = sanitizeFeatureText(entry.name, "Session task");
   entry.description = sanitizeFeatureText(

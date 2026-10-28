@@ -33,11 +33,18 @@ function buildCompletionEffects(
       "core.agentErrors",
       (h, ctx) => {
         const nf = normalizeName(h.from);
-        ctx.agentErrors[nf] = Math.max(0, (ctx.agentErrors[nf] ?? 0) - 1);
+        const current = ctx.agentErrors[nf] ?? 0;
+        if (current > 0) {
+          ctx.agentErrors[nf] = current - 1;
+          h.senderErrorCleared = true;
+        } else {
+          h.senderErrorCleared = false;
+        }
       },
       (h, ctx) => {
         const nf = normalizeName(h.from);
-        ctx.agentErrors[nf] = (ctx.agentErrors[nf] ?? 0) + 1;
+        if (h.senderErrorCleared) ctx.agentErrors[nf] = (ctx.agentErrors[nf] ?? 0) + 1;
+        h.senderErrorCleared = false;
       },
     ),
     effect(
@@ -320,6 +327,7 @@ export class HandoffService {
       onHandoffCompleted: (agent: string) => void;
       onHandoffFailed: (agent: string) => void;
       onHandoffCompletionReverted: (agent: string) => void;
+      onHandoffFailureReverted?: (agent: string) => void;
     },
     private circuitBreaker?: CircuitBreaker,
   ) {
@@ -486,10 +494,14 @@ export class HandoffService {
       }
 
       const wasCompleted = h.status === "completed";
+      const wasRescued = h.rescue === true;
       h.status = "pending";
       if (wasCompleted) {
         const from = normalizeName(h.from);
-        this.ctx.agentErrors[from] = (this.ctx.agentErrors[from] ?? 0) + 1;
+        if (h.senderErrorCleared) {
+          this.ctx.agentErrors[from] = (this.ctx.agentErrors[from] ?? 0) + 1;
+        }
+        h.senderErrorCleared = false;
         const to = normalizeName(h.to);
         this.ctx.ratingOps.revertHandoffCompleted(to);
         if (this.healthTracker) this.healthTracker.onHandoffCompletionReverted(to);
@@ -500,6 +512,11 @@ export class HandoffService {
         const memory = this.ctx.sharedMemory.get();
         const idx = memory.handoffHistory.findIndex((r) => r.id === h.id);
         if (idx !== -1) memory.handoffHistory.splice(idx, 1);
+      }
+      if (wasRescued) {
+        h.rescue = false;
+        const to = normalizeName(h.to);
+        this.healthTracker?.onHandoffFailureReverted?.(to);
       }
       await this.ctx.fileLocks.releaseAllForHandoff(h.id);
       this.ctx.taskPriority.removeFromQueue(h.id);

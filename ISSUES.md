@@ -1,11 +1,11 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-27 · Gate: `npm run ci` rc=0 (3 isolated stages, 81 proof files, smoke pass)
+Status date: 2026-10-28 · Gate: `npm run ci` rc=0 (3 isolated stages, 90 proof files / 89 proof steps, smoke pass)
 Real global install: not performed (opt-in; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
-running host now loads the current build; G-13 stays open as the missing
-automatic staleness check.
+project entry is rebuilt from this tree; G-13 stays open as the missing
+automatic staleness check for the live host process.
 Register note: the third-round evaluation (2026-10-26) added E-11..E-41 and
 re-confirmed C-02, C-03, P-10, B-02, E-02, and G-13 without duplicating them.
 Upstream watch (2026-10-27): `UPSTREAM.md` and
@@ -331,16 +331,18 @@ Next: use `delimiter` from `node:path`, probe `opencode`, `opencode.cmd`,
 and `opencode.exe`, add the macOS Desktop path, and add a unit proof with a
 fake `PATH`. No cross-platform CI exists.
 
-### I-03 `--purge` keeps global agent files — open
+### I-03 `--purge` keeps global agent files — resolved (2026-10-28)
 
 `purge()` removes global state files but deliberately keeps
-`~/.config/opencode/agent/*.md` and prints "remove them manually"
-(`scripts/install-global.ts:377-382`). The README lists
+`~/.config/opencode/agent/*.md`. The README listed
 `uninstall:global -- --purge` without saying that the roster survives.
 
-Next: either move the agent files to a timestamped backup and remove them, or
-state the exception in README and `--help`, and assert the chosen behavior in
-`prove-global-install`.
+Resolved 2026-10-28 by stating the exception rather than deleting user files:
+`--help` prints "the purge keeps the global agent roster
+(~/.config/opencode/agent)", the README says the same, and the purge reports
+`kept N agent file(s) in <dir>`. `prove-global-install` seeds
+`agent/keeper.md`, asserts it survives `--purge --yes`, and asserts the report
+line, so the documented behavior cannot drift silently.
 
 ### I-04 Stale wasm files are not pruned on upgrade — open
 
@@ -384,8 +386,19 @@ Resolved 2026-10-26: `build-v2.mjs` stamps `dist/global.js` and
 bundle whose SHA differs from HEAD, records `sourceSha` in the VERSION marker,
 and `verify()` fails when the installed bundle is stale against HEAD.
 `upToDate()` also treats a missing or mismatched `sourceSha` as outdated.
-`prove-bundle-freshness` rebuilds and asserts both bundles and the project
-entry carry the current SHA (7 assertions).
+
+Revised 2026-10-28: comparing against `git rev-parse HEAD` was circular — any
+commit, including a commit that changes no source file, made a bundle built
+seconds earlier look stale, and a dirty tree could not be distinguished at all.
+`scripts/source-digest.ts` now hashes the sorted `src/**` file list plus
+`build-v2.mjs` and `package.json` (64 hex chars). The build embeds
+`TAWASSUL_CONTENT_SHA`, the installer stores `contentSha` in the VERSION
+marker, refuses a bundle whose digest differs from the live tree, and
+`verify()` fails with "installed bundle is stale" when the marker digest and
+the tree digest diverge. The old `TAWASSUL_SOURCE_SHA` marker stays for
+provenance only and no longer gates anything. `prove-bundle-freshness` rebuilds
+and asserts both bundles and the project entry carry the current content digest
+and that the digest is not the commit id (11 assertions).
 
 ### I-08 Global bundle boot cost is unmeasured — open (P1)
 

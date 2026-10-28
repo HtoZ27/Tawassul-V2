@@ -7,7 +7,14 @@ export interface FreeLimitParseResult {
 }
 
 const FREE_LIMIT_TYPES = new Set(["provider.free-limit", "free-usage-limit", "provider.free_usage_limit"]);
+const FREE_LIMIT_TYPE_NAMES = new Set([
+  "providerfreelimit",
+  "freeusagelimit",
+  "providerfreeusagelimit",
+  "freeusagelimiterror",
+]);
 const TRANSIENT_TYPES = new Set(["provider.rate-limit", "provider.rate_limit"]);
+const TRANSIENT_TYPE_NAMES = new Set(["providerratelimit", "ratelimit", "ratelimiterror"]);
 const FREE_LIMIT_TEXT_PATTERNS = [
   /free usage limit reached/i,
   /free usage limit has been reached/i,
@@ -21,7 +28,12 @@ const TRANSIENT_TEXT_PATTERNS = [
   /too many requests/i,
   /\b429\b/,
   /throttled/i,
+  /quota exceeded/i,
 ];
+
+function normalizedTypeName(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
 
 function readRetryAfterMs(source: Record<string, unknown>): number | undefined {
   const nestedError = source.error as Record<string, unknown> | undefined;
@@ -77,20 +89,32 @@ function readFreeLimitResetAt(source: Record<string, unknown>): number | undefin
     source.freeLimitResetAt,
     source.resetAt,
     (source.data as Record<string, unknown> | undefined)?.freeLimitResetAt,
+    (source.data as Record<string, unknown> | undefined)?.resetAt,
   ];
   for (const candidate of candidates) {
     if (typeof candidate === "number" && Number.isFinite(candidate) && candidate > 0) {
-      return Math.max(0, Math.round(candidate - Date.now()));
+      const epochMs = candidate < 100_000_000_000 ? candidate * 1000 : candidate;
+      return Math.max(0, Math.round(epochMs - Date.now()));
     }
   }
   return undefined;
+}
+
+function localResetStamp(epochMs: number): string {
+  const date = new Date(epochMs);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}`
+  );
 }
 
 export function parseFreeLimitSignal(error: unknown): FreeLimitParseResult {
   if (error === undefined || error === null) return { signal: "no-limit" };
 
   const type = readErrorType(error);
-  if (FREE_LIMIT_TYPES.has(type)) {
+  const typeName = normalizedTypeName(type);
+  if (FREE_LIMIT_TYPES.has(type) || FREE_LIMIT_TYPE_NAMES.has(typeName)) {
     const source = (typeof error === "object" ? (error as Record<string, unknown>) : {}) as Record<string, unknown>;
     return {
       signal: "free-daily-limit",
@@ -98,7 +122,7 @@ export function parseFreeLimitSignal(error: unknown): FreeLimitParseResult {
       matchedBy: "error-type",
     };
   }
-  if (TRANSIENT_TYPES.has(type)) {
+  if (TRANSIENT_TYPES.has(type) || TRANSIENT_TYPE_NAMES.has(typeName)) {
     return { signal: "transient-rate-limit", matchedBy: "error-type" };
   }
 
@@ -186,7 +210,7 @@ export function buildFreeLimitNotice(
       hasDelay: false,
     };
   }
-  const resetTime = new Date(now + decision.retryAfterMs).toISOString();
+  const resetTime = localResetStamp(now + decision.retryAfterMs);
   const minutes = Math.max(1, Math.round(decision.retryAfterMs / 60000));
   const heading = strings.headingWithReset
     .replace("{minutes}", String(minutes))

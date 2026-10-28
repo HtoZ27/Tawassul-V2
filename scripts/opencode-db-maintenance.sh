@@ -30,9 +30,11 @@
 # Event retention policy (S-040): the host `event` table is append-only with no
 # retention path; at tens of thousands of rows it freezes the synchronous SQLite
 # server. The launchers enforce the cap (3GiB warning, 4GiB trigger): at/over the
-# cap they run this script with --event-only before exec, then start a background
-# backup+prune. A full run also deletes every event row when nothing holds the
-# DB. Live runs never delete events (a delete mid-run can starve the host).
+# cap they run this script with --event-only --event-delete before exec, then
+# start a background backup+prune. A full run applies the same bounded retention
+# when nothing holds the DB. Retention is a dry run unless --event-delete is
+# passed, so a plain run never deletes host rows by surprise. Live runs never
+# delete events (a delete mid-run can starve the host).
 #
 # The legacy archive ~/.local/share/opencode/opencode.db is NEVER an implicit
 # target: selecting it requires --allow-archive plus an interactive CONFIRM.
@@ -42,7 +44,8 @@
 #                              [--keep-backups N] [--check] [--force]
 #                              [--allow-in-use] [--ignore-low-ram]
 #                              [--allow-archive] [--event-retention all|off]
-#                              [--event-only] [--cap-bytes N] [--plan]
+#                              [--event-only] [--event-delete] [--cap-bytes N]
+#                              [--plan]
 #
 # Defaults:
 #   --db          OPENCODE_DB env only. There is no implicit fallback: pass --db
@@ -57,10 +60,14 @@
 #                 in-use refusal does not apply, the RAM floor still does).
 #   --force       DEPRECATED: equals --allow-in-use --ignore-low-ram.
 #                 Still never authorizes a live VACUUM (always skipped).
-#   --event-retention all|off  delete host event rows before VACUUM when the DB
-#                 is quiescent (default all; off keeps them).
-#   --event-only  delete host event rows and exit (no backup/prune/VACUUM);
-#                 requires a quiescent DB — the launcher path at the cap.
+#   --event-retention all|off  bounded host event retention before VACUUM when
+#                 the DB is quiescent (default all; off keeps them). Applies
+#                 only with --event-delete.
+#   --event-delete  apply the bounded retention (newest --event-keep rows per
+#                 aggregate). Without it the step reports the would-be count.
+#   --event-only  run the bounded event retention and exit (no backup/prune/
+#                 VACUUM); requires a quiescent DB — the launcher path at the
+#                 cap. Dry run unless --event-delete is also passed.
 
 set -euo pipefail
 
@@ -555,7 +562,7 @@ event_execute() { # $1=0 dry-run | 1 delete — bounded per P2.9: newest EVENT_K
       ;;
   esac
   if [ "$1" != 1 ]; then
-    echo "→ event retention: would delete ${EV_SURPLUS} of ${EV_BEFORE} rows (keeps the newest ${EVENT_KEEP} per aggregate, P2.9) — dry run only, pass --event-delete to apply."
+    echo "→ event retention: would delete ${EV_SURPLUS} of ${EV_BEFORE} rows (keeps the newest ${EVENT_KEEP} per aggregate, P2.9) — dry run; pass --event-delete to apply."
     return 0
   fi
   if ! timeout 1800 sqlite3 -cmd ".timeout 2500" "$DB_PATH" "

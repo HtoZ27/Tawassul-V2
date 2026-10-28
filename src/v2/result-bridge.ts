@@ -24,19 +24,30 @@ export function jsonSafeValue(value: unknown, seen?: WeakSet<object>): unknown {
   if (visited.has(object)) return undefined;
   visited.add(object);
   let next: unknown;
-  if (Array.isArray(object)) {
-    next = object.map((item) => {
-      const safe = jsonSafeValue(item, visited);
-      return safe === undefined ? null : safe;
-    });
-  } else {
-    const record = object as Record<string, unknown>;
-    const safe: Record<string, unknown> = {};
-    for (const key of Object.keys(record)) {
-      const item = jsonSafeValue(record[key], visited);
-      if (item !== undefined) safe[key] = item;
+  try {
+    if (Array.isArray(object)) {
+      next = object.map((item) => {
+        const safe = jsonSafeValue(item, visited);
+        return safe === undefined ? null : safe;
+      });
+    } else {
+      const record = object as Record<string, unknown>;
+      const safe: Record<string, unknown> = {};
+      for (const key of Object.keys(record)) {
+        let raw: unknown;
+        try {
+          raw = record[key];
+        } catch {
+          continue;
+        }
+        const item = jsonSafeValue(raw, visited);
+        if (item !== undefined) safe[key] = item;
+      }
+      next = safe;
     }
-    next = safe;
+  } catch {
+    visited.delete(object);
+    return undefined;
   }
   visited.delete(object);
   return next;

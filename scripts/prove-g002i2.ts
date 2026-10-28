@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { permissionGuard } from "../src/hooks/guards/permission-guard.ts";
 import { consentGateGuard, setConsentGateEnabled, isConsentGateEnabled, ConsentBlockedError } from "../src/hooks/guards/consent-gate-guard.ts";
-import { requiresConsent, CONSENT_DANGEROUS_PATTERNS } from "../src/hooks/guards/shared/limits.ts";
+import { requiresConsent, isDangerousCommand } from "../src/hooks/guards/shared/limits.ts";
 import { VALIDATION_PIPELINE, DISCUSSION_PIPELINE } from "../src/hooks/validation-pipeline.ts";
 import { resetConsentApprovals } from "../src/hooks/guards/consent-gate-guard.ts";
 
@@ -84,8 +84,21 @@ async function consentStillOwnsDangerous(): Promise<void> {
   assert(requiresConsent("bash", { command: "rm -rf /tmp/opencode/junk" }) === false, "an absolute-path project cleanup is no longer blanket-gated");
   assert(requiresConsent("bash", { command: "echo done > /dev/null 2>&1" }) === false, "device-null output stays ungated");
 
-  for (const pattern of CONSENT_DANGEROUS_PATTERNS) {
-    assert(pattern instanceof RegExp, "the consent pattern list remains the single by-design gate source");
+  for (const command of [
+    "rm -fr /",
+    "rm -r -f /",
+    "rm --recursive --force /",
+    "truncate -s 0 /etc/passwd",
+    "shred /dev/sda",
+    "chmod -R 000 /",
+    "mv /etc /tmp/escaped",
+    "find / -delete",
+    "git clean -fdx /",
+  ]) {
+    assert(isDangerousCommand(command), `consent gates the destructive shape: ${command}`);
+  }
+  for (const command of ['echo "rm -rf /"', 'grep -r "rm -rf /" .', "cat notes.md", "rm -rf ./build"]) {
+    assert(!isDangerousCommand(command), `consent ignores the quoted or scoped text: ${command}`);
   }
 
   const ctx = {} as never;

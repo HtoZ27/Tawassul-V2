@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { dirname } from "node:path";
+import { sourceDigest } from "./source-digest.ts";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -20,14 +20,8 @@ function assert(cond: unknown, name: string): void {
   console.log(`ok ${name}`);
 }
 
-function gitHead(): string {
-  const result = spawnSync("git", ["rev-parse", "HEAD"], { cwd: REPO, encoding: "utf-8", timeout: 10_000 });
-  if (result.status !== 0) fail(`git rev-parse failed: ${result.stderr ?? ""}`);
-  return (result.stdout ?? "").trim();
-}
-
-function readSourceSha(text: string): string | undefined {
-  return text.match(/TAWASSUL_SOURCE_SHA=([0-9a-f]{7,40})/)?.[1];
+function readContentSha(text: string): string | undefined {
+  return text.match(/TAWASSUL_CONTENT_SHA=([0-9a-f]{64})/)?.[1];
 }
 
 async function main(): Promise<void> {
@@ -37,25 +31,36 @@ async function main(): Promise<void> {
   }
   assert(build.status === 0, "the bundle builds successfully");
 
-  const head = gitHead();
+  const digest = sourceDigest();
+  assert(/^[0-9a-f]{64}$/.test(digest), "the source digest is a 64-character content hash");
+  assert(sourceDigest() === digest, "the source digest is deterministic across calls");
+
   const globalPath = join(REPO, "dist", "global.js");
   const indexPath = join(REPO, "dist", "index.js");
   assert(existsSync(globalPath), "dist/global.js exists after the build");
-  const globalSha = readSourceSha(readFileSync(globalPath, "utf8"));
-  assert(globalSha === head, "dist/global.js carries the current source SHA");
+  const globalDigest = readContentSha(readFileSync(globalPath, "utf8"));
+  assert(globalDigest === digest, "dist/global.js carries the current content digest");
   assert(existsSync(indexPath), "dist/index.js exists after the build");
-  const indexSha = readSourceSha(readFileSync(indexPath, "utf8"));
-  assert(indexSha === head, "dist/index.js carries the current source SHA");
+  const indexDigest = readContentSha(readFileSync(indexPath, "utf8"));
+  assert(indexDigest === digest, "dist/index.js carries the current content digest");
 
   const target = join(REPO, ".opencode", "plugin", "tawassul.js");
   assert(existsSync(target), "the project bundle is written");
-  const projectSha = readSourceSha(readFileSync(target, "utf8"));
-  assert(projectSha === head, "the project bundle carries the current source SHA");
+  const projectDigest = readContentSha(readFileSync(target, "utf8"));
+  assert(projectDigest === digest, "the project bundle carries the current content digest");
+
+  const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: REPO, encoding: "utf-8", timeout: 10_000 });
+  const headSha = head.status === 0 ? (head.stdout ?? "").trim() : "";
+  assert(headSha.length > 0, "a git HEAD is available for the independence check");
+  assert(
+    globalDigest !== headSha,
+    "the content digest is not the commit id, so a commit cannot make a current bundle look stale",
+  );
 }
 
 try {
   await main();
-  console.log(`PROOF PASS: the bundle carries the current source SHA (${passed} assertions)`);
+  console.log(`PROOF PASS: the bundle carries the current content digest (${passed} assertions)`);
 } catch (e) {
   if (!String((e as Error)?.message ?? "").includes("PROOF FAIL")) {
     console.error(`PROOF FAIL: ${(e as Error)?.message ?? e}`);

@@ -122,6 +122,6 @@ evidence.
   test suite; the proof catalog is the v2 threshold), and every row marked
   `v1-only` or `dead` above.
 - The Day 4 exit is met by the v2 gates, not by importing the v1 suite:
-  `npm run verify`, `prove:proof-catalog` (25 proofs, every proof wired into
-  `ci`), `prove:catch-discipline`, `smoke:release` (host 2.1.4 pin, scratch
+  `npm run verify`, `prove:proof-catalog` (89 proof steps plus the catalog
+  check, every proof wired into the gates), `prove:catch-discipline`, `smoke:release` (host 2.1.4 pin, scratch
   boot, 42 tools, health + help), and a green `npm run ci`.

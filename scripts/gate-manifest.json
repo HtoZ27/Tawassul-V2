@@ -295,6 +295,10 @@
       "cmd": ["bun", "scripts/prove-db-retention.ts"]
     },
     {
+      "name": "db-scheduler",
+      "cmd": ["bun", "scripts/prove-db-scheduler.ts"]
+    },
+    {
       "name": "portability",
       "cmd": ["bun", "scripts/prove-portability.ts"]
     },

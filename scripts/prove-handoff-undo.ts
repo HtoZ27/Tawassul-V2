@@ -157,6 +157,34 @@ async function main(): Promise<void> {
       "the analyst revert removes the last completion credit",
     );
 
+    const clean = makeHandoff("H-104", "reviewer", "dev");
+    ctx.handoffs.set(clean.id, clean);
+    ctx.agentErrors["reviewer"] = 0;
+    const cleanComplete = await service.completeHandoff(clean.id, "dev");
+    assert(cleanComplete.success, "a handoff from a clean sender completes");
+    assert((ctx.agentErrors["reviewer"] ?? 0) === 0, "completion leaves a clean sender at zero");
+    const cleanUndo = await service.undoHandoff(clean.id, "reviewer");
+    assert(cleanUndo.success && clean.status === "pending", "a clean sender can revert the completion");
+    assert((ctx.agentErrors["reviewer"] ?? 0) === 0, "undo invents no phantom sender error");
+
+    const rescued = makeHandoff("H-105", "@tawa", "dev");
+    ctx.handoffs.set(rescued.id, rescued);
+    const failedBefore = healthTracker.getStatus("dev")?.failedCount ?? 0;
+    rescued.status = "closed";
+    rescued.rescue = true;
+    healthTracker.onHandoffFailed("dev");
+    assert(
+      (healthTracker.getStatus("dev")?.failedCount ?? 0) === failedBefore + 1,
+      "a rescued handoff charges the recipient failure",
+    );
+    const rescuedUndo = await service.undoHandoff(rescued.id, "@tawa");
+    assert(rescuedUndo.success && String(rescued.status) === "pending", "undo reopens a rescued handoff");
+    assert(!rescued.rescue, "undo clears the rescue marker");
+    assert(
+      (healthTracker.getStatus("dev")?.failedCount ?? 0) === failedBefore,
+      "undo removes the rescued recipient failure",
+    );
+
     console.log(`PROOF PASS: handoff undo reverses completion credits and restores the sender error (${passed} assertions)`);
   } finally {
     await ctx.lifecycleManager.destroy();

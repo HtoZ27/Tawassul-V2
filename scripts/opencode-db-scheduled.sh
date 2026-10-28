@@ -42,13 +42,23 @@ cleanup_trigger() {
 }
 stamp_last_run() {
   if [ "$MODE" = "check" ]; then return 0; fi
-  local stamp_dir stamp
+  local rc="${1:-1}" stamp_dir stamp failure
   stamp_dir="$(printf '%s/tawassul-v2/db-maintenance' "$(xdg_data_home)")"
   mkdir -p "$stamp_dir" 2>/dev/null || true
   stamp="$stamp_dir/last-run.stamp"
-  if printf 'rc=%s\nat=%s\n' "${1:-$?}" "$(date '+%F %T')" > "$stamp" 2>/dev/null; then
-    log "stamp written: $stamp"
+  failure="$stamp_dir/last-failure.stamp"
+  case "$rc" in ''|*[!0-9]*) rc=1 ;; esac
+  if [ "$rc" -eq 0 ]; then
+    if printf 'rc=0\nat=%s\n' "$(date '+%F %T')" > "$stamp" 2>/dev/null; then
+      log "stamp written: $stamp"
+    fi
+    rm -f "$failure" 2>/dev/null || true
+    return 0
   fi
+  if printf 'rc=%s\nat=%s\n' "$rc" "$(date '+%F %T')" > "$failure" 2>/dev/null; then
+    log "failure recorded: $failure (rc=$rc); the last-run stamp is left untouched"
+  fi
+  return 0
 }
 trap 'rc=$?; stamp_last_run "$rc"; cleanup_trigger; exit "$rc"' EXIT
 
