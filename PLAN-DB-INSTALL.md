@@ -38,7 +38,30 @@ mislabels a held DB as unreliable, verified against a live holder. Trials
 Q1-Q7 (into-swap shrink 17M→728K with journal=wal preserved and
 quick_check=ok, F27 refusal rc=7, shim-fallback to in-place VACUUM 4.9M→52K,
 held run pruning 960 rows with VACUUM correctly refused) all passed in
-`/tmp/opencode/tw-isol/`. Open: the remaining §5 order (P3, P4, P5, P6, P7).
+`/tmp/opencode/tw-isol/`. Fifth batch, same day — P3 landed in full
+(items 1-8): the plugin-side trigger (`src/services/db-maintenance-trigger.ts`)
+spawns the installed scheduler detached at boot and re-arms every 6 h behind a
+24 h stamp gate and a machine-global lock dir with 25 h stale reclaim
+(trials T1-T6: 4.8 ms arm, stamp rc=0 written, lock released, fresh-stamp
+suppression, single-flight, stale reclaim, missing-script and missing-DB
+fail-open); the scheduler trap stamps `rc=<n>/at=<ts>` on EXIT and clears the
+trigger lock; the installer registers the OS trigger (systemd user timer at
+04:17 with a 600 s random delay and Persistent=true, then a tagged cron line,
+then manual — `TAWASSUL_REGISTER_TRIGGERS=off|systemd|cron|manual` overridable),
+records the resolved value in the marker, and `--uninstall` removes owned
+units (ExecStart content check) and the tagged cron line; `doctor-v2.sh` kept
+its committed census contract (d05, 28 assertions) and gained the
+"db maintenance contract" section (marker artifact hashes, all three
+triggers, resolved-vs-probe path with drift, size+WAL, quick_check, the
+last-run stamp); it now ships in the install payload (DB_SHIP id "doctor")
+and the global-install proof asserts it (108 assertions). A real-systemd
+registration trial on this host passed end to end (install → timer enabled
+with the isolated ExecStart → uninstall → zero tawassul units left); the
+trial also surfaced and removed a live v1 timer (tawassul-db-check.timer)
+that was executing the retired v1 tree daily against the real DB, and the
+stale `~/.opencode` plan-only directory (archived to
+docs/historical-plan-first-install-db-repair.md first). `npm run ci` is green
+end to end. Open: the remaining §5 order (P4, P5, P6, P7).
 Scope: this tree only. The v1 tree is read-only reference.
 Evidence: every anchor below was read on 2026-10-27 or 2026-10-28 from the
 named file at the named line, or measured on the installed host 2.2.0 and on a

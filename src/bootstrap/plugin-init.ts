@@ -18,6 +18,7 @@ import {
   setBudgetStep,
   setProjectScale,
 } from "../services/iteration-budget.ts";
+import { armDbMaintenanceTrigger } from "../services/db-maintenance-trigger.ts";
 import { TawassulContext } from "../context.ts";
 import { createServices } from "./service-factory.ts";
 import { createHooks } from "./hooks-registration.ts";
@@ -335,6 +336,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
 
   
   void passiveSelfCheck(ctx.directory, resolve(ctx.directory, ".opencode/plugins/tawassul"));
+  void armDbMaintenanceTrigger(ctx.directory);
 
   clearQuietModeForce();
   if (!_homeProjectWarned && isHomeProject(ctx.directory)) {

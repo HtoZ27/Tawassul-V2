@@ -56,6 +56,7 @@ const DB_FILES: Array<[string, string]> = [
   ["guard", "guard-db-generation.sh"],
   ["scheduled", "opencode-db-scheduled.sh"],
   ["db-env", "db-env.sh"],
+  ["doctor", "doctor-v2.sh"],
 ];
 const SMOKE_ROOT = join(ROOT, "smoke");
 const SMOKE_DB = join(SMOKE_ROOT, "opencode.db");
@@ -68,6 +69,7 @@ type Marker = {
   wasm?: Record<string, { path?: string; sha256?: string; bytes?: number }>;
   db?: Record<string, { path?: string; sha256?: string; bytes?: number }>;
   preflight?: Record<string, string>;
+  trigger?: string;
 };
 
 function proofEnv(): NodeJS.ProcessEnv {
@@ -80,6 +82,7 @@ function proofEnv(): NodeJS.ProcessEnv {
     XDG_CACHE_HOME: join(HOME, ".cache"),
     PATH: "/usr/bin:/bin",
     TAWASSUL_OPENCODE_VERSION: "2.2.0",
+    TAWASSUL_REGISTER_TRIGGERS: "off",
     OPENCODE_DB: SMOKE_DB,
   };
   delete next.TAWASSUL_GLOBAL_DIR;
@@ -197,7 +200,22 @@ try {
     assert(entry?.sha256 === sha256(dest), `marker db hash matches the staged file for ${id}`);
     assert(existsSync(join(GLOBAL, entry?.path ?? "")), `marker db path resolves for ${id}`);
   }
+  assert(record.trigger === "manual", "marker records the manual trigger under the off mode");
+  assert(installed.out.includes("trigger registration skipped"), "install prints the registration-skip notice");
   assert(runInstalledMaintenance(["--db", SMOKE_DB, "--check", "--ignore-low-ram"]).code === 0, "installed maintenance --check exits 0 against the synthetic v2 DB");
+
+  const doctor = spawnSync("bash", [join(DB_DIR, "doctor-v2.sh")], { env: proofEnv(), encoding: "utf-8" });
+  const doctorOut = `${doctor.stdout ?? ""}`;
+  assert(doctor.status === 0, "installed doctor exits 0");
+  assert(doctorOut.includes("database census"), "installed doctor keeps the census sections");
+  assert(doctorOut.includes("db maintenance contract"), "installed doctor reports the maintenance contract section");
+  assert(doctorOut.includes("installed marker:") && doctorOut.includes("trigger=manual"), "installed doctor reports the marker trigger state");
+  assert(doctorOut.includes("db:maintenance: hash ok"), "installed doctor hash-checks the staged maintenance script");
+  assert(doctorOut.includes("systemd trigger:"), "installed doctor reports the systemd trigger");
+  assert(doctorOut.includes("cron trigger:"), "installed doctor reports the cron trigger");
+  assert(doctorOut.includes("last scheduled run:"), "installed doctor reports the maintenance stamp");
+  assert(doctorOut.includes("resolved DB:") && doctorOut.includes("DB path drift:"), "installed doctor reports the resolved path and drift");
+  assert(doctorOut.includes("contract quick_check: ok"), "installed doctor quick-checks the DB");
 
   const rangeEnv = proofEnv();
   delete rangeEnv.TAWASSUL_OPENCODE_VERSION;

@@ -1,0 +1,113 @@
+import { spawn } from "node:child_process";
+import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dataRoot } from "../bootstrap/db-isolation.ts";
+import { logger } from "../utils/logger.ts";
+
+const RUN_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const STALE_LOCK_MS = 25 * 60 * 60 * 1000;
+const MIN_RUN_GAP_MS = 24 * 60 * 60 * 1000;
+
+function dbMaintenanceRoot(): string {
+  return resolve(dataRoot(), "tawassul-v2", "db-maintenance");
+}
+
+function stampPath(): string {
+  return resolve(dbMaintenanceRoot(), "last-run.stamp");
+}
+
+function lockPath(): string {
+  return resolve(dbMaintenanceRoot(), "trigger.lock");
+}
+
+function laneScript(projectDir: string): string | undefined {
+  const pluginDir = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    resolve(pluginDir, "..", "tawassul-runtime", "db", "opencode-db-scheduled.sh"),
+    resolve(projectDir, "scripts", "opencode-db-scheduled.sh"),
+  ];
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+function dbExists(): boolean {
+  const override = process.env.OPENCODE_DB?.trim();
+  return existsSync(override || resolve(dataRoot(), "opencode", "opencode.db"));
+}
+
+function stampFresh(): boolean {
+  try {
+    return Date.now() - statSync(stampPath()).mtimeMs < MIN_RUN_GAP_MS;
+  } catch {
+    return false;
+  }
+}
+
+function acquireLock(): boolean {
+  const lock = lockPath();
+  mkdirSync(dirname(lock), { recursive: true });
+  try {
+    mkdirSync(lock);
+    return true;
+  } catch (error) {
+    const err = error as { code?: string };
+    if (err.code !== "EEXIST") throw error;
+    try {
+      if (Date.now() - statSync(lock).mtimeMs < STALE_LOCK_MS) return false;
+    } catch {
+      return false;
+    }
+    rmSync(lock, { recursive: true, force: true });
+    try {
+      mkdirSync(lock);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+function releaseLock(): void {
+  try {
+    rmSync(lockPath(), { recursive: true, force: true });
+  } catch {
+    return;
+  }
+}
+
+function attemptRun(projectDir: string, why: string): void {
+  try {
+    if (stampFresh()) return;
+    const script = laneScript(projectDir);
+    if (!script) {
+      logger.debug("[tawassul] db maintenance lane script missing — retry next cycle");
+      return;
+    }
+    if (!dbExists()) {
+      logger.debug("[tawassul] no DB file yet — nothing to maintain");
+      return;
+    }
+    if (!acquireLock()) return;
+    const child = spawn("bash", [script, "--run"], {
+      detached: true,
+      stdio: "ignore",
+      env: { ...process.env, TAWASSUL_TRIGGER_LOCK: lockPath() },
+    });
+    child.unref();
+    child.on("error", releaseLock);
+    logger.debug(`[tawassul] db maintenance spawned (${why})`);
+  } catch (error) {
+    logger.debug("[tawassul] db maintenance trigger skipped:", (error as Error)?.message ?? error);
+    releaseLock();
+  }
+}
+
+export function armDbMaintenanceTrigger(projectDir: string): void {
+  try {
+    attemptRun(projectDir, "boot");
+    const timer = setInterval(() => attemptRun(projectDir, "interval"), RUN_INTERVAL_MS);
+    timer.unref();
+  } catch (error) {
+    logger.debug("[tawassul] db maintenance trigger skipped:", (error as Error)?.message ?? error);
+  }
+}

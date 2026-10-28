@@ -41,6 +41,8 @@ if [ -L "$ENTRY" ]; then
   fail "plugin entry is a symlink -> $target (copy the real bundle instead)"
 elif [ -f "$ENTRY" ]; then
   pass "plugin entry is a real file"
+elif [ -f "$CONFIG_BASE/opencode/tawassul-runtime/VERSION" ]; then
+  pass "no project entry — the global install owns this host lane (project lane not present)"
 else
   fail "plugin entry missing: $ENTRY (run npm run build)"
 fi
@@ -475,6 +477,98 @@ if [ -f "$GLOBAL_PLUGIN_FLAT" ]; then
   fi
 else
   info "no global plugin install (project install only)"
+fi
+
+section "db maintenance contract"
+SELF_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd || printf '.')"
+TAG="tawassul-db-maintenance"
+TAB="$(printf '\t')"
+. "$SELF_DIR/db-env.sh" 2>/dev/null || true
+MARKER_DB="$CONFIG_BASE/opencode/tawassul-runtime/VERSION"
+if [ -f "$MARKER_DB" ]; then
+  if command -v python3 >/dev/null 2>&1; then
+    while IFS="$TAB" read -r kind a b c; do
+      case "$kind" in
+        meta)
+          info "installed marker: version=$a host=$b trigger=$c"
+          ;;
+        asset)
+          want="$c"
+          case "$b" in ''|/*) abs="$b" ;; *) abs="$CONFIG_BASE/opencode/$b" ;; esac
+          if [ ! -f "$abs" ]; then
+            warn "staged artifact missing: $a ($abs)"
+          elif ! command -v sha256sum >/dev/null 2>&1; then
+            info "$a: present ($abs) — no sha256sum tool to verify"
+          else
+            got="$(sha256sum "$abs" 2>/dev/null | cut -d' ' -f1)"
+            if [ "$got" = "$want" ]; then
+              info "$a: hash ok (${want:0:12})"
+            else
+              warn "$a: hash mismatch ($abs) — run npm run install:global"
+            fi
+          fi
+          ;;
+      esac
+    done < <(python3 - "$MARKER_DB" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1]))
+print(f"meta\t{m.get('version','?')}\t{m.get('host','?')}\t{m.get('trigger','(absent)')}")
+b = m.get("bundle") or {}
+print(f"asset\tbundle\t{b.get('path','')}\t{b.get('sha256','')}")
+for name, rec in sorted((m.get("db") or {}).items()):
+    print(f"asset\tdb:{name}\t{rec.get('path','')}\t{rec.get('sha256','')}")
+PY
+)
+  else
+    info "python3 missing — the marker hash check is skipped ($MARKER_DB)"
+  fi
+else
+  info "no global runtime marker at $MARKER_DB (project install or not installed)"
+fi
+if command -v systemctl >/dev/null 2>&1; then
+  trigger_state="$(systemctl --user is-enabled "$TAG.timer" 2>/dev/null || printf 'not-found')"
+  info "systemd trigger: tawassul-db-maintenance.timer is $trigger_state"
+else
+  info "systemd trigger: systemctl missing"
+fi
+if command -v crontab >/dev/null 2>&1; then
+  if crontab -l 2>/dev/null | grep -Fq "$TAG"; then
+    info "cron trigger: found (tagged line)"
+  else
+    info "cron trigger: absent"
+  fi
+else
+  info "cron trigger: crontab missing"
+fi
+MAINT_STAMP="$HOME_DIR/.local/share/tawassul-v2/db-maintenance/last-run.stamp"
+if [ -f "$MAINT_STAMP" ]; then
+  stamp_rc="$(sed -n 's/^rc=//p' "$MAINT_STAMP" | head -n1)"
+  stamp_at="$(sed -n 's/^at=//p' "$MAINT_STAMP" | head -n1)"
+  stamp_mt="$(stat -c %Y "$MAINT_STAMP" 2>/dev/null || printf 0)"
+  stamp_age="stale"
+  if [ "$stamp_mt" -gt 0 ] && [ "$(( $(date +%s) - stamp_mt ))" -lt 86400 ]; then stamp_age="fresh"; fi
+  info "last scheduled run: rc=$stamp_rc at=$stamp_at ($stamp_age): $MAINT_STAMP"
+else
+  info "last scheduled run: no stamp yet ($MAINT_STAMP)"
+fi
+db_resolve_path
+contract_resolved="$RESOLVED_DB"
+contract_source="$DB_RESOLVE_SOURCE"
+db_resolve_path --probe
+contract_probe="$RESOLVED_DB"
+info "resolved DB: $contract_resolved (source: $contract_source)"
+if [ "$contract_source" = "host-default" ] && [ -n "$contract_probe" ] && [ "$contract_probe" != "$contract_resolved" ] && [ -e "$contract_probe" ]; then
+  warn "DB path drift: the live DB is $contract_probe, the default path is $contract_resolved"
+else
+  info "DB path drift: none"
+fi
+if [ -f "$contract_resolved" ]; then
+  db_bytes="$(tawassul_file_bytes "$contract_resolved" 2>/dev/null || printf 0)"
+  wal_bytes="$(tawassul_file_bytes "$contract_resolved-wal" 2>/dev/null || printf 0)"
+  info "contract DB size: $db_bytes bytes (wal $wal_bytes bytes)"
+  if command -v sqlite3 >/dev/null 2>&1; then
+    info "contract quick_check: $(sqlite3 -readonly "$contract_resolved" 'PRAGMA quick_check;' 2>/dev/null || printf 'error')"
+  fi
 fi
 
 section "processes"

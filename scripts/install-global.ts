@@ -40,6 +40,7 @@ type Marker = {
   wasm?: Record<string, AssetRecord>;
   db?: Record<string, AssetRecord>;
   preflight?: Record<string, string>;
+  trigger?: string;
   installedAt?: string;
 };
 type Host = { bin: string; version: string };
@@ -119,6 +120,7 @@ const DB_SHIP: Array<{ id: string; file: string }> = [
   { id: "guard", file: "guard-db-generation.sh" },
   { id: "scheduled", file: "opencode-db-scheduled.sh" },
   { id: "db-env", file: "db-env.sh" },
+  { id: "doctor", file: "doctor-v2.sh" },
 ];
 function dbShipSource(item: { file: string }): string {
   return join(REPO, "scripts", item.file);
@@ -455,12 +457,204 @@ function dbSmoke(): void {
   }
 }
 
+const TRIGGER_TAG = "tawassul-db-maintenance";
+const TRIGGER_UNITS = {
+  service: "tawassul-db-maintenance.service",
+  timer: "tawassul-db-maintenance.timer",
+};
+
+function triggerMode(): string {
+  const value = process.env.TAWASSUL_REGISTER_TRIGGERS?.trim().toLowerCase();
+  if (value === "off" || value === "systemd" || value === "cron" || value === "manual") return value;
+  return "auto";
+}
+
+function systemdUnitDir(): string {
+  return join(configBase(), "systemd", "user");
+}
+
+function systemdUnitPath(name: string): string {
+  return join(systemdUnitDir(), name);
+}
+
+function scheduledPath(): string {
+  return join(DB_DIR, "opencode-db-scheduled.sh");
+}
+
+function unitContentSafe(script: string): boolean {
+  return !/[`'"%$\\]/.test(script);
+}
+
+function runTriggerCommand(cmd: string, args: string[], input?: string): number {
+  const result = spawnSync(cmd, args, { encoding: "utf-8", timeout: 15_000, ...(input === undefined ? {} : { input }) });
+  return result.status ?? -1;
+}
+
+function removeUnitFiles(): void {
+  rmSync(systemdUnitPath(TRIGGER_UNITS.service), { force: true });
+  rmSync(systemdUnitPath(TRIGGER_UNITS.timer), { force: true });
+  console.log(`install-global: removed ${TRIGGER_UNITS.service} and ${TRIGGER_UNITS.timer} under ${systemdUnitDir()}`);
+}
+
+function writeUnitFiles(script: string): void {
+  mkdirSync(systemdUnitDir(), { recursive: true, mode: 0o755 });
+  writeAtomic(
+    systemdUnitPath(TRIGGER_UNITS.service),
+    [
+      "[Unit]",
+      "Description=Tawassul v2 DB maintenance lane",
+      "",
+      "[Service]",
+      "Type=oneshot",
+      `ExecStart=/usr/bin/env bash ${script} --run`,
+      "",
+    ].join("\n"),
+    0o644,
+  );
+  writeAtomic(
+    systemdUnitPath(TRIGGER_UNITS.timer),
+    [
+      "[Unit]",
+      "Description=Tawassul v2 DB maintenance schedule",
+      "",
+      "[Timer]",
+      "OnCalendar=*-*-* 04:17:00",
+      "RandomizedDelaySec=600",
+      "Persistent=true",
+      "",
+      "[Install]",
+      "WantedBy=timers.target",
+      "",
+    ].join("\n"),
+    0o644,
+  );
+}
+
+function trySystemd(script: string): string | undefined {
+  if (!unitContentSafe(script)) return undefined;
+  writeUnitFiles(script);
+  if (runTriggerCommand("systemctl", ["--user", "daemon-reload"]) !== 0) {
+    removeUnitFiles();
+    return undefined;
+  }
+  if (runTriggerCommand("systemctl", ["--user", "enable", "--now", "tawassul-db-maintenance.timer"]) !== 0) {
+    removeUnitFiles();
+    return undefined;
+  }
+  return "systemd";
+}
+
+function cronLine(script: string): string {
+  return `17 4 * * * /usr/bin/env bash ${script} --run # ${TRIGGER_TAG}`;
+}
+
+function readCrontab(): { ok: boolean; lines: Array<string> } {
+  const result = spawnSync("crontab", ["-l"], { encoding: "utf-8", timeout: 15_000 });
+  if ((result.status ?? -1) !== 0) return { ok: false, lines: [] };
+  return { ok: true, lines: (result.stdout ?? "").split("\n") };
+}
+
+function writeCrontab(lines: Array<string>): boolean {
+  return runTriggerCommand("crontab", ["-"], lines.join("\n")) === 0;
+}
+
+function tryCron(script: string): string | undefined {
+  if (!unitContentSafe(script)) return undefined;
+  const listing = readCrontab();
+  if (!listing.ok) return undefined;
+  if (listing.lines.some((line) => line.includes(TRIGGER_TAG))) return "cron";
+  const kept = listing.lines.filter((line) => line.trim() !== "");
+  if (!writeCrontab([...kept, cronLine(script)])) return undefined;
+  return "cron";
+}
+
+function registerTriggers(): string {
+  const mode = triggerMode();
+  if (mode === "off") {
+    console.log("install-global: trigger registration skipped (TAWASSUL_REGISTER_TRIGGERS=off)");
+    return "manual";
+  }
+  if (mode === "manual") {
+    console.log("install-global: trigger registration skipped (TAWASSUL_REGISTER_TRIGGERS=manual)");
+    return "manual";
+  }
+  if (!existsSync(scheduledPath())) {
+    console.log("install-global: trigger registration skipped — scheduled script missing");
+    return "manual";
+  }
+  const script = scheduledPath();
+  if (mode === "systemd") {
+    const systemd = trySystemd(script);
+    if (systemd) {
+      console.log("install-global: registered systemd user timer tawassul-db-maintenance.timer");
+      return systemd;
+    }
+    console.log("install-global: systemd registration failed (TAWASSUL_REGISTER_TRIGGERS=systemd) — trigger is manual");
+    return "manual";
+  }
+  if (mode === "cron") {
+    const cron = tryCron(script);
+    if (cron) {
+      console.log("install-global: registered cron line (tagged) for the daily run");
+      return cron;
+    }
+    console.log("install-global: cron registration failed (TAWASSUL_REGISTER_TRIGGERS=cron) — trigger is manual");
+    return "manual";
+  }
+  const systemd = trySystemd(script);
+  if (systemd) {
+    console.log("install-global: registered systemd user timer tawassul-db-maintenance.timer");
+    return systemd;
+  }
+  const cron = tryCron(script);
+  if (cron) {
+    console.log("install-global: systemd unavailable — registered cron line (tagged) for the daily run");
+    return cron;
+  }
+  console.log("install-global: no systemd or cron available — trigger is manual (the plugin still triggers at boot)");
+  return "manual";
+}
+
+function unitIsOwned(): boolean {
+  try {
+    const service = readFileSync(systemdUnitPath(TRIGGER_UNITS.service), "utf-8");
+    return service.includes("opencode-db-scheduled.sh");
+  } catch {
+    return false;
+  }
+}
+
+function uninstallTriggers(): void {
+  if (flags.has("--dry-run")) {
+    if (unitIsOwned()) console.log(`install-global: dry run — would remove the ${TRIGGER_TAG} systemd timer`);
+    if (readCrontab().lines.some((line) => line.includes(TRIGGER_TAG))) {
+      console.log(`install-global: dry run — would remove the tagged ${TRIGGER_TAG} cron line`);
+    }
+    return;
+  }
+  if (unitIsOwned()) {
+    runTriggerCommand("systemctl", ["--user", "disable", "--now", "tawassul-db-maintenance.timer"]);
+    removeUnitFiles();
+    runTriggerCommand("systemctl", ["--user", "daemon-reload"]);
+  } else if (existsSync(systemdUnitPath(TRIGGER_UNITS.service))) {
+    console.log(`install-global: ${TRIGGER_UNITS.service} exists but is not owned by this install — left untouched`);
+  }
+  const listing = readCrontab();
+  const owned = listing.lines.filter((line) => line.includes(TRIGGER_TAG));
+  if (owned.length > 0) {
+    const kept = listing.lines.filter((line) => !line.includes(TRIGGER_TAG) && line.trim() !== "");
+    if (writeCrontab(kept)) console.log(`install-global: removed ${owned.length} tagged cron line(s)`);
+    else console.log("install-global: could not rewrite the crontab — the tagged cron line remains");
+  }
+}
+
 function writeMarker(
   bundleSha: string,
   wasm: Record<string, AssetRecord>,
   db: Record<string, AssetRecord>,
   sourceSha: string | undefined,
   host: string,
+  trigger: string,
 ): void {
   const bundleBytes = readFileSync(TARGET);
   const marker: Marker = {
@@ -476,6 +670,7 @@ function writeMarker(
     wasm,
     db,
     preflight: preflightMarks(),
+    trigger,
     installedAt: new Date().toISOString(),
   };
   writeAtomic(MARKER_FILE, `${JSON.stringify(marker, null, 2)}\n`);
@@ -566,7 +761,8 @@ function install(): void {
     writeAtomic(join(DB_DIR, item.file), readFileSync(dbShipSource(item)), 0o700);
   }
   preflightLaptop();
-  writeMarker(bundle.sha, wasm, db, bundle.sourceSha, host.version);
+  const trigger = registerTriggers();
+  writeMarker(bundle.sha, wasm, db, bundle.sourceSha, host.version, trigger);
   dbSmoke();
   console.log(
     `install-global: installed ${TARGET} (v${REPO_PACKAGE.version ?? "0.0.0"}, ${bundle.sha.slice(0, 12)})`,
@@ -614,8 +810,10 @@ function uninstall(): void {
   }
   if (flags.has("--dry-run")) {
     console.log(`install-global: dry run — would remove ${TARGET} and ${RUNTIME}`);
+    uninstallTriggers();
     return;
   }
+  uninstallTriggers();
   if (targetExists) rmSync(TARGET, { force: true });
   if (runtimeExists) rmSync(RUNTIME, { recursive: true, force: true });
   console.log(`install-global: removed ${TARGET}`);

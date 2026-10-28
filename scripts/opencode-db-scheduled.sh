@@ -27,12 +27,30 @@ if [ -e "$LOG" ] && [ "$(tawassul_file_bytes "$LOG")" -gt 5242880 ]; then
   mv -f "$LOG.1" "$LOG.2" 2>/dev/null || true
   mv -f "$LOG" "$LOG.1" 2>/dev/null || true
 fi
+
 log() {
   printf '%s %s\n' "$(date '+%F %T')" "$*" >> "$LOG"
   if [ "$MODE" = "check" ]; then
     printf '%s %s\n' "$(date '+%F %T')" "$*"
   fi
 }
+
+cleanup_trigger() {
+  if [ -n "${TAWASSUL_TRIGGER_LOCK:-}" ]; then
+    rm -rf "$TAWASSUL_TRIGGER_LOCK" 2>/dev/null || true
+  fi
+}
+stamp_last_run() {
+  if [ "$MODE" = "check" ]; then return 0; fi
+  local stamp_dir stamp
+  stamp_dir="$(printf '%s/tawassul-v2/db-maintenance' "$(xdg_data_home)")"
+  mkdir -p "$stamp_dir" 2>/dev/null || true
+  stamp="$stamp_dir/last-run.stamp"
+  if printf 'rc=%s\nat=%s\n' "${1:-$?}" "$(date '+%F %T')" > "$stamp" 2>/dev/null; then
+    log "stamp written: $stamp"
+  fi
+}
+trap 'rc=$?; stamp_last_run "$rc"; cleanup_trigger; exit "$rc"' EXIT
 
 log "scheduled run: mode=$MODE"
 db_resolve_path || {
