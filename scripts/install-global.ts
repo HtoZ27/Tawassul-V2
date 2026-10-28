@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -7,6 +7,7 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -37,6 +38,8 @@ type Marker = {
   sourceSha?: string;
   bundle?: AssetRecord;
   wasm?: Record<string, AssetRecord>;
+  db?: Record<string, AssetRecord>;
+  preflight?: Record<string, string>;
   installedAt?: string;
 };
 type Host = { bin: string; version: string };
@@ -108,7 +111,18 @@ const TARGET = join(PLUGIN_DIR, "tawassul.js");
 const LEGACY_PACKAGE = join(PLUGIN_DIR, "tawassul");
 const RUNTIME = join(GLOBAL_DIR, "tawassul-runtime");
 const WASM_DIR = join(RUNTIME, "wasm");
+const DB_DIR = join(RUNTIME, "db");
 const MARKER_FILE = join(RUNTIME, MARKER_NAME);
+
+const DB_SHIP: Array<{ id: string; file: string }> = [
+  { id: "maintenance", file: "opencode-db-maintenance.sh" },
+  { id: "guard", file: "guard-db-generation.sh" },
+  { id: "scheduled", file: "opencode-db-scheduled.sh" },
+  { id: "db-env", file: "db-env.sh" },
+];
+function dbShipSource(item: { file: string }): string {
+  return join(REPO, "scripts", item.file);
+}
 
 function markerPath(path: string): string {
   return relative(GLOBAL_DIR, path).split(sep).join("/");
@@ -343,15 +357,108 @@ function assetRecords(assets: ResolvedAsset[]): Record<string, AssetRecord> {
   return records;
 }
 
-function writeAtomic(file: string, data: string | Buffer): void {
+function writeAtomic(file: string, data: string | Buffer, mode = 0o600): void {
   const tmp = `${file}.tmp-${process.pid}`;
-  writeFileSync(tmp, data, { mode: 0o600 });
+  writeFileSync(tmp, data, { mode });
   renameSync(tmp, file);
+}
+
+function dbRecords(): Record<string, AssetRecord> {
+  const records: Record<string, AssetRecord> = {};
+  for (const item of DB_SHIP) {
+    const bytes = readFileSync(dbShipSource(item));
+    records[item.id] = {
+      path: markerPath(join(DB_DIR, item.file)),
+      sha256: hash(bytes),
+      bytes: bytes.length,
+    };
+  }
+  return records;
+}
+
+function depPresent(bin: string): boolean {
+  try {
+    execFileSync("which", [bin], { stdio: "pipe" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function preflightMarks(): Record<string, string> {
+  const deps: Array<[string, boolean]> = [
+    ["sqlite3", true],
+    ["timeout", false],
+    ["python3", false],
+    ["free", true],
+    ["fuser", false],
+  ];
+  const marks: Record<string, string> = {};
+  for (const [bin] of deps) {
+    marks[bin] = depPresent(bin) ? "present" : "missing";
+  }
+  return marks;
+}
+
+function preflightLaptop(): void {
+  const marks = preflightMarks();
+  const platform = process.platform;
+  if (platform === "darwin") {
+    console.log("install-global: macOS preflight — manual lane, no automation claim (P4 pending)");
+    for (const [bin, state] of Object.entries(marks)) {
+      console.log(`  ${bin}: ${state}`);
+    }
+    return;
+  }
+  const bounded = marks.timeout === "present" || marks.python3 === "present";
+  const hardGaps: string[] = [];
+  if (marks.sqlite3 !== "present") hardGaps.push("sqlite3 (sqlite3 package — every probe and mutation refuses without it)");
+  if (!bounded) hardGaps.push("timeout or python3 (the guard refuses unbounded queries without one)");
+  if (marks.free !== "present") hardGaps.push("free (procps — the space gate refuses without it)");
+  for (const gap of hardGaps) {
+    fail(`install-global: missing hard dependency: ${gap}`);
+  }
+  if (marks.fuser !== "present") {
+    console.warn("install-global: fuser (psmisc) is missing — the default run and --event-only refuse without it; only the VACUUM-skip degrade is_soft.");
+  }
+  for (const [bin, state] of Object.entries(marks)) {
+    console.log(`  dep ${bin}: ${state}`);
+  }
+}
+
+function dbSmoke(): void {
+  const maint = join(DB_DIR, "opencode-db-maintenance.sh");
+  let resolved = "";
+  try {
+    resolved = execFileSync(
+      "bash",
+      ["-c", `. '${join(DB_DIR, "db-env.sh")}'; db_resolve_path >/dev/null 2>&1; printf '%s' "$RESOLVED_DB"`],
+      { stdio: "pipe" },
+    )
+      .toString()
+      .trim();
+  } catch {
+    fail("install-global: db-env resolution failed — the lane cannot find the DB (see P1.7 smoke)");
+  }
+  if (!resolved || !existsSync(resolved)) {
+    console.log(`install-global: smoke skipped — no DB yet at ${resolved || "(unresolved)"}`);
+    return;
+  }
+  try {
+    execFileSync("bash", [maint, "--db", resolved, "--check"], { stdio: "pipe", timeout: 240000 });
+    console.log(`install-global: smoke ok (--check against ${resolved})`);
+  } catch (error) {
+    const err = error as { stdout?: string; stderr?: string };
+    fail(
+      `install-global: smoke --check failed against ${resolved}: ${String(err.stdout ?? "")}${String(err.stderr ?? "")}`,
+    );
+  }
 }
 
 function writeMarker(
   bundleSha: string,
   wasm: Record<string, AssetRecord>,
+  db: Record<string, AssetRecord>,
   sourceSha: string | undefined,
   host: string,
 ): void {
@@ -367,6 +474,8 @@ function writeMarker(
       bytes: bundleBytes.length,
     },
     wasm,
+    db,
+    preflight: preflightMarks(),
     installedAt: new Date().toISOString(),
   };
   writeAtomic(MARKER_FILE, `${JSON.stringify(marker, null, 2)}\n`);
@@ -377,6 +486,7 @@ function upToDate(
   bundleSha: string,
   wasm: Record<string, AssetRecord>,
   sourceSha: string | undefined,
+  db: Record<string, AssetRecord>,
 ): boolean {
   if (!marker || marker.package !== PLUGIN_ID) return false;
   if (marker.version !== (REPO_PACKAGE.version ?? "0.0.0")) return false;
@@ -394,6 +504,13 @@ function upToDate(
     const installed = fromMarker(record.path);
     if (!existsSync(installed) || hash(readFileSync(installed)) !== record.sha256) return false;
   }
+  for (const item of DB_SHIP) {
+    const record = marker.db?.[item.id];
+    const want = db[item.id];
+    if (!record || !want || record.sha256 !== want.sha256 || record.path !== want.path) return false;
+    const installed = fromMarker(record.path);
+    if (!existsSync(installed) || hash(readFileSync(installed)) !== record.sha256) return false;
+  }
   return true;
 }
 
@@ -407,6 +524,7 @@ function install(): void {
   const bundle = requireBundle();
   const assets = resolveAssets(!flags.has("--dry-run"));
   const wasm = assetRecords(assets);
+  const db = dbRecords();
   const existing = readMarker();
   if (existsSync(TARGET) && !existing && !flags.has("--force")) {
     fail(`target exists without a Tawassul marker: ${TARGET} (use --force to replace)`);
@@ -421,7 +539,7 @@ function install(): void {
         "run npm run build before installing",
     );
   }
-  if (upToDate(existing, bundle.sha, wasm, bundle.sourceSha)) {
+  if (upToDate(existing, bundle.sha, wasm, bundle.sourceSha, db)) {
     console.log(
       `install-global: already installed at ${TARGET} ` +
         `(v${existing?.version ?? "unknown"}, ${bundle.sha.slice(0, 12)})`,
@@ -433,16 +551,23 @@ function install(): void {
       `install-global: dry run — would write ${TARGET} (${bundle.bytes.length} bytes, ${bundle.sha.slice(0, 12)})`,
     );
     console.log(`install-global: dry run — would write ${assets.length} wasm assets under ${WASM_DIR}`);
+    console.log(`install-global: dry run — would write ${DB_SHIP.length} db scripts under ${DB_DIR}`);
     return;
   }
   mkdirSync(PLUGIN_DIR, { recursive: true, mode: 0o700 });
   mkdirSync(RUNTIME, { recursive: true, mode: 0o700 });
+  mkdirSync(DB_DIR, { recursive: true, mode: 0o700 });
   writeAtomic(TARGET, bundle.bytes);
   for (const asset of assets) {
     mkdirSync(dirname(asset.dest), { recursive: true, mode: 0o700 });
     writeAtomic(asset.dest, readFileSync(asset.source));
   }
-  writeMarker(bundle.sha, wasm, bundle.sourceSha, host.version);
+  for (const item of DB_SHIP) {
+    writeAtomic(join(DB_DIR, item.file), readFileSync(dbShipSource(item)), 0o700);
+  }
+  preflightLaptop();
+  writeMarker(bundle.sha, wasm, db, bundle.sourceSha, host.version);
+  dbSmoke();
   console.log(
     `install-global: installed ${TARGET} (v${REPO_PACKAGE.version ?? "0.0.0"}, ${bundle.sha.slice(0, 12)})`,
   );
@@ -554,6 +679,25 @@ async function verify(): Promise<void> {
     }
     if (hash(bytes) !== record.sha256) {
       fail(`wasm hash mismatch for ${asset.id}: run npm run install:global`);
+    }
+  }
+  if (!marker.db || Object.keys(marker.db).length !== DB_SHIP.length) {
+    fail(`marker has no db payload — reinstall (npm run install:global) to stage tawassul-runtime/db`);
+  }
+  for (const item of DB_SHIP) {
+    const record = marker.db?.[item.id];
+    if (!record) fail(`marker has no db record for ${item.id}`);
+    const file = fromMarker(record.path);
+    if (!existsSync(file)) fail(`missing db script: ${file}`);
+    const bytes = readFileSync(file);
+    if (bytes.length !== record.bytes) {
+      fail(`db size mismatch for ${item.id}: ${bytes.length} vs ${record.bytes}`);
+    }
+    if (hash(bytes) !== record.sha256) {
+      fail(`db hash mismatch for ${item.id}: run npm run install:global`);
+    }
+    if (!(statSync(file).mode & 0o100)) {
+      fail(`db script lost its exec bit: ${file} — run npm run install:global`);
     }
   }
   refuseLegacyPackage();

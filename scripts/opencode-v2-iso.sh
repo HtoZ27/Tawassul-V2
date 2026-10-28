@@ -144,7 +144,7 @@ if [ "${TAWASSUL_AUTO_MAINTAIN:-1}" != "0" ] && [ -f "$V2_DB" ]; then
     if [ ! -e "$COOLDOWN_MARK" ] || [ -n "$(find "$COOLDOWN_MARK" -mmin +1440 2>/dev/null)" ]; then
       : > "$COOLDOWN_MARK" 2>/dev/null || true
       EV_RC=0
-      "$V2_MAINT" --db "$V2_DB" --event-only --cap-bytes "$TAWASSUL_DB_CAP_BYTES" >>"${V2_DB}.auto-maint.log" 2>&1 || EV_RC=$?
+      "$V2_MAINT" --db "$V2_DB" --event-only --event-delete --cap-bytes "$TAWASSUL_DB_CAP_BYTES" >>"${V2_DB}.auto-maint.log" 2>&1 || EV_RC=$?
       case "$EV_RC" in
         0|9) ;;
         *) echo "⚠️  opencode-v2-iso: event retention failed (rc=$EV_RC) — the cap guard still applies." >&2 ;;

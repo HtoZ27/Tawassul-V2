@@ -30,11 +30,13 @@ DB_PATH=""
 EXPECT=""
 JSON=0
 REASON_ONLY=0
+PATH_RULE="enforce"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --db) DB_PATH="${2:?--db needs a path}"; shift 2 ;;
     --expect) EXPECT="${2:?--expect needs v1|v2}"; shift 2 ;;
+    --path-rule) PATH_RULE="${2:?--path-rule needs enforce|warn}"; shift 2 ;;
     --json) JSON=1; shift ;;
     --reason) REASON_ONLY=1; shift ;;
     --help|-h) sed -n '1,29p' "$0"; exit 0 ;;
@@ -44,6 +46,7 @@ done
 
 [ -n "$DB_PATH" ] || { echo "❌ --db required" >&2; exit 2; }
 case "$EXPECT" in v1|v2) ;; *) echo "❌ --expect must be v1|v2" >&2; exit 2 ;; esac
+case "$PATH_RULE" in enforce|warn) ;; *) echo "❌ --path-rule must be enforce|warn" >&2; exit 2 ;; esac
 command -v sqlite3 >/dev/null 2>&1 || { echo "❌ sqlite3 CLI not found" >&2; exit 3; }
 # Bounded probe: timeout(1) when present AND working, else python3 killer, else refuse.
 # A failed probe must never read as "no markers" (fail-open).
@@ -81,6 +84,8 @@ fail_probe() { # $1=detail → exit 3 (never fail-open)
 }
 
 # Path rule FIRST (even a fresh file in the wrong generation dir is refused).
+# enforce: refuse today. warn: record suspicion and continue to content probes
+# (the maintenance lane's mode) — content still decides.
 GEN="unknown"
 case "$DB_PATH" in
   *tawassul-v2*)
@@ -93,7 +98,11 @@ case "$DB_PATH" in
   *)
     if [ "$EXPECT" = "v2" ]; then
       GEN="v1"
-      refuse "non-v2-path" "V2 lane refuses a non-v2 path (would migrate it on open): $DB_PATH"
+      if [ "$PATH_RULE" = "enforce" ]; then
+        refuse "non-v2-path" "V2 lane refuses a non-v2 path (would migrate it on open): $DB_PATH"
+      else
+        warn "non-v2-path: maintenance lane was asked for v2 on a non-tawassul-v2 path; content probes decide"
+      fi
     fi
     ;;
 esac

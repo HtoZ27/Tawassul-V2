@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
   classifyDbLane,
   isDesktopSidecarDbPath,
@@ -23,13 +23,14 @@ function check(condition: unknown, name: string): void {
 }
 
 const home = homedir();
-const sidecarDir = join(home, ".local", "share", "opencode", "tawassul-v2");
+const dataRoot = process.env.XDG_DATA_HOME?.trim() ? resolve(process.env.XDG_DATA_HOME.trim()) : join(home, ".local", "share");
+const sidecarDir = join(dataRoot, "opencode", "tawassul-v2");
 const sidecar = join(sidecarDir, "opencode.db");
-const sidecarSibling = join(home, ".local", "share", "opencode", "tawassul-v2-backup", "opencode.db");
-const shared = join(home, ".local", "share", "opencode", "opencode.db");
-const sharedDesktop = join(home, ".local", "share", "opencode", "opencode-desktop.db");
-const isolated = join(home, ".local", "share", "opencode-projects", "0123456789abcdef", "opencode.db");
-const isolatedSibling = join(home, ".local", "share", "opencode-projects-old", "0123456789abcdef", "opencode.db");
+const sidecarSibling = join(dataRoot, "opencode", "tawassul-v2-backup", "opencode.db");
+const shared = join(dataRoot, "opencode", "opencode.db");
+const sharedDesktop = join(dataRoot, "opencode", "opencode-desktop.db");
+const isolated = join(dataRoot, "opencode-projects", "0123456789abcdef", "opencode.db");
+const isolatedSibling = join(dataRoot, "opencode-projects-old", "0123456789abcdef", "opencode.db");
 const custom = join(tmpdir(), "tawassul-e46-custom", "opencode.db");
 
 check(classifyDbLane(undefined) === "unset", "an unset OPENCODE_DB is the unset lane");
@@ -37,8 +38,8 @@ check(classifyDbLane("") === "unset", "an empty OPENCODE_DB is the unset lane");
 check(classifyDbLane("   ") === "unset", "a blank OPENCODE_DB is the unset lane");
 check(classifyDbLane(sidecar) === "desktop-sidecar", "the desktop sidecar DB is its own lane");
 check(classifyDbLane(`  ${sidecar}  `) === "desktop-sidecar", "the sidecar lane tolerates surrounding whitespace");
-check(classifyDbLane(shared) === "shared", "the shared opencode.db stays the shared lane");
-check(classifyDbLane(sharedDesktop) === "shared", "the shared desktop DB stays the shared lane");
+check(classifyDbLane(shared) === "host-default", "the shared opencode.db is the host-default lane");
+check(classifyDbLane(sharedDesktop) === "host-default", "the shared desktop DB is the host-default lane");
 check(classifyDbLane(isolated) === "isolated", "a keyed opencode-projects DB is the isolated lane");
 check(classifyDbLane(custom) === "custom", "an arbitrary DB path is the custom lane");
 
@@ -78,13 +79,12 @@ async function healthWith(dbPath: string | undefined): Promise<string> {
 }
 
 const sidecarOutput = await healthWith(sidecar);
-check(sidecarOutput.includes("- DB: isolated"), "health reports the sidecar DB as isolated");
 check(sidecarOutput.includes("- DB lane: desktop-sidecar"), "health names the desktop sidecar lane");
-check(sidecarOutput.includes("- DB matches isolation: yes"), "health treats the sidecar as matching isolation");
+check(sidecarOutput.includes("- DB isolated: yes"), "health counts the sidecar DB as isolated");
 
 const sharedOutput = await healthWith(shared);
-check(sharedOutput.includes("- DB: shared"), "health reports the shared DB as shared");
-check(sharedOutput.includes("- DB lane: shared"), "health names the shared lane");
+check(sharedOutput.includes("- DB lane: host-default"), "health names the host-default lane");
+check(sharedOutput.includes("- DB isolated: no"), "health counts the host-default lane as not isolated");
 check(sharedOutput.includes("- DB matches isolation: no"), "health flags the shared DB against the keyed path");
 
 const expectedDb = isolatedDbPathFor(stateDir, keyFile);
@@ -95,13 +95,13 @@ check(isolatedOutput.includes("- DB matches isolation: yes"), "health matches th
 
 const customOutput = await healthWith(custom);
 check(customOutput.includes("- DB lane: custom"), "health names the custom lane");
-check(customOutput.includes("- DB: isolated"), "a custom DB path still counts as isolated from the shared DB");
+check(customOutput.includes("- DB isolated: yes"), "a custom DB path still counts as isolated from the shared DB");
 check(customOutput.includes("- DB matches isolation: no"), "a custom DB path does not match the keyed path");
 
 const unsetOutput = await healthWith(undefined);
-check(unsetOutput.includes("- DB: shared"), "an unset DB falls back to the shared label");
-check(unsetOutput.includes("- DB lane: unset"), "health names the unset lane");
-check(unsetOutput.includes("- DB matches isolation: unknown"), "an unset DB leaves the match unknown");
+check(unsetOutput.includes("- DB lane: host-default"), "an unset DB resolves to the host-default lane");
+check(unsetOutput.includes("- DB path (host default): "), "an unset DB names the resolution source");
+check(!unsetOutput.includes("- DB matches isolation"), "an unset DB omits the matches line (no isolation configured)");
 
 if (previousDb === undefined) delete process.env.OPENCODE_DB;
 else process.env.OPENCODE_DB = previousDb;
@@ -109,5 +109,5 @@ if (previousKeyDir === undefined) delete process.env.TAWASSUL_HMAC_KEY_DIR;
 else process.env.TAWASSUL_HMAC_KEY_DIR = previousKeyDir;
 rmSync(keyDir, { recursive: true, force: true });
 
-assert.equal(passed, 31);
+assert.equal(passed, 30);
 console.log(`PROOF PASS: the DB lane is classified truthfully (${passed} assertions)`);

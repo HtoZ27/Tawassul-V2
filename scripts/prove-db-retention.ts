@@ -58,8 +58,8 @@ function runFailEnv(args: string[], env: NodeJS.ProcessEnv): { status: number; o
   }
 }
 
-const now = Math.floor(Date.now() / 1000);
-const old = now - 200 * 86400;
+const now = Date.now();
+const old = now - 200 * 86400000;
 sqlite(
   db,
   `
@@ -91,10 +91,37 @@ assert(check.includes("dry-run only, nothing modified"), "check mode is read-onl
 const foreign = mkdtempSync(join(tmpdir(), "tawassul-probe-"));
 const foreignDb = join(foreign, "opencode.db");
 copyFileSync(db, foreignDb);
-const refused = runFail(["--db", foreignDb, "--event-only", "--ignore-low-ram"]);
-assert(refused.status === 2, "event retention refuses a non-v2 path");
-assert(refused.output.includes("generation guard refused"), "refusal names the generation guard");
-assert(sqlite(foreignDb, "SELECT count(*) FROM event;") === "3", "refused DB keeps every event row");
+const guard = join(repo, "guard-db-generation.sh");
+function guardRun(args: string[]): { status: number; output: string } {
+  try {
+    const output = execFileSync("bash", [guard, ...args], { encoding: "utf8", stdio: "pipe" });
+    return { status: 0, output };
+  } catch (error) {
+    const err = error as { status?: number; stdout?: string; stderr?: string };
+    return { status: err.status ?? -1, output: `${err.stdout ?? ""}${err.stderr ?? ""}` };
+  }
+}
+const guardEnforce = guardRun(["--db", foreignDb, "--expect", "v2", "--json"]);
+assert(guardEnforce.status === 2, "the guard in enforce mode still refuses a non-v2 path");
+assert(guardEnforce.output.includes("non-v2-path"), "guard enforce refusal names the path rule");
+const foreignWarn = run(["--db", foreignDb, "--event-only", "--ignore-low-ram"]);
+assert(foreignWarn.includes("would delete 1 of 3 rows"), "warn mode runs a bounded dry-run at a foreign path");
+assert(foreignWarn.includes("keeps the newest 1 per aggregate"), "the bounded dry-run names its keep rule");
+assert(sqlite(foreignDb, "SELECT count(*) FROM event;") === "3", "the dry-run deletes nothing at a foreign path");
+const foreignDelete = run(["--db", foreignDb, "--event-only", "--event-delete", "--ignore-low-ram"]);
+assert(foreignDelete.includes("deleted 1 rows"), "an explicit --event-delete applies the bounded retention");
+assert(sqlite(foreignDb, "SELECT count(*) FROM event;") === "2", "bounded retention keeps the newest per aggregate");
+const v1Foreign = join(foreign, "v1.db");
+sqlite(
+  v1Foreign,
+  `CREATE TABLE session (id TEXT PRIMARY KEY);
+CREATE TABLE message (id TEXT PRIMARY KEY, time_updated INTEGER);
+INSERT INTO message VALUES ('m1', ${old});`,
+);
+const foreignV1 = runFail(["--db", v1Foreign, "--event-only", "--ignore-low-ram"]);
+assert(foreignV1.status === 2, "warn mode still refuses v1 content at a foreign path");
+assert(foreignV1.output.includes("generation guard refused"), "v1 refusal names the generation guard");
+assert(sqlite(v1Foreign, "SELECT count(*) FROM message;") === "1", "refused v1 DB keeps every row");
 rmSync(foreign, { recursive: true, force: true });
 
 const off = run(["--db", db, "--event-only", "--event-retention", "off", "--ignore-low-ram"]);
@@ -102,18 +129,21 @@ assert(off.includes("event retention disabled"), "event retention can be disable
 assert(sqlite(db, "SELECT count(*) FROM event;") === "3", "disabled retention keeps rows");
 
 const eventOnly = run(["--db", db, "--event-only", "--ignore-low-ram"]);
-assert(eventOnly.includes("deleted 3 rows"), "event-only deletes the previous run's events");
-assert(sqlite(db, "SELECT count(*) FROM event;") === "0", "event table is empty after event-only");
+assert(eventOnly.includes("would delete 1 of 3 rows"), "event-only is a dry-run by default (P2.10)");
+assert(sqlite(db, "SELECT count(*) FROM event;") === "3", "the dry-run event-only deletes nothing");
+const eventOnlyDelete = run(["--db", db, "--event-only", "--event-delete", "--ignore-low-ram"]);
+assert(eventOnlyDelete.includes("deleted 1 rows"), "explicit event-only applies the bounded delete");
+assert(sqlite(db, "SELECT count(*) FROM event;") === "2", "bounded event-only keeps the newest per aggregate");
 assert(sqlite(db, "SELECT count(*) FROM session;") === "1", "event-only keeps legacy sessions");
 assert(sqlite(db, "SELECT count(*) FROM session_v2;") === "1", "event-only keeps v2 sessions");
 
 sqlite(db, `INSERT INTO event VALUES ('e4', 's-old', 4, 't', '{}', ${old}), ('e5', 's-new', 2, 't', '{}', ${now});`);
 
-const full = run(["--db", db, "--prune-days", "90", "--backup-dir", backups, "--ignore-low-ram"]);
+const full = run(["--db", db, "--prune-days", "90", "--event-delete", "--backup-dir", backups, "--ignore-low-ram"]);
 assert(full.includes("session_v2=1, session=1"), "backup probe counts both session tables");
-assert(full.includes("deleted 2 rows"), "full run applies event retention");
-assert(full.includes("event rows after: 0"), "full run reports zero event rows after retention");
-assert(sqlite(db, "SELECT count(*) FROM event;") === "0", "full run leaves no event rows");
+assert(full.includes("deleted 2 rows"), "full run applies bounded event retention (--event-delete)");
+assert(full.includes("event rows after: 2"), "full run reports the kept rows after retention");
+assert(sqlite(db, "SELECT count(*) FROM event;") === "2", "full run keeps the newest per aggregate");
 assert(sqlite(db, "SELECT count(*) FROM message WHERE id='m-old';") === "0", "old message is pruned");
 assert(sqlite(db, "SELECT count(*) FROM message WHERE id='m-new';") === "1", "fresh message is kept");
 assert(sqlite(db, "SELECT count(*) FROM part WHERE id='p-old';") === "0", "old part cascades with its message");
@@ -126,7 +156,7 @@ assert(backupFiles.length === 1 && existsSync(join(backups, backupFiles[0] ?? ""
 const backupPath = join(backups, backupFiles[0] ?? "");
 assert(sqlite(backupPath, "PRAGMA quick_check;") === "ok", "backup passes quick_check");
 assert(sqlite(backupPath, "SELECT count(*) FROM session_v2;") === "1", "backup carries the v2 session table");
-assert(sqlite(backupPath, "SELECT count(*) FROM event;") === "2", "backup preserves pre-retention events");
+assert(sqlite(backupPath, "SELECT count(*) FROM event;") === "4", "backup preserves pre-retention events");
 
 const plan = run(["--plan"]);
 assert(plan.includes("mutation-targets: message part session_message event"), "mutation allowlist is explicit");

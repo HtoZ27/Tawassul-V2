@@ -10,5 +10,6 @@ cost-transparency.json
 cost-transparency.json.bak.*
 dist/
 node_modules/
+extracted_files/
 handoff-ledger.jsonl
 sagas/

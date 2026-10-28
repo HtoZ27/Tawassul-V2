@@ -4,12 +4,16 @@ import { createHmac } from "node:crypto";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { resolve, sep } from "node:path";
 import { homedir } from "node:os";
-import { logger } from "../utils/logger.ts";
 
 export const DB_ISOLATION_BASE_SUBDIR = "opencode-projects";
 export const DB_ISOLATION_HASH_LEN = 16;
 
 const SHARED_DB_SUFFIXES = [`${sep}opencode${sep}opencode.db`, `${sep}opencode${sep}opencode-desktop.db`];
+
+export const dataRoot = (): string => {
+  const env = process.env.XDG_DATA_HOME?.trim();
+  return env ? resolve(env) : resolve(homedir(), ".local", "share");
+};
 
 export function canonicalize(projectRoot: string): string {
   try {
@@ -24,20 +28,20 @@ export function isSharedDbPath(dbPath: string): boolean {
   return SHARED_DB_SUFFIXES.some((s) => canon.endsWith(s));
 }
 
-export type DbLane = "desktop-sidecar" | "shared" | "isolated" | "custom" | "unset";
+export type DbLane = "desktop-sidecar" | "host-default" | "isolated" | "custom" | "unset";
 
 export function isDesktopSidecarDbPath(dbPath: string): boolean {
   const canon = canonicalize(dbPath);
-  const base = resolve(homedir(), ".local", "share", "opencode", "tawassul-v2");
+  const base = resolve(dataRoot(), "opencode", "tawassul-v2");
   return canon === base || canon.startsWith(`${base}${sep}`);
 }
 
 export function classifyDbLane(dbPath: string | undefined): DbLane {
   const trimmed = dbPath?.trim() ?? "";
   if (!trimmed) return "unset";
-  if (isSharedDbPath(trimmed)) return "shared";
+  if (isSharedDbPath(trimmed)) return "host-default";
   if (isDesktopSidecarDbPath(trimmed)) return "desktop-sidecar";
-  const isolatedBase = resolve(homedir(), ".local", "share", DB_ISOLATION_BASE_SUBDIR);
+  const isolatedBase = resolve(dataRoot(), DB_ISOLATION_BASE_SUBDIR);
   const canon = canonicalize(trimmed);
   if (canon === isolatedBase || canon.startsWith(`${isolatedBase}${sep}`)) return "isolated";
   return "custom";
@@ -50,7 +54,7 @@ export function isolatedDbPathFor(projectRoot: string, keyFile = defaultKeyFile(
     .update(canonicalize(projectRoot), "utf-8")
     .digest("hex")
     .slice(0, DB_ISOLATION_HASH_LEN);
-  return resolve(homedir(), ".local", "share", DB_ISOLATION_BASE_SUBDIR, hash, "opencode.db");
+  return resolve(dataRoot(), DB_ISOLATION_BASE_SUBDIR, hash, "opencode.db");
 }
 
 
@@ -68,47 +72,5 @@ export function readHmacKey(keyFile = defaultKeyFile()): Buffer | null {
     return k.length === 32 ? k : null;
   } catch {
     return null;
-  }
-}
-
-const warnedProjects = new Set<string>();
-
-
-export function warnIfUnisolatedDb(projectRoot: string): void {
-  try {
-    const canonical = canonicalize(projectRoot);
-    if (warnedProjects.has(canonical)) return;
-
-    const env = process.env.OPENCODE_DB?.trim();
-    if (env) {
-      if (!isSharedDbPath(env)) return;
-      warnedProjects.add(canonical);
-      logger.warn(
-        `[tawassul] ⚠️ S8 DB isolation off for "${canonical}" — OPENCODE_DB points at the SHARED database ${env}: ` +
-          `SQLITE_BUSY risk when many projects are open. ` +
-          `Run the CLI through scripts/opencode-v2-iso.sh (per-project OPENCODE_DB).`,
-        { hint: `HMAC-keyed base: ~/.local/share/${DB_ISOLATION_BASE_SUBDIR}/<keyed> ` },
-      );
-      return;
-    }
-
-    const sharedDb = resolve(homedir(), ".local", "share", "opencode", "opencode.db");
-    if (!existsSync(sharedDb)) return;
-
-    const isolated = isolatedDbPathFor(canonical);
-    if (!isolated) {
-      logger.warn(`[tawassul] ⚠️ Per-project DB isolation unavailable: no HMAC key at ${defaultKeyFile()}.`);
-      return;
-    }
-
-    warnedProjects.add(canonical);
-    logger.warn(
-      `[tawassul] ⚠️ S8 DB isolation off for "${canonical}" — shared opencode.db: ` +
-        `SQLITE_BUSY risk when many projects are open. ` +
-        `Run opencode through scripts/opencode-v2-iso.sh (per-project OPENCODE_DB → ${isolated}).`,
-      { hint: `HMAC-keyed base: ~/.local/share/${DB_ISOLATION_BASE_SUBDIR}/<keyed> ` },
-    );
-  } catch (err) {
-    logger.debug("[tawassul] S8 DB isolation gauge skipped:", err);
   }
 }

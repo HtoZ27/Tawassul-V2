@@ -69,6 +69,17 @@ DB_PATH=""
 PRUNE_DAYS=90
 BACKUP_DIR="${HOME}/.local/share/tawassul-v2/backups"
 KEEP_BACKUPS=5
+TARGET_BYTES=0
+MAX_BYTES=0
+EXPLICIT_KEEP=0
+PRUNE_BATCH=3000
+PRUNE_MAX_ITER=2000
+PRUNE_ITER=0
+EVENT_KEEP=1
+EVENT_DELETE_EXPLICIT=0
+case "$PRUNE_BATCH" in (''|*[!0-9]*) echo "❌ --batch-rows must be a positive integer (got: $PRUNE_BATCH)" >&2; exit 2 ;; esac
+case "$PRUNE_MAX_ITER" in (''|*[!0-9]*) echo "❌ --max-batches must be a positive integer (got: $PRUNE_MAX_ITER)" >&2; exit 2 ;; esac
+[ "$PRUNE_BATCH" -ge 1 ] && [ "$PRUNE_MAX_ITER" -ge 1 ] || { echo "❌ --batch-rows/--max-batches must be >= 1" >&2; exit 2; }
 MODE="run"
 ALLOW_IN_USE=0
 IGNORE_LOW_RAM=0
@@ -82,14 +93,20 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --db) DB_PATH="${2:?--db needs a path}"; shift 2 ;;
     --cooldown-mark) COOLDOWN_MARK_TO_CLEAR="${2:?--cooldown-mark needs a path}"; shift 2 ;;
-    --prune-days) PRUNE_DAYS="${2:?--prune-days needs a number}"; shift 2 ;;
+    --prune-days) PRUNE_DAYS="${2:?--prune-days needs a number}"; EXPLICIT_PRUNE=1; shift 2 ;;
     --backup-dir) BACKUP_DIR="${2:?--backup-dir needs a path}"; shift 2 ;;
-    --keep-backups) KEEP_BACKUPS="${2:?--keep-backups needs a number}"; shift 2 ;;
+    --keep-backups) KEEP_BACKUPS="${2:?--keep-backups needs a number}"; EXPLICIT_KEEP=1; shift 2 ;;
+    --target-bytes) TARGET_BYTES="${2:?--target-bytes needs a number}"; shift 2 ;;
+    --max-bytes) MAX_BYTES="${2:?--max-bytes needs a number}"; shift 2 ;;
+    --batch-rows) PRUNE_BATCH="${2:?--batch-rows needs a number}"; shift 2 ;;
+    --max-batches) PRUNE_MAX_ITER="${2:?--max-batches needs a number}"; shift 2 ;;
     --check) MODE="check"; shift ;;
     --event-only) MODE="event"; shift ;;
     --cap-bytes) CAP_BYTES="${2:?--cap-bytes needs a number}"; shift 2 ;;
     --plan) MODE="plan"; shift ;;
     --event-retention) EVENT_RETENTION="${2:?--event-retention needs all|off}"; shift 2 ;;
+    --event-keep) EVENT_KEEP="${2:?--event-keep needs a number}"; shift 2 ;;
+    --event-delete) EVENT_DELETE_EXPLICIT=1; shift ;;
     --allow-in-use) ALLOW_IN_USE=1; shift ;;
     --ignore-low-ram) IGNORE_LOW_RAM=1; shift ;;
     --allow-archive) ALLOW_ARCHIVE=1; shift ;;
@@ -109,6 +126,12 @@ trap 'rc=$?; if [ -n "${LOCK_DIR-}" ]; then rm -rf "$LOCK_DIR" 2>/dev/null || tr
 # numeric options are used in arithmetic and in `date -d` — reject junk loudly
 case "$PRUNE_DAYS" in (''|*[!0-9]*) echo "❌ --prune-days must be a non-negative integer (got: $PRUNE_DAYS)" >&2; exit 2 ;; esac
 case "$KEEP_BACKUPS" in (''|*[!0-9]*) echo "❌ --keep-backups must be a non-negative integer (got: $KEEP_BACKUPS)" >&2; exit 2 ;; esac
+case "$TARGET_BYTES" in (''|*[!0-9]*) echo "❌ --target-bytes must be a non-negative integer (got: $TARGET_BYTES)" >&2; exit 2 ;; esac
+case "$MAX_BYTES" in (''|*[!0-9]*) echo "❌ --max-bytes must be a non-negative integer (got: $MAX_BYTES)" >&2; exit 2 ;; esac
+if [ "$TARGET_BYTES" -gt 0 ] && [ "${EXPLICIT_PRUNE:-0}" = 1 ]; then
+  echo "❌ --target-bytes and --prune-days are exclusive — pick the fixed window or the solver." >&2
+  exit 2
+fi
 if [ "$KEEP_BACKUPS" -lt 1 ]; then
   echo "❌ --keep-backups must be >= 1 (0 would rotate away every backup)" >&2
   exit 2
@@ -116,6 +139,9 @@ fi
 case "$EVENT_RETENTION" in
   all|off) ;;
   *) echo "❌ --event-retention must be all|off (got: $EVENT_RETENTION)" >&2; exit 2 ;;
+esac
+case "$EVENT_KEEP" in
+  ''|*[!0-9]*) echo "❌ --event-keep must be a non-negative integer (got: $EVENT_KEEP)" >&2; exit 2 ;;
 esac
 case "$CAP_BYTES" in
   ''|*[!0-9]*) echo "❌ --cap-bytes must be a positive integer (got: $CAP_BYTES)" >&2; exit 2 ;;
@@ -131,6 +157,87 @@ assert_mutation_target() {
     *" $1 "*) return 0 ;;
     *) echo "❌ refusing mutation target '$1' — not in the allowlist ($MUTABLE_TABLES)" >&2; exit 2 ;;
   esac
+}
+cutoff_ms() {
+  local s
+  s="$(date -d "now -${1} days" +%s 2>/dev/null)" || s=""
+  case "$s" in
+    ''|*[!0-9]*) s=$(( $(date +%s) - ${1} * 86400 )) ;;
+  esac
+  printf '%d' $(( s * 1000 ))
+}
+prune_candidates() {
+  local t=0 v
+  if [ "$HIST_MESSAGE" = 1 ]; then
+    v="$(timeout 300 $RO "$(RO_DB)" "
+      SELECT count(*) FROM message
+       WHERE time_updated < ${1}
+         AND session_id NOT IN (SELECT session_id FROM message WHERE time_updated >= ${1});" 2>/dev/null)" || v=""
+    case "$v" in ''|*[!0-9]*) printf '?' ; return ;; *) t=$(( t + v )) ;; esac
+  fi
+  if [ "$HIST_V2" = 1 ]; then
+    v="$(timeout 300 $RO "$(RO_DB)" "
+      SELECT count(*) FROM session_message
+       WHERE time_updated < ${1}
+         AND session_id NOT IN (SELECT session_id FROM session_message WHERE time_updated >= ${1});" 2>/dev/null)" || v=""
+    case "$v" in ''|*[!0-9]*) printf '?' ; return ;; *) t=$(( t + v )) ;;
+    esac
+  fi
+  printf '%s' "$t"
+}
+prune_candidate_bytes() {
+  local b=0 v
+  if [ "$HIST_MESSAGE" = 1 ]; then
+    v="$(timeout 300 $RO "$(RO_DB)" "
+      SELECT CAST(total(LENGTH(data)) AS INTEGER) FROM message
+       WHERE time_updated < ${1}
+         AND session_id NOT IN (SELECT session_id FROM message WHERE time_updated >= ${1});" 2>/dev/null)" || v=""
+    case "$v" in ''|*[!0-9]*) printf '' ; return ;; *) b=$(( b + v )) ;; esac
+    v="$(timeout 300 $RO "$(RO_DB)" "
+      SELECT count(*) FROM part
+       WHERE message_id IN (SELECT id FROM message
+         WHERE time_updated < ${1}
+           AND session_id NOT IN (SELECT session_id FROM message WHERE time_updated >= ${1}));" 2>/dev/null)" || v=""
+    case "$v" in ''|*[!0-9]*) printf '' ; return ;; *) b=$(( b + v * 400 )) ;; esac
+  fi
+  if [ "$HIST_V2" = 1 ]; then
+    v="$(timeout 300 $RO "$(RO_DB)" "
+      SELECT CAST(total(LENGTH(data)) AS INTEGER) FROM session_message
+       WHERE time_updated < ${1}
+         AND session_id NOT IN (SELECT session_id FROM session_message WHERE time_updated >= ${1});" 2>/dev/null)" || v=""
+    case "$v" in ''|*[!0-9]*) printf '' ; return ;; *) b=$(( b + v )) ;;
+    esac
+  fi
+  printf '%s' "$b"
+}
+batched_prune() {
+  local tbl="$1" out del=0 total=0
+  assert_mutation_target "$tbl"
+  while : ; do
+    out="$(timeout 60 sqlite3 -cmd ".timeout 2500" "$DB_PATH" "
+      PRAGMA foreign_keys = ON;
+      DELETE FROM ${tbl} WHERE id IN (
+        SELECT id FROM ${tbl}
+         WHERE time_updated < ${CUTOFF}
+           AND session_id NOT IN (SELECT session_id FROM ${tbl} WHERE time_updated >= ${CUTOFF})
+         LIMIT ${PRUNE_BATCH}
+      );
+      SELECT changes();
+    " 2>>"$LOG_FILE")" || { echo "❌ prune of ${tbl} failed (see ${LOG_FILE}; retry offline or with --allow-in-use)." >&2; exit 5; }
+    case "$out" in
+      ''|*[!0-9]*) echo "❌ prune batch of ${tbl} returned no count — refusing to continue blind." >&2; exit 5 ;;
+    esac
+    del="$out"
+    total=$(( total + del ))
+    [ "$del" -eq 0 ] && break
+    PRUNE_ITER=$(( PRUNE_ITER + 1 ))
+    if [ "$PRUNE_ITER" -ge "$PRUNE_MAX_ITER" ]; then
+      echo "→ prune paused: batch cap (${PRUNE_MAX_ITER}) reached after ${total} rows from ${tbl} — resumes next cycle."
+      return 6
+    fi
+    sleep 0.3
+  done
+  printf '%s' "$total"
 }
 db_total_bytes() { # $1=db → main + WAL bytes, non-zero exit when unreadable
   local total=0 f n
@@ -191,17 +298,24 @@ mkdir -p "$BACKUP_DIR" 2>/dev/null || true
 BACKUP_CANON="$(cd "$BACKUP_DIR" && pwd -P)"
 case "$DB_PATH" in
   */.local/share/opencode/opencode.db|*/.local/share/opencode-backups/*)
+    archive_generation_probe() {
+      timeout 60 sqlite3 -readonly -noheader "$DB_PATH" \
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='session_v2';" 2>/dev/null
+    }
     if [ "$ALLOW_ARCHIVE" != 1 ]; then
-      echo "❌ refusing: $DB_PATH looks like a legacy archive — pass --allow-archive to touch it deliberately." >&2
+      PROBE="$(archive_generation_probe)" || PROBE=""
+      case "$PROBE" in
+        [1-9]*) echo "→ archive path check: v2 content present — not a legacy archive, continuing." ;;
+        0) echo "❌ refusing: $DB_PATH looks like a legacy archive — pass --allow-archive to touch it deliberately." >&2; exit 2 ;;
+        *) echo "❌ cannot probe the archive path (fail-closed) — pass --allow-archive to override deliberately." >&2; exit 2 ;;
+      esac
+    elif [ ! -t 0 ]; then
+      echo "❌ archive target needs an interactive CONFIRM (no tty) — aborting." >&2
       exit 2
-    fi
-    if [ -t 0 ]; then
+    else
       printf 'Archive target %s — type YES to continue: ' "$DB_PATH" >&2
       read -r REPLY 2>/dev/null || REPLY=""
       if [ "$REPLY" != "YES" ]; then echo "❌ archive CONFIRM not given — aborting." >&2; exit 2; fi
-    else
-      echo "❌ archive target needs an interactive CONFIRM (no tty) — aborting." >&2
-      exit 2
     fi
     ;;
 esac
@@ -395,6 +509,57 @@ event_delete() { # $1=db path
   assert_mutation_target event
   timeout 1800 sqlite3 -cmd ".timeout 60000" "$1" "DELETE FROM event;" 2>>"$LOG_FILE"
 }
+event_surplus() { # $1=db path $2=keep-N → rows beyond the newest N per aggregate
+  case "$2" in
+    ''|*[!0-9]*) printf '?' ; return ;;
+  esac
+  timeout 300 $RO "$(RO_URI "$1")" "
+    SELECT count(*) FROM event WHERE id IN (
+      SELECT id FROM (
+        SELECT id, ROW_NUMBER() OVER (PARTITION BY aggregate_id ORDER BY seq DESC, id DESC) AS rn FROM event
+      ) WHERE rn > ${2}
+    );" 2>/dev/null
+}
+event_execute() { # $1=0 dry-run | 1 delete — bounded per P2.9: newest EVENT_KEEP rows per aggregate
+  EV_BEFORE="$(event_count "$DB_PATH")"
+  case "$EV_BEFORE" in
+    "?"|"")
+      echo "→ event retention: count unavailable — skipped (fail-closed." >&2
+      return 0
+      ;;
+    0)
+      echo "→ event retention: 0 rows."
+      return 0
+      ;;
+  esac
+  EV_SURPLUS="$(event_surplus "$DB_PATH" "$EVENT_KEEP")"
+  case "$EV_SURPLUS" in
+    "?"|"")
+      echo "→ event retention: bounded count unavailable — skipped (fail-closed)." >&2
+      return 0
+      ;;
+    0)
+      echo "→ event retention: ${EV_BEFORE} rows, all within the newest ${EVENT_KEEP} per aggregate — nothing to delete."
+      return 0
+      ;;
+  esac
+  if [ "$1" != 1 ]; then
+    echo "→ event retention: would delete ${EV_SURPLUS} of ${EV_BEFORE} rows (keeps the newest ${EVENT_KEEP} per aggregate, P2.9) — dry run only, pass --event-delete to apply."
+    return 0
+  fi
+  if ! timeout 1800 sqlite3 -cmd ".timeout 2500" "$DB_PATH" "
+    DELETE FROM event WHERE id IN (
+      SELECT id FROM (
+        SELECT id, ROW_NUMBER() OVER (PARTITION BY aggregate_id ORDER BY seq DESC, id DESC) AS rn FROM event
+      ) WHERE rn > ${EVENT_KEEP}
+    );
+  " 2>>"$LOG_FILE"; then
+    echo "❌ event retention failed (see $LOG_FILE)." >&2
+    return 1
+  fi
+  echo "→ event retention: deleted ${EV_SURPLUS} rows (history stays in message/part)."
+  return 0
+}
 
 cap_status() {
   local total=""
@@ -414,7 +579,7 @@ require_v2_generation() { # rc: 0 proven v2 · 2 refused/missing guard
     echo "❌ generation guard missing at $_GEN_GUARD — refusing mutations." >&2
     return 2
   fi
-  out="$("$_GEN_GUARD" --db "$DB_PATH" --expect v2 2>&1)" || g_rc=$?
+  out="$("$_GEN_GUARD" --db "$DB_PATH" --expect v2 --path-rule warn 2>&1)" || g_rc=$?
   if [ "$g_rc" -ne 0 ]; then
     echo "⛔ mutations skipped: generation guard refused (rc=$g_rc) — $DB_PATH" >&2
     echo "   Prune/event-delete/VACUUM were NOT run: this DB is not proven V2." >&2
@@ -433,7 +598,7 @@ size_report "before" "$PAGES" "$PAGESIZE" "$FREELIST"
 if [ "$MODE" = "check" ]; then
   echo "→ cap: db+wal ${DB_TOTAL_BEFORE} / ${CAP_BYTES} bytes"
   if [ "$PRUNE_DAYS" -gt 0 ]; then
-    CUTOFF="$(date -d "now -${PRUNE_DAYS} days" +%s)"
+    CUTOFF="$(cutoff_ms "$PRUNE_DAYS")"
     CHK_MESSAGE="$(table_exists "$DB_PATH" message)"
     CHK_V2="$(table_exists "$DB_PATH" session_message)"
     CAND=""
@@ -464,7 +629,7 @@ if [ "$MODE" = "check" ]; then
       *\?*) CAND="UNKNOWN (schema probe failed — see stderr)" ;;
     esac
     [ -n "$CAND" ] || CAND="UNKNOWN (no message or session_message table)"
-    echo "→ ${PRUNE_DAYS} days cutoff (epoch ${CUTOFF}); dry-run only, nothing modified."
+    echo "→ ${PRUNE_DAYS} days cutoff (epoch-ms ${CUTOFF}); dry-run only, nothing modified."
     echo "→ would prune now: ${CAND} (VACUUM reclaims the pages they free)"
   else
     echo "→ pruning disabled (--prune-days 0); dry-run only, nothing modified."
@@ -487,6 +652,7 @@ if [ "$MODE" = "event" ]; then
     cap_status
     exit 0
   fi
+  require_v2_generation || exit 2
   EV_PRESENT="$(event_present "$DB_PATH")"
   case "$EV_PRESENT" in
     0) echo "→ no event table — nothing to delete."; cap_status; exit 0 ;;
@@ -506,24 +672,21 @@ if [ "$MODE" = "event" ]; then
     echo "   Event retention only runs pre-launch (close the app first)." >&2
     exit 3
   fi
-  require_v2_generation || exit 2
   EV_BEFORE="$(event_count "$DB_PATH")"
   case "$EV_BEFORE" in
     \?) echo "❌ cannot count event rows (fail-closed) — refusing." >&2; exit 3 ;;
     0) echo "→ event retention: 0 rows."; cap_status; exit 0 ;;
   esac
-  if ! event_delete "$DB_PATH"; then
-    echo "❌ event retention failed (see $LOG_FILE)." >&2
+  if ! event_execute "$EVENT_DELETE_EXPLICIT"; then
     exit 5
   fi
-  echo "→ event retention: deleted ${EV_BEFORE} rows (history stays in message/part)."
   cap_status
   exit 0
 fi
 
 HIST_MESSAGE="?"
 HIST_V2="?"
-if [ "$PRUNE_DAYS" -gt 0 ]; then
+if [ "$PRUNE_DAYS" -gt 0 ] || [ "$TARGET_BYTES" -gt 0 ]; then
   HIST_MESSAGE="$(table_exists "$DB_PATH" message)"
   HIST_V2="$(table_exists "$DB_PATH" session_message)"
   case "$HIST_MESSAGE" in \?) echo "❌ cannot probe the legacy message table (fail-closed)." >&2; exit 3 ;; esac
@@ -543,6 +706,46 @@ if [ "$ALLOW_IN_USE" = 0 ]; then
 fi
 
 require_v2_generation || exit 2
+
+if [ "$MAX_BYTES" -gt 0 ] && [ "$DB_TOTAL_BEFORE" -lt "$MAX_BYTES" ]; then
+  echo "→ db+wal ${DB_TOTAL_BEFORE} below the nothing-to-do gate (--max-bytes ${MAX_BYTES}) — no copy, no rotation (P2.7)."
+  size_report "after" "$PAGES" "$PAGESIZE" "$FREELIST"
+  exit 0
+fi
+PRUNE_EFF="$PRUNE_DAYS"
+if [ "$TARGET_BYTES" -gt 0 ]; then
+  PRUNE_EFF=0
+fi
+PRUNE_CANDS=0
+PRUNE_PROBE_OK=1
+if [ "$PRUNE_EFF" -gt 0 ]; then
+  PC="$(prune_candidates "$(cutoff_ms "$PRUNE_EFF")")"
+  case "$PC" in
+    ''|*[!0-9]*) PRUNE_PROBE_OK=0 ;;
+    *) PRUNE_CANDS="$PC" ;;
+  esac
+fi
+EV_WORK=0
+if [ "$EVENT_RETENTION" = "all" ]; then
+  EV_PRESENT="$(event_present "$DB_PATH")"
+  case "$EV_PRESENT" in
+    1) EV_COUNT="$(event_count "$DB_PATH")"; case "$EV_COUNT" in ''|*[!0-9]*) EV_COUNT=0 ;; esac; [ "$EV_COUNT" -gt 0 ] && EV_WORK=1 ;;
+  esac
+fi
+if [ "$PRUNE_PROBE_OK" = 1 ] && [ "$PRUNE_CANDS" -eq 0 ] && [ "$EV_WORK" = 0 ] && [ "$TARGET_BYTES" -eq 0 ]; then
+  echo "→ nothing to do: 0 prune candidates beyond ${PRUNE_EFF}d and no event work — no copy, no rotation (P2.7)."
+  exit 0
+fi
+if [ "$TARGET_BYTES" -gt 0 ] && [ "$PRUNE_DAYS" -eq 0 ]; then
+  P3="$(prune_candidates "$(cutoff_ms 3)")"
+  case "$P3" in
+    ''|*[!0-9]*) echo "❌ floor-window candidate count unavailable — refusing an unprovable solver run." >&2; exit 3 ;;
+  esac
+  if [ "$P3" -eq 0 ] && [ "$EV_WORK" = 0 ]; then
+    echo "→ nothing to do: 0 prune candidates even at the 3d floor and no event work — no copy, no rotation (P2.7)."
+    exit 0
+  fi
+fi
 
 # ── backup (online backup API — consistent even if WAL present) ───────────────
 BACKUP_NAME="opencode-$(date +%Y%m%d-%H%M%S).db"
@@ -576,39 +779,69 @@ if [ "$SRC_V2" != "$BKP_V2" ] || [ "$SRC_V1" != "$BKP_V1" ] || [ "$SRC_SM" != "$
   exit 4
 fi
 echo "→ backup verified (quick_check=ok, session_v2=$BKP_V2, session=$BKP_V1, session_message=$BKP_SM)"
+if [ "$EXPLICIT_KEEP" = 0 ]; then
+  if [ "$DB_TOTAL_BEFORE" -gt 1073741824 ]; then
+    KEEP_BACKUPS=2
+  else
+    KEEP_BACKUPS=5
+  fi
+  echo "→ keep-backups: ${KEEP_BACKUPS} (size-aware, db+wal ${DB_TOTAL_BEFORE})"
+fi
 ls -1t "$BACKUP_DIR"/opencode-*.db 2>/dev/null | tail -n +$((KEEP_BACKUPS + 1)) | xargs -r rm -f --
 
 # ── prune old messages+parts (sessions untouched) ─────────────────────────────
-if [ "$PRUNE_DAYS" -gt 0 ]; then
-  CUTOFF="$(date -d "now -${PRUNE_DAYS} days" +%s)"
-  echo "→ prune: messages/parts older than ${PRUNE_DAYS} days (cutoff $CUTOFF)"
-  # foreign_keys=ON is REQUIRED: the sqlite3 CLI defaults it OFF, and without it
-  # the part rows that ON DELETE CASCADE should remove survive as orphans
-  # (proven: 4 parts survived a 2-message prune until this pragma was added).
-  # The session join is intentionally absent: v2 sessions live in session_v2,
-  # and a session table join skipped every migrated message.
+# foreign_keys=ON is required: the sqlite3 CLI defaults it OFF and part rows
+# would survive as orphans (proven). The session join is intentionally absent:
+# v2 sessions live in session_v2 and a session-table join skips migrated rows.
+# P2.4 shape: bounded batches (3000 rows), busy timeout 2500 ms, short pause —
+# every write finishes well under the host's 5000 ms lock waiting time.
+if [ "$PRUNE_EFF" -gt 0 ] || [ "$TARGET_BYTES" -gt 0 ]; then
+  if [ "$TARGET_BYTES" -eq 0 ]; then
+    PICK="$PRUNE_DAYS"
+  else
+    NEED=$(( DB_TOTAL_BEFORE - TARGET_BYTES ))
+    if [ "$NEED" -le 0 ]; then
+      echo "→ db+wal ${DB_TOTAL_BEFORE} already at or below the ${TARGET_BYTES}-byte target — nothing to prune."
+      size_report "after" "$(pragma_read page_count 120 0)" "$PAGESIZE" "$(pragma_read freelist_count 30 0)"
+      exit 0
+    fi
+    PICK=""
+    EST=0
+    for W in 90 45 21 7 3; do
+      EST="$(prune_candidate_bytes "$(cutoff_ms "$W")")"
+      case "$EST" in
+        ''|*[!0-9]*) echo "❌ window estimate unavailable at ${W}d — refusing an unprovable solver run." >&2; exit 3 ;;
+      esac
+      if [ "$EST" -ge "$NEED" ]; then PICK="$W"; break; fi
+    done
+    if [ -n "$PICK" ]; then
+      echo "→ window ladder picked ${PICK}d: candidates hold ~${EST} bytes of the ${NEED} needed to reach the target"
+    else
+      PICK=3
+      SHORT=$(( NEED - EST ))
+      echo "→ window ladder could not reach the target: the 3d floor holds ~${EST} bytes against ${NEED} — short by ${SHORT} (in-session rung is a later plan step)"
+    fi
+  fi
+  CUTOFF="$(cutoff_ms "$PICK")"
+  echo "→ prune: messages/parts older than ${PICK} days (cutoff epoch-ms $CUTOFF), batches of ${PRUNE_BATCH} rows, busy_timeout 2500ms"
+  ROWS_TOTAL=0
   if [ "$HIST_MESSAGE" = 1 ]; then
-    assert_mutation_target message
-    timeout 1800 sqlite3 -cmd ".timeout 60000" "$DB_PATH" "
-      PRAGMA foreign_keys = ON;
-      DELETE FROM message
-       WHERE time_updated < $CUTOFF
-         AND session_id NOT IN (
-           SELECT session_id FROM message WHERE time_updated >= $CUTOFF
-         );
-    " 2>>"$LOG_FILE" || { echo "❌ legacy message prune failed (see $LOG_FILE; retry offline or with --allow-in-use)." >&2; exit 5; }
+    PRUNE_OUT="$(batched_prune message)" || PRUNE_RC=$?
+    case "${PRUNE_RC:-0}" in
+      6) printf '%s\n' "$PRUNE_OUT"; size_report "after" "$(pragma_read page_count 120 0)" "$PAGESIZE" "$(pragma_read freelist_count 30 0)"; exit 6 ;;
+      *) ROWS_TOTAL=$(( ROWS_TOTAL + PRUNE_OUT )) ;;
+    esac
+    PRUNE_RC=0
   fi
   if [ "$HIST_V2" = 1 ]; then
-    assert_mutation_target session_message
-    timeout 1800 sqlite3 -cmd ".timeout 60000" "$DB_PATH" "
-      PRAGMA foreign_keys = ON;
-      DELETE FROM session_message
-       WHERE time_updated < $CUTOFF
-         AND session_id NOT IN (
-           SELECT session_id FROM session_message WHERE time_updated >= $CUTOFF
-         );
-    " 2>>"$LOG_FILE" || { echo "❌ v2 session_message prune failed (see $LOG_FILE; retry offline or with --allow-in-use)." >&2; exit 5; }
+    PRUNE_OUT="$(batched_prune session_message)" || PRUNE_RC=$?
+    case "${PRUNE_RC:-0}" in
+      6) printf '%s\n' "$PRUNE_OUT"; size_report "after" "$(pragma_read page_count 120 0)" "$PAGESIZE" "$(pragma_read freelist_count 30 0)"; exit 6 ;;
+      *) ROWS_TOTAL=$(( ROWS_TOTAL + PRUNE_OUT )) ;;
+    esac
+    PRUNE_RC=0
   fi
+  echo "→ prune: deleted ${ROWS_TOTAL} rows total (1.47 ms/row measured — F29), history tables only, sessions untouched"
 fi
 
 # ── host event retention (S-040) ──────────────────────────────────────────────
@@ -635,8 +868,8 @@ if [ "$EVENT_RETENTION" = "all" ]; then
             [ -z "$EV_HOLDERS" ] && EV_LIVE=0
           fi
           if [ "$EV_LIVE" = 0 ]; then
-            if event_delete "$DB_PATH"; then
-              echo "→ event retention: deleted ${EV_BEFORE} rows (history stays in message/part)."
+            if event_execute "$EVENT_DELETE_EXPLICIT"; then
+              :
             else
               echo "❌ event retention failed (see $LOG_FILE)." >&2
               exit 5

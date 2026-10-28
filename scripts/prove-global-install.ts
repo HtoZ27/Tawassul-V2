@@ -2,11 +2,13 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   appendFileSync,
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -48,6 +50,15 @@ const WASM_FILES = [
   join(WASM, "tree-sitter-typescript", "tree-sitter-typescript.wasm"),
   join(WASM, "tree-sitter-typescript", "tree-sitter-tsx.wasm"),
 ];
+const DB_DIR = join(RUNTIME, "db");
+const DB_FILES: Array<[string, string]> = [
+  ["maintenance", "opencode-db-maintenance.sh"],
+  ["guard", "guard-db-generation.sh"],
+  ["scheduled", "opencode-db-scheduled.sh"],
+  ["db-env", "db-env.sh"],
+];
+const SMOKE_ROOT = join(ROOT, "smoke");
+const SMOKE_DB = join(SMOKE_ROOT, "opencode.db");
 
 type Marker = {
   package?: string;
@@ -55,6 +66,8 @@ type Marker = {
   host?: string;
   bundle?: { path?: string; sha256?: string; bytes?: number };
   wasm?: Record<string, { path?: string; sha256?: string; bytes?: number }>;
+  db?: Record<string, { path?: string; sha256?: string; bytes?: number }>;
+  preflight?: Record<string, string>;
 };
 
 function proofEnv(): NodeJS.ProcessEnv {
@@ -67,6 +80,7 @@ function proofEnv(): NodeJS.ProcessEnv {
     XDG_CACHE_HOME: join(HOME, ".cache"),
     PATH: "/usr/bin:/bin",
     TAWASSUL_OPENCODE_VERSION: "2.2.0",
+    OPENCODE_DB: SMOKE_DB,
   };
   delete next.TAWASSUL_GLOBAL_DIR;
   delete next.TAWASSUL_SCOPE;
@@ -104,9 +118,45 @@ function selfContainedBundle(text: string): boolean {
   );
 }
 
+function createSyntheticDb(): string {
+  const result = spawnSync(
+    "sqlite3",
+    [
+      SMOKE_DB,
+      [
+        "CREATE TABLE IF NOT EXISTS session_v2 (id TEXT PRIMARY KEY);",
+        "CREATE TABLE IF NOT EXISTS session (id TEXT PRIMARY KEY);",
+        "CREATE TABLE IF NOT EXISTS session_message (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, type TEXT NOT NULL, seq INTEGER NOT NULL, time_created INTEGER NOT NULL, time_updated INTEGER NOT NULL, data TEXT NOT NULL);",
+        "CREATE TABLE IF NOT EXISTS event (id TEXT PRIMARY KEY, aggregate_id TEXT NOT NULL, seq INTEGER NOT NULL, type TEXT NOT NULL, data TEXT NOT NULL, created INTEGER DEFAULT 0 NOT NULL);",
+        "CREATE TABLE IF NOT EXISTS event_sequence (aggregate_id TEXT PRIMARY KEY, seq INTEGER NOT NULL, owner_id TEXT);",
+        "CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+        "INSERT INTO session_v2 VALUES ('sm-s1');",
+        "INSERT INTO kv VALUES ('migration.v1-v2','{\"phase\":\"completed\"}');",
+      ].join(""),
+    ],
+    { encoding: "utf-8" },
+  );
+  if (result.status !== 0) fail(`synthetic v2 DB creation failed: ${result.stderr ?? ""}`);
+  return SMOKE_DB;
+}
+
+function runInstalledMaintenance(args: string[]): { code: number; out: string } {
+  const result = spawnSync(
+    "bash",
+    [join(DB_DIR, "opencode-db-maintenance.sh"), ...args],
+    { encoding: "utf-8" },
+  );
+  return {
+    code: result.status ?? -1,
+    out: `${result.stdout ?? ""}${result.stderr ?? ""}`,
+  };
+}
+
 try {
   mkdirSync(GLOBAL, { recursive: true });
   writeFileSync(USER_CONFIG, BODY);
+  mkdirSync(SMOKE_ROOT, { recursive: true });
+  createSyntheticDb();
 
   const installed = run([]);
   assert(installed.code === 0, "install exits 0");
@@ -131,6 +181,23 @@ try {
     assert(existsSync(join(GLOBAL, entry.path ?? "")), `${id} path resolves under the global config`);
   }
   assert(readFileSync(USER_CONFIG, "utf-8") === BODY, "install leaves the user config byte-identical");
+  assert(installed.out.includes("smoke ok"), "the installer smoke checked the synthetic v2 DB");
+  assert(Object.keys(record.db ?? {}).length === DB_FILES.length, "marker records every db script");
+  assert(record.preflight !== undefined && Object.keys(record.preflight).length >= 4, "marker records the dependency probe");
+  for (const [id, file] of DB_FILES) {
+    const dest = join(DB_DIR, file);
+    assert(existsSync(dest), `db script is staged (${file})`);
+    assert(
+      (statSync(dest).mode & 0o100) !== 0,
+      `db script keeps its exec bit (${file})`,
+    );
+    assert(sha256(dest) === sha256(join(REPO, "scripts", file)), `db script is byte-identical to the repo (${file})`);
+    const entry = record.db?.[id];
+    assert(Boolean(entry?.sha256), `marker db record carries a hash for ${id}`);
+    assert(entry?.sha256 === sha256(dest), `marker db hash matches the staged file for ${id}`);
+    assert(existsSync(join(GLOBAL, entry?.path ?? "")), `marker db path resolves for ${id}`);
+  }
+  assert(runInstalledMaintenance(["--db", SMOKE_DB, "--check", "--ignore-low-ram"]).code === 0, "installed maintenance --check exits 0 against the synthetic v2 DB");
 
   const rangeEnv = proofEnv();
   delete rangeEnv.TAWASSUL_OPENCODE_VERSION;
@@ -197,9 +264,29 @@ try {
   assert(repaired.code === 0 && !repaired.out.includes("already installed"), "install repairs a tampered wasm asset");
   assert(run(["--verify"]).code === 0, "verify passes after repair");
 
+  appendFileSync(join(DB_DIR, "db-env.sh"), Buffer.from("\n"));
+  const tamperedDb = run(["--verify"]);
+  assert(tamperedDb.code !== 0 && tamperedDb.out.includes("db size mismatch for db-env"), "verify names a tampered db script");
+  const repairedDb = run([]);
+  assert(repairedDb.code === 0 && !repairedDb.out.includes("already installed"), "install repairs a tampered db script");
+  assert(run(["--verify"]).code === 0, "verify passes after the db repair");
+
+  chmodSync(join(DB_DIR, "guard-db-generation.sh"), 0o600);
+  const execBit = run(["--verify"]);
+  assert(execBit.code !== 0 && execBit.out.includes("lost its exec bit"), "verify fails when a db script loses its exec bit");
+  assert(run([]).code === 0, "install restores db script permissions");
+
+  const stripped = marker();
+  delete stripped.db;
+  writeFileSync(MARKER, `${JSON.stringify(stripped, null, 2)}\n`);
+  const noPayload = run(["--verify"]);
+  assert(noPayload.code !== 0 && noPayload.out.includes("no db payload"), "verify refuses a marker without the db payload");
+  assert(run([]).code === 0, "install rewrites the marker with the db payload");
+
   const removed = run(["--uninstall"]);
   assert(removed.code === 0 && !existsSync(TARGET), "uninstall removes the flat plugin file");
   assert(!existsSync(RUNTIME), "uninstall removes the runtime directory");
+  assert(!existsSync(DB_DIR), "uninstall removes the staged db scripts with the runtime");
   assert(readFileSync(USER_CONFIG, "utf-8") === BODY, "uninstall leaves the user config byte-identical");
 
   const dry = run(["--dry-run"]);

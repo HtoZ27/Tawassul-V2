@@ -3,9 +3,9 @@ import type { ToolDefinition } from "../../tool.ts";
 import type { TawassulContext } from "../../context.ts";
 import { countPendingPersists } from "../../services/persist-utils.ts";
 import { logger } from "../../utils/logger.ts";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
-import { defaultKeyFile, classifyDbLane, isolatedDbPathFor } from "../../bootstrap/db-isolation.ts";
+import { defaultKeyFile, classifyDbLane, isolatedDbPathFor, dataRoot } from "../../bootstrap/db-isolation.ts";
 import { scopedStatePath, statePath } from "../../utils/state-paths.ts";
 
 const LAG_WARN_THRESHOLD_MS = 500;
@@ -71,17 +71,17 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
       const rss = rssMb();
       const activeTimers = ctx.timerManager?.activeCount ?? 0;
       const dbEnv = process.env.OPENCODE_DB?.trim() ?? "";
-      const dbLane = classifyDbLane(dbEnv);
-      const dbIsolated = dbLane !== "shared" && dbLane !== "unset";
+      const dbPath = dbEnv || resolve(dataRoot(), "opencode", "opencode.db");
+      const dbSource = dbEnv ? "OPENCODE_DB" : "host default";
+      const dbLane = classifyDbLane(dbPath);
+      const dbIsolated = dbLane !== "host-default" && dbLane !== "unset";
       const keyFile = defaultKeyFile();
       const keyPresent = existsSync(keyFile);
       const expectedDb = keyPresent ? isolatedDbPathFor(ctx.stateDir, keyFile) : null;
-      const desktopSidecar = dbLane === "desktop-sidecar";
-      const dbMatches = desktopSidecar
-        ? true
-        : dbEnv && expectedDb
-          ? resolve(dbEnv) === resolve(expectedDb)
-          : null;
+      const dbMatches = dbEnv && expectedDb ? resolve(dbEnv) === resolve(expectedDb) : null;
+      const mainBytes = existsSync(dbPath) ? statSync(dbPath).size : null;
+      const walBytes = existsSync(`${dbPath}-wal`) ? statSync(`${dbPath}-wal`).size : null;
+      const sizeText = mainBytes === null ? "absent" : `main ${mainBytes} / WAL ${walBytes ?? 0}`;
       const routerFile = scopedStatePath(ctx.stateDir, ctx.scope, "predictive-router.json");
       const legacyRouterFile = statePath("predictive-router.json");
       const flushes = pendingFlushes();
@@ -92,11 +92,10 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
           `- Event-loop lag: ${lagMs}ms`,
           `- RSS: ${rss} MiB`,
           `- Active timers: ${activeTimers}`,
-          `- DB: ${dbIsolated ? "isolated" : "shared"}`,
+          `- DB path (${dbSource}): ${dbPath}`,
           `- DB lane: ${dbLane}`,
-          `- DB path: ${dbEnv || "(unset)"}`,
-          `- DB expected: ${expectedDb ?? "(no HMAC key)"}`,
-          `- DB matches isolation: ${dbMatches === null ? "unknown" : dbMatches ? "yes" : "no"}`,
+          `- DB isolated: ${dbIsolated ? "yes" : "no"}`,
+          `- DB size: ${sizeText}`,
           `- Scope: ${ctx.scope}`,
           `- State dir: ${ctx.stateDir}`,
           `- State file: ${ctx.statePath()}`,
@@ -104,6 +103,8 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
           `- Router legacy: ${legacyRouterFile} (${existsSync(legacyRouterFile) ? "exists" : "missing"})`,
           `- HMAC key: ${keyFile} (${keyPresent ? "present" : "missing"})`,
           `- Pending flushes: ${flushes}`,
+          ...(expectedDb && dbMatches !== null ? [`- DB expected: ${expectedDb}`] : []),
+          ...(dbMatches !== null ? [`- DB matches isolation: ${dbMatches ? "yes" : "no"}`] : []),
         ].join("\n"),
       };
     },

@@ -46,7 +46,6 @@ import { createHandoffEntry } from "../services/handoff-entry.ts";
 import { requiresConsent } from "../hooks/guards/shared/limits.ts";
 import { evaluateFreeLimitBridge, buildFreeLimitNotice, shouldDeferRateLimitToHost } from "../services/free-limit.ts";
 import { detectInstallScope, claimCoexistence, isCoexistenceOwner, releaseCoexistence } from "../core/install-scope.ts";
-import { warnIfUnisolatedDb } from "./db-isolation.ts";
 import {
   ensureAddAgentToolPermissions,
   ensureTawaToolPermissions,
@@ -346,9 +345,6 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
     );
   }
 
-  warnIfUnisolatedDb(ctx.directory);
-
-  
   
   
   
