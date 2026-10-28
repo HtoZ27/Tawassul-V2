@@ -387,14 +387,16 @@ echo "$BASHPID" > "$LOCK_OWNER" 2>/dev/null || true
 # failure — but ANY stderr noise (unreadable /proc, hardening profiles) or
 # rc>=2 means the answer is unreliable. rc: 0 = answered (output decides),
 # 1 = unreliable → caller must fail closed, never "no holders".
-fuser_holders() { # $1=db → holders on stdout
-  local _db="$1" _err="" _out="" _rc=0
-  _err="$(mktemp 2>/dev/null)" || return 1
-  _out="$(fuser "$_db" 2>"$_err")" || _rc=$?
-  if [ -s "$_err" ] || [ "$_rc" -ge 2 ]; then _rc=1; else _rc=0; fi
-  rm -f "$_err" 2>/dev/null || true
-  printf '%s' "$_out"
-  return "$_rc"
+fuser_holders() { # $1=db → 0 no holders | 3 holders exist | 1 unreliable
+  local _db="$1" _rc=0
+  command -v fuser >/dev/null 2>&1 || return 1
+  [ -e "$_db" ] || return 1
+  fuser -s "$_db" 2>/dev/null || _rc=$?
+  case "$_rc" in
+    0) return 3 ;;
+    1) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 if [ "$MODE" != "check" ] && [ "$ALLOW_IN_USE" = 0 ]; then
   # A missing `fuser` must never read as "nobody holds the DB" (fail-closed).
@@ -403,16 +405,12 @@ if [ "$MODE" != "check" ] && [ "$ALLOW_IN_USE" = 0 ]; then
     echo "   Install util-linux, or re-run with --allow-in-use if you are certain it is offline." >&2
     exit 3
   fi
-  HOLDERS=""
-  if ! HOLDERS="$(fuser_holders "$DB_PATH")"; then
-    echo "❌ fuser unreliable — cannot prove the DB is quiescent (fail-closed)." >&2
-    exit 3
-  fi
-  if [ -n "$HOLDERS" ]; then
-    echo "❌ DB is in use by process(es): $(printf '%s' "$HOLDERS" | tail -c 60)" >&2
-    echo "   Close the Desktop app first (or use --allow-in-use for backup+prune; VACUUM stays offline-only)." >&2
-    exit 3
-  fi
+  H_RC=0
+  fuser_holders "$DB_PATH" || H_RC=$?
+  case "$H_RC" in
+    1) echo "❌ fuser unreliable — cannot prove the DB is quiescent (fail-closed)." >&2; exit 3 ;;
+    3) echo "❌ DB is in use by another process — close the Desktop app first (or use --allow-in-use for backup+prune; VACUUM stays offline-only)." >&2; exit 3 ;;
+  esac
 fi
 if [ "$IGNORE_LOW_RAM" = 0 ]; then
   # RULES.md: never run heavy ops below 1.5GB free RAM. An unreadable or
@@ -662,16 +660,12 @@ if [ "$MODE" = "event" ]; then
     echo "❌ fuser not found (util-linux) — cannot prove the DB is quiescent." >&2
     exit 3
   fi
-  EV_HOLDERS=""
-  if ! EV_HOLDERS="$(fuser_holders "$DB_PATH")"; then
-    echo "❌ fuser unreliable — cannot prove the DB is quiescent (fail-closed)." >&2
-    exit 3
-  fi
-  if [ -n "$EV_HOLDERS" ]; then
-    echo "❌ DB is in use by process(es): $(printf '%s' "$EV_HOLDERS" | tail -c 60)" >&2
-    echo "   Event retention only runs pre-launch (close the app first)." >&2
-    exit 3
-  fi
+  EV_RC=0
+  fuser_holders "$DB_PATH" || EV_RC=$?
+  case "$EV_RC" in
+    1) echo "❌ fuser unreliable — cannot prove the DB is quiescent (fail-closed)." >&2; exit 3 ;;
+    3) echo "❌ DB is in use by another process — event retention only runs pre-launch (close the app first)." >&2; exit 3 ;;
+  esac
   EV_BEFORE="$(event_count "$DB_PATH")"
   case "$EV_BEFORE" in
     \?) echo "❌ cannot count event rows (fail-closed) — refusing." >&2; exit 3 ;;
@@ -864,8 +858,10 @@ if [ "$EVENT_RETENTION" = "all" ]; then
           ;;
         *)
           EV_LIVE=1
-          if command -v fuser >/dev/null 2>&1 && EV_HOLDERS="$(fuser_holders "$DB_PATH")"; then
-            [ -z "$EV_HOLDERS" ] && EV_LIVE=0
+          EV_RC=0
+          if command -v fuser >/dev/null 2>&1; then
+            fuser_holders "$DB_PATH" || EV_RC=$?
+            [ "$EV_RC" = 0 ] && EV_LIVE=0
           fi
           if [ "$EV_LIVE" = 0 ]; then
             if event_execute "$EVENT_DELETE_EXPLICIT"; then
@@ -900,43 +896,81 @@ if [ "$ALLOW_IN_USE" = 0 ]; then
 fi
 
 # ── vacuum: reclaim every freed page ──────────────────────────────────────────
-# VACUUM needs room for a full copy of the DB while it runs; refuse rather than
-# fill the disk and abort halfway. An unreadable df refuses too (fail-closed).
-# df -B1 reports exact bytes (df -P's "512B blocks" is 2x wrong on BSD/macOS).
-AVAIL_BYTES="$(df -B1 --output=avail "$DB_DIR" 2>/dev/null | awk 'NR==2 {print $1}')"
-case "$AVAIL_BYTES" in
-  ''|*[!0-9]*)
-    echo "❌ cannot determine free space in $DB_DIR — refusing VACUUM." >&2
-    exit 7
-    ;;
-esac
-if [ "$AVAIL_BYTES" -lt "$DB_SIZE_BEFORE" ]; then
-  echo "❌ free space in $DB_DIR (${AVAIL_BYTES} bytes) < DB size (${DB_SIZE_BEFORE} bytes)." >&2
-  echo "   VACUUM needs room for a second copy — free space first (or skip it)." >&2
-  exit 7
-fi
-# Live VACUUM is forbidden under every flag: re-check holders HERE, because the
-# earlier gate may have been bypassed with --allow-in-use for backup+prune.
+# P2.5/P2 item 5 shape, corrected: wal_checkpoint(TRUNCATE) FIRST (the swap and
+# any in-place VACUUM then see a zeroed WAL), the F27 space gate (free space
+# ≥ db+wal + 1 GiB headroom, TAWASSUL_VACUUM_MIN_FREE overridable for trials),
+# and where sqlite3 offers VACUUM INTO (3.27+) the reclaim writes a rebuilt
+# file and swap-renames it atomically instead of rewriting in place. Failure
+# of the swap lane falls back to the in-place VACUUM; the prune never shares
+# a step with the reclaim (separate statements above).
+sqlite_version_ge() { # sqlite3 ≥ $1 → 0
+  local v
+  v="$(sqlite3 --version 2>/dev/null | awk 'NR==1 {print $1}')"
+  case "$v" in ''|*[!0-9.]*) return 1 ;; esac
+  printf '%s' "$v" | awk -F. -v want="$1" 'BEGIN{split(want,w,".")}
+    {for(i=1;i<=3;i++){a=$i+0;b=w[i]+0;if(a>b)exit 0;if(a<b)exit 1};exit 0}'
+}
 VACUUM_SKIPPED=0
 if command -v fuser >/dev/null 2>&1; then
-  VHOLDERS=""
-  if ! VHOLDERS="$(fuser_holders "$DB_PATH")"; then
-    echo "→ VACUUM skipped: fuser unreliable — cannot prove quiescence (fail-closed)." >&2
-    VACUUM_SKIPPED=1
-  elif [ -n "$VHOLDERS" ]; then
-    echo "→ VACUUM skipped: DB is in use (needs an exclusive lock) — backup+prune done, rerun offline for the shrink." >&2
-    VACUUM_SKIPPED=1
-  fi
+  VH_RC=0
+  fuser_holders "$DB_PATH" || VH_RC=$?
+  case "$VH_RC" in
+    1) echo "→ VACUUM skipped: fuser unreliable — cannot prove quiescence (fail-closed)." >&2; VACUUM_SKIPPED=1 ;;
+    3) echo "→ VACUUM skipped: DB is in use (needs an exclusive lock) — backup+prune done, rerun offline for the shrink." >&2; VACUUM_SKIPPED=1 ;;
+  esac
 else
   echo "→ VACUUM skipped: fuser missing, cannot prove the DB is quiescent — rerun with util-linux installed." >&2
   VACUUM_SKIPPED=1
 fi
 if [ "$VACUUM_SKIPPED" = 0 ]; then
-  echo "→ vacuum (this is the actual shrink step — can take a while)…"
-  timeout 3600 sqlite3 -cmd ".timeout 60000" "$DB_PATH" "VACUUM;" 2>>"$LOG_FILE" || {
-    echo "❌ VACUUM failed — DB unchanged beyond the prune; safe to rerun (see $LOG_FILE)." >&2
-    exit 6
-  }
+  VACUUM_HEADROOM="${TAWASSUL_VACUUM_MIN_FREE:-1073741824}"
+  AVAIL_BYTES="$(df -B1 --output=avail "$DB_DIR" 2>/dev/null | awk 'NR==2 {print $1}')"
+  case "$AVAIL_BYTES" in
+    ''|*[!0-9]*)
+      echo "❌ cannot determine free space in $DB_DIR — refusing VACUUM." >&2
+      exit 7
+      ;;
+  esac
+  VACUUM_NEED=$(( DB_TOTAL_BEFORE + VACUUM_HEADROOM ))
+  if [ "$AVAIL_BYTES" -lt "$VACUUM_NEED" ]; then
+    echo "❌ free space in $DB_DIR (${AVAIL_BYTES} bytes) < db+wal+1GiB gate (${VACUUM_NEED} bytes)." >&2
+    echo "   VACUUM needs room for a second copy (F27) — free space first (or skip it)." >&2
+    exit 7
+  fi
+  CKT="$(timeout 60 sqlite3 -cmd '.timeout 2500' "$DB_PATH" "PRAGMA wal_checkpoint(TRUNCATE);" 2>>"$LOG_FILE" || true)"
+  case "$CKT" in
+    -1*|1*) echo "→ wal_checkpoint(TRUNCATE) busy (${CKT}) — PASSIVE fallback" ;;
+    *) echo "→ wal_checkpoint TRUNCATE ok (${CKT:-0|0|0})" ;;
+  esac
+  if sqlite_version_ge "3.27.0"; then
+    TMP="${DB_PATH}.vacuum-swap.$$"
+    SRC_MODE="$(sqlite3 -readonly "$DB_PATH" "PRAGMA journal_mode;" 2>/dev/null)"
+    if timeout 3600 sqlite3 -cmd '.timeout 2500' "$DB_PATH" "VACUUM INTO '$TMP';" 2>>"$LOG_FILE" \
+      && [ "$(sqlite3 -readonly "$TMP" "PRAGMA quick_check;" 2>>"$LOG_FILE")" = "ok" ]; then
+      [ "$SRC_MODE" = "wal" ] && sqlite3 "$TMP" "PRAGMA journal_mode=wal;" >/dev/null 2>>"$LOG_FILE" || true
+      chmod "$(stat -c '%a' "$DB_PATH" 2>/dev/null || printf 644)" "$TMP" 2>/dev/null || true
+      if mv -f "$TMP" "$DB_PATH" 2>>"$LOG_FILE"; then
+        rm -f "${DB_PATH}-wal" "${DB_PATH}-shm" 2>/dev/null || true
+        echo "→ vacuum into-swap: rebuilt file verified (quick_check=ok) and swapped atomically; stale -wal/-shm cleared"
+        VACUUM_DONE=1
+      else
+        echo "⚠️  vacuum swap rename failed — original untouched; retrying in place" >&2
+        rm -f "$TMP" 2>/dev/null || true
+      fi
+    else
+      echo "⚠️  vacuum into-swap failed (see $LOG_FILE) — falling back to in-place VACUUM" >&2
+      rm -f "$TMP" 2>/dev/null || true
+    fi
+  else
+    echo "→ sqlite3 is older than 3.27.0 — VACUUM INTO unavailable, in-place VACUUM"
+  fi
+  if [ "${VACUUM_DONE:-0}" != 1 ]; then
+    echo "→ vacuum (this is the actual shrink step — can take a while)…"
+    timeout 3600 sqlite3 -cmd ".timeout 60000" "$DB_PATH" "VACUUM;" 2>>"$LOG_FILE" || {
+      echo "❌ VACUUM failed — DB unchanged beyond the prune; safe to rerun (see $LOG_FILE)." >&2
+      exit 6
+    }
+  fi
 fi
 
 # ── report ────────────────────────────────────────────────────────────────────

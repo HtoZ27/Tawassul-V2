@@ -27,8 +27,18 @@ exists. P1.8 is proven by extending `scripts/prove-global-install.ts`
 (synthetic v2 DB driven through OPENCODE_DB, smoke output asserted, the
 installed `--check` exiting 0, tamper/exec-bit/missing-payload refusals, byte
 fidelity against the repo source, uninstall sweep) — `npm run ci` is green
-end to end. Open: P2 in-session rung, P2.5 VACUUM-INTO swap, checkpoint-first
-on the quiescent rung, P3, P4, P5, P6, P7.
+end to end. Fourth batch, same day — P2 item 5 landed: the quiescent reclaim
+now checkpoints TRUNCATE first, then rebuilds with `VACUUM INTO` (sqlite3
+≥ 3.27) and swaps the file atomically, clearing the stale -wal/-shm; a swap
+failure falls back to the in-place VACUUM; the F27 space gate (free ≥
+db+wal+1 GiB, TAWASSUL_VACUUM_MIN_FREE overridable) refuses the reclaim
+fail-closed; and fuser_holders switched to `fuser -s` with an rc protocol
+(0 no holders / 3 held / 1 unreliable) — the stderr filename header no longer
+mislabels a held DB as unreliable, verified against a live holder. Trials
+Q1-Q7 (into-swap shrink 17M→728K with journal=wal preserved and
+quick_check=ok, F27 refusal rc=7, shim-fallback to in-place VACUUM 4.9M→52K,
+held run pruning 960 rows with VACUUM correctly refused) all passed in
+`/tmp/opencode/tw-isol/`. Open: the remaining §5 order (P3, P4, P5, P6, P7).
 Scope: this tree only. The v1 tree is read-only reference.
 Evidence: every anchor below was read on 2026-10-27 or 2026-10-28 from the
 named file at the named line, or measured on the installed host 2.2.0 and on a
