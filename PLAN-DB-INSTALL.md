@@ -61,7 +61,24 @@ trial also surfaced and removed a live v1 timer (tawassul-db-check.timer)
 that was executing the retired v1 tree daily against the real DB, and the
 stale `~/.opencode` plan-only directory (archived to
 docs/historical-plan-first-install-db-repair.md first). `npm run ci` is green
-end to end. Open: the remaining §5 order (P4, P5, P6, P7).
+end to end. Open: the remaining §5 order (P4, P5, P6, P7). Sixth batch,
+same day — P4 landed: stat -c, date -d, free -m and df -B1 --output=avail are
+routed through db-env.sh helpers with GNU-first then BSD then python3 rungs
+(tawassul_file_bytes gained the python3 getsize rung and its second case now
+falls through instead of returning early, tawassul_mtime_epoch for stamp
+freshness, tawassul_file_mode for the swap chmod, tawassul_date_epoch_days
+with the POSIX date +%s arithmetic fallback preserved in cutoff_ms,
+tawassul_free_ram_mb with the macOS vm_stat parser and a python3
+/proc/meminfo rung, tawassul_avail_bytes already POSIX df -Pk) and every
+helper fails closed when no rung answers; opencode-db-maintenance.sh now
+sources its sibling db-env.sh (installed and repo layouts both stage it as a
+sibling) and refuses loudly when it is missing; the doctor stamp uses
+tawassul_mtime_epoch. prove-portability.ts (25 assertions, in the proof
+gate) covers every rung of every helper plus fail-closed refusals and the
+end-to-end macOS-like run (BSD shims shadow GNU stat/date/df, free and
+vm_stat truly absent, python3 present): maintenance --check completes with
+correct sizes and a small prune completes deleting 320 rows. No automation
+claim changed. `npm run ci` is green end to end. Open: P5, P6, P7.
 Scope: this tree only. The v1 tree is read-only reference.
 Evidence: every anchor below was read on 2026-10-27 or 2026-10-28 from the
 named file at the named line, or measured on the installed host 2.2.0 and on a

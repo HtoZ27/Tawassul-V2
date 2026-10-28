@@ -30,8 +30,78 @@ tawassul_file_bytes() {
   fi
   _b="$(stat -f %z "$1" 2>/dev/null)"
   case "$_b" in
+    ''|*[!0-9]*) : ;;
+    *) printf '%s' "$_b"; return 0 ;;
+  esac
+  _b="$(python3 -c 'import os,sys; print(os.path.getsize(sys.argv[1]))' "$1" 2>/dev/null)"
+  case "$_b" in
     ''|*[!0-9]*) return 1 ;;
     *) printf '%s' "$_b"; return 0 ;;
+  esac
+}
+
+tawassul_mtime_epoch() {
+  [ "$#" -eq 1 ] || return 1
+  [ -e "$1" ] || return 1
+  _m="$(stat -c %Y "$1" 2>/dev/null)"
+  case "$_m" in
+    ''|*[!0-9]*) _m="$(stat -f %m "$1" 2>/dev/null)" ;;
+  esac
+  case "$_m" in
+    ''|*[!0-9]*) return 1 ;;
+    *) printf '%s' "$_m"; return 0 ;;
+  esac
+}
+
+tawassul_file_mode() {
+  [ "$#" -eq 1 ] || return 1
+  [ -e "$1" ] || return 1
+  _m="$(stat -c '%a' "$1" 2>/dev/null)"
+  case "$_m" in
+    ''|*[!0-9]*) _m="$(stat -f '%Lp' "$1" 2>/dev/null)" ;;
+  esac
+  case "$_m" in
+    ''|*[!0-9]*) printf '644' ;;
+    *) printf '%s' "$_m" ;;
+  esac
+}
+
+tawassul_date_epoch_days() {
+  [ "$#" -eq 1 ] || return 1
+  case "$1" in ''|*[!0-9]*) return 1 ;; esac
+  _s="$(date -d "now -${1} days" +%s 2>/dev/null)"
+  case "$_s" in
+    ''|*[!0-9]*) _s="$(date -v-"${1}"d +%s 2>/dev/null)" ;;
+  esac
+  case "$_s" in
+    ''|*[!0-9]*) _s="$(python3 -c 'import sys,time; print(int(time.time() - int(sys.argv[1]) * 86400))' "$1" 2>/dev/null)" ;;
+  esac
+  case "$_s" in
+    ''|*[!0-9]*) return 1 ;;
+    *) printf '%s' "$_s"; return 0 ;;
+  esac
+}
+
+tawassul_free_ram_mb() {
+  _r="$(free -m 2>/dev/null | awk '/^Mem:/ {print $7}')"
+  case "$_r" in
+    ''|*[!0-9]*) ;;
+    *) [ "$_r" -ge 1 ] && { printf '%s' "$_r"; return 0; } ;;
+  esac
+  _r="$(vm_stat 2>/dev/null | awk '
+    /page size of/ {gsub(/[^0-9]/,"",$0); ps=$1+0}
+    /Pages free/ {f=$NF+0}
+    /Pages inactive/ {i=$NF+0}
+    /Pages speculative/ {sp=$NF+0}
+    END {ps=(ps>0)?ps:4096; printf "%d", (f+i+sp)*ps/1048576}')"
+  case "$_r" in
+    ''|*[!0-9]*|0) ;;
+    *) printf '%s' "$_r"; return 0 ;;
+  esac
+  _r="$(python3 -c 'print(int(open("/proc/meminfo").read().split("MemAvailable:")[1].split("\n")[0].split()[0]) // 1024)' 2>/dev/null)"
+  case "$_r" in
+    ''|*[!0-9]*|0) return 1 ;;
+    *) printf '%s' "$_r"; return 0 ;;
   esac
 }
 

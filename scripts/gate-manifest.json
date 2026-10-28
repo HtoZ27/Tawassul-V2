@@ -295,6 +295,10 @@
       "cmd": ["bun", "scripts/prove-db-retention.ts"]
     },
     {
+      "name": "portability",
+      "cmd": ["bun", "scripts/prove-portability.ts"]
+    },
+    {
       "name": "d05-doctor-census",
       "cmd": ["bun", "scripts/prove-d05.ts"]
     },

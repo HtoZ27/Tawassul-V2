@@ -64,6 +64,12 @@
 
 set -euo pipefail
 
+H="$(cd "$(dirname "$0")" && pwd -P)"
+. "$H/db-env.sh" 2>/dev/null || {
+  echo "❌ db-env.sh must sit next to this script (ship payload broken)." >&2
+  exit 2
+}
+
 # ── option parsing ────────────────────────────────────────────────────────────
 DB_PATH=""
 PRUNE_DAYS=90
@@ -160,9 +166,9 @@ assert_mutation_target() {
 }
 cutoff_ms() {
   local s
-  s="$(date -d "now -${1} days" +%s 2>/dev/null)" || s=""
+  s="$(tawassul_date_epoch_days "${1:-}")" || s=""
   case "$s" in
-    ''|*[!0-9]*) s=$(( $(date +%s) - ${1} * 86400 )) ;;
+    ''|*[!0-9]*) s=$(( $(date +%s) - ${1:-0} * 86400 )) ;;
   esac
   printf '%d' $(( s * 1000 ))
 }
@@ -243,7 +249,7 @@ db_total_bytes() { # $1=db → main + WAL bytes, non-zero exit when unreadable
   local total=0 f n
   for f in "$1" "$1-wal"; do
     [ -e "$f" ] || continue
-    n="$(stat -c %s "$f" 2>/dev/null || stat -f %z "$f" 2>/dev/null || true)"
+    n="$(tawassul_file_bytes "$f" 2>/dev/null || true)"
     case "$n" in
       ''|*[!0-9]*) return 1 ;;
     esac
@@ -329,7 +335,10 @@ case "$DB_PATH" in
     exit 2
     ;;
 esac
-DB_SIZE_BEFORE="$(stat -c %s "$DB_PATH")"
+DB_SIZE_BEFORE="$(tawassul_file_bytes "$DB_PATH")" || {
+  echo "❌ cannot measure DB size — refusing (fail-closed)." >&2
+  exit 3
+}
 DB_TOTAL_BEFORE="$(db_total_bytes "$DB_PATH")" || {
   echo "❌ cannot measure DB+WAL size — refusing (fail-closed)." >&2
   exit 3
@@ -415,7 +424,7 @@ fi
 if [ "$IGNORE_LOW_RAM" = 0 ]; then
   # RULES.md: never run heavy ops below 1.5GB free RAM. An unreadable or
   # unparsable reading refuses too (fail-closed) — it must never read as "plenty".
-  MEM_AVAIL="$(free -m 2>/dev/null | awk '/^Mem:/ {print $7}')" || MEM_AVAIL=""
+  MEM_AVAIL="$(tawassul_free_ram_mb)" || MEM_AVAIL=""
   case "$MEM_AVAIL" in
     ''|*[!0-9]*)
       echo "❌ cannot determine free RAM — refusing heavy ops (or use --ignore-low-ram)." >&2
@@ -924,7 +933,7 @@ else
 fi
 if [ "$VACUUM_SKIPPED" = 0 ]; then
   VACUUM_HEADROOM="${TAWASSUL_VACUUM_MIN_FREE:-1073741824}"
-  AVAIL_BYTES="$(df -B1 --output=avail "$DB_DIR" 2>/dev/null | awk 'NR==2 {print $1}')"
+  AVAIL_BYTES="$(tawassul_avail_bytes "$DB_DIR")" || AVAIL_BYTES=""
   case "$AVAIL_BYTES" in
     ''|*[!0-9]*)
       echo "❌ cannot determine free space in $DB_DIR — refusing VACUUM." >&2
@@ -948,7 +957,7 @@ if [ "$VACUUM_SKIPPED" = 0 ]; then
     if timeout 3600 sqlite3 -cmd '.timeout 2500' "$DB_PATH" "VACUUM INTO '$TMP';" 2>>"$LOG_FILE" \
       && [ "$(sqlite3 -readonly "$TMP" "PRAGMA quick_check;" 2>>"$LOG_FILE")" = "ok" ]; then
       [ "$SRC_MODE" = "wal" ] && sqlite3 "$TMP" "PRAGMA journal_mode=wal;" >/dev/null 2>>"$LOG_FILE" || true
-      chmod "$(stat -c '%a' "$DB_PATH" 2>/dev/null || printf 644)" "$TMP" 2>/dev/null || true
+      chmod "$(tawassul_file_mode "$DB_PATH" 2>/dev/null || printf 644)" "$TMP" 2>/dev/null || true
       if mv -f "$TMP" "$DB_PATH" 2>>"$LOG_FILE"; then
         rm -f "${DB_PATH}-wal" "${DB_PATH}-shm" 2>/dev/null || true
         echo "→ vacuum into-swap: rebuilt file verified (quick_check=ok) and swapped atomically; stale -wal/-shm cleared"
@@ -977,7 +986,10 @@ fi
 PAGES_A="$(pragma_read page_count 120 0)"
 PAGESIZE_A="$(pragma_read page_size 30 4096)"
 FREELIST_A="$(pragma_read freelist_count 30 0)"
-DB_SIZE_AFTER="$(stat -c %s "$DB_PATH")"
+DB_SIZE_AFTER="$(tawassul_file_bytes "$DB_PATH")" || {
+  echo "❌ cannot measure DB size after maintenance — verify manually." >&2
+  exit 9
+}
 DB_TOTAL_AFTER="$(db_total_bytes "$DB_PATH")" || {
   echo "❌ cannot measure DB+WAL after maintenance — verify manually." >&2
   exit 9

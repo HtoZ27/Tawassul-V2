@@ -544,7 +544,7 @@ MAINT_STAMP="$HOME_DIR/.local/share/tawassul-v2/db-maintenance/last-run.stamp"
 if [ -f "$MAINT_STAMP" ]; then
   stamp_rc="$(sed -n 's/^rc=//p' "$MAINT_STAMP" | head -n1)"
   stamp_at="$(sed -n 's/^at=//p' "$MAINT_STAMP" | head -n1)"
-  stamp_mt="$(stat -c %Y "$MAINT_STAMP" 2>/dev/null || printf 0)"
+  stamp_mt="$(tawassul_mtime_epoch "$MAINT_STAMP" 2>/dev/null || printf 0)"
   stamp_age="stale"
   if [ "$stamp_mt" -gt 0 ] && [ "$(( $(date +%s) - stamp_mt ))" -lt 86400 ]; then stamp_age="fresh"; fi
   info "last scheduled run: rc=$stamp_rc at=$stamp_at ($stamp_age): $MAINT_STAMP"
