@@ -1059,15 +1059,17 @@ and printed `DB matches isolation: no`, so a correctly isolated runtime looked
 like a misconfiguration.
 
 Fixed by `classifyDbLane` and `isDesktopSidecarDbPath` in
-`src/bootstrap/db-isolation.ts` (five lanes: `desktop-sidecar`, `shared`,
+`src/bootstrap/db-isolation.ts` (five lanes: `desktop-sidecar`, `host-default`,
 `isolated`, `custom`, `unset`) and by the `DB lane` line in
-`src/tools/tawa/health.ts`. The sidecar lane reports
-`DB matches isolation: yes`; shared, custom, unset, and keyed lanes keep their
-exact-path comparison. Sibling prefixes (`tawassul-v2-backup`,
-`opencode-projects-old`) do not match either lane. `scripts/prove-e46.ts`
-covers 31 assertions: every lane, whitespace handling, the keyed path from a
-temp HMAC key, the sibling boundaries, and the health output for
-sidecar/shared/keyed/custom/unset.
+`src/tools/tawa/health.ts`. The sidecar lane reports `DB isolated: yes`; the
+`DB matches isolation` line keeps its exact comparison against the HMAC-keyed
+path, so the host-owned sidecar path reports `no` there by design. Host-default,
+custom, unset, and keyed lanes keep their exact-path comparison. Sibling
+prefixes (`tawassul-v2-backup`, `opencode-projects-old`) do not match either
+lane. `scripts/prove-e46.ts` covers 30 assertions over the XDG-aware data root:
+every lane, whitespace handling, the keyed path from a temp HMAC key, the
+sibling boundaries, and the health output for
+sidecar/host-default/keyed/custom/unset.
 
 ### E-47 Operator cancellation was scored as a dropped handoff — fixed (2026-10-27)
 
