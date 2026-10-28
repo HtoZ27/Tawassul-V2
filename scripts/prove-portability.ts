@@ -213,8 +213,10 @@ try {
   seed(320);
   const pruned = maintenance(["--db", DB, "--prune-days", "90", "--backup-dir", BK, "--ignore-low-ram"]);
   assert(pruned.code === 0, "a small prune completes in the macOS-like environment");
-  assert(pruned.out.includes("prune: deleted 320 rows"), "the prune deleted the old rows under BSD shims");
+  assert(pruned.out.includes("prune: deleted 319 rows"), "the prune deletes every old row except the session anchor");
   assert(pruned.out.includes("❌") === false, "no hard failure appears in the prune run");
+  const remaining = spawnSync("sqlite3", [DB, "SELECT count(*) FROM session_message;"], { encoding: "utf-8" });
+  assert(`${remaining.stdout ?? ""}`.trim() === "1", "the dormant session keeps its anchor row after the prune (DoD 11)");
 
   rmSync(WORK, { recursive: true, force: true });
   console.log(`PROOF PASS: ${passed} assertions`);

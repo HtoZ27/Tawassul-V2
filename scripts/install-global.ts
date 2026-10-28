@@ -718,6 +718,7 @@ function upToDate(
     if (!record || !want || record.sha256 !== want.sha256 || record.path !== want.path) return false;
     const installed = fromMarker(record.path);
     if (!existsSync(installed) || hash(readFileSync(installed)) !== record.sha256) return false;
+    if (!(statSync(installed).mode & 0o100)) return false;
   }
   return true;
 }

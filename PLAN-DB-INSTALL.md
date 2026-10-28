@@ -113,6 +113,49 @@ singular dev entry is outside the guard), an install from another directory
 succeeds while the project copy stays byte-identical (no enforcement, no
 removal — DoD 9), and uninstall removes only the global bundle and runtime.
 DoD 9 is now satisfied. `npm run ci` is green end to end. Open: P7.
+Ninth batch, same day — P7 landed in full (items 1-10), and it closed a
+plan-versus-code gap the batch itself exposed. The plan-mandated session anchor
+(P2.5, DoD 11, risk row 640) was not implemented in the shipped prune SQL: an
+isolated 74-session trial confirmed that the 3-day floor left 11 of 74 sessions
+with zero messages, exactly F29. The window ladder now keeps one anchor row per
+session — the newest message of each dormant session, chosen by
+`ORDER BY time_updated DESC, id DESC` — through two window-function helpers
+(`anchor_candidate_ids_sql`/`anchor_candidate_data_sql`) applied to
+`prune_candidates`, `prune_candidate_bytes`, `batched_prune` and the `--check`
+CAND count, so counting, byte estimation and deletion agree. Active sessions
+(any message inside the window) are untouched, and `session`/`session_v2` rows
+are never deleted: the same trial then reported 0 empty sessions and 200 rows
+(11 anchors plus 189), with `dorm0` reopening on its newest message. P7.6 chose
+to add `blob` and `blob_ref` to `PROTECTED_TABLES` rather than reword the proof.
+P7.4 extracted the doctor contract into a `db_contract()` function behind an
+early-exit `--db-contract` flag that prints only the contract section (marker
+hashes over every staged asset, all three triggers, resolved path with source
+and drift, size plus WAL, quick_check, the last-run stamp, and the other DB
+files seen) and exits 0 without the census; the committed census contract
+(prove-d05, 28 assertions) is unchanged. P7.2 added the clean-boot proof (no
+`src/` file and no shipped bundle references `scripts/opencode-v2-iso.sh`) and a
+release-smoke guard that fails with rc 3 and prints the offending lines when a
+healthy scratch boot emits a tawassul warning (`self-check:`, `initAudit:`,
+`AST degraded`, or the launcher name). P7.1 also surfaced and fixed a real
+defect: `--verify` flagged a db script that had lost its exec bit and told the
+user to run `npm run install:global`, but the plain install answered "already
+installed" and left the mode broken, so the advertised repair was a no-op.
+`upToDate()` now also checks the exec bit on every installed db script, so the
+verify → install → verify loop truly closes; isolated trial: mode 600 → install
+re-stages all five scripts at 0700 → `--verify` exits 0. Proofs: prove-db-retention
+grew to 76 assertions (anchor survival and the 74-session floor, the P7.3 guard
+path rule — enforce refuses a foreign path, warn records the suspicion in
+`warnings[]` with `verdict:ok`, and an invalid rule value is refused — the P7.6
+mutation scope and refusal contract, and the P7.9 space gate rc 7 with the
+database intact), prove-partial-install grew to 26, and prove-global-install grew
+to 128 (the sibling-guard resolution and its missing-guard refusal, the
+`--db-contract` output, and the uninstall byte-identity of the database and every
+backup). The anchor also corrected prove-portability (now 26 assertions): the
+macOS-like prune over one dormant 320-message session deletes 319 rows and keeps
+the anchor, instead of the old whole-session delete the proof had asserted.
+DoD 11, DoD 12, DoD 13, DoD 14 and DoD 15 are now satisfied;
+`npm run gate:fast` passes with 89 proofs, and `npm run ci` is green end to end.
+Open: nothing — all ten P7 items are landed and proven.
 Scope: this tree only. The v1 tree is read-only reference.
 Evidence: every anchor below was read on 2026-10-27 or 2026-10-28 from the
 named file at the named line, or measured on the installed host 2.2.0 and on a

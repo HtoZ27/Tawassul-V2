@@ -157,7 +157,7 @@ if [ "$CAP_BYTES" -lt 1 ]; then
   exit 2
 fi
 MUTABLE_TABLES="message part session_message event"
-PROTECTED_TABLES="session session_v2 project workspace worktree project_directory permission credential account account_state control_account migration kv instruction_blob instruction_entry instruction_state session_inbox session_pending session_share todo event_sequence"
+PROTECTED_TABLES="session session_v2 project workspace worktree project_directory permission credential account account_state control_account migration kv blob blob_ref instruction_blob instruction_entry instruction_state session_inbox session_pending session_share todo event_sequence"
 assert_mutation_target() {
   case " $MUTABLE_TABLES " in
     *" $1 "*) return 0 ;;
@@ -172,20 +172,32 @@ cutoff_ms() {
   esac
   printf '%d' $(( s * 1000 ))
 }
+anchor_candidate_ids_sql() { # $1=table $2=cutoff-ms → ids beyond the window, minus one anchor per session
+  printf 'SELECT id FROM (
+      SELECT id, ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY time_updated DESC, id DESC) AS rn
+        FROM %s
+       WHERE time_updated < %s
+         AND session_id NOT IN (SELECT session_id FROM %s WHERE time_updated >= %s)
+    ) WHERE rn > 1' "$1" "$2" "$1" "$2"
+}
+anchor_candidate_data_sql() { # $1=table $2=cutoff-ms → the data column of the same candidate set
+  printf 'SELECT data FROM (
+      SELECT data, ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY time_updated DESC, id DESC) AS rn
+        FROM %s
+       WHERE time_updated < %s
+         AND session_id NOT IN (SELECT session_id FROM %s WHERE time_updated >= %s)
+    ) WHERE rn > 1' "$1" "$2" "$1" "$2"
+}
 prune_candidates() {
   local t=0 v
   if [ "$HIST_MESSAGE" = 1 ]; then
     v="$(timeout 300 $RO "$(RO_DB)" "
-      SELECT count(*) FROM message
-       WHERE time_updated < ${1}
-         AND session_id NOT IN (SELECT session_id FROM message WHERE time_updated >= ${1});" 2>/dev/null)" || v=""
+      SELECT count(*) FROM ( $(anchor_candidate_ids_sql message "$1") );" 2>/dev/null)" || v=""
     case "$v" in ''|*[!0-9]*) printf '?' ; return ;; *) t=$(( t + v )) ;; esac
   fi
   if [ "$HIST_V2" = 1 ]; then
     v="$(timeout 300 $RO "$(RO_DB)" "
-      SELECT count(*) FROM session_message
-       WHERE time_updated < ${1}
-         AND session_id NOT IN (SELECT session_id FROM session_message WHERE time_updated >= ${1});" 2>/dev/null)" || v=""
+      SELECT count(*) FROM ( $(anchor_candidate_ids_sql session_message "$1") );" 2>/dev/null)" || v=""
     case "$v" in ''|*[!0-9]*) printf '?' ; return ;; *) t=$(( t + v )) ;;
     esac
   fi
@@ -195,22 +207,16 @@ prune_candidate_bytes() {
   local b=0 v
   if [ "$HIST_MESSAGE" = 1 ]; then
     v="$(timeout 300 $RO "$(RO_DB)" "
-      SELECT CAST(total(LENGTH(data)) AS INTEGER) FROM message
-       WHERE time_updated < ${1}
-         AND session_id NOT IN (SELECT session_id FROM message WHERE time_updated >= ${1});" 2>/dev/null)" || v=""
+      SELECT CAST(total(LENGTH(data)) AS INTEGER) FROM ( $(anchor_candidate_data_sql message "$1") );" 2>/dev/null)" || v=""
     case "$v" in ''|*[!0-9]*) printf '' ; return ;; *) b=$(( b + v )) ;; esac
     v="$(timeout 300 $RO "$(RO_DB)" "
       SELECT count(*) FROM part
-       WHERE message_id IN (SELECT id FROM message
-         WHERE time_updated < ${1}
-           AND session_id NOT IN (SELECT session_id FROM message WHERE time_updated >= ${1}));" 2>/dev/null)" || v=""
+       WHERE message_id IN ( $(anchor_candidate_ids_sql message "$1") );" 2>/dev/null)" || v=""
     case "$v" in ''|*[!0-9]*) printf '' ; return ;; *) b=$(( b + v * 400 )) ;; esac
   fi
   if [ "$HIST_V2" = 1 ]; then
     v="$(timeout 300 $RO "$(RO_DB)" "
-      SELECT CAST(total(LENGTH(data)) AS INTEGER) FROM session_message
-       WHERE time_updated < ${1}
-         AND session_id NOT IN (SELECT session_id FROM session_message WHERE time_updated >= ${1});" 2>/dev/null)" || v=""
+      SELECT CAST(total(LENGTH(data)) AS INTEGER) FROM ( $(anchor_candidate_data_sql session_message "$1") );" 2>/dev/null)" || v=""
     case "$v" in ''|*[!0-9]*) printf '' ; return ;; *) b=$(( b + v )) ;;
     esac
   fi
@@ -223,10 +229,8 @@ batched_prune() {
     out="$(timeout 60 sqlite3 -cmd ".timeout 2500" "$DB_PATH" "
       PRAGMA foreign_keys = ON;
       DELETE FROM ${tbl} WHERE id IN (
-        SELECT id FROM ${tbl}
-         WHERE time_updated < ${CUTOFF}
-           AND session_id NOT IN (SELECT session_id FROM ${tbl} WHERE time_updated >= ${CUTOFF})
-         LIMIT ${PRUNE_BATCH}
+        $(anchor_candidate_ids_sql "$tbl" "$CUTOFF")
+        LIMIT ${PRUNE_BATCH}
       );
       SELECT changes();
     " 2>>"$LOG_FILE")" || { echo "❌ prune of ${tbl} failed (see ${LOG_FILE}; retry offline or with --allow-in-use)." >&2; exit 5; }
@@ -611,25 +615,16 @@ if [ "$MODE" = "check" ]; then
     CAND=""
     if [ "$CHK_MESSAGE" = 1 ]; then
       C1="$(timeout 300 $RO "$(RO_DB)" "
-        SELECT (SELECT count(*) FROM message
-                 WHERE time_updated < $CUTOFF
-                   AND session_id NOT IN (SELECT session_id FROM message
-                                           WHERE time_updated >= $CUTOFF))
+        SELECT (SELECT count(*) FROM ( $(anchor_candidate_ids_sql message "$CUTOFF") ))
              || ' messages + ' ||
              (SELECT count(*) FROM part
-               WHERE message_id IN (SELECT id FROM message
-                                    WHERE time_updated < $CUTOFF
-                                      AND session_id NOT IN (SELECT session_id FROM message
-                                                              WHERE time_updated >= $CUTOFF)))
+                WHERE message_id IN ( $(anchor_candidate_ids_sql message "$CUTOFF") ))
                || ' parts';" 2>/dev/null || echo "UNKNOWN")"
       CAND="legacy ${C1}"
     fi
     if [ "$CHK_V2" = 1 ]; then
       C2="$(timeout 300 $RO "$(RO_DB)" "
-        SELECT count(*) FROM session_message
-         WHERE time_updated < $CUTOFF
-           AND session_id NOT IN (SELECT session_id FROM session_message
-                                   WHERE time_updated >= $CUTOFF);" 2>/dev/null || echo "UNKNOWN")"
+        SELECT count(*) FROM ( $(anchor_candidate_ids_sql session_message "$CUTOFF") );" 2>/dev/null || echo "UNKNOWN")"
       CAND="${CAND}${CAND:+; }v2 ${C2} messages"
     fi
     case "$CHK_MESSAGE$CHK_V2" in

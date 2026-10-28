@@ -34,6 +34,124 @@ warn() { warns=$((warns + 1)); printf 'WARN  %s\n' "$1"; }
 fail() { fails=$((fails + 1)); printf 'FAIL  %s\n' "$1"; }
 section() { printf '\n== %s ==\n' "$1"; }
 
+db_contract() {
+  section "db maintenance contract"
+  SELF_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd || printf '.')"
+  TAG="tawassul-db-maintenance"
+  TAB="$(printf '\t')"
+  . "$SELF_DIR/db-env.sh" 2>/dev/null || true
+  MARKER_DB="$CONFIG_BASE/opencode/tawassul-runtime/VERSION"
+  if [ -f "$MARKER_DB" ]; then
+    if command -v python3 >/dev/null 2>&1; then
+      while IFS="$TAB" read -r kind a b c; do
+        case "$kind" in
+          meta)
+            info "installed marker: version=$a host=$b trigger=$c"
+            ;;
+          asset)
+            want="$c"
+            case "$b" in ''|/*) abs="$b" ;; *) abs="$CONFIG_BASE/opencode/$b" ;; esac
+            if [ ! -f "$abs" ]; then
+              warn "staged artifact missing: $a ($abs)"
+            elif ! command -v sha256sum >/dev/null 2>&1; then
+              info "$a: present ($abs) — no sha256sum tool to verify"
+            else
+              got="$(sha256sum "$abs" 2>/dev/null | cut -d' ' -f1)"
+              if [ "$got" = "$want" ]; then
+                info "$a: hash ok (${want:0:12})"
+              else
+                warn "$a: hash mismatch ($abs) — run npm run install:global"
+              fi
+            fi
+            ;;
+        esac
+      done < <(python3 - "$MARKER_DB" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1]))
+print(f"meta\t{m.get('version','?')}\t{m.get('host','?')}\t{m.get('trigger','(absent)')}")
+b = m.get("bundle") or {}
+print(f"asset\tbundle\t{b.get('path','')}\t{b.get('sha256','')}")
+for name, rec in sorted((m.get("db") or {}).items()):
+    print(f"asset\tdb:{name}\t{rec.get('path','')}\t{rec.get('sha256','')}")
+PY
+)
+    else
+      info "python3 missing — the marker hash check is skipped ($MARKER_DB)"
+    fi
+  else
+    info "no global runtime marker at $MARKER_DB (project install or not installed)"
+  fi
+  if command -v systemctl >/dev/null 2>&1; then
+    trigger_state="$(systemctl --user is-enabled "$TAG.timer" 2>/dev/null || printf 'not-found')"
+    info "systemd trigger: tawassul-db-maintenance.timer is $trigger_state"
+  else
+    info "systemd trigger: systemctl missing"
+  fi
+  if command -v crontab >/dev/null 2>&1; then
+    if crontab -l 2>/dev/null | grep -Fq "$TAG"; then
+      info "cron trigger: found (tagged line)"
+    else
+      info "cron trigger: absent"
+    fi
+  else
+    info "cron trigger: crontab missing"
+  fi
+  MAINT_STAMP="$HOME_DIR/.local/share/tawassul-v2/db-maintenance/last-run.stamp"
+  if [ -f "$MAINT_STAMP" ]; then
+    stamp_rc="$(sed -n 's/^rc=//p' "$MAINT_STAMP" | head -n1)"
+    stamp_at="$(sed -n 's/^at=//p' "$MAINT_STAMP" | head -n1)"
+    stamp_mt="$(tawassul_mtime_epoch "$MAINT_STAMP" 2>/dev/null || printf 0)"
+    stamp_age="stale"
+    if [ "$stamp_mt" -gt 0 ] && [ "$(( $(date +%s) - stamp_mt ))" -lt 86400 ]; then stamp_age="fresh"; fi
+    info "last scheduled run: rc=$stamp_rc at=$stamp_at ($stamp_age): $MAINT_STAMP"
+  else
+    info "last scheduled run: no stamp yet ($MAINT_STAMP)"
+  fi
+  db_resolve_path
+  contract_resolved="$RESOLVED_DB"
+  contract_source="$DB_RESOLVE_SOURCE"
+  db_resolve_path --probe
+  contract_probe="$RESOLVED_DB"
+  info "resolved DB: $contract_resolved (source: $contract_source)"
+  if [ "$contract_source" = "host-default" ] && [ -n "$contract_probe" ] && [ "$contract_probe" != "$contract_resolved" ] && [ -e "$contract_probe" ]; then
+    warn "DB path drift: the live DB is $contract_probe, the default path is $contract_resolved"
+  else
+    info "DB path drift: none"
+  fi
+  if [ -f "$contract_resolved" ]; then
+    db_bytes="$(tawassul_file_bytes "$contract_resolved" 2>/dev/null || printf 0)"
+    wal_bytes="$(tawassul_file_bytes "$contract_resolved-wal" 2>/dev/null || printf 0)"
+    info "contract DB size: $db_bytes bytes (wal $wal_bytes bytes)"
+    if command -v sqlite3 >/dev/null 2>&1; then
+      info "contract quick_check: $(sqlite3 -readonly "$contract_resolved" 'PRAGMA quick_check;' 2>/dev/null || printf 'error')"
+    fi
+  fi
+  contract_other=""
+  for contract_root in "$HOME_DIR/.local/share/opencode" "$HOME_DIR/.local/share/tawassul-v2" "$HOME_DIR/.local/share/opencode-projects"; do
+    [ -d "$contract_root" ] || continue
+    while IFS= read -r contract_hit; do
+      [ -n "$contract_hit" ] || continue
+      [ "$contract_hit" = "$contract_resolved" ] && continue
+      case " ${contract_other} " in
+        *" $contract_hit "*) continue ;;
+      esac
+      contract_other="${contract_other}${contract_other:+, }$contract_hit"
+    done < <(find "$contract_root" -maxdepth 4 -name '*.db' -type f 2>/dev/null)
+  done
+  if [ -n "$contract_other" ]; then
+    info "other DB files seen: $contract_other"
+  else
+    info "other DB files seen: none"
+  fi
+}
+
+if [ "${1:-}" = "--db-contract" ]; then
+  db_contract
+  printf '\n== summary ==\n'
+  printf 'checks: %d failure(s), %d warning(s)\n' "$fails" "$warns"
+  exit 0
+fi
+
 section "project"
 info "root: $ROOT"
 if [ -L "$ENTRY" ]; then
@@ -479,97 +597,7 @@ else
   info "no global plugin install (project install only)"
 fi
 
-section "db maintenance contract"
-SELF_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd || printf '.')"
-TAG="tawassul-db-maintenance"
-TAB="$(printf '\t')"
-. "$SELF_DIR/db-env.sh" 2>/dev/null || true
-MARKER_DB="$CONFIG_BASE/opencode/tawassul-runtime/VERSION"
-if [ -f "$MARKER_DB" ]; then
-  if command -v python3 >/dev/null 2>&1; then
-    while IFS="$TAB" read -r kind a b c; do
-      case "$kind" in
-        meta)
-          info "installed marker: version=$a host=$b trigger=$c"
-          ;;
-        asset)
-          want="$c"
-          case "$b" in ''|/*) abs="$b" ;; *) abs="$CONFIG_BASE/opencode/$b" ;; esac
-          if [ ! -f "$abs" ]; then
-            warn "staged artifact missing: $a ($abs)"
-          elif ! command -v sha256sum >/dev/null 2>&1; then
-            info "$a: present ($abs) — no sha256sum tool to verify"
-          else
-            got="$(sha256sum "$abs" 2>/dev/null | cut -d' ' -f1)"
-            if [ "$got" = "$want" ]; then
-              info "$a: hash ok (${want:0:12})"
-            else
-              warn "$a: hash mismatch ($abs) — run npm run install:global"
-            fi
-          fi
-          ;;
-      esac
-    done < <(python3 - "$MARKER_DB" <<'PY'
-import json, sys
-m = json.load(open(sys.argv[1]))
-print(f"meta\t{m.get('version','?')}\t{m.get('host','?')}\t{m.get('trigger','(absent)')}")
-b = m.get("bundle") or {}
-print(f"asset\tbundle\t{b.get('path','')}\t{b.get('sha256','')}")
-for name, rec in sorted((m.get("db") or {}).items()):
-    print(f"asset\tdb:{name}\t{rec.get('path','')}\t{rec.get('sha256','')}")
-PY
-)
-  else
-    info "python3 missing — the marker hash check is skipped ($MARKER_DB)"
-  fi
-else
-  info "no global runtime marker at $MARKER_DB (project install or not installed)"
-fi
-if command -v systemctl >/dev/null 2>&1; then
-  trigger_state="$(systemctl --user is-enabled "$TAG.timer" 2>/dev/null || printf 'not-found')"
-  info "systemd trigger: tawassul-db-maintenance.timer is $trigger_state"
-else
-  info "systemd trigger: systemctl missing"
-fi
-if command -v crontab >/dev/null 2>&1; then
-  if crontab -l 2>/dev/null | grep -Fq "$TAG"; then
-    info "cron trigger: found (tagged line)"
-  else
-    info "cron trigger: absent"
-  fi
-else
-  info "cron trigger: crontab missing"
-fi
-MAINT_STAMP="$HOME_DIR/.local/share/tawassul-v2/db-maintenance/last-run.stamp"
-if [ -f "$MAINT_STAMP" ]; then
-  stamp_rc="$(sed -n 's/^rc=//p' "$MAINT_STAMP" | head -n1)"
-  stamp_at="$(sed -n 's/^at=//p' "$MAINT_STAMP" | head -n1)"
-  stamp_mt="$(tawassul_mtime_epoch "$MAINT_STAMP" 2>/dev/null || printf 0)"
-  stamp_age="stale"
-  if [ "$stamp_mt" -gt 0 ] && [ "$(( $(date +%s) - stamp_mt ))" -lt 86400 ]; then stamp_age="fresh"; fi
-  info "last scheduled run: rc=$stamp_rc at=$stamp_at ($stamp_age): $MAINT_STAMP"
-else
-  info "last scheduled run: no stamp yet ($MAINT_STAMP)"
-fi
-db_resolve_path
-contract_resolved="$RESOLVED_DB"
-contract_source="$DB_RESOLVE_SOURCE"
-db_resolve_path --probe
-contract_probe="$RESOLVED_DB"
-info "resolved DB: $contract_resolved (source: $contract_source)"
-if [ "$contract_source" = "host-default" ] && [ -n "$contract_probe" ] && [ "$contract_probe" != "$contract_resolved" ] && [ -e "$contract_probe" ]; then
-  warn "DB path drift: the live DB is $contract_probe, the default path is $contract_resolved"
-else
-  info "DB path drift: none"
-fi
-if [ -f "$contract_resolved" ]; then
-  db_bytes="$(tawassul_file_bytes "$contract_resolved" 2>/dev/null || printf 0)"
-  wal_bytes="$(tawassul_file_bytes "$contract_resolved-wal" 2>/dev/null || printf 0)"
-  info "contract DB size: $db_bytes bytes (wal $wal_bytes bytes)"
-  if command -v sqlite3 >/dev/null 2>&1; then
-    info "contract quick_check: $(sqlite3 -readonly "$contract_resolved" 'PRAGMA quick_check;' 2>/dev/null || printf 'error')"
-  fi
-fi
+db_contract
 
 section "processes"
 pids="$(pgrep -f 'opencode(-cli)? (serve|run)' 2>/dev/null || true)"

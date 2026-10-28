@@ -7,6 +7,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -235,6 +236,17 @@ try {
   assert(doctorOut.includes("last scheduled run:"), "installed doctor reports the maintenance stamp");
   assert(doctorOut.includes("resolved DB:") && doctorOut.includes("DB path drift:"), "installed doctor reports the resolved path and drift");
   assert(doctorOut.includes("contract quick_check: ok"), "installed doctor quick-checks the DB");
+  assert(doctorOut.includes("other DB files seen:"), "installed doctor lists other DB files it saw");
+
+  const contract = spawnSync("bash", [join(DB_DIR, "doctor-v2.sh"), "--db-contract"], { env: proofEnv(), encoding: "utf-8" });
+  const contractOut = `${contract.stdout ?? ""}`;
+  assert(contract.status === 0, "installed doctor --db-contract exits 0");
+  assert(contractOut.includes("== db maintenance contract =="), "--db-contract prints the contract section");
+  assert(contractOut.includes("resolved DB:") && contractOut.includes("contract DB size:"), "--db-contract prints path, source, size and WAL");
+  assert(contractOut.includes("systemd trigger:") && contractOut.includes("cron trigger:"), "--db-contract prints every trigger");
+  assert(contractOut.includes("db:maintenance: hash ok"), "--db-contract hash-checks the staged artifacts");
+  assert(contractOut.includes("other DB files seen:"), "--db-contract lists the other DB files seen (F16)");
+  assert(contractOut.includes("== database census ==") === false, "--db-contract skips the heavy census sections");
 
   const rangeEnv = proofEnv();
   delete rangeEnv.TAWASSUL_OPENCODE_VERSION;
@@ -313,6 +325,22 @@ try {
   assert(execBit.code !== 0 && execBit.out.includes("lost its exec bit"), "verify fails when a db script loses its exec bit");
   assert(run([]).code === 0, "install restores db script permissions");
 
+  const guardDest = join(DB_DIR, "guard-db-generation.sh");
+  const siblingRun = runInstalledMaintenance(["--db", SMOKE_DB, "--event-only", "--ignore-low-ram"]);
+  assert(
+    siblingRun.out.includes("generation guard: ok (V2)"),
+    "the installed maintenance resolves its sibling guard from dirname($0) (P1.5)",
+  );
+  const guardBak = `${guardDest}.bak`;
+  renameSync(guardDest, guardBak);
+  const noGuard = runInstalledMaintenance(["--db", SMOKE_DB, "--event-only", "--ignore-low-ram"]);
+  assert(
+    noGuard.code !== 0 && noGuard.out.includes("generation guard missing"),
+    "the installed maintenance refuses when its sibling guard is absent",
+  );
+  renameSync(guardBak, guardDest);
+  assert(run([]).code === 0, "install restores the guard after the sibling probe");
+
   const stripped = marker();
   delete stripped.db;
   writeFileSync(MARKER, `${JSON.stringify(stripped, null, 2)}\n`);
@@ -320,11 +348,22 @@ try {
   assert(noPayload.code !== 0 && noPayload.out.includes("no db payload"), "verify refuses a marker without the db payload");
   assert(run([]).code === 0, "install rewrites the marker with the db payload");
 
+  const backupDir = join(HOME, ".local", "share", "tawassul-v2", "backups");
+  mkdirSync(backupDir, { recursive: true });
+  const backupFile = join(backupDir, "opencode-20260101-000000.db");
+  writeFileSync(backupFile, "sentinel-backup\n");
+  const dbHashBefore = sha256(SMOKE_DB);
+  const backupHashBefore = sha256(backupFile);
   const removed = run(["--uninstall"]);
   assert(removed.code === 0 && !existsSync(TARGET), "uninstall removes the flat plugin file");
   assert(!existsSync(RUNTIME), "uninstall removes the runtime directory");
   assert(!existsSync(DB_DIR), "uninstall removes the staged db scripts with the runtime");
   assert(readFileSync(USER_CONFIG, "utf-8") === BODY, "uninstall leaves the user config byte-identical");
+  assert(sha256(SMOKE_DB) === dbHashBefore, "uninstall leaves the database byte-identical (P3.7)");
+  assert(
+    existsSync(backupFile) && sha256(backupFile) === backupHashBefore,
+    "uninstall leaves every backup byte-identical (P3.7)",
+  );
 
   const dry = run(["--dry-run"]);
   assert(dry.code === 0 && !existsSync(TARGET) && !existsSync(RUNTIME), "dry run writes nothing");

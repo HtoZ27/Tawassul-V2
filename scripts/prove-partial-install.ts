@@ -176,6 +176,20 @@ try {
   );
   assert((srcGrep.stdout ?? "").trim().length === 0, "no src file references the repo-only build-v2.mjs command");
 
+  const launcherGrep = spawnSync(
+    "/bin/bash",
+    ["-c", `grep -rl "opencode-v2-iso" ${JSON.stringify(join(REPO, "src"))} 2>/dev/null || true`],
+    { encoding: "utf-8" },
+  );
+  assert(
+    (launcherGrep.stdout ?? "").trim().length === 0,
+    "no src file references scripts/opencode-v2-iso.sh, so no user-facing warning can point at it (P7.2)",
+  );
+  assert(
+    readFileSync(BUNDLE, "utf-8").includes("opencode-v2-iso") === false,
+    "the shipped bundle carries no reference to the launcher script",
+  );
+
   console.log(`PROOF PASS: ${passed} assertions`);
 } finally {
   rmSync(WORK, { recursive: true, force: true });

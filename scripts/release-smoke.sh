@@ -156,6 +156,14 @@ if [ -f "$HOST_LOG" ] && ! grep -qF "loading plugin" "$HOST_LOG"; then
   echo "release-smoke: warning — host log has no plugin-load line at $HOST_LOG" >&2
 fi
 
+TAW_WARN_RE='tawassul.*(self-check:|initAudit:|AST degraded|opencode-v2-iso)'
+if [ -f "$WORK/run.err" ] && grep -qE "$TAW_WARN_RE" "$WORK/run.err"; then
+  echo "release-smoke: a healthy scratch boot emitted a tawassul warning line:" >&2
+  grep -E "$TAW_WARN_RE" "$WORK/run.err" >&2
+  KEEP=1
+  exit 3
+fi
+
 SMOKE_ENTRY="$WORK/.opencode/plugin/tawassul.js" SMOKE_DIR="$WORK" bun -e '
 const entry = process.env.SMOKE_ENTRY;
 const dir = process.env.SMOKE_DIR;
