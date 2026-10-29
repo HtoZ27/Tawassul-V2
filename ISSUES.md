@@ -2892,37 +2892,49 @@ address it never resolves.
 
 ### New P3
 
-#### E-40 Shell scripts carry comments that no gate can see — open (P3)
+#### E-40 Shell scripts carry comments that no gate can see — done (2026-10-29)
 
-`AGENTS.md:24` states comments are forbidden and that shell is kept
-comment-free "by review". `scripts/check-v2-rules.mjs:33` scans only
-`.ts`, `.mjs`, and `.json`; `check:sh` runs `bash -n` only. In practice
-`scripts/release-smoke.sh:2-4` and `scripts/boot-scorecard-v2.sh:2-17` carry
-comment headers.
+`AGENTS.md` now states the gate scope explicitly: the comment ban covers
+`.ts`, `.mjs`, and `.json` under the scanned paths, while shell comments are
+allowed for operational notes and must be English. Markdown and YAML may
+document behaviour. The old wording claimed shell was kept comment-free by
+review, which was already false: six of the ten shell scripts carry comment
+headers or inline safety notes.
 
-Impact: the rule is stated as enforced but is unenforced for seven scripts,
-and the "by review" premise is already false.
+This is a policy closure, not a checker change. `check-v2-rules.mjs` still
+rejects every non-directive comment in the scanned extensions, `prove-rule-gate`
+still proves that, and `check:sh` still parses every shell script. The shell
+comments stay where they are because they document destructive database
+operations and exit codes that the syntax check cannot express.
 
-Next: either extend the checker to shell or state the exemption explicitly in
-`AGENTS.md`.
+Impact: the rule no longer claims a guarantee it does not enforce, and no
+safety documentation was deleted to satisfy a gate that never read it.
 
-#### E-41 There is no unit suite, and some proofs assert the defect — open (P3)
+#### E-41 There is no unit suite, and some proofs assert the defect — done (2026-10-29)
 
-Validation is 32 `scripts/prove-*.ts` integration scripts. There is no
-`tests/` directory and no assertion-level unit coverage of the bridge, the
-guards, or the stores. `scripts/prove-v2-compat.ts` asserted the multi-part
-loss described in E-16 as expected behaviour until 2026-10-26.
+Validation is 104 `scripts/prove-*.ts` files, run as 101 isolated
+`gate:proofs` steps plus the catalog in `gate:fast` and two boot proofs in
+`gate:smoke`. The old body said 32 scripts; that count was stale. There is
+still no `tests/` directory, and this closure keeps it that way by decision.
 
-Impact: a defect that is proven becomes a specification, and a regression in
-the bridge is invisible to the gate.
+The proof harness is the unit harness. Each proof imports the shipped module,
+calls the real function, asserts the observable result, exits non-zero on the
+first failure, and runs in its own child process, so module state, locks, and
+environment cannot leak between cases. `prove-proof-catalog` pins the file
+list and fails when a proof is unwired or wired twice. A second runner would
+duplicate the same assertions behind another entry point and another
+isolation boundary.
 
-Next: invert the assertions that encode defects, and add targeted cases
-for C-03, E-12, E-14, and E-19. Progress 2026-10-26:
-`prove-v2-compat.ts` now asserts part preservation (E-16 closed),
-`prove-e11` covers the skill-gate seed, fail-open, and persistence (E-11
-closed), and `prove-c02` covers the bridge seed/write-back plus the live
-consent answer/execute loop (C-02 closed); `prove-c03` covers the no-agent and
-unrecognized-agent consent paths (C-03 closed).
+The defect-encoding assertions are inverted: `prove-v2-compat` now asserts
+part preservation (`E-16` closed), `prove-e11` covers the skill gate
+(`E-11` closed), `prove-c02` covers the bridge seed/write-back and the live
+consent loop (`C-02` closed), and the four named cases are covered directly:
+`prove-c03` 19 assertions, `prove-e12` 15, `prove-e14` 11, and `prove-e19` 11.
+
+`docs/VALIDATION.md` records the model, the stage split, the four cases, the
+steps for adding a proof, and the limits. A regression in the bridge fails
+`prove-c02`, `prove-e17`, or `prove-v2-compat`; a guard or store regression
+fails its named proof on every `ci`.
 
 ### E-53 The S-053 task census never got a disposition — done (2026-10-29)
 

@@ -10,15 +10,18 @@ is a retired, read-only reference.
    Arabic is forbidden. Enforced by `scripts/check-v2-rules.mjs` (`npm run check:rules`).
    No exemption list exists; every `.ts`, `.mjs`, and `.json` file under `src/`,
    `scripts/`, and `tests/` is scanned. A global word allow-list is forbidden.
-2. **No comments in code.** Comments are forbidden, including JSDoc and empty
-   comments. Only these exact directive shapes are permitted: `// @ts-expect-error`,
+2. **No comments in scanned code.** Comments are forbidden in `.ts`, `.mjs`,
+   and `.json` under the gate paths below, including JSDoc and empty comments.
+   Only these exact directive shapes are permitted: `// @ts-expect-error`,
    `// @ts-ignore`, `/* eslint-disable ... */`, `// eslint-disable-next-line ... */`,
    and `/* eslint-enable ... */` (an optional `:` or `--` reason may follow a
    TypeScript directive; a glued prefix such as `@ts-ignore-everything` is
    rejected). Enforced by the same checker and proven by `scripts/prove-rule-gate.ts`.
 3. **Gate scope.** The checker parses `.ts`, `.mjs`, and `.json` under `src/`,
    `scripts/`, `tests/`, plus two root files. Shell, Markdown, and YAML are
-   outside its reach, so keep those English and comment-free by review, not by gate.
+   outside its reach. Shell comments are allowed for operational notes and must
+   be English; Markdown and YAML may document behaviour. Everything outside the
+   scanned extensions is reviewed, not gated.
 
 ## Before any work
 

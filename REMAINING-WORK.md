@@ -1,6 +1,6 @@
 # Remaining Work Ledger
 
-Status: 2026-10-29 · HEAD `edb163e` · `npm run verify` green (fast 9/9, 104 proof files,
+Status: 2026-10-29 · code HEAD `edb163e` · `npm run verify` green (fast 9/9, 104 proof files,
 101 proofs-stage steps, 4 smoke steps).
 
 Purpose: one list of every open or partially closed item in `SCRIPT-PARITY.md`,
@@ -23,7 +23,7 @@ Rules for this file:
 
 | Fact | Value | Anchor |
 | --- | --- | --- |
-| Open register entries | 2 (`E-40`, `E-41`) | `ISSUES.md` headings |
+| Open register entries | 0 | `ISSUES.md` headings |
 | Pending decisions still listed open | 1 real (`3`); `8` is implemented in code and stale in the list | `ISSUES.md:2038-2078` |
 | Product gaps open | 3 (`P-01`, `P-02`, `P-03`) | `ISSUES.md:1246-1261` |
 | Partial verification verdicts | 3 (`V-13`, `V-26`, `V-27`) | `VERIFICATION-20261026.md:283,427,438` |
@@ -48,8 +48,8 @@ Rules for this file:
 
 | ID | State | Verified evidence | Closure action | Evidence that closes it |
 | --- | --- | --- | --- | --- |
-| `E-40` | open, P3 | `scripts/check-v2-rules.mjs` scans only `.ts`, `.mjs`, `.json`; 6 of 10 shell scripts carry comments (maintenance 141, iso 48, guard 37, scorecard 22, scheduled 5, smoke 3) | Extend the checker to `.sh` with the same directive allow-list and strip the existing headers, or declare the exemption explicitly in `AGENTS.md` | `prove-rule-gate` shell cases: a real comment fails, an approved directive passes, a glued prefix fails |
-| `E-41` | open, P3 | no `tests/`; E-41 text says 32 proof scripts while the tree has 104 files and 101 steps | Invert assertions that encode defects; add focused unit cases for `C-03`, `E-12`, `E-14`, `E-19`; fix the stale count in the entry | a unit runner wired into the fast gate, or a documented proof-based unit harness with the four named cases |
+| `E-40` | done 2026-10-29 | `AGENTS.md` now limits the comment ban to scanned `.ts`, `.mjs`, and `.json`; shell comments are explicitly allowed and must be English; six of ten scripts carry them | none | policy closure; `check-v2-rules` and `prove-rule-gate` still enforce comments and English on the scanned extensions, `check:sh` still parses shell |
+| `E-41` | done 2026-10-29 | `docs/VALIDATION.md` records the proof harness as the unit harness; 104 files, 101 proofs-stage steps, one child process each; `prove-c03` 19, `prove-e12` 15, `prove-e14` 11, `prove-e19` 11 | none | documented decision; the catalog fails an unwired proof, and `prove-v2-compat` now asserts part preservation |
 
 ## C. Owner decisions and product gaps
 
@@ -80,7 +80,7 @@ numbers are final.
 
 | ID | Document | Stale claim | Correction |
 | --- | --- | --- | --- |
-| `E-DOC-1` | `STABILITY.md` | 108 entries, 24 open, S0=1, S3=2, S4=3, HEAD `b4a0eb3` | regenerate: 2 open, both P3 (`E-40`, `E-41`), current HEAD |
+| `E-DOC-1` | `STABILITY.md` | 108 entries, 24 open, S0=1, S3=2, S4=3, HEAD `b4a0eb3` | regenerate: 0 open register entries, current HEAD |
 | `E-DOC-2` | `VERIFICATION-20261026.md` | `V-26`/`V-27` still labeled `PARTIAL` without table rows | add both to the resolution table as bounded measurements, or relabel them closed-as-measured |
 | `E-DOC-3` | `ISSUES.md:2903-2910` | says `E-07 / P-04` and `I-09` are unchanged | both closed 2026-10-29 (`P-04` done, `I-09` done); replace the correction lines |
 | `E-DOC-4` | `ISSUES.md:1135,1240,2879,2887` | "green at 87 proofs"; "seven scripts"; "32 proof scripts"; `E-10` cites baseline HEAD `d740865` | 101 proofs-stage steps; 10 shell scripts, 6 with comments; 104 proof files; mark `E-10` as historical |
@@ -117,13 +117,14 @@ numbers are final.
 
 ## H. Closure order
 
-1. `E-40`, `E-41` with the rule-gate and unit-suite decisions; `E-37`, `E-39`, and `E-30` closed 2026-10-29.
-2. `E-40`, `E-41` with the rule-gate and unit-suite decisions.
-3. `V-13` decision, then implementation or documented limitation.
-4. Decision 3, decision 8, `P-01`, `P-02`, `P-03` and the resulting work.
-5. `F-1`-`F-3` cleanup.
-6. `E-DOC-1`-`E-DOC-14` regeneration after the code and decisions are final.
-7. `G-1` re-measure, then decide whether to commit `docs/FUTURE-WORK-PLAN.md`.
+1. `V-13` decision, then implementation or documented limitation.
+2. Decision 8: mark the implemented pending row resolved.
+3. Decision 3, `P-01`, `P-02`, `P-03` and the resulting work.
+4. `F-1`-`F-3` cleanup.
+5. `E-DOC-1`-`E-DOC-14` regeneration after the code and decisions are final.
+6. `G-1` re-measure, then decide whether to commit `docs/FUTURE-WORK-PLAN.md`.
+
+`E-30`, `E-37`, `E-39`, `E-40`, and `E-41` closed 2026-10-29.
 
 After each batch: `npm run verify`; after a proof batch: update
 `scripts/gate-manifest.json` and `scripts/prove-proof-catalog.ts` in the same
@@ -133,7 +134,7 @@ commit.
 
 | Source | Open or partial items found | Ledger rows | Status |
 | --- | --- | --- | --- |
-| `ISSUES.md` | 2 open entries, decisions 3 and 8, `P-01`-`P-03`, corrections, standing decisions | `E-40`, `E-41`, Decision 3/8, `P-01`..`P-03`, `E-DOC-3`..`E-DOC-5`, `G-6`, `G-7` | covered |
+| `ISSUES.md` | 0 open register entries, decisions 3 and 8, `P-01`-`P-03`, corrections, standing decisions | Decision 3/8, `P-01`..`P-03`, `E-DOC-3`..`E-DOC-5`, `G-6`, `G-7` | covered |
 | `VERIFICATION-20261026.md` | `V-13`, `V-26`, `V-27`; six resolved partials; `V-36`/`V-37`; eight next actions; SHARED audit count | `V-13`, `V-26`, `V-27`, `V-15`/`V-19`/`V-20`/`V-30`/`V-31`/`V-52`, `V-G`, `V-36`, `V-37`, `E-DOC-2`, `E-DOC-12`, `E-DOC-14` | covered |
 | `SCRIPT-PARITY.md` | 4 out-of-scope rows and the summary label | `E-DOC-6` | covered |
 | `PLAN-DB-INSTALL.md` | P0-P7 closed; F14 observation; F20/F24/F25/F27/F32 fixed | `G-5` | covered |
@@ -160,8 +161,8 @@ Measured discrepancies against the source documents:
 1. Residue is 10 `pre-refresh` files and 6 `retired` `.js` files, not 12 and
    14; the retired `.mjs` copies are no longer present. The sixth inert package
    dir (`athan new vrsion`) has no `.opencode`; only five remain.
-2. `E-40` says seven scripts; there are ten, and six carry comments.
-3. `E-41` says 32 proof scripts; there are 104 files and 101 proofs-stage steps.
+2. `E-40` said seven scripts; there are ten, and six carry comments. The entry now records the policy exemption.
+3. `E-41` said 32 proof scripts; the entry now records 104 files and 101 proofs-stage steps.
 4. Two `ISSUES.md` bodies still say 87 proofs (lines 1135 and 1240).
 5. Pending decision 4 says `/tmp/opencode` is empty; five artifacts exist.
 6. Pending decision 8 is implemented; only the list row is stale.
