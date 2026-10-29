@@ -138,4 +138,5 @@ plugin entry, and revert the freeze commit. v1 state under
   tree reference in `src/` or the build/launcher, the legacy state name only
   in `state-paths.ts`, no v1 manifest dependency, and exactly one host entry.
 - Day 6 delivered the operator `README.md` (install, state/HMAC migration,
-  guard codes, troubleshooting) and the final full proof run (25 proofs).
+  guard codes, troubleshooting) and the final full proof run (25 proofs at
+  Day 6; the current count is pinned by `prove-proof-catalog`).

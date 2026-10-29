@@ -168,9 +168,9 @@ items. Triage first, then implement only what is proven on v2.
 2. Coverage thresholds: v2 carries no `vitest`, no `tests/`, and no
    `test:coverage`, so the v1 item is rejected rather than imported as an
    empty suite. The v2 equivalent is a proof-catalog threshold:
-   `prove:proof-catalog` requires 25 proof files (24 at Day 4, plus the Day 6
-   independence proof), exactly one `prove:` script
-   per file, every proof wired into `ci`, and the release smoke present.
+   `prove:proof-catalog` pins the exact proof file list and the proofs-stage
+   step count, exactly one `prove:` script per file or a documented smoke-stage
+   owner, every proof wired into a gate, and the release smoke present.
 3. Add `scripts/release-smoke.sh`: pin the host version, build, boot a
    scratch workspace with an isolated `OPENCODE_DB` and temp plugin state,
    assert the plugin init line + 42-tool registration, then call `health`
@@ -257,8 +257,9 @@ Status 2026-10-24: done. No Day 5 regression required a code fix.
   proves there is no v1 tree reference in `src/` or the build/launcher, the
   legacy state name is confined to `state-paths.ts` and is read-only, the
   manifest has no v1 dependency, and exactly one host entry exists.
-- Final `npm run ci` on this tree: see `/tmp/opencode/ci-day6-final.log`; 25 proofs
-  pass and release smoke ends with
+- Final `npm run ci` on this tree: see `/tmp/opencode/ci-day6-final.log`; the
+  Day-6 run passed 25 proofs (historical; the current count is pinned by
+  `prove-proof-catalog`) and release smoke ended with
   `SMOKE PASS: host v2.1.4, scratch boot, 42 tools, health + help`.
 
 Exit: met — clean tree, one install method, docs delivered.

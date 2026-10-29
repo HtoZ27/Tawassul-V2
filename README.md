@@ -66,9 +66,10 @@ already carries a project copy of this plugin in `.opencode/plugin/` or
 the canonical `tawassul.js` name — naming every copy and the global target, so
 the same plugin cannot be installed twice. This tree's own project entry
 `.opencode/plugin/tawassul.js` is exempt only when the installer runs from the
-repository root. The reverse case is documented only: when a project copy and a
-global copy both exist, the project copy wins at runtime and the plugin never
-enforces or removes either one.
+repository root. The reverse case is resolved at runtime: when a project copy
+and a global copy both exist, the global copy detects its scope and delegates
+setup to the workspace project entry, so only one copy takes effect; the plugin
+never enforces or removes either one.
 
 The global install is single-owner: the first tree records itself in
 `tawassul-install-owner`, and a live owner from another tree is refused before
@@ -91,13 +92,14 @@ does not install its dependencies. The global bundle therefore carries `zod`,
 `web-tree-sitter` JS, and the real `Plugin.define`, while the wasm files are
 copied beside it. The installer refuses v1 artifacts and the retired
 package-directory layout. `--dry-run` reports the planned writes; `--force`
-replaces an unmarked file.
+replaces an unmarked file and keeps the previous copy as
+`tawassul.js.pre-force-<timestamp>`, which `--purge --yes` removes.
 
 ## Verify
 
 ```
 npm run gate:fast    # rules + shell syntax + typecheck + config + facts + catalog
-npm run gate:proofs  # 91 proofs, one isolated child process each
+npm run gate:proofs  # 97 proofs, one isolated child process each
 npm run gate:smoke   # build + release smoke (one scratch boot)
 npm run ci           # all three stages, sequentially, each in its own process
 npm run verify       # gate:fast + build
