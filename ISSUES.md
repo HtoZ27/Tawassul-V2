@@ -2831,19 +2831,26 @@ readable error result it had before. `prove-e36` drives the real web tool
 against a stubbed Firecrawl server across the failed, cancelled, completed,
 empty, and non-terminal cases (10 assertions).
 
-#### E-37 The v2 type shim is weaker than the host contract — open (P2)
+#### E-37 The v2 type shim is weaker than the host contract — done (2026-10-29)
 
-`src/v2/types.ts:16` declares `signal?: AbortSignal` and `:90`
-`permission?: V2Permission` although both are required by the host;
-`:56` omits the model-scoping options that `ModelHooks` supports; `:66`
-accepts an unconstrained string for the tool hook name although only
-`execute.before` and `execute.after` exist.
+`src/v2/types.ts` now derives the bridge contract from `@opencode/plugin`
+instead of restating it:
 
-Impact: missing host APIs and invalid hook names compile cleanly, so the
-compiler cannot catch a broken bridge. This is the mechanism behind several
-entries above.
+- `V2ToolContext` is the host `ToolContext`, so `signal` is required.
+- `V2Permission` is `Pick<PermissionDomain, "assert" | "hook">` and
+  `V2Context.permission` is required.
+- `V2Tool.hook` is `ToolDomain["hook"]`, so only `execute.before` and
+  `execute.after` typecheck.
+- `V2Session.hook` is `ModelHooks<SessionHooks>`, so hook names are narrowed
+  and model-scoped hooks accept `{ providerID }`.
+- `V2SessionIdle` is the host `SessionIdle`; `V2Registration` is the host
+  `Registration`.
 
-Next: derive the shim types from `@opencode/plugin` instead of restating them.
+`src/v2/setup.ts` casts only at the two v1 adapter boundaries: the mutable
+session event consumed by the chat bridge and the mutable after-hook result.
+`prove-e37` asserts the required fields, the exact tool hook names, the
+provider scope, and the host declarations (15 assertions); it is wired as
+gate step `e37`.
 
 #### E-38 Schema-refresh disposal does not await the in-flight refresh — done (2026-10-26)
 
@@ -2862,18 +2869,26 @@ failed probe or reload is logged inside the lifecycle instead of rejecting the
 detached task. `prove-e38` covers the helper lifecycle and the setup disposal
 ordering, including a reload that is still in flight (16 assertions).
 
-#### E-39 `isBlockedUrl` is a pre-flight string check only — open (P2)
+#### E-39 `isBlockedUrl` is a pre-flight string check only — done (2026-10-29)
 
-`src/tools/web.ts:216-281` normalises the hostname and rejects private
-ranges, but never resolves DNS, never re-checks after a redirect, and the
-actual fetch happens on the Firecrawl server. It is applied to `fetch`,
-`map`, and `crawl`.
+`src/tools/web.ts` keeps the preflight and adds a post-response check:
 
-Impact: the plugin's SSRF guarantee is weaker than the code suggests; the
-real egress boundary is Firecrawl's.
+- `blockedFinalUrl` reads `metadata.sourceURL`, `metadata.url`, or a
+  top-level `url` and re-applies `isBlockedUrl` when it differs from the
+  requested URL.
+- `fetch` returns `redirect blocked` before any content is read or cached.
+- `map` drops links that resolve to private or local targets and reports the
+  count.
+- `partitionCrawlDocs` separates safe crawl pages; the tool reports blocked
+  pages and fails closed when every page is blocked.
+- The tool description states the trust boundary: Firecrawl performs the
+  egress, and the plugin only re-checks the final URL the response exposes.
 
-Next: document the trust boundary, and re-validate the final URL when the
-response exposes one.
+`prove-web-ssrf` now covers the helper, a blocked redirect, a clean redirect,
+a top-level final URL, a missing final URL, map filtering, and crawl
+partitioning against a stubbed Firecrawl server (39 assertions). DNS
+resolution remains Firecrawl's responsibility; the plugin cannot pin the
+address it never resolves.
 
 ### New P3
 
@@ -2909,25 +2924,26 @@ closed), and `prove-c02` covers the bridge seed/write-back plus the live
 consent answer/execute loop (C-02 closed); `prove-c03` covers the no-agent and
 unrecognized-agent consent paths (C-03 closed).
 
-### E-53 The S-053 task census never got a disposition — open (P2)
+### E-53 The S-053 task census never got a disposition — done (2026-10-29)
 
-`SHARED.md` S-053 closes with a census of seven unchecked v1 tasks: pause
-during a live session, a task longer than 420s, an image-gen 401 retry,
-confidentiality at rest, user-level rate limiting, shared-memory signing,
-and deleted-agent persistence. The entry asks for each one to be ported as a
-v2 test or recorded as out of scope, but no v2 file names any of the seven:
-they appear only inside `SHARED.md`, while the entry still reads
-`v2 status: DONE on v2`.
+`SHARED.md` S-053 closes with a census of seven unchecked v1 tasks. Every item
+now has its own row in `docs/SHARED-PARITY.md`; `S-053.3` reads `verified` and
+the entry re-derives to `verified`.
 
-Impact: the census is the last place where a v1 behaviour can be missing from
-v2 without a trace. Two items touch live operation (pause during a live
-session, deleted-agent persistence); the other five are policy items that need
-an explicit decision rather than silence.
+| Census item | Row | Disposition |
+| --- | --- | --- |
+| Pause during a live session | `S-053.4` | anchored: `src/tools/system-controls.ts:79` persists the paused scope, the affected handoffs, and the original statuses; `prove-handoff-rescue` covers the paused-handoff path |
+| A task longer than 420s | `S-053.5` | anchored: `src/hooks/tool-execute.ts:67` sets the 420-second task timer and logs the timeout warning |
+| Image-gen 401 retry | `S-053.6` | anchored: `src/tools/image-gen.ts:190` refreshes the token once, then fails closed on a second 401 |
+| Confidentiality at rest | `S-053.7` | n-a: state is HMAC-signed for integrity, not encrypted; the plugin stores no provider credentials, which stay in the host or the OS keyring |
+| User-level rate limiting | `S-053.8` | n-a: a single-user local plugin has no multi-user layer; provider quotas are classified and transient limits defer to the host |
+| Shared-memory signing | `S-053.9` | verified: `src/utils/crypto.ts:20` writes `TAWASSUL_V2_HMAC_V1:` and `prove-state-namespace` asserts the signature and the legacy reads |
+| Deleted-agent persistence | `S-053.10` | verified: `src/scripts/gen-opencode-config.ts:57` reads the user-owned list and `prove-seed-agents` proves the seed never overwrites it |
 
-Next: give every item a row in `docs/SHARED-PARITY.md` with either a proof or a
-written out-of-scope reason, then re-derive the S-053 status. Until then the
-ledger keeps S-053 `partial`, and `gate:fast` rejects a `partial` row without
-this entry.
+Result: three anchored rows, two out-of-scope rows with a written reason, and
+two verified rows. The parity ledger moved from 70 requirements with one
+`partial` row to 70 requirements with none; `gate:fast` now rejects any new
+`partial` row that lacks an issue.
 
 ### E-54 A bare "quota exceeded" message is now a recoverable quota with delayed probes (2026-10-29)
 

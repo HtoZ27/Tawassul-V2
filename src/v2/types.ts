@@ -1,4 +1,10 @@
-export type V2Registration = { dispose: () => Promise<void> };
+import type { Context as HostContext } from "@opencode/plugin/promise/plugin";
+import type { PermissionDomain } from "@opencode/plugin/promise/permission";
+import type { ModelHooks, Registration } from "@opencode/plugin/promise/registration";
+import type { SessionHooks, SessionIdle } from "@opencode/plugin/promise/session";
+import type { ToolContext as HostToolContext, ToolDomain } from "@opencode/plugin/promise/tool";
+
+export type V2Registration = Registration;
 
 export type V2ToolDefinition = {
   name: string;
@@ -12,14 +18,7 @@ export type V2ToolEditor = {
   add: (tool: V2ToolDefinition) => void;
 };
 
-export type V2ToolContext = {
-  sessionID: string;
-  messageID: string;
-  agent: string;
-  id: string;
-  signal?: AbortSignal;
-  progress: (update: Record<string, unknown>) => Promise<void>;
-};
+export type V2ToolContext = HostToolContext;
 
 export type V2ResultPart = { type?: string; text?: string; [key: string]: unknown };
 
@@ -28,6 +27,8 @@ export type V2ToolResult = {
   metadata?: Record<string, unknown>;
   output?: unknown;
 };
+
+export type V2ToolHookName = Parameters<ToolDomain["hook"]>[0];
 
 export type V2ToolHookInput = {
   tool: string;
@@ -55,48 +56,25 @@ export type V2SessionEvent = {
   delivery?: unknown;
 };
 
-export type V2SessionIdleBackground =
-  | { kind: "shell"; sessionID: string; shellID: string; command: string }
-  | { kind: "subagent"; sessionID: string; childSessionID: string; agent: string; description: string }
-  | { kind: "image"; sessionID: string; path: string; model: string };
-
-export type V2SessionIdle = {
-  sessionID: string;
-  background: ReadonlyArray<V2SessionIdleBackground>;
-};
+export type V2SessionIdle = SessionIdle;
 
 export type V2Session = {
   prompt: (input: { sessionID: string; text: string; delivery?: "steer" | "queue" }) => Promise<unknown>;
   synthetic?: (input: { sessionID: string; text: string; description?: string }) => Promise<unknown>;
   interrupt: (input: { sessionID: string; continue?: boolean }) => Promise<unknown>;
-  hook: {
-    (name: "experimental.idle", callback: (event: V2SessionIdle) => void | Promise<void>): Promise<V2Registration>;
-    (name: string, callback: (event: V2SessionEvent) => void | Promise<void>): Promise<V2Registration>;
-  };
+  hook: ModelHooks<SessionHooks>;
 };
 
 export type V2Tool = {
   transform: (callback: (editor: V2ToolEditor) => void) => Promise<V2Registration>;
-  reload: () => Promise<void>;
-  list: () => Promise<readonly unknown[]>;
-  hook: (name: string, callback: (input: unknown) => void | Promise<void>) => Promise<V2Registration>;
+  reload: ToolDomain["reload"];
+  list: ToolDomain["list"];
+  hook: ToolDomain["hook"];
 };
 
-export type V2Event = {
-  subscribe: () => AsyncIterable<Record<string, unknown>>;
-};
+export type V2Event = Pick<HostContext["event"], "subscribe">;
 
-export type V2Permission = {
-  assert: (input: {
-    sessionID: string;
-    agent?: string;
-    action: string;
-    resources: string[];
-    metadata?: Record<string, unknown>;
-    source?: { type: "tool"; messageID: string; id: string };
-  }) => Promise<void>;
-  hook: (name: string, callback: (input: unknown) => void | Promise<void>) => Promise<V2Registration>;
-};
+export type V2Permission = Pick<PermissionDomain, "assert" | "hook">;
 
 export type V2RpcClient = {
   readonly events: {
@@ -111,11 +89,11 @@ export type V2RpcDomain = <D extends {
 }>(definition: D) => V2RpcClient;
 
 export type V2Context = {
-  app?: { readonly version?: string };
-  location?: { directory?: string };
+  app: Pick<HostContext["app"], "version">;
+  location: Pick<HostContext["location"], "directory">;
   session: V2Session;
   tool: V2Tool;
   event: V2Event;
-  rpc?: V2RpcDomain;
-  permission?: V2Permission;
+  rpc: V2RpcDomain;
+  permission: V2Permission;
 };

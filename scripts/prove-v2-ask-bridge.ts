@@ -13,13 +13,14 @@ function check(name: string, cond: boolean): void {
   console.error(`PROOF FAIL: ${name}`);
 }
 
-const toolContext: V2ToolContext = {
+const toolContext = {
   sessionID: "session-proof",
   messageID: "message-proof",
   agent: "build",
   id: "call-proof",
+  signal: new AbortController().signal,
   progress: async () => undefined,
-};
+} as unknown as V2ToolContext;
 
 let assertCalls = 0;
 let assertDenied = false;

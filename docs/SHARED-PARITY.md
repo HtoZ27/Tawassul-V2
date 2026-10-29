@@ -8,16 +8,16 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 
 | Status | Requirements |
 | --- | --- |
-| verified | 31 |
-| anchored | 18 |
-| partial | 1 |
+| verified | 34 |
+| anchored | 21 |
+| partial | 0 |
 | missing | 0 |
 | host-bound | 4 |
-| n-a | 7 |
+| n-a | 9 |
 | doc-only | 2 |
-| total | 63 |
+| total | 70 |
 
-57 entries, 63 requirements.
+57 entries, 70 requirements.
 
 ## Ledger
 
@@ -81,7 +81,14 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-052 | Goal auto-capture follows the corrected shape, not the v1 code. | `src/services/goal-store.ts:697` `finishLocked` | `scripts/prove-goal-capture.ts` | verified |
 | S-053.1 | The watcher policy is owned by the v2 launcher with env over pinned over auto and one decision line. | `scripts/opencode-v2-iso.sh:297` `[launcher] watcher mode=` | `scripts/prove-boot-gate.ts` | verified |
 | S-053.2 | DB retention prunes event rows and the backup probe counts both session tables. | `scripts/opencode-db-maintenance.sh:91` `EVENT_KEEP` | `scripts/prove-db-retention.ts` | verified |
-| S-053.3 | The seven-item unchecked-task census is either ported as tests or recorded as out of scope. | - | - | partial |
+| S-053.3 | The seven-item unchecked-task census is either ported as tests or recorded as out of scope. | `ISSUES.md:2927` `### E-53` | `scripts/prove-handoff-rescue.ts`, `scripts/prove-state-namespace.ts`, `scripts/prove-seed-agents.ts` | verified |
+| S-053.4 | Pause during a live session halts dispatch and persists the paused handoff set. | `src/tools/system-controls.ts:79` `const pauseState: PauseState = {` | - | anchored |
+| S-053.5 | A task that runs longer than 420 seconds is tracked by the task timeout. | `src/hooks/tool-execute.ts:67` `const TASK_TIMEOUT_MS = 420_000;` | - | anchored |
+| S-053.6 | An image-generation 401 refreshes the token once and fails closed on a second 401. | `src/tools/image-gen.ts:190` `const refreshed = await refreshAndUpdateToken();` | - | anchored |
+| S-053.7 | Confidentiality at rest for plugin state is a host and OS responsibility, not a plugin feature. | - | - | n-a |
+| S-053.8 | User-level rate limiting is not a single-user local plugin surface. | - | - | n-a |
+| S-053.9 | Shared state is signed with HMAC-SHA256 before it is written and verified on read. | `src/utils/crypto.ts:20` `export const HMAC_PREFIX = "TAWASSUL_V2_HMAC_V1:";` | `scripts/prove-state-namespace.ts` | verified |
+| S-053.10 | Deleted-agent names persist in the user-owned deletion list and survive a seed. | `src/scripts/gen-opencode-config.ts:57` `deletedPath: resolve(root, ".opencode", "deleted-agents.json"),` | `scripts/prove-seed-agents.ts`, `scripts/prove-first-boot-seed.ts` | verified |
 | S-054 | The frozen boot-scorecard fixes are ported. | `scripts/boot-scorecard-v2.sh:30` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
 | S-055 | The v1 docs and atomic backlog is triaged before retirement. | - | - | doc-only |
 | S-056 | v1 shared state, HMAC, lock, seat, and N2 surfaces are namespaced. | `src/utils/state-paths.ts:98` `legacyFallbackFor` | `scripts/prove-state-namespace.ts` | verified |
@@ -89,9 +96,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 
 ## Open items
 
-| Entry | Requirement | Issue |
-| --- | --- | --- |
-| S-053 | The seven-item unchecked-task census is either ported as tests or recorded as out of scope. | E-53 |
+None.
 
 ## Host-bound items
 

@@ -440,7 +440,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
     if (plugin["tool.execute.after"]) {
       try {
         const afterRegistration = await ctx.tool.hook("execute.after", (rawInput) => {
-          const spec = rawInput as V2ToolHookInput;
+          const spec = rawInput as unknown as V2ToolHookInput;
           const v1Input = {
             tool: toolNameToV1(spec.tool),
             agent: spec.agent,
@@ -498,7 +498,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
     if (plugin["chat.message"]) {
       try {
         const contextRegistration = await ctx.session.hook("context", async (event) => {
-          await runChatMessageBridge(plugin, event, processedMessages);
+          await runChatMessageBridge(plugin, event as unknown as V2SessionEvent, processedMessages);
         });
         registered.push(() => contextRegistration.dispose());
       } catch (e) {
@@ -509,7 +509,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
     if (plugin["experimental.session.compacting"]) {
       try {
         const compactionRegistration = await ctx.session.hook("compaction", async (event) => {
-          await runCompactionBridge(plugin, event);
+          await runCompactionBridge(plugin, event as unknown as V2SessionEvent);
         });
         registered.push(() => compactionRegistration.dispose());
       } catch (e) {

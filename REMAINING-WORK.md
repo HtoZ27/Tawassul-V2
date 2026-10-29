@@ -1,7 +1,7 @@
 # Remaining Work Ledger
 
-Status: 2026-10-29 · HEAD `4549760` · `npm run verify` green (fast 9/9, 103 proof files,
-100 proofs-stage steps, 4 smoke steps).
+Status: 2026-10-29 · HEAD `4258815` · `npm run verify` green (fast 9/9, 104 proof files,
+101 proofs-stage steps, 4 smoke steps).
 
 Purpose: one list of every open or partially closed item in `SCRIPT-PARITY.md`,
 `VERIFICATION-20261026.md`, `ISSUES.md`, `SHARED.md`, `PLAN-DB-INSTALL.md`,
@@ -23,14 +23,14 @@ Rules for this file:
 
 | Fact | Value | Anchor |
 | --- | --- | --- |
-| Open register entries | 4 (`E-37`, `E-39`, `E-40`, `E-41`) | `ISSUES.md` headings |
+| Open register entries | 2 (`E-40`, `E-41`) | `ISSUES.md` headings |
 | Pending decisions still listed open | 1 real (`3`); `8` is implemented in code and stale in the list | `ISSUES.md:2038-2078` |
 | Product gaps open | 3 (`P-01`, `P-02`, `P-03`) | `ISSUES.md:1246-1261` |
 | Partial verification verdicts | 3 (`V-13`, `V-26`, `V-27`) | `VERIFICATION-20261026.md:283,427,438` |
 | Resolved partial verdicts | 6 (`V-15`, `V-19`, `V-20`, `V-30`, `V-31`, `V-52`) | `VERIFICATION-20261026.md:495-506` |
 | Shell scripts | 10 files, 3,586 lines; 6 carry comment lines | `scripts/*.sh` |
-| Proof files | 103; 100 proofs-stage entries, `proof-catalog` in fast, 2 boot proofs in smoke | `scripts/gate-manifest.json` |
-| SHARED parity ledger | 57 entries, 63 requirements: 31 verified, 18 anchored, 4 host-bound, 7 n-a, 2 doc-only, 1 partial (`E-53`) | `docs/SHARED-PARITY.md` |
+| Proof files | 104; 101 proofs-stage entries, `proof-catalog` in fast, 2 boot proofs in smoke | `scripts/gate-manifest.json` |
+| SHARED parity ledger | 57 entries, 70 requirements: 34 verified, 21 anchored, 4 host-bound, 9 n-a, 2 doc-only, 0 partial | `docs/SHARED-PARITY.md` |
 | Unit tests | no `tests/` directory | `ls tests` |
 | Residue on disk | 10 `pre-refresh`, 6 `retired` `.js`, 5 dist-only package dirs | Desktop scan, section C decision 3 |
 | `@opencode/plugin` | 2.2.1 installed; no `session.form` surface | `node_modules/@opencode/plugin` |
@@ -41,15 +41,15 @@ Rules for this file:
 | ID | State | Verified evidence | Closure action | Evidence that closes it |
 | --- | --- | --- | --- | --- |
 | `E-30` | done 2026-10-29 | `src/services/apply-patch.ts` now compares with `path.relative` plus a separator, resolves the parent through the nearest existing ancestor, rejects a symlinked parent, target, or `.bak`, and writes the temp file inside the target directory with the target mode preserved | none | `prove-e30`: 31 assertions covering the sibling-prefix escape, symlinked parent, missing parent, temp-file location, atomic replace, mode preservation, and lock cleanup |
-| `E-37` | open, P2 | `src/v2/types.ts:20` `signal?`; `:97` `permission?`; `:33` `tool: string`; model-scoping options absent | Derive the shim from `@opencode/plugin` instead of restating it; require the host-required fields; restrict hook names to the real set | `prove-e37`: compile fixtures that must fail and must pass, plus `tsc --noEmit` on the shipped shim |
-| `E-39` | open, P2 | `src/tools/web.ts:228-281` normalises and rejects private ranges but never resolves DNS or rechecks a redirect; egress is Firecrawl | Document the trust boundary; re-validate the final URL whenever the response exposes one; fail closed on a blocked final URL | extend `prove-web-ssrf`: redirect to private range, final-URL recheck, blocked/clean pairs |
+| `E-37` | done 2026-10-29 | `src/v2/types.ts` derives `V2ToolContext` from the host `ToolContext`, `V2Permission` from `PermissionDomain`, `V2Tool.hook` from `ToolDomain`, and `V2Session.hook` from `ModelHooks<SessionHooks>`; `signal` and `permission` are required, and `providerID` scoping is typed | none | `prove-e37`: 15 assertions for required fields, exact tool hook names, provider scope, and host declarations; gate step `e37` |
+| `E-39` | done 2026-10-29 | `src/tools/web.ts` re-checks `metadata.sourceURL`, `metadata.url`, or a top-level `url`; `fetch` fails before content or cache, `map` drops private links, and `partitionCrawlDocs` fails closed when every page is blocked | none | `prove-web-ssrf`: 39 assertions covering pure helpers plus stubbed Firecrawl fetch, map, and crawl paths |
 
 ## B. Gate gaps
 
 | ID | State | Verified evidence | Closure action | Evidence that closes it |
 | --- | --- | --- | --- | --- |
 | `E-40` | open, P3 | `scripts/check-v2-rules.mjs` scans only `.ts`, `.mjs`, `.json`; 6 of 10 shell scripts carry comments (maintenance 141, iso 48, guard 37, scorecard 22, scheduled 5, smoke 3) | Extend the checker to `.sh` with the same directive allow-list and strip the existing headers, or declare the exemption explicitly in `AGENTS.md` | `prove-rule-gate` shell cases: a real comment fails, an approved directive passes, a glued prefix fails |
-| `E-41` | open, P3 | no `tests/`; E-41 text says 32 proof scripts while the tree has 103 files and 100 steps | Invert assertions that encode defects; add focused unit cases for `C-03`, `E-12`, `E-14`, `E-19`; fix the stale count in the entry | a unit runner wired into the fast gate, or a documented proof-based unit harness with the four named cases |
+| `E-41` | open, P3 | no `tests/`; E-41 text says 32 proof scripts while the tree has 104 files and 101 steps | Invert assertions that encode defects; add focused unit cases for `C-03`, `E-12`, `E-14`, `E-19`; fix the stale count in the entry | a unit runner wired into the fast gate, or a documented proof-based unit harness with the four named cases |
 
 ## C. Owner decisions and product gaps
 
@@ -80,18 +80,18 @@ numbers are final.
 
 | ID | Document | Stale claim | Correction |
 | --- | --- | --- | --- |
-| `E-DOC-1` | `STABILITY.md` | 108 entries, 24 open, S0=1, S3=2, S4=3, HEAD `b4a0eb3` | regenerate: 4 open, all P2/P3 (`E-37`, `E-39`, `E-40`, `E-41`), current HEAD |
+| `E-DOC-1` | `STABILITY.md` | 108 entries, 24 open, S0=1, S3=2, S4=3, HEAD `b4a0eb3` | regenerate: 2 open, both P3 (`E-40`, `E-41`), current HEAD |
 | `E-DOC-2` | `VERIFICATION-20261026.md` | `V-26`/`V-27` still labeled `PARTIAL` without table rows | add both to the resolution table as bounded measurements, or relabel them closed-as-measured |
 | `E-DOC-3` | `ISSUES.md:2903-2910` | says `E-07 / P-04` and `I-09` are unchanged | both closed 2026-10-29 (`P-04` done, `I-09` done); replace the correction lines |
-| `E-DOC-4` | `ISSUES.md:1135,1240,2879,2887` | "green at 87 proofs"; "seven scripts"; "32 proof scripts"; `E-10` cites baseline HEAD `d740865` | 100 proofs-stage steps; 10 shell scripts, 6 with comments; 103 proof files; mark `E-10` as historical |
+| `E-DOC-4` | `ISSUES.md:1135,1240,2879,2887` | "green at 87 proofs"; "seven scripts"; "32 proof scripts"; `E-10` cites baseline HEAD `d740865` | 101 proofs-stage steps; 10 shell scripts, 6 with comments; 104 proof files; mark `E-10` as historical |
 | `E-DOC-5` | `ISSUES.md:2038-2078` | decision 4 says `/tmp/opencode` is empty; decision 8 says open; decision 3 counts 12/14/6 | 5 artifacts exist; decision 8 implemented; residue is 10/6/5 dirs |
 | `E-DOC-6` | `SCRIPT-PARITY.md:29` | summary row "Missing (support/measurement only) 4" conflicts with the header that calls the four rows out of scope, not defects | rename the row to "Out of scope (support/measurement)" |
 | `E-DOC-7` | `RECOVERY-20261025.md:95,160` | "Remaining hazard: bun-installed v1 binary (H-07)"; doctor orphan cwd `/tmp/opencode/smoke-probe` | mark both historical; `H-07` is done and the path is not a live hazard |
 | `E-DOC-8` | `UPSTREAM.md:89,109-114` | version ledger status `partial`; `#58331`, `#58866`, `#58817` still `tracked` | `E-46`, `E-44`, `E-45` are fixed; move the rows to aligned and set the release status accordingly |
 | `E-DOC-9` | `DECOUPLING.md:11,22,85` | deleted-agents seed "to be implemented", 21 names | done 2026-10-29: the inventory names `npm run seed:agents`, the 8 bases, the 3 manual variants, and the 35 user-owned deleted names; `F-3` verifies the seed output |
 | `E-DOC-10` | `PLAN.md:261`, `CUTOVER.md` | Day-6 25-proof lines | already marked historical; confirm no line reads as current |
-| `E-DOC-11` | `AGENTS.md:72`, `README.md:102` | 97 proofs | done 2026-10-29: both read 100 proofs, matching the pinned proofs-stage count |
-| `E-DOC-12` | `SHARED.md` | 57 frozen entries; `S-042`, `S-046`, `S-048`, `S-051` are host-bound; several frozen headings still read `REQUIRED`, `NOT implemented`, or `PARTIALLY IMPLEMENTED` | no edit; `docs/SHARED-PARITY.md` now holds one row per entry (63 requirements) with an anchor, a proof, and a status, and `gate:fast` rejects a `partial` row without an `ISSUES.md` entry. `E-DOC-14` is superseded: the ledger derives four host-bound entries from the code |
+| `E-DOC-11` | `AGENTS.md:72`, `README.md:102` | 97 proofs | done 2026-10-29: both read 101 proofs, matching the pinned proofs-stage count |
+| `E-DOC-12` | `SHARED.md` | 57 frozen entries; `S-042`, `S-046`, `S-048`, `S-051` are host-bound; several frozen headings still read `REQUIRED`, `NOT implemented`, or `PARTIALLY IMPLEMENTED` | no edit; `docs/SHARED-PARITY.md` now holds one row per entry (70 requirements) with an anchor, a proof, and a status, and `gate:fast` rejects a `partial` row without an `ISSUES.md` entry. `E-DOC-14` is superseded: the ledger derives four host-bound entries from the code |
 | `E-DOC-13` | `PLAN.md:325` | "Next: bump the dev dependency to `@opencode/plugin` 2.2.0" reads as pending | the dependency is `^2.2.1`, audited through v2.2.1; mark it delivered |
 | `E-DOC-14` | `VERIFICATION-20261026.md:893-905` | the audit summary counts six host-bound entries, including `S-044` and `S-047` | `PLAN.md:330-337` closes `S-044` and `S-047` on 2026-10-29; update the audit count to four (`S-042`, `S-046`, `S-048`, `S-051`) |
 
@@ -117,7 +117,7 @@ numbers are final.
 
 ## H. Closure order
 
-1. `E-37`, `E-39` with new proofs and gate wiring; `E-30` closed 2026-10-29.
+1. `E-40`, `E-41` with the rule-gate and unit-suite decisions; `E-37`, `E-39`, and `E-30` closed 2026-10-29.
 2. `E-40`, `E-41` with the rule-gate and unit-suite decisions.
 3. `V-13` decision, then implementation or documented limitation.
 4. Decision 3, decision 8, `P-01`, `P-02`, `P-03` and the resulting work.
@@ -133,13 +133,13 @@ commit.
 
 | Source | Open or partial items found | Ledger rows | Status |
 | --- | --- | --- | --- |
-| `ISSUES.md` | 4 open entries, decisions 3 and 8, `P-01`-`P-03`, corrections, standing decisions | `E-37`..`E-41`, Decision 3/8, `P-01`..`P-03`, `E-DOC-3`..`E-DOC-5`, `G-6`, `G-7` | covered |
+| `ISSUES.md` | 2 open entries, decisions 3 and 8, `P-01`-`P-03`, corrections, standing decisions | `E-40`, `E-41`, Decision 3/8, `P-01`..`P-03`, `E-DOC-3`..`E-DOC-5`, `G-6`, `G-7` | covered |
 | `VERIFICATION-20261026.md` | `V-13`, `V-26`, `V-27`; six resolved partials; `V-36`/`V-37`; eight next actions; SHARED audit count | `V-13`, `V-26`, `V-27`, `V-15`/`V-19`/`V-20`/`V-30`/`V-31`/`V-52`, `V-G`, `V-36`, `V-37`, `E-DOC-2`, `E-DOC-12`, `E-DOC-14` | covered |
 | `SCRIPT-PARITY.md` | 4 out-of-scope rows and the summary label | `E-DOC-6` | covered |
 | `PLAN-DB-INSTALL.md` | P0-P7 closed; F14 observation; F20/F24/F25/F27/F32 fixed | `G-5` | covered |
 | `RECOVERY-20261025.md` | historical status, H-07 hazard, orphan cwd | `E-DOC-7` | covered |
 | `PLAN.md` | P2 backlog closed; deferred upstream docs; Day-6 historical; stale 2.2.0 bump line | `E-DOC-10`, `E-DOC-13`, `G-3` | covered |
-| `TRIAGE.md` | 97 proof steps and the Day-4 exit | `E-DOC-10` | covered; `TRIAGE.md` is historical, the current count is 100 |
+| `TRIAGE.md` | 97 proof steps and the Day-4 exit | `E-DOC-10` | covered; `TRIAGE.md` is historical, the current count is 101 |
 | `CUTOVER.md` | Day-6 25-proof lines | `E-DOC-10` | covered |
 | `docs/CI-TRANSCRIPT.md` | committed stage transcript | `E-DOC-11` | covered; no action |
 | `SHARED.md` | 57 frozen entries; four host-bound; stale frozen headings | `E-DOC-12`, `E-DOC-14`, `G-2`; `docs/SHARED-PARITY.md` is the per-entry disposition | covered; the ledger is gate-enforced |
@@ -147,7 +147,7 @@ commit.
 | `UPSTREAM.md` | release status, three tracked rows, five follow-ups | `E-DOC-8`, `G-3` | covered |
 | `DECOUPLING.md` | seed step, fresh-clone check, deleted-agent count | `E-DOC-9`, `F-3` | covered |
 | `docs/FUTURE-WORK-PLAN.md` | 92/91 proof count, installer and doctor anchors, section 6 forks | `G-1` | deferred |
-| `AGENTS.md`, `README.md` | 97 proofs | `E-DOC-11` | covered; both read 100 proofs now |
+| `AGENTS.md`, `README.md` | 97 proofs | `E-DOC-11` | covered; both read 101 proofs now |
 
 ## J. Audit log and measured discrepancies
 
@@ -161,7 +161,7 @@ Measured discrepancies against the source documents:
    14; the retired `.mjs` copies are no longer present. The sixth inert package
    dir (`athan new vrsion`) has no `.opencode`; only five remain.
 2. `E-40` says seven scripts; there are ten, and six carry comments.
-3. `E-41` says 32 proof scripts; there are 103 files and 100 proofs-stage steps.
+3. `E-41` says 32 proof scripts; there are 104 files and 101 proofs-stage steps.
 4. Two `ISSUES.md` bodies still say 87 proofs (lines 1135 and 1240).
 5. Pending decision 4 says `/tmp/opencode` is empty; five artifacts exist.
 6. Pending decision 8 is implemented; only the list row is stale.

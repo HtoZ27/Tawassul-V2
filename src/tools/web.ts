@@ -292,6 +292,39 @@ export function isBlockedUrl(url: string): string | null {
   }
 }
 
+function docFinalUrl(doc: Record<string, unknown>): string | undefined {
+  if (!doc || typeof doc !== "object") return undefined;
+  const metadata = doc.metadata;
+  if (metadata && typeof metadata === "object") {
+    for (const key of ["sourceURL", "url"] as const) {
+      const value = (metadata as Record<string, unknown>)[key];
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+  }
+  const direct = doc.url;
+  return typeof direct === "string" && direct.trim() ? direct.trim() : undefined;
+}
+
+export function blockedFinalUrl(requested: string, doc: Record<string, unknown>): string | null {
+  const finalUrl = docFinalUrl(doc);
+  if (!finalUrl || finalUrl === requested) return null;
+  return isBlockedUrl(finalUrl);
+}
+
+export function partitionCrawlDocs(
+  requested: string,
+  docs: ReadonlyArray<Record<string, unknown>>,
+): { safe: Array<Record<string, unknown>>; blocked: string[] } {
+  const safe: Array<Record<string, unknown>> = [];
+  const blocked: string[] = [];
+  for (const doc of docs) {
+    const reason = blockedFinalUrl(requested, doc);
+    if (reason) blocked.push(reason);
+    else safe.push(doc);
+  }
+  return { safe, blocked };
+}
+
 function ipv4ToInt(host: string): number | null {
   const parts = host.split(".");
   if (parts.length < 1 || parts.length > 4) return null;
@@ -673,7 +706,7 @@ async function pause(ms: number, signal?: AbortSignal): Promise<void> {
 export function buildWebTool() {
   return tool({
     description:
-      "Web fetch/search/map/crawl via a self-hosted Firecrawl instance (set FIRECRAWL_BASE_URL / FIRECRAWL_API_KEY)",
+      "Web fetch/search/map/crawl via a self-hosted Firecrawl instance (set FIRECRAWL_BASE_URL / FIRECRAWL_API_KEY). The local SSRF preflight blocks private targets, but Firecrawl performs the egress; a returned final URL is re-checked before its content is used.",
     args: {
       action: tool.schema.enum(["fetch", "search", "map", "crawl", "cache"]).describe("Web operation"),
       noCache: tool.schema
@@ -738,6 +771,8 @@ export function buildWebTool() {
             if (args.timeout !== undefined) body.timeout = clampInteger(args.timeout, 30000, 1000, 180000);
             const response = await firecrawlPost("/v2/scrape", body, signal);
             const doc = (response.data ?? {}) as Record<string, unknown>;
+            const blockedFinal = blockedFinalUrl(url, doc);
+            if (blockedFinal) return { output: `❌ redirect blocked: ${blockedFinal}` };
             const content = documentContent(doc, maxChars);
             const header = documentHeader(doc);
             const output = `${header ? `${header}\n\n` : ""}${content.text}`;
@@ -827,9 +862,14 @@ export function buildWebTool() {
             if (["include", "skip", "only"].includes(sitemap)) body.sitemap = sitemap;
             const response = await firecrawlPost("/v2/map", body, signal);
             const links = Array.isArray(response.links) ? response.links : [];
-            const output = links.length
-              ? links.map((link: string, i: number) => `${i + 1}. ${link}`).join("\n")
+            const safeLinks = links.filter((link) => typeof link !== "string" || isBlockedUrl(link) === null);
+            const blockedLinks = links.length - safeLinks.length;
+            const listing = safeLinks.length
+              ? safeLinks.map((link: string, i: number) => `${i + 1}. ${link}`).join("\n")
               : "No links found.";
+            const output = blockedLinks
+              ? `Blocked ${blockedLinks} link(s) to private or local targets.\n\n${listing}`
+              : listing;
             const truncated = await truncateOutput(output, "tawassul-firecrawl-map-");
             trackTruncated(truncated);
             if (!asBool(args.noCache, false)) await cacheSet(key, truncated.text);
@@ -871,15 +911,22 @@ export function buildWebTool() {
             if (crawlStatus === "failed" || crawlStatus === "cancelled") {
               throw new WebTerminalError(`Crawl ${id} ${crawlStatus}: ${describeCrawlError(status)}`);
             }
-            const docs = Array.isArray(status.data) ? status.data : [];
-            const sections = docs.map((doc: Record<string, unknown>, index: number) => {
+            const docs = Array.isArray(status.data) ? (status.data as Record<string, unknown>[]) : [];
+            const { safe: safeDocs, blocked: blockedPages } = partitionCrawlDocs(url, docs);
+            if (docs.length > 0 && safeDocs.length === 0) {
+              return { output: `❌ crawl blocked after redirect: ${blockedPages.join("; ")}` };
+            }
+            const sections = safeDocs.map((doc: Record<string, unknown>, index: number) => {
               const header = documentHeader(doc) || `Page ${index + 1}`;
               const content = documentContent(doc, maxCharsPerPage);
               return `## Page ${index + 1}\n${header}\n\n${content.text}`;
             });
-            const output = sections.length
+            let output = sections.length
               ? sections.join("\n\n---\n\n")
               : `Crawl ${id} status: ${status.status ?? "unknown"}\nStatus: ${statusUrl}`;
+            if (blockedPages.length) {
+              output = `Blocked ${blockedPages.length} page(s) after redirect: ${blockedPages.join("; ")}\n\n${output}`;
+            }
             const truncated = await truncateOutput(output, "tawassul-firecrawl-crawl-");
             trackTruncated(truncated);
             return { title: "🕸️ Web Crawl", output: truncated.text };

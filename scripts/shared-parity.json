@@ -1203,15 +1203,111 @@
         },
         {
           "text": "The seven-item unchecked-task census is either ported as tests or recorded as out of scope.",
-          "status": "partial",
+          "status": "verified",
+          "anchor": {
+            "file": "ISSUES.md",
+            "line": 2927,
+            "marker": "### E-53"
+          },
+          "proofs": [
+            "scripts/prove-handoff-rescue.ts",
+            "scripts/prove-state-namespace.ts",
+            "scripts/prove-seed-agents.ts"
+          ],
+          "issue": null,
+          "note": "Every census item now has its own row (S-053.4 through S-053.10): three are anchored to the v2 code, two are recorded as out of scope, and two are verified by an existing proof.",
+          "hostNote": null
+        },
+        {
+          "text": "Pause during a live session halts dispatch and persists the paused handoff set.",
+          "status": "anchored",
+          "anchor": {
+            "file": "src/tools/system-controls.ts",
+            "line": 79,
+            "marker": "const pauseState: PauseState = {"
+          },
+          "proofs": [],
+          "issue": null,
+          "note": "The pause tool records the scope, the affected handoffs, and the original statuses, then saves state; prove-handoff-rescue covers the paused-handoff path.",
+          "hostNote": null
+        },
+        {
+          "text": "A task that runs longer than 420 seconds is tracked by the task timeout.",
+          "status": "anchored",
+          "anchor": {
+            "file": "src/hooks/tool-execute.ts",
+            "line": 67,
+            "marker": "const TASK_TIMEOUT_MS = 420_000;"
+          },
+          "proofs": [],
+          "issue": null,
+          "note": "The 420-second bound is the v2 task timer; it logs a warning and clears the per-session entry when the bound is reached.",
+          "hostNote": null
+        },
+        {
+          "text": "An image-generation 401 refreshes the token once and fails closed on a second 401.",
+          "status": "anchored",
+          "anchor": {
+            "file": "src/tools/image-gen.ts",
+            "line": 190,
+            "marker": "const refreshed = await refreshAndUpdateToken();"
+          },
+          "proofs": [],
+          "issue": null,
+          "note": "The first 401 triggers one token refresh and retry; a second 401 throws a precise renewal error instead of looping.",
+          "hostNote": null
+        },
+        {
+          "text": "Confidentiality at rest for plugin state is a host and OS responsibility, not a plugin feature.",
+          "status": "n-a",
           "anchor": null,
           "proofs": [],
-          "issue": "E-53",
-          "note": "Watcher, scorecard, N2, state namespace, and the guard fixture are done; the seven census items still have no disposition.",
+          "issue": null,
+          "note": "State files are HMAC-signed for integrity, not encrypted; the plugin stores no provider credentials, which stay in the host or the OS keyring.",
+          "hostNote": null
+        },
+        {
+          "text": "User-level rate limiting is not a single-user local plugin surface.",
+          "status": "n-a",
+          "anchor": null,
+          "proofs": [],
+          "issue": null,
+          "note": "The plugin classifies provider quotas and defers transient limits to the host; it has no multi-user layer to throttle per user.",
+          "hostNote": null
+        },
+        {
+          "text": "Shared state is signed with HMAC-SHA256 before it is written and verified on read.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/utils/crypto.ts",
+            "line": 20,
+            "marker": "export const HMAC_PREFIX = \"TAWASSUL_V2_HMAC_V1:\";"
+          },
+          "proofs": [
+            "scripts/prove-state-namespace.ts"
+          ],
+          "issue": null,
+          "note": "New writes carry the v2 prefix, both legacy prefixes still verify, and the proof asserts the signature shape and the namespace.",
+          "hostNote": null
+        },
+        {
+          "text": "Deleted-agent names persist in the user-owned deletion list and survive a seed.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/scripts/gen-opencode-config.ts",
+            "line": 57,
+            "marker": "deletedPath: resolve(root, \".opencode\", \"deleted-agents.json\"),"
+          },
+          "proofs": [
+            "scripts/prove-seed-agents.ts",
+            "scripts/prove-first-boot-seed.ts"
+          ],
+          "issue": null,
+          "note": "The generator reads the deletion list and rejects malformed shapes; the seed never writes it and never overwrites an agent file.",
           "hostNote": null
         }
       ],
-      "status": "partial"
+      "status": "anchored"
     },
     {
       "id": "S-054",
