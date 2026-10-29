@@ -386,10 +386,12 @@ if ! mkdir "$LOCK_DIR" 2>/dev/null; then
     rm -rf "$LOCK_DIR" 2>/dev/null || true
     if ! mkdir "$LOCK_DIR" 2>/dev/null; then
       echo "❌ lock $LOCK_DIR contested after reclaim — backing off." >&2
+      LOCK_DIR=""
       exit 8
     fi
   else
     echo "❌ another maintenance run holds $LOCK_DIR — wait for it or clear it if stale." >&2
+    LOCK_DIR=""
     exit 8
   fi
 fi

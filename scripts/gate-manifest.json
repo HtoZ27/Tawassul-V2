@@ -299,6 +299,10 @@
       "cmd": ["bun", "scripts/prove-db-scheduler.ts"]
     },
     {
+      "name": "db-lock",
+      "cmd": ["bun", "scripts/prove-db-lock.ts"]
+    },
+    {
       "name": "portability",
       "cmd": ["bun", "scripts/prove-portability.ts"]
     },
