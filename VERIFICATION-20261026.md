@@ -491,6 +491,23 @@ H-06 has a live doctor warning (`doctor-v2.sh:202`), and E-09 has four pins but
 no agreement assertion (V-21). The risk is silent regression, not a false
 closure.
 
+#### Resolution 2026-10-29
+
+The partial verdicts above are closed, not re-argued:
+
+| Verdict | Resolution |
+| --- | --- |
+| V-15 (H-09 rename has no gate) | `doctor-v2.sh --scan-desktop` classifies restored package and dual entries; `prove-desktop-scan` asserts both. |
+| V-19 (global boot cost unmeasured / manual boot) | `prove-global-boot` installs the flat file in an isolated HOME, boots the host, records load-to-registered and `initPlugin`, and executes direct tools. |
+| V-20 (coexistence unit-only) | The same proof boots both copies; the global copy delegates to the project entry and logs the path. |
+| V-30 (auto `npm install` untested) | The auto-install path was removed; the installer fails closed with the exact command and `TAWASSUL_ASSET_ROOTS` is proven. |
+| V-31 (no CI transcript) | `npm run ci` writes `docs/CI-TRANSCRIPT.md` from per-stage records. |
+| V-52 (closures on manual transcripts) | `prove-closure-artifacts` pins H-02, H-06, H-07, P-05, P-07, and E-09 to gate-wired proofs and literal markers. |
+
+V-26 (refresh retry loop) and V-27 (10.25 s worst case) remain bounded
+measurements, not defects: the retry loop is bounded and the boot budget
+asserts the measured envelope.
+
 ### A3. Minor
 
 #### V-32 Register drift (new: G-11)
@@ -661,7 +678,7 @@ Only select/input are unbridged.
 | ISSUES 25 vs 26 | Confirmed cosmetic | V-32 |
 | 5 MB backup skip | Confirmed latent | V-08 |
 | No backup-cap proof | Confirmed | V-09 |
-| Six closures rest on manual transcripts | Partial | V-52 |
+| Six closures rest on manual transcripts | Fixed 2026-10-29; `closure-artifacts` | V-52 |
 
 ### analyst-pickle
 
@@ -671,12 +688,12 @@ Only select/input are unbridged.
 | `--purge` keeps agents without warning | Refuted; warning exists | R-05 |
 | Stale wasm not pruned | Confirmed | V-16 |
 | `--force` no backup | Confirmed | V-17 |
-| Auto npm install untested | Confirmed | V-30 |
+| Auto npm install untested | Fixed: auto-install removed, fail-closed proof | V-30 |
 | No bundle freshness | Refuted; sha marker exists | R-06 |
-| Global boot cost unmeasured | Confirmed | V-19 |
-| Coexistence unit-level only | Confirmed | V-20 |
-| Manual boot not in CI | Confirmed | V-19 |
-| No CI transcript | Confirmed process gap | V-31 |
+| Global boot cost unmeasured | Fixed: `global-boot` records it | V-19 |
+| Coexistence unit-level only | Fixed: live delegation boot | V-20 |
+| Manual boot not in CI | Fixed: smoke `global-boot` | V-19 |
+| No CI transcript | Fixed: `docs/CI-TRANSCRIPT.md` | V-31 |
 
 ### analyst-deepseek
 
@@ -693,7 +710,7 @@ Only select/input are unbridged.
 | Finding | Verdict | ID |
 |---|---|---|
 | P-07 entries still discovered | Confirmed; full v1 trees | V-14 |
-| H-09 manual rename, no gate | Partial; transcript exists, gate missing | V-15 |
+| H-09 manual rename, no gate | Fixed: `desktop-scan` gate | V-15 |
 
 ### analyst-beam-free
 

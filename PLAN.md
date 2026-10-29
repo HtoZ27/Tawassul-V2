@@ -1,9 +1,14 @@
 # Tawassul V2 — Priority Plan to Cutover
 
-Status date: 2026-10-24. Scope: make this tree the only runnable Tawassul
-plugin, close the v2.1.4 compatibility gaps, and retire v1 to a read-only
-reference. Every task below is ordered by risk to a live session, not by
-effort.
+Status date: 2026-10-24; updated 2026-10-29. Scope: make this tree the only
+runnable Tawassul plugin, close the v2.1.4 compatibility gaps, and retire v1 to
+a read-only reference. Every task below is ordered by risk to a live session,
+not by effort.
+
+Post-cutover update (2026-10-29): cutover is complete and the host pins moved
+to `@opencode/plugin` 2.2.0 with the audited host v2.2.0 (see
+`UPSTREAM.md`, `src/upstream/registry.json`, and the `sdk-pins` gate step).
+The v2.1.4 references below are the Day-0 baseline, not current pins.
 
 ## Already done (Day 0, 2026-10-24)
 
@@ -321,11 +326,25 @@ host is restarted on this build, then adopt the follow-ups in the order listed.
 
 ## P2 backlog (after cutover)
 
+Closed 2026-10-29:
+
 - S-044 select/multiselect elicitation with the same fail-closed contract.
+  Implemented in `src/services/ask-channel-parse.ts` (`select` and
+  `multiselect`, exact-name or numeric replies) through the v2 ask bridge;
+  unbridged types still fail closed.
 - S-047 streaming deltas and a documented compaction template contract.
+  Implemented in `src/hooks/tool-output-stream.ts` (delta/metadata contract)
+  and the compaction template in `src/hooks/session.ts`
+  (`context`/`prompt` sections).
+
+Deferred, outside this tree:
+
 - Upstream documentation for the content-only result contract, in-place
-  after-hook mutation, and `tool.reload()`.
-- Remaining S-055 items marked "apply" after Day 4, driven by measured need.
+  after-hook mutation, and `tool.reload()`. Tracked in `UPSTREAM.md`; it is an
+  external contribution, not a repair in this repo.
+- Remaining S-055 items marked "apply" after Day 4 were reviewed in
+  `TRIAGE.md`; no actionable item remains that is not already covered by the
+  register.
 
 ## Guardrails
 

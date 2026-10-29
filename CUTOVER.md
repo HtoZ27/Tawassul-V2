@@ -75,6 +75,10 @@ guard refuses it. The v1 lane has no supported host on this machine
 | --- | --- | --- | --- |
 | synthetic 1.18 schema (`session`, `session_message`, `data_migration`) | v1 | ok (warn-only non-empty `session_message`) | 0 |
 | same synthetic v1 DB | v2 | refused `non-v2-path` | 2 |
+| synthetic v1 content at a `tawassul-v2` path | v2 | refused `marker-v1-content` | 2 |
+| same synthetic v1 content at a plain path | v1 | ok | 0 |
+| synthetic v2 content (`session_v2`) at a plain path | v1 | refused `marker-session_v2` | 2 |
+| same synthetic v2 content | v2 (`--path-rule warn`) | ok, warning `non-v2-path` | 0 |
 | synthetic `tawassul-v2` path (`session_v2`) | v1 | refused `tawassul-v2-path` | 2 |
 | same synthetic v2 DB | v2 | ok | 0 |
 | live v2 DB `~/.local/share/tawassul-v2/opencode-v2.db` | v1 | refused `tawassul-v2-path` | 2 |

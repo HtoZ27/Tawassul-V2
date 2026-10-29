@@ -1,6 +1,10 @@
 # Plan — Tawassul v2 first-install DB contract
 
-Status: partly implemented — P0 guard items 1-4, the milestone-ms cutoff fix (F32),
+Status: implemented — all §5 P0–P7 items are landed and proven; the historical
+batch narrative below records each landing in order. The acceptance gate is
+`npm run ci`; the installer is validated only in isolated HOME sandboxes on
+this machine (the owner declined a real global install on 2026-10-29, see
+ISSUES I-01). P0 guard items 1-4, the milestone-ms cutoff fix (F32),
 the boot warn-sites deletion with the health key-presence field (4b), and the
 XDG-aware sidecar path (7) landed 2026-10-28 in the repo tree with isolated
 trials. Second batch, same day: `scripts/db-env.sh` (P2.11/12 helper subset,
@@ -156,6 +160,11 @@ the anchor, instead of the old whole-session delete the proof had asserted.
 DoD 11, DoD 12, DoD 13, DoD 14 and DoD 15 are now satisfied;
 `npm run gate:fast` passes with 89 proofs, and `npm run ci` is green end to end.
 Open: nothing — all ten P7 items are landed and proven.
+Verification 2026-10-29: `npm run ci` is green with the DB payload, scheduler,
+trigger registration, doctor contract, and the isolated installer proofs; the
+plan has no remaining action. The host boot and coexistence checks live in
+the smoke stage (`global-boot`, `independence-boot`), and the gate transcript
+is `docs/CI-TRANSCRIPT.md`.
 Scope: this tree only. The v1 tree is read-only reference.
 Evidence: every anchor below was read on 2026-10-27 or 2026-10-28 from the
 named file at the named line, or measured on the installed host 2.2.0 and on a

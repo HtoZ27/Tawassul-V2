@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-29 · Gate: `npm run ci` rc=0 (3 isolated stages, 92 proof files / 91 proof steps, smoke pass)
+Status date: 2026-10-29 · Gate: `npm run ci` rc=0 (3 isolated stages, 100 proof files / 97 proof steps, 4 smoke steps, transcript in `docs/CI-TRANSCRIPT.md`)
 Real global install: not performed (owner declined on 2026-10-29; isolated sandbox validation only; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -325,18 +325,17 @@ re-opens the decision: `npm run build`, `npm run install:global`,
 confirm one `loading plugin` line for the flat file, 42 tools, and a working
 `astquery`.
 
-### I-02 Installer host discovery is Linux-only — open
+### I-02 Installer host discovery is Linux-only — done (2026-10-29)
 
-`hostCandidates()` splits `PATH` on `":"` (`scripts/install-global.ts:128`),
-looks only for `opencode` (no `opencode.cmd` or `opencode.exe`), and hardcodes
-the Linux Desktop CLI path
-`~/.config/ai.opencode.desktop/cli/<ver>/opencode-cli`. On Windows the `PATH`
-separator is `";"` and the executable suffix differs; on macOS the Desktop
-CLI location differs.
+`hostCandidates()` used to split `PATH` on `":"`, look only for `opencode`,
+and hardcode the Linux Desktop CLI path. On Windows the separator and
+executable suffix differ; on macOS the Desktop CLI location differs.
 
-Next: use `delimiter` from `node:path`, probe `opencode`, `opencode.cmd`,
-and `opencode.exe`, add the macOS Desktop path, and add a unit proof with a
-fake `PATH`. No cross-platform CI exists.
+Resolved 2026-10-29: the installer splits with `delimiter` from `node:path`,
+probes `opencode`, `opencode.cmd`, and `opencode.exe`, and adds the macOS
+Desktop root plus `LOCALAPPDATA` on Windows. `scripts/prove-host-discovery.ts`
+(`host-discovery`, 10 assertions) builds five fake hosts (bare, `.cmd`,
+`.exe`, macOS, Windows) and asserts each is discovered in order and readable.
 
 ### I-03 `--purge` keeps global agent files — resolved (2026-10-28)
 
@@ -351,34 +350,41 @@ Resolved 2026-10-28 by stating the exception rather than deleting user files:
 `agent/keeper.md`, asserts it survives `--purge --yes`, and asserts the report
 line, so the documented behavior cannot drift silently.
 
-### I-04 Stale wasm files are not pruned on upgrade — open
+### I-04 Stale wasm files are not pruned on upgrade — done (2026-10-29)
 
-`install()` writes the four current assets but never removes files under
-`tawassul-runtime/wasm/` that are absent from `VERSION`. A package or asset
-rename leaves dead files behind; `verify` ignores them.
+`install()` wrote the four current assets but never removed files under
+`tawassul-runtime/wasm/` that were absent from `VERSION`, so a package or
+asset rename left dead files behind.
 
-Next: after writing the current assets, walk `WASM_DIR`, remove files not in
-the marker manifest, prune empty directories, and cover it in the proof.
+Resolved 2026-10-29: after writing the current assets the installer walks
+`WASM_DIR`, removes every file absent from the new marker manifest, prunes
+empty directories (`staleWasmFiles`/`pruneStaleWasm`), and reports the count.
+`prove-global-install` seeds a stale asset and an empty directory, reruns the
+install, and asserts both are gone while the four live assets remain.
 
-### I-05 `--force` overwrites an unmarked file without a backup — open
+### I-05 `--force` overwrites an unmarked file without a backup — done (2026-10-29)
 
-When `plugins/tawassul.js` exists with no Tawassul marker, `install()` fails
-unless `--force`; with `--force`, `writeAtomic` replaces the file in place and
-keeps no copy. A user file at that name is lost.
+When `plugins/tawassul.js` existed with no Tawassul marker, `install()` failed
+unless `--force`; with `--force`, `writeAtomic` replaced the file in place and
+kept no copy.
 
-Next: before a forced replacement, rename the existing file to
-`tawassul.js.pre-force-<timestamp>`; document how to remove it, or include it
-in `--purge`.
+Resolved 2026-10-29: before a forced replacement the installer renames the
+target to `tawassul.js.pre-force-<timestamp>`; `--purge --yes` removes those
+backups and prints the count, and `--help` documents both. The extended
+`prove-global-install` asserts the backup content survives, the new bundle is
+written, and the purge sweep removes every `pre-force` file.
 
-### I-06 Missing-wasm auto `npm install` is untested — open
+### I-06 Missing-wasm auto `npm install` is untested — done (2026-10-29)
 
-`resolveAssets(true)` runs `npm install --no-audit --no-fund` in the repo when
-an asset is missing. That mutates the working tree, needs network access, and
-is not exercised by the proof (the proof always finds the local wasm files).
+`resolveAssets(true)` used to run `npm install --no-audit --no-fund` in the
+repo when an asset was missing, mutating the working tree and needing network
+access; the proof never exercised it.
 
-Next: either drop the auto-install and fail with the exact `npm install`
-command, or add a proof that injects an empty asset root and asserts the
-install path, with no network in CI.
+Resolved 2026-10-29: the auto-install path was removed. A missing asset now
+fails closed with the exact remediation command (`npm install` in the repo
+root, or `npm run install:global`), and `TAWASSUL_ASSET_ROOTS` lets the proof
+inject an empty asset root with no network. `prove-global-install` asserts the
+failure message and the override path.
 
 ### I-07 No bundle freshness check — done (2026-10-26)
 
@@ -407,39 +413,45 @@ provenance only and no longer gates anything. `prove-bundle-freshness` rebuilds
 and asserts both bundles and the project entry carry the current content digest
 and that the digest is not the commit id (11 assertions).
 
-### I-08 Global bundle boot cost is unmeasured — open (P1)
+### I-08 Global bundle boot cost is unmeasured — done (2026-10-29)
 
-The project bundle boot is measured (`initPlugin` 8-23 ms, 350-550 ms to 42
-tools). The global bundle is larger (2,296,549 bytes vs 1,858,782) and adds
-runtime wasm loading from `~/.config/opencode/tawassul-runtime/wasm/`, but
-its boot time has not been recorded.
+The project bundle boot was measured (`initPlugin` 8-23 ms, 350-550 ms to 42
+tools), but the larger global bundle with runtime wasm loading had no boot
+record.
 
-Next: run an isolated-HOME boot with the flat global file and record
-`loading plugin` to `registered 42 tools`; compare with the project bundle.
-Fold the result into B-05/G-04.
+Resolved 2026-10-29: `scripts/prove-global-boot.ts` installs the flat file into
+an isolated HOME, boots the host, and records `loading plugin` -> `v2
+registered 42 tools` plus `initPlugin`. Measured on host 2.2.1: load to
+registered 3.6-4.0 s and `initPlugin` 10-52 ms; the project bundle measured
+3.8 s in the same run. The smoke stage runs it after the build as
+`global-boot`.
 
-### I-09 Project-over-global priority is only a unit proof — open (P1)
+### I-09 Project-over-global priority is only a unit proof — done (2026-10-29)
 
-`prove-global-install` calls `claimCoexistence` and `isCoexistenceOwner` with
-a global token and a project token and asserts that the project supersedes.
-It does not boot a host with both `~/.config/opencode/plugins/tawassul.js`
-and `<workspace>/.opencode/plugin/tawassul.js` present.
+`prove-global-install` proved the coexistence helpers in isolation but never
+booted a host with both `~/.config/opencode/plugins/tawassul.js` and
+`<workspace>/.opencode/plugin/tawassul.js` present.
 
-Next: in an isolated HOME, install the global file, add the project file,
-boot once, and assert the host log shows one effective plugin (no duplicate
-tool registration, project scope wins). This is the live counterpart of the
-unit claim.
+Resolved 2026-10-29: the host loads both files but only the project copy takes
+effect. `src/v2/setup.ts` detects the global scope and delegates to the
+workspace project entry (`projectEntryCandidates`/`loadProjectSetup`), logging
+`global copy delegates to the project copy at <path>`; any load failure falls
+back to the global setup. `prove-global-boot` asserts both load lines, the
+delegation path, 42 registered tools, and no load failure, and
+`prove-setup-delegation` covers the unit matrix (14 assertions: flat and
+package entries, foreign id, broken entry, retired fixture).
 
-### I-10 The successful host boot is manual, not in CI — open (P1)
+### I-10 The successful host boot is manual, not in CI — done (2026-10-29)
 
-The flat-file boot evidence (global roster, agents, `astquery` through runtime
-wasm) was produced by hand in an isolated HOME. `prove-global-install` runs
-the installer and inspects files; the smoke stage boots the project bundle,
-not the installed global file.
+The flat-file boot evidence was produced by hand in an isolated HOME;
+`prove-global-install` inspected files, and the smoke stage booted only the
+project bundle.
 
-Next: add an opt-in slow proof (or a release checklist with the transcript
-path) that runs the Desktop CLI with `HOME`/`XDG_*` isolated, the flat global
-file installed, and asserts `loading plugin`, 42 tools, and one tool call.
+Resolved 2026-10-29: `global-boot` is now a smoke-stage step. It runs the
+Desktop CLI with `HOME`/`XDG_*` isolated, the flat global file installed, and
+asserts `loading plugin`, 42 tools, `initPlugin`, and direct `health` + `help`
+calls. A provider quota refusal is tolerated only when the boot markers are
+present, so the check stays automatic without network credit.
 
 ---
 
@@ -573,50 +585,64 @@ issue was infeasible because the 750 ms readiness wait alone exceeds it, so
 the budget guards against a 2.5x regression instead. Registered in the gate
 catalog and package scripts (2 assertions).
 
-### G-05 No live blocked-tool proof — open (P1)
+### G-05 No live blocked-tool proof — done (2026-10-29)
 
-`isBlockError` rethrows `ToolBlockedError` and `isBlockedForAgent` denies the
-tawa list (`src/v2/setup.ts:56-67`), but no proof runs a blocked tool through
-a live host and asserts the run fails. The proofs never mention
-`ToolBlockedError` or `BLOCKED_TOOLS`.
+`isBlockError` rethrew `ToolBlockedError` and `isBlockedForAgent` denied the
+tawa list, but no proof ran a blocked tool through a live host.
 
-Next: in an isolated host run, ask tawa to call `bash` (or trigger the dedup
-guard) and assert a tool error and no side effect; add a unit test that
-`isBlockError` rethrows both error names.
+Resolved 2026-10-29: `isBlockError` is exported and
+`scripts/prove-blocked-tool.ts` (`blocked-tool`, 14 assertions) drives the
+live `execute.before` hook. Tawa `bash`, `edit`, and `write` calls fail with
+`ToolBlockedError` and leave no side effect, while `read` and a dev `bash`
+call pass; unit cases assert both error names are rethrown so an unblocked
+path cannot swallow them.
 
-### G-06 Guard matrix has no v2-content regression proof — open (P1)
+### G-06 Guard matrix has no v2-content regression proof — done (2026-10-29)
 
 `--expect v2` now refuses v1 content with `marker-v1-content`, but
-`CUTOVER.md` section 3 has no row for it. The only generation-guard proof is
-the `non-v2-path` refusal in `prove-db-retention.ts:82`; the
-`marker-v1-content` path is untested. `prove-v2-independence.ts:66` only
-checks the launcher's guard string.
+`CUTOVER.md` section 3 had no row for it. The only generation-guard proof was
+the `non-v2-path` refusal in `prove-db-retention.ts`; the `marker-v1-content`
+path was untested.
 
-Next: add the row to `CUTOVER.md` and a proof that builds a synthetic v1 DB
-at a `tawassul-v2` path, runs `--expect v2`, and asserts rc=2 and
-`reason=marker-v1-content`; add the reverse `--expect v1` row too.
+Resolved 2026-10-29: `scripts/prove-guard-matrix.ts` (the `guard-matrix` gate
+step, 22 assertions) builds a synthetic v1 DB (`session`, `session_message`,
+`data_migration`) at a `tawassul-v2` path and asserts `--expect v2` exits 2
+with `verdict=refused`, `reason=marker-v1-content`, and `generation=v1`; the
+same content at a plain path is accepted by `--expect v1`. The reverse row
+builds a synthetic `session_v2` DB at a plain path and asserts `--expect v1`
+exits 2 with `marker-session_v2`, plus `--path-rule warn` records
+`non-v2-path` and still refuses v1 content by content. `CUTOVER.md` section 3
+now carries both rows, the kv-migration marker row, and the empty/fresh rows.
 
-### G-07 SDK pins are not asserted in CI — open (P2)
+### G-07 SDK pins are not asserted in CI — done (2026-10-29)
 
-The pins agree today (E-09), but nothing fails when `package.json`,
-`.opencode/package.json`, the lockfile, and the installed package diverge.
-The host pin (`2.1.4`) is checked by the global installer and `verify:global`
-but not by the fast gate.
+The pins agreed at the declaration level, but nothing failed when
+`package.json`, `.opencode/package.json`, the lockfiles, the installed
+package, and the host range diverged. The new fast step
+`scripts/check-sdk-pins.ts` (`sdk-pins`, 14 assertions) reads all of them plus
+`src/upstream/registry.json` (`auditedThrough`, newest `hostContract`), the
+installer `HOST_MIN`/`HOST_AUDITED`, and the smoke
+`MIN_VERSION`/`AUDITED_VERSION`, and fails on disagreement.
 
-Next: a fast check that reads all four versions plus the host pin and fails on
-disagreement, wired into `gate:fast`.
+The check immediately found a real drift: `.opencode/package-lock.json` still
+pinned `@opencode/plugin` 2.1.4 while `.opencode/package.json` and the
+installed package were 2.2.0. `npm install --package-lock-only` in
+`.opencode` repaired the lockfile; the check is green.
 
-### G-08 No Desktop-wide plugin-entry census — open (P2)
+### G-08 No Desktop-wide plugin-entry census — done (2026-10-29)
 
-`doctor-v2.sh` checks this project's entry and the global install, but it does
-not enumerate other workspaces. The 2026-10-25 scan that found "exactly one
-active entry" matched flat `tawassul.js` files only and missed three
-`plugins/tawassul/index.ts` entries (H-09, P-07).
+`doctor-v2.sh` checked this project's entry and the global install, but it did
+not enumerate other workspaces; the 2026-10-25 scan matched flat
+`tawassul.js` files only and missed three `plugins/tawassul/index.ts` entries
+(H-09, P-07).
 
-Next: add an opt-in `doctor-v2.sh --scan-desktop` that enumerates
-`plugin(s)/*.{js,ts}` and `plugin(s)/*/index.{js,ts}`, flags v1 shapes and
-dual `setup` exports, and prints a count per workspace. Add a fixture proof
-for one v1-only package entry and one dual entry.
+Resolved 2026-10-29: `doctor-v2.sh --scan-desktop` enumerates
+`plugin(s)/*.{js,ts}` and `plugin(s)/*/index.{js,ts}`, classifies each
+workspace as v2, v1-only, dual, unknown, or retired, prints per-workspace and
+total counts, and exits 1 on any active finding.
+`scripts/prove-desktop-scan.ts` (`desktop-scan`, 25 assertions) seeds flat,
+package, dual, unknown, and retired fixtures, including paths with spaces, and
+asserts the classification and the early exit.
 
 ### G-09 The smoke gate fails on a provider quota refusal — done (2026-10-25)
 
@@ -1231,15 +1257,11 @@ green at 87 proofs.
 - **P-03** N2 assistant dedup set is capped at 512; long sessions can
   re-process an old message. Next: raise the cap or evict by age, and measure
   a 500-message session for the current miss rate first.
-- **P-04** Independence is proven statically; a real boot with the v1 tree
-  renamed is still missing. `scripts/prove-v2-independence.ts` scans
-  `src/**/*.ts` and `scripts/**/*.{ts,sh}`, checks the launcher by literal
-  filename, and walks the repo except `node_modules`, `.git`, and `dist` for
-  a single `tawassul.js` entry. It does not inspect the v1 tree's bootable
-  package entry (H-09).
-  Next: boot a scratch workspace with the v1 tree renamed, census
-  `opencode.json` plugin/mcp keys and `plugin(s)/*/index.*`, follow symlinks,
-  scan every tracked file, and assert one effective host entry. P1.
+- **P-04** Done 2026-10-29: the static independence proof now scans tracked
+  files, the package-entry shape, and symlinks, and
+  `scripts/prove-independence-boot.ts` boots the built bundle in a v1-free
+  HOME/workspace and asserts loads, tools, and the absence of v1 state (see
+  E-07).
 - **P-05** Residue across six workspaces: 12 `tawassul.js.pre-refresh-*`
   copies and 14 `*.retired-20261024` files (7 `tawassul.js` plus 7
   `tawassul.mjs`, across the six workspaces and the v1 tree). A name probe
@@ -1391,15 +1413,24 @@ transparency, and background coordinator state land in
 `<project>/.opencode`. The root `collective-memory-515c5c5d.json` and its
 empty `.bak` are leftovers (D-03).
 
-### E-07 Independence proof is static — open (P-04)
+### E-07 Independence proof is static — done (2026-10-29)
 
-Original severity: major. `scripts/prove-v2-independence.ts` scans
-`src/**/*.ts` and `scripts/**/*.{ts,sh}` for v1 paths/imports, checks the
-launcher by literal filename, and walks the repo except `node_modules`,
-`.git`, and `dist` for a single `tawassul.js` entry. It is static: it never
-boots with the v1 tree unreachable and does not inspect the v1 tree's
-bootable package entry (H-09). Next: the expanded action is P-04; this entry
-adds the H-09 case.
+Original severity: major. `scripts/prove-v2-independence.ts` was a static
+scan and never booted with the v1 tree unreachable; it also did not inspect
+the v1 tree's bootable package entry (H-09).
+
+Resolved 2026-10-29 in two halves:
+
+- Static: the proof now scans every tracked source, script, and config file
+  (not just `src/`), asserts no package-directory plugin entry exists anywhere
+  in the tree (the H-09 shape), follows symlinks, and fails if any escapes the
+  repo or points at the v1 tree.
+- Dynamic: `scripts/prove-independence-boot.ts` (`independence-boot`, smoke)
+  boots the built bundle in an isolated HOME and workspace that contain no v1
+  tree. It asserts every `loading plugin` line is the scratch v2 entry, no log
+  line names the v1 tree or a package entry, no plugin load fails, 42 tools
+  register with `initPlugin`, and the HOME has none of the v1 state
+  directories (`tawassul`/`tawassyl`).
 
 ### E-08 Three database paths — resolved by role assignment (D-01)
 
@@ -1522,35 +1553,52 @@ candidate keeps the documented default. `prove-p09` runs in an isolated child
 with `HOME` pinned (so `homedir()` cannot be cached from the parent) and walks
 newer-retired, newer-router, tie, single, and absent cases (11 assertions).
 
-### G-10 H-09 rename has no automated check — open (P2)
+### G-10 H-09 rename has no automated check — done (2026-10-29)
 
-The isolated-boot transcript exists, but no gate references
+The isolated-boot transcript existed, but no gate referenced
 `retired-20261025`.
 
-### G-11 Proof catalog pins floors, not the exact set — open (P2)
+Resolved 2026-10-29: the `--scan-desktop` step classifies a restored
+`plugins/*/index.{js,ts}` v1 entry and a dual `setup` export, and
+`prove-desktop-scan` asserts both are reported with the retired marker. The
+repo census in `prove-v2-independence` also asserts this tree has no
+package-directory plugin entry, so the H-09 shape cannot reappear here.
 
-`scripts/prove-proof-catalog.ts:61` asserts `proofFiles.length >= 25` and
-`:89` asserts `proofs.length >= 24`; the current set is 29 files and 28 proof
-steps. A proof file and its gate step can be removed together and the catalog
-still passes as long as both floors are met. The catalog counts itself in the
-fast stage.
+### G-11 Proof catalog pins floors, not the exact set — done (2026-10-29)
 
-Next: pin the exact sorted file list (or its hash) and the exact proof-step
-count, update the pin when a proof is added, and fail on any unrecorded
-addition or removal. The related register drifts from the same audit are
-corrected in place (H-02 proof count, E-05 line, E-07/P-04 wording).
+`scripts/prove-proof-catalog.ts` used to assert `proofFiles.length >= 25` and
+`proofs.length >= 24`, so a proof file and its gate step could be removed
+together and the catalog still passed.
 
-### G-12 Six high-stakes closures have no CI artifact — open (P2)
+Resolved 2026-10-29: the catalog now pins the exact sorted proof-file list
+(`PINNED_PROOF_FILES`) and the exact proofs-stage step count
+(`PINNED_PROOF_STEPS`), and fails on any unrecorded addition or removal. The
+counts are updated in the same change that adds or removes a proof.
 
-H-02, H-07, P-05, and P-07 are prose evidence only; P-07 was resolved by
-owner deletion on 2026-10-26; H-06 has a doctor warning; E-09 has pins but no
-agreement check. The full list and evidence are in
-`VERIFICATION-20261026.md` (V-52).
+### G-12 Six high-stakes closures have no CI artifact — done (2026-10-29)
 
-### I-11 No committed CI transcript — open (P3)
+H-02, H-07, P-05, and P-07 were prose evidence only; H-06 had a doctor
+warning; E-09 had pins but no agreement check (V-52).
 
-The gate result is not an artifact; the 2026-10-26 run is recorded in
-`VERIFICATION-20261026.md`.
+Resolved 2026-10-29: `scripts/prove-closure-artifacts.ts`
+(`closure-artifacts`, 40 assertions) pins each closure to a gate-wired proof
+and to literal evidence markers. H-02 maps to `prove-host-discovery` plus the
+doctor PATH/terminal-copy checks, H-06 to `check-sdk-pins` plus the global SDK
+pin check, H-07 to the doctor's Bun-global checks, P-05/P-07 to the desktop
+scan and its retired/package markers, and E-09 to `check-sdk-pins`. The
+`d05-doctor-census` and `desktop-scan` proofs execute `doctor-v2.sh`, so
+removing a link fails CI.
+
+### I-11 No committed CI transcript — done (2026-10-29)
+
+The gate result was not an artifact in the tree; the 2026-10-26 run was
+recorded only in `VERIFICATION-20261026.md`.
+
+Resolved 2026-10-29: each stage now writes
+`.opencode/state/gate-<stage>.json`, and the `npm run ci` umbrella aggregates
+them into `docs/CI-TRANSCRIPT.md` (date, node/bun/platform, per-step result
+and duration, overall result) and prints the path. Staged runs write only the
+sidecar; the umbrella rewrites the committed transcript.
 
 Corrections to existing entries:
 
@@ -1564,8 +1612,9 @@ Corrections to existing entries:
   `repairProjectConfigBoot`; only permission repair is missing.
 - E-05 now cites the refusal at `:245` and records the v1-lane
   positive-evidence warning (V-29).
-- E-07/P-04 now state that the independence proof scans
-  `scripts/**/*.{ts,sh}`; it does not skip that tree (V-32).
+- E-07/P-04 now state that the independence proof scans every tracked source,
+  script, and config file plus symlinks, and that the dynamic half boots in a
+  v1-free HOME (V-32).
 - H-02 records 26 `PROOF PASS` at the 2026-10-25 baseline (25 steps plus the
   catalog); H-03 labels its evidence as pre-fix (V-32/V-35).
 - G-11 records the remaining catalog-floor gap (V-32).
@@ -1918,7 +1967,7 @@ no fresh init, a reload whose live bundle differs, a missing plugin log,
 `--verify-only` (fresh, stale, digest mismatch, and live-bundle mismatch), the
 fingerprint utility, the mtime fallback, the restart dry run, and the detached
 restart path producing a fresh and a stale report. `prove-proof-catalog` now
-counts 92 proof files / 91 steps.
+counts 100 proof files / 97 steps.
 
 Live check 2026-10-28 (the server restart reset the PID to 3157):
 `npm run host:refresh -- --verify-only` matched the logged bundle fingerprint
@@ -2673,15 +2722,15 @@ asserts `eventhub.dlq.added` lands on the context collector, saves it and
 reads the counter back from `metrics.json`, then checks a second context pairs
 its own hub and starts with no inherited count (8 assertions).
 
-#### E-32 The proof catalog enforces floors, not exact counts — open (P2)
+#### E-32 The proof catalog enforces floors, not exact counts — done (2026-10-29)
 
-`scripts/prove-proof-catalog.ts:61` asserts `>= 25` proof files and `>= 24`
-proof steps. `PLAN.md:166-167` specifies exactly one `prove:` script per
-file and 25 files; the tree now has 29. The checker stays green, which is why
-the 25-vs-29 drift documented in the README could appear at all.
+`scripts/prove-proof-catalog.ts` asserted `>= 25` proof files and `>= 24`
+proof steps, so a file and its gate step could disappear together. The tree
+now has 100 files.
 
-Next: assert equality against a manifest, and make the docs read the manifest
-instead of restating a number.
+Resolved by G-11: the catalog pins the exact sorted file list and the exact
+proofs-stage step count, and fails on any unrecorded addition or removal.
+The floor assertions are gone.
 
 #### E-33 The client shim silently drops user-facing side effects — done (2026-10-26)
 
