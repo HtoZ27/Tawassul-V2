@@ -236,5 +236,9 @@ handoff plan cannot use them.
   and `health` is the place to read the live version.
 - `ISSUES.md` remains the defect register. This file records upstream context
   and the verdict per change.
+- Boot config repair is project-scoped (`V-13`): `repairProjectConfigBoot`
+  never rewrites the user-global config, the runtime `execute.before` deny
+  covers a stale global file, and the only global write is the opt-out roster
+  seed.
 - A green offline gate proves the registry is well formed. It does not prove
   compatibility; only a live boot and the proofs do that.

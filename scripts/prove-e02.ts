@@ -89,6 +89,33 @@ async function main(): Promise<void> {
     const second = await repairProjectConfigBoot(work);
     assert(!second.changed, "a repaired config is not rewritten again");
     assert(readFileSync(configPath, "utf-8") === bytes, "the second boot leaves the file byte-identical");
+
+    const globalDir = mkdtempSync(join(tmpdir(), "tawassul-e02-global-"));
+    const globalPath = join(globalDir, "opencode.json");
+    const globalBytes =
+      JSON.stringify(
+        {
+          model: DYNAMIC_MODEL_SENTINEL,
+          agent: { tawa: { permission: { edit: "allow" } } },
+        },
+        null,
+        2,
+      ) + "\n";
+    writeFileSync(globalPath, globalBytes);
+    const previousGlobal = process.env.TAWASSUL_GLOBAL_DIR;
+    process.env.TAWASSUL_GLOBAL_DIR = globalDir;
+    try {
+      const scoped = await repairProjectConfigBoot(work);
+      assert(scoped.configPath === configPath, "the boot repair names the project config, never the global one");
+      assert(
+        readFileSync(globalPath, "utf-8") === globalBytes,
+        "a project boot repair leaves the global config byte-identical",
+      );
+    } finally {
+      if (previousGlobal === undefined) delete process.env.TAWASSUL_GLOBAL_DIR;
+      else process.env.TAWASSUL_GLOBAL_DIR = previousGlobal;
+      rmSync(globalDir, { recursive: true, force: true });
+    }
   } finally {
     rmSync(work, { recursive: true, force: true });
   }

@@ -503,6 +503,7 @@ The partial verdicts above are closed, not re-argued:
 | V-30 (auto `npm install` untested) | The auto-install path was removed; the installer fails closed with the exact command and `TAWASSUL_ASSET_ROOTS` is proven. |
 | V-31 (no CI transcript) | `npm run ci` writes `docs/CI-TRANSCRIPT.md` from per-stage records. |
 | V-52 (closures on manual transcripts) | `prove-closure-artifacts` pins H-02, H-06, H-07, P-05, P-07, and E-09 to gate-wired proofs and literal markers. |
+| V-13 (global config never permission-repaired) | Resolved as a documented boundary: boot repair is project-only by design, the runtime `execute.before` deny covers a stale global config, and `prove-e02` leaves a stale global config byte-identical beside a repaired project config (27 assertions). |
 
 V-26 (refresh retry loop) and V-27 (10.25 s worst case) remain bounded
 measurements, not defects: the retry loop is bounded and the boot budget
@@ -577,7 +578,8 @@ their own loaders. The real risk is V-06, not a dead main state.
 Refuted. `repairProjectConfigBoot` calls `applyBootRepairs`, which calls
 `rewriteDynamicAgentModels` (`src/utils/opencode-config.ts:376-385`), and the
 repair runs at boot (`src/bootstrap/plugin-init.ts:479`). The gap is narrower:
-permission repair and global-config repair do not run (V-13).
+global-config repair never runs and the supported boundary is the project
+config (V-13).
 
 #### R-03 `plugin.config` is wired at `plugin-init.ts:479` (analyst-deepseek)
 

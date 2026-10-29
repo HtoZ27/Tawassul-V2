@@ -26,7 +26,7 @@ Rules for this file:
 | Open register entries | 0 | `ISSUES.md` headings |
 | Pending decisions still listed open | 1 real (`3`) | `ISSUES.md:2038-2079` |
 | Product gaps open | 3 (`P-01`, `P-02`, `P-03`) | `ISSUES.md:1246-1261` |
-| Partial verification verdicts | 3 (`V-13`, `V-26`, `V-27`) | `VERIFICATION-20261026.md:283,427,438` |
+| Partial verification verdicts | 2 (`V-26`, `V-27`), both bounded measurements | `VERIFICATION-20261026.md:427,438` |
 | Resolved partial verdicts | 6 (`V-15`, `V-19`, `V-20`, `V-30`, `V-31`, `V-52`) | `VERIFICATION-20261026.md:495-506` |
 | Shell scripts | 10 files, 3,586 lines; 6 carry comment lines | `scripts/*.sh` |
 | Proof files | 104; 101 proofs-stage entries, `proof-catalog` in fast, 2 boot proofs in smoke | `scripts/gate-manifest.json` |
@@ -65,7 +65,7 @@ Rules for this file:
 
 | ID | State | Verified evidence | Closure action | Evidence that closes it |
 | --- | --- | --- | --- | --- |
-| `V-13` | partial | Project config is repaired at boot (`plugin-init.ts:468`, `opencode-config.ts:400`); the global config gets only a roster seed (`opencode-config.ts:509`), never the permission repair | Decide whether the global config is in scope; if yes, extend boot repair; if no, document the project-only boundary | `prove-e02` extension or a documented limitation in `E-02` and `UPSTREAM.md` |
+| `V-13` | done 2026-10-29 | Boot repair targets the project `opencode.json`/`jsonc` only; the global config gets the opt-out roster seed and is never permission-repaired; `prove-e02` leaves a stale global config byte-identical | none — documented project-only boundary | `E-02` scope paragraph, `UPSTREAM.md` boundary bullet, `VERIFICATION-20261026.md` resolution row, `prove-e02` 27 assertions |
 | `V-26` | partial, bounded | Initial probe skip is closed by the retry loop; one warning is emitted by the final budget | No code action; keep the bounded-measurement note | `VERIFICATION-20261026.md:508-509` already records the disposition |
 | `V-27` | partial, bounded | Measured worst case is `750 + 19 x 500 = 10,250 ms` plus probe latency; the current budget is 6 attempts (about 3 s) | No code action; the label is historical | `B-02` proof and the same disposition note |
 | `V-15`, `V-19`, `V-20`, `V-30`, `V-31`, `V-52` | resolved | Resolution table dated 2026-10-29 | none | `VERIFICATION-20261026.md:495-506` |
@@ -117,14 +117,13 @@ numbers are final.
 
 ## H. Closure order
 
-1. `V-13` decision, then implementation or documented limitation.
-2. Decision 3, `P-01`, `P-02`, `P-03` and the resulting work.
-3. `F-1`-`F-3` cleanup.
-4. `E-DOC-1`-`E-DOC-14` regeneration after the code and decisions are final.
-5. `G-1` re-measure, then decide whether to commit `docs/FUTURE-WORK-PLAN.md`.
+1. Decision 3, `P-01`, `P-02`, `P-03` and the resulting work.
+2. `F-1`-`F-3` cleanup.
+3. `E-DOC-1`-`E-DOC-14` regeneration after the code and decisions are final.
+4. `G-1` re-measure, then decide whether to commit `docs/FUTURE-WORK-PLAN.md`.
 
-`E-30`, `E-37`, `E-39`, `E-40`, and `E-41` closed, and decision 8 resolved,
-on 2026-10-29.
+`E-30`, `E-37`, `E-39`, `E-40`, and `E-41` closed, decision 8 resolved, and
+`V-13` closed as a documented project-only boundary, on 2026-10-29.
 
 After each batch: `npm run verify`; after a proof batch: update
 `scripts/gate-manifest.json` and `scripts/prove-proof-catalog.ts` in the same
@@ -135,7 +134,7 @@ commit.
 | Source | Open or partial items found | Ledger rows | Status |
 | --- | --- | --- | --- |
 | `ISSUES.md` | 0 open register entries, decision 3 (decision 8 resolved), `P-01`-`P-03`, corrections, standing decisions | Decision 3, `P-01`..`P-03`, `E-DOC-3`..`E-DOC-5`, `G-6`, `G-7` | covered |
-| `VERIFICATION-20261026.md` | `V-13`, `V-26`, `V-27`; six resolved partials; `V-36`/`V-37`; eight next actions; SHARED audit count | `V-13`, `V-26`, `V-27`, `V-15`/`V-19`/`V-20`/`V-30`/`V-31`/`V-52`, `V-G`, `V-36`, `V-37`, `E-DOC-2`, `E-DOC-12`, `E-DOC-14` | covered |
+| `VERIFICATION-20261026.md` | `V-13`, `V-26`, `V-27`; six resolved partials; `V-36`/`V-37`; eight next actions; SHARED audit count | `V-13` (resolved as a boundary), `V-26`, `V-27`, `V-15`/`V-19`/`V-20`/`V-30`/`V-31`/`V-52`, `V-G`, `V-36`, `V-37`, `E-DOC-2`, `E-DOC-12`, `E-DOC-14` | covered |
 | `SCRIPT-PARITY.md` | 4 out-of-scope rows and the summary label | `E-DOC-6` | covered |
 | `PLAN-DB-INSTALL.md` | P0-P7 closed; F14 observation; F20/F24/F25/F27/F32 fixed | `G-5` | covered |
 | `RECOVERY-20261025.md` | historical status, H-07 hazard, orphan cwd | `E-DOC-7` | covered |
@@ -166,7 +165,7 @@ Measured discrepancies against the source documents:
 4. Two `ISSUES.md` bodies still say 87 proofs (lines 1135 and 1240).
 5. Pending decision 4 says `/tmp/opencode` is empty; five artifacts exist.
 6. Pending decision 8 is resolved; its row now records the shipped D-05 shape.
-7. `V-13` remains partial: the global config is never permission-repaired.
+7. `V-13` closed as a documented project-only boundary; the global config is never permission-repaired.
 8. `DECOUPLING.md` now records the 35 names the user-owned file carries; the
    inventory matches the on-disk list.
 9. `FUTURE-WORK-PLAN.md` says 92/91 and cites doctor lines 548-556 and

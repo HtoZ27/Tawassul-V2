@@ -1370,8 +1370,20 @@ explicit `allow`/`ask` on a blocked tool is tightened to `deny`; a missing
 blocked key is added as `deny`. The generator runs the same repair, so a fresh
 config needs no boot write, and `write` joins the official permission keys so
 the generated file validates. `prove-e02` covers the repair, the preserved
-scope, idempotence, the combined model+permission pass, and generator
-consistency (25 assertions).
+scope, idempotence, the combined model+permission pass, the project-only
+boundary, and generator consistency (27 assertions).
+
+Scope decision (V-13, 2026-10-29): the boot repair stays project-only. It
+reads `opencode.json`/`opencode.jsonc` in the project directory and never
+rewrites the user-global config. A project plugin does not own a user-wide
+file: several workspaces and host instances share it, the boot path has no
+cross-project write lock, and a rewrite would change permissions for every
+workspace at once. The runtime `execute.before` deny for `BLOCKED_TOOLS`
+remains the guarantee for a stale global config, `gen-opencode-config` writes
+the same repaired shape for a generated project file, and the only global
+write is the opt-out roster seed in `ensureGlobalRosterSeed`. `prove-e02`
+pins the boundary by leaving a stale global config byte-identical beside a
+repaired project config.
 
 ### E-03 noReply queues a user turn; select/input unbridged — fixed (P-01)
 
