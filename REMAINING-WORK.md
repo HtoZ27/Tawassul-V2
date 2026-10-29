@@ -107,7 +107,7 @@ numbers are final.
 
 | ID | State | Anchor | Rule |
 | --- | --- | --- | --- |
-| `G-1` | deferred | `docs/FUTURE-WORK-PLAN.md` is modified and uncommitted (31 insertions, 24 deletions); says 92 proof scripts / 91 steps, installer verify at lines 479-518, doctor range at 548-556; its section 6 carries four open forks of its own (Wave 1b prevention fork, gemini eval slot, fork/rewind semantics, record-store title duplication) | do not edit or commit until A-F close; then re-measure: 103 files / 100 steps, verify at `install-global.ts:1108`, doctor range at `doctor-v2.sh:639-642`; the section 6 forks stay that file's scope and are not adopted here |
+| `G-1` | measured 2026-10-29, not adopted | `docs/FUTURE-WORK-PLAN.md` remains modified and uncommitted by its owner; measured against the closure batch it says 92 proof files / 91 steps (now 105/102), installer verify at lines 479-518 (now `install-global.ts:1108`), doctor range at 548-556 (now `doctor-v2.sh:639-641`); launcher 210-213, installer 22-23, registry 3-9 still match; section 6 carries its four own forks (Wave 1b prevention, gemini slot, fork/rewind, record title duplication) | do not edit or commit this file; the measured corrections stay in this ledger |
 | `G-2` | host-bound | `SHARED.md` `S-042`, `S-046`, `S-048`, `S-051`; `PLAN-DB-INSTALL.md` F1 | mitigated plugin-side; the host contract is open; no repo action |
 | `G-3` | host-bound | `UPSTREAM.md:136-150` follow-ups 1, 4, 5, 6, 7 | `E-43` live check, fork/revert, compaction payload, `session.instructions.entry`, host-level `execute` deny; assess on the next host release |
 | `G-4` | declined | `ISSUES.md:287` `I-01` | the owner declined a real global install on 2026-10-29; isolated-HOME validation stands |
@@ -121,7 +121,9 @@ numbers are final.
    in each project with v2; no agent deletes files outside this tree.
 2. `F-1`-`F-3` cleanup — `F-1` declined, `F-2` documented, `F-3` done.
 3. `E-DOC-1`-`E-DOC-14` regeneration — done 2026-10-29.
-4. `G-1` re-measure, then decide whether to commit `docs/FUTURE-WORK-PLAN.md`.
+4. `G-1` re-measure — done 2026-10-29: 105 files / 102 steps, installer
+   verify at 1108, doctor range at 639-641; the file stays uncommitted by its
+   owner.
 
 `E-30`, `E-37`, `E-39`, `E-40`, and `E-41` closed, decision 8 resolved,
 `V-13` closed as a documented project-only boundary, and `P-01`-`P-03`
@@ -148,7 +150,7 @@ commit.
 | `STABILITY.md` | 24-open snapshot | `E-DOC-1` | covered; regenerated as 87 entries and 0 open |
 | `UPSTREAM.md` | release ledger, tracked rows, open follow-ups | `E-DOC-8`, `G-3` | covered |
 | `DECOUPLING.md` | seed step, fresh-clone check, deleted-agent count | `E-DOC-9`, `F-3` | covered |
-| `docs/FUTURE-WORK-PLAN.md` | 92/91 proof count, installer and doctor anchors, section 6 forks | `G-1` | deferred |
+| `docs/FUTURE-WORK-PLAN.md` | 92/91 proof count, installer and doctor anchors, section 6 forks | `G-1` | measured; the owner keeps the file uncommitted |
 | `AGENTS.md`, `README.md` | 97 proofs | `E-DOC-11` | covered; both read 102 proofs now |
 
 ## J. Audit log and measured discrepancies
@@ -159,23 +161,25 @@ bounded `find` over the six named workspaces, `node -e` on
 
 Measured discrepancies against the source documents:
 
-1. Residue is 10 `pre-refresh` files and 6 `retired` `.js` files, not 12 and
-   14; the retired `.mjs` copies are no longer present. The sixth inert package
-   dir (`athan new vrsion`) has no `.opencode`; only five remain.
+1. Residue is 10 `pre-refresh` files and 12 `retired` files (6 `.js` + 6
+   `.mjs`), not 12 and 14. The sixth inert package dir (`athan new vrsion`)
+   has no `.opencode`; only five remain.
 2. `E-40` said seven scripts; there are ten, and six carry comments. The entry now records the policy exemption.
 3. `E-41` said 32 proof scripts; the entry now records 105 files and 102 proofs-stage steps.
-4. Two `ISSUES.md` bodies still say 87 proofs (lines 1135 and 1240).
+4. Two `ISSUES.md` bodies now record the 87-proof baseline as historical and
+   name the current 102 proofs-stage steps.
 5. Pending decision 4 said `/tmp/opencode` is empty; it is now owner scratch and `/tmp` clears on reboot, so no cleanup is needed.
 6. Pending decision 8 is resolved; its row now records the shipped D-05 shape.
 7. `V-13` closed as a documented project-only boundary; the global config is never permission-repaired.
 8. `DECOUPLING.md` now records the 35 names the user-owned file carries; the
    inventory matches the on-disk list.
 9. `FUTURE-WORK-PLAN.md` says 92/91 and cites doctor lines 548-556 and
-   installer lines 479-518; the current anchors are 639-642 and 1108.
+   installer lines 479-518; the current anchors are `doctor-v2.sh:639-641`
+   and `install-global.ts:1108`.
 10. `@opencode/plugin` 2.2.1 still has no `session.form` surface, so `P-01`
     stays upstream-blocked.
 11. `SHARED.md` carries an explicit `v2 status` line for only 14 of 57 entries,
     and 15 headings still read `REQUIRED`, `PARTIALLY IMPLEMENTED`, or `NOTE`.
-    `docs/SHARED-PARITY.md` now dispositions all 57 entries as 63 anchored
+    `docs/SHARED-PARITY.md` now dispositions all 57 entries as 70 anchored
     requirements; the frozen file is untouched and the ledger check runs in
     `gate:fast`.
