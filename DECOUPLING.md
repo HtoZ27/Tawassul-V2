@@ -8,7 +8,9 @@ After the cutover the v1 tree becomes a read-only reference; no new
 ## Recorded decisions
 
 1. Runtime files (agent `.md` prompts, `deleted-agents.json`, `opencode.json`):
-   document-only until cutover. No seed/track implementation yet.
+   the inventory below is now produced locally: `npm run seed:agents` writes
+   the 8 base agents, `opencode.json` comes from `gen-opencode-config.ts`, and
+   `deleted-agents.json` stays user state that no seed overwrites.
 2. State paths: rename to a v2-specific namespace (see below).
 3. `check-shared-anchors` keeps running until cutover; retirement happens then.
 
@@ -17,11 +19,12 @@ After the cutover the v1 tree becomes a read-only reference; no new
 | File | Producer | Status |
 | --- | --- | --- |
 | `dist/index.js` | `npm run build` (bun) | gitignored, built locally |
-| `opencode.json` (44 agents) | `bun src/scripts/gen-opencode-config.ts` | untracked; needs `.md` + deleted list |
-| `.opencode/agents/*.md` (8 bases) | `generateAgentMd` from `ALL_AGENTS` (`src/core/render-agent.ts`) | untracked; regenerable from source (carries R-011 clause) |
-| `.opencode/deleted-agents.json` (21 names) | seed step (to be implemented at cutover) | untracked; static data, no in-source copy yet |
+| `opencode.json` (34 agents) | `bun src/scripts/gen-opencode-config.ts` | untracked; `--check` runs in `gate:fast` |
+| `.opencode/agents/*.md` (8 bases) | `npm run seed:agents` → `generateAgentMd` from `ALL_AGENTS` (`src/core/render-agent.ts`) | untracked; never overwrites an existing file, `--force` is explicit; 3 manually added variants sit beside the bases and are never touched |
+| `.opencode/deleted-agents.json` (35 names) | user state; no seed writes it | untracked; the generator reads it and ignores non-variant names |
 | `.opencode/tawassul-state.json` | runtime (HMAC-signed envelope) | untracked; created on first boot |
 | HMAC key | runtime (`src/utils/crypto.ts` key code) | machine-local; fresh key per machine |
+| `tawassul.jsonc` (global roster) | boot seed (`ensureGlobalRosterSeed`) and `opencode.json` edits | written once, only when neither `tawassul.jsonc` nor the legacy `tawassul.json` exists |
 
 ## Namespace renames (decision 2, implemented 2026-10-24)
 
@@ -82,9 +85,15 @@ files are renamed `tawassul.mjs.retired-20261024`; v1 itself stays read-only.
 
 ## Cutover checklist
 
-1. Implement seed step (or track files) per the inventory above.
+1. Seed step: **done 2026-10-29.** `npm run seed:agents` writes the 8 bases,
+   refuses to overwrite an existing file, and reports drift through
+   `npm run check:agents`; `gen-opencode-config.ts --check` covers
+   `opencode.json`; the global roster writes the canonical `tawassul.jsonc`
+   only when no roster exists.
 2. Fresh-clone validation: install → build → seed → `--check` →
-   sandboxed live boot → `npm run ci` green.
+   sandboxed live boot → `npm run ci` green. The seed and check halves run in
+   `prove-seed-agents`; the sandbox boot and `ci` halves are covered by
+   `gate:smoke` and the full gate.
 3. Retire the channel: freeze `SHARED.md`, drop `check-shared-anchors`
    from `verify`, delete `scripts/port-from-v1.mjs` + `test-utils.ts`,
    remove remaining v1 path references. **Done 2026-10-24; see `CUTOVER.md`.**

@@ -68,8 +68,8 @@ re-open the v1 transfer channel.
 - `npm run verify:global` — hashes, host pin, scope, wasm integrity
 - `npm run uninstall:global` — remove the global file and runtime (`-- --purge` for state)
 - `npm run prove:independence` — no v1 tree reference; one host entry
-- `npm run gate:fast` — rules, shell syntax, typecheck, config, facts, catalog
-- `npm run gate:proofs` — 97 proofs, one isolated child process each
+- `npm run gate:fast` — rules, shell syntax, typecheck, config, facts, contract, shared parity, catalog
+- `npm run gate:proofs` — 100 proofs, one isolated child process each
 - `npm run gate:smoke` — build + release smoke
 - `npm run ci` — all three stages sequentially, each in its own process
 - `npm run verify` — `gate:fast` plus the build

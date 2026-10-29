@@ -525,9 +525,9 @@ export async function ensureGlobalRosterSeed(): Promise<GlobalRosterSeedResult> 
   await mkdir(dir, { recursive: true });
   if (existsSync(canonical)) return { created: false, path: canonical };
   if (existsSync(legacy)) return { created: false, path: legacy };
-  await atomicWriteFile(legacy, JSON.stringify({ agents, deleted: [] }, null, 2) + "\n");
-  logger.warn(`[tawassul] boot: no global roster — seeded minimal ${legacy}`);
-  return { created: true, path: legacy };
+  await atomicWriteFile(canonical, JSON.stringify({ agents, deleted: [] }, null, 2) + "\n");
+  logger.info(`[tawassul] boot: no global roster — seeded minimal ${canonical}`);
+  return { created: true, path: canonical };
 }
 
 

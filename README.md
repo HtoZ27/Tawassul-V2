@@ -5,8 +5,8 @@ handoffs, a goal ledger, mission boards, checkpoints, and a 42-tool surface.
 This tree is the only runnable Tawassul plugin. The v1 tree is retired and
 read-only.
 
-- Host: OpenCode `2.2.0` (pinned)
-- Plugin API: `@opencode/plugin` 2.2.0
+- Host: OpenCode `2.2.1` (supported range `>=2.2.0 <3.0.0`)
+- Plugin API: `@opencode/plugin` `^2.2.1`
 - Runtime: Node 26.13.0 (pinned in `.nvmrc`) and Bun
 - Language: English only; no code comments
 
@@ -30,7 +30,7 @@ once inside the workspace:
 
 ```
 mkdir -p .opencode
-printf '{"type":"module","dependencies":{"@opencode/plugin":"2.2.0"}}\n' > .opencode/package.json
+printf '{"type":"module","dependencies":{"@opencode/plugin":"^2.2.1"}}\n' > .opencode/package.json
 bun install --cwd .opencode
 ```
 
@@ -98,8 +98,8 @@ replaces an unmarked file and keeps the previous copy as
 ## Verify
 
 ```
-npm run gate:fast    # rules + shell syntax + typecheck + config + facts + catalog
-npm run gate:proofs  # 97 proofs, one isolated child process each
+npm run gate:fast    # rules + shell syntax + typecheck + config + facts + contract + parity + catalog
+npm run gate:proofs  # 100 proofs, one isolated child process each
 npm run gate:smoke   # build + release smoke (one scratch boot)
 npm run ci           # all three stages, sequentially, each in its own process
 npm run verify       # gate:fast + build
@@ -236,10 +236,10 @@ its own description. Common entry points:
 
 ## Host process model
 
-OpenCode 2.2.0 is a client plus a background service:
+OpenCode 2.2.1 is a client plus a background service:
 
 - The Desktop app (`/opt/OpenCode/ai.opencode`) starts its own engine:
-  `~/.config/ai.opencode.desktop/cli/2.2.0-x64/opencode-cli serve --service`.
+  `~/.config/ai.opencode.desktop/cli/2.2.1-x64/opencode-cli serve --service`.
   That process is expected and must not be killed.
 - The engine writes `~/.local/state/opencode/service.json` (URL, PID,
   password). Every `opencode` client that shares that state directory attaches

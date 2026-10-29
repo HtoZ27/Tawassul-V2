@@ -1,12 +1,170 @@
 {
   "source": "https://opencode.ai/changelog",
-  "auditedThrough": "2.2.0",
+  "releasesUrl": "https://github.com/anomalyco/opencode/releases",
+  "auditedThrough": "2.2.1",
   "releases": [
+    {
+      "version": "2.2.1",
+      "date": "2026-10-29",
+      "auditedAt": "2026-10-29",
+      "hostContract": "2.2.1",
+      "notesUrl": "https://github.com/anomalyco/opencode/releases/tag/v2.2.1",
+      "status": "partial",
+      "items": [
+        {
+          "pr": 59437,
+          "topic": "goal-and-idle-hook",
+          "verdict": "tracked",
+          "issue": "E-55",
+          "note": "The host /goal is mirrored read-only by goal(host: true) and goal(board); experimental.idle is not registered, so the host keeps sole ownership of continuation."
+        },
+        {
+          "pr": 59939,
+          "topic": "image-generate-tool",
+          "verdict": "candidate",
+          "note": "The opt-in image_generate tool may replace the Codex imagegen transport once it leaves experimental."
+        },
+        {
+          "pr": 60096,
+          "topic": "image-generate-model",
+          "verdict": "candidate",
+          "note": "A configurable default image model decides whether our transport keeps its current role."
+        },
+        {
+          "pr": 59977,
+          "topic": "ai-provider-removals",
+          "verdict": "ignored",
+          "note": "The plugin imports only @opencode/plugin, so removed @opencode/ai providers cannot break it."
+        },
+        {
+          "pr": 59506,
+          "topic": "ai-entry-point-removals",
+          "verdict": "ignored",
+          "note": "Legacy @opencode/ai entry points are not imported anywhere in this tree."
+        },
+        {
+          "pr": 59765,
+          "topic": "ai-configure-types",
+          "verdict": "ignored",
+          "note": "Provider configure types belong to @opencode/ai; the plugin keeps no such types."
+        },
+        {
+          "pr": 59401,
+          "topic": "scheduled-prompts",
+          "verdict": "candidate",
+          "note": "Host scheduled prompts are opt-in; our scheduler only runs database maintenance."
+        },
+        {
+          "pr": 59457,
+          "topic": "schedule-client-api",
+          "verdict": "ignored",
+          "note": "The plugin never creates or manages host schedules."
+        },
+        {
+          "pr": 60085,
+          "topic": "gpt-image-2-after-codex",
+          "verdict": "candidate",
+          "note": "Host image models offered after Codex sign-in may replace the external imagegen path."
+        },
+        {
+          "pr": 59963,
+          "topic": "responses-freeform-tools",
+          "verdict": "candidate",
+          "note": "Freeform provider tools may change how our JSON tool schemas travel; verify after adoption."
+        },
+        {
+          "pr": 59419,
+          "topic": "snapshot-capture-coalescing",
+          "verdict": "ignored",
+          "note": "Snapshot capture is host-side and exposes no plugin surface."
+        },
+        {
+          "pr": 59934,
+          "topic": "tool-output-headroom",
+          "verdict": "candidate",
+          "note": "Tool output keeps more context headroom; remeasure our large tool results on 2.2.1."
+        },
+        {
+          "pr": 59649,
+          "topic": "throttling-retry-correction",
+          "verdict": "tracked",
+          "issue": "E-44",
+          "note": "The host retries throttling instead of reporting context overflow; the 2.2.1 defer path stays."
+        },
+        {
+          "pr": 60057,
+          "topic": "model-settings-separation",
+          "verdict": "aligned",
+          "note": "Credential and cache keys stay out of model variants; our generated config adds none."
+        },
+        {
+          "pr": 59500,
+          "topic": "prompt-cache-setting",
+          "verdict": "aligned",
+          "note": "Prompt-cache settings remain host configuration, matching our no-cache-policy stance."
+        },
+        {
+          "pr": 59417,
+          "topic": "split-index-snapshots",
+          "verdict": "aligned",
+          "note": "Git snapshots handle a split index; our worktree commands do not touch the index."
+        },
+        {
+          "pr": 59592,
+          "topic": "console-web-search-gate",
+          "verdict": "ignored",
+          "note": "Console web search stays opt-in and the plugin never enables it."
+        },
+        {
+          "pr": 59834,
+          "topic": "code-mode-diagnostics",
+          "verdict": "aligned",
+          "note": "Code Mode reports parse and await failures better; the tawa execute guard is unchanged."
+        },
+        {
+          "pr": 59887,
+          "topic": "desktop-reload",
+          "verdict": "candidate",
+          "note": "Desktop /reload must be proven against the plugin reload fingerprint before we rely on it."
+        },
+        {
+          "pr": 60087,
+          "topic": "plugin-event-endpoint",
+          "verdict": "aligned",
+          "note": "Desktop follows each plugin server endpoint; our event stream already uses the resolved URL."
+        },
+        {
+          "pr": 59736,
+          "topic": "malformed-metadata-render",
+          "verdict": "aligned",
+          "note": "The timeline tolerates malformed tool metadata, reinforcing the JSON-safe metadata fix in E-42."
+        },
+        {
+          "pr": 59072,
+          "topic": "experimental-client-grouping",
+          "verdict": "ignored",
+          "note": "The plugin calls no generated client methods, so the experimental grouping is irrelevant."
+        },
+        {
+          "pr": 59987,
+          "topic": "promise-ai-compaction",
+          "verdict": "ignored",
+          "note": "Compaction through the Promise AI client needs @opencode/ai, which the plugin does not import."
+        },
+        {
+          "pr": 59948,
+          "topic": "code-mode-extension-globals",
+          "verdict": "ignored",
+          "note": "The plugin declares no Code Mode extension globals or required services."
+        }
+      ]
+    },
     {
       "version": "2.2.0",
       "date": "2026-10-27",
       "auditedAt": "2026-10-27",
       "hostContract": "2.2.0",
+      "notesUrl": "https://github.com/anomalyco/opencode/releases/tag/v2.2.0",
       "status": "partial",
       "items": [
         {

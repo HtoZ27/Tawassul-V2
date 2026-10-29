@@ -29,6 +29,10 @@
       "cmd": ["bun", "scripts/check-upstream.ts", "--offline"]
     },
     {
+      "name": "shared-parity",
+      "cmd": ["bun", "scripts/check-shared-parity.ts", "--check"]
+    },
+    {
       "name": "proof-catalog",
       "cmd": ["bun", "scripts/prove-proof-catalog.ts"]
     }
@@ -223,6 +227,10 @@
       "cmd": ["bun", "scripts/prove-e29.ts"]
     },
     {
+      "name": "e30",
+      "cmd": ["bun", "scripts/prove-e30.ts"]
+    },
+    {
       "name": "e33",
       "cmd": ["bun", "scripts/prove-e33.ts"]
     },
@@ -287,6 +295,10 @@
       "cmd": ["bun", "scripts/prove-s038.ts"]
     },
     {
+      "name": "seed-agents",
+      "cmd": ["bun", "scripts/prove-seed-agents.ts"]
+    },
+    {
       "name": "state-namespace",
       "cmd": ["bun", "scripts/prove-state-namespace.ts"]
     },
@@ -313,6 +325,10 @@
     {
       "name": "host-discovery",
       "cmd": ["bun", "scripts/prove-host-discovery.ts"]
+    },
+    {
+      "name": "host-goal",
+      "cmd": ["bun", "scripts/prove-host-goal.ts"]
     },
     {
       "name": "blocked-tool",

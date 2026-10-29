@@ -55,14 +55,24 @@ export type V2SessionEvent = {
   delivery?: unknown;
 };
 
+export type V2SessionIdleBackground =
+  | { kind: "shell"; sessionID: string; shellID: string; command: string }
+  | { kind: "subagent"; sessionID: string; childSessionID: string; agent: string; description: string }
+  | { kind: "image"; sessionID: string; path: string; model: string };
+
+export type V2SessionIdle = {
+  sessionID: string;
+  background: ReadonlyArray<V2SessionIdleBackground>;
+};
+
 export type V2Session = {
   prompt: (input: { sessionID: string; text: string; delivery?: "steer" | "queue" }) => Promise<unknown>;
   synthetic?: (input: { sessionID: string; text: string; description?: string }) => Promise<unknown>;
   interrupt: (input: { sessionID: string; continue?: boolean }) => Promise<unknown>;
-  hook: (
-    name: string,
-    callback: (event: V2SessionEvent) => void | Promise<void>,
-  ) => Promise<V2Registration>;
+  hook: {
+    (name: "experimental.idle", callback: (event: V2SessionIdle) => void | Promise<void>): Promise<V2Registration>;
+    (name: string, callback: (event: V2SessionEvent) => void | Promise<void>): Promise<V2Registration>;
+  };
 };
 
 export type V2Tool = {
@@ -88,11 +98,24 @@ export type V2Permission = {
   hook: (name: string, callback: (input: unknown) => void | Promise<void>) => Promise<V2Registration>;
 };
 
+export type V2RpcClient = {
+  readonly events: {
+    on: (name: string, handler: (event: unknown) => void) => () => void;
+  };
+} & Record<string, unknown>;
+
+export type V2RpcDomain = <D extends {
+  id: string;
+  methods: Record<string, unknown>;
+  events: Record<string, unknown>;
+}>(definition: D) => V2RpcClient;
+
 export type V2Context = {
   app?: { readonly version?: string };
   location?: { directory?: string };
   session: V2Session;
   tool: V2Tool;
   event: V2Event;
+  rpc?: V2RpcDomain;
   permission?: V2Permission;
 };

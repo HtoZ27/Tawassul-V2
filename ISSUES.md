@@ -1,6 +1,6 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-29 · Gate: `npm run ci` rc=0 (3 isolated stages, 100 proof files / 97 proof steps, 4 smoke steps, transcript in `docs/CI-TRANSCRIPT.md`)
+Status date: 2026-10-29 · Gate: `npm run ci` rc=0 (3 isolated stages, 103 proof files / 100 proof steps, 4 smoke steps, transcript in `docs/CI-TRANSCRIPT.md`)
 Real global install: not performed (owner declined on 2026-10-29; isolated sandbox validation only; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
@@ -8,10 +8,10 @@ project entry is rebuilt from this tree, and `npm run host:refresh` reloads the
 live host and verifies a fresh plugin init, so G-13 is resolved.
 Register note: the third-round evaluation (2026-10-26) added E-11..E-41 and
 re-confirmed C-02, C-03, P-10, B-02, E-02, and G-13 without duplicating them.
-Upstream watch (2026-10-27): `UPSTREAM.md` and
-`src/upstream/registry.json` assess OpenCode v2.2.0 item by item; the first
-result is E-43, registered and closed the same day, and the encode-reference
-change led to the E-42 root cause and fix.
+Upstream watch (2026-10-29): `UPSTREAM.md` and
+`src/upstream/registry.json` assess OpenCode v2.2.1 item by item; the throttle
+correction stays on E-44, the recoverable-quota probe became E-54, and the
+host `/goal` mirror is E-55.
 Stability view: `STABILITY.md` classifies all open entries by whether they
 block use, lose data, or misreport, and gives the wave order.
 `SHARED.md` audit (2026-10-26): all 57 frozen entries are dispositioned in
@@ -1057,10 +1057,11 @@ Fixed by reading the host version from `ctx.app.version` into `PluginInput`,
 and by `shouldDeferRateLimitToHost` in `src/services/free-limit.ts`. On hosts
 at or above 2.2.0 a parsed transient rate limit is left to the host retry;
 daily limits, unknown hosts, and malformed versions keep the legacy path.
-`scripts/prove-e44.ts` covers 36 assertions: version parsing, the 2.1.4/2.2.0
-boundary, typed/text/throttled transients, daily-limit exclusion, the
-host-version mapping, and the `handleRateLimitError` wiring (no notice or
-timer when deferred, one of each on legacy).
+`scripts/prove-e44.ts` covers 41 assertions: version parsing, the
+2.1.4/2.2.0/2.2.1 boundary, typed/text/throttled transients, daily-limit and
+hard-quota exclusion, the host-version mapping, and the
+`handleRateLimitError` wiring (no notice or timer when deferred, one of each
+on legacy).
 
 ---
 
@@ -1132,7 +1133,8 @@ leaves the recipient health counts, circuit state, capability tracker, shared
 memory, and training evaluator unchanged; the migration zeroes tawa (three
 cancellations), leaves build at 2 of 3 (one genuine drop), never charges the
 recipient (general stays 1), and a second pass does not subtract again. Wired as
-the `cancel-metric` proofs step; `npm run verify` is green at 87 proofs.
+the `cancel-metric` proofs step; `npm run verify` was green at the historical
+87-proof baseline.
 
 ### E-48 Deliberate cancellation still scored failures in the tracker stack — fixed (2026-10-27)
 
@@ -1237,7 +1239,7 @@ zero Arabic lines; `dist/global.js`, `dist/index.js`, and the plugin entry all
 define `GoalItemStateSchema` with the `dropped` state.
 
 `npm run check:rules` scans 428 files with zero exemptions; `npm run verify` is
-green at 87 proofs.
+green at the historical 87-proof baseline.
 
 ---
 
@@ -1966,8 +1968,9 @@ covers CLI discovery from the Desktop tree, a successful reload, a reload with
 no fresh init, a reload whose live bundle differs, a missing plugin log,
 `--verify-only` (fresh, stale, digest mismatch, and live-bundle mismatch), the
 fingerprint utility, the mtime fallback, the restart dry run, and the detached
-restart path producing a fresh and a stale report. `prove-proof-catalog` now
-counts 100 proof files / 97 steps.
+restart path producing a fresh and a stale report. At the time,
+`prove-proof-catalog` counted 100 proof files / 97 steps; the tree is now at
+103 / 100.
 
 Live check 2026-10-28 (the server restart reset the PID to 3157):
 `npm run host:refresh -- --verify-only` matched the logged bundle fingerprint
@@ -2683,23 +2686,29 @@ exactly one failure and the next request still reaches the upstream, three
 separate failures open the breaker, a success clears the count, and an abort
 is ignored (18 assertions).
 
-#### E-30 `applyPatch` has a prefix-check escape and a cross-device write — open (P2)
+#### E-30 `applyPatch` has a prefix-check escape and a cross-device write — done (2026-10-29)
 
-`src/services/apply-patch.ts:69` validates with
+`src/services/apply-patch.ts:69` validated with
 `fullPath.startsWith(path.resolve(options.baseDir))`, so `/base/dir2/x`
-passes when the base is `/base/dir`. The realpath guard at `:74-81` sits in a
-`try/catch` that swallows, so it is skipped when the target does not exist
-yet — a symlinked parent is therefore not resolved. The write goes to
-`os.tmpdir()` and is `rename`d (`:106-107`), which fails `EXDEV` across
-filesystems and leaks the temp file.
+passed when the base was `/base/dir`. The realpath guard at `:74-81` sat in a
+`try/catch` that swallowed, so it was skipped when the target did not exist
+yet — a symlinked parent was therefore not resolved. The write went to
+`os.tmpdir()` and was `rename`d (`:106-107`), which failed `EXDEV` across
+filesystems and leaked the temp file.
 
 Current reach: `applyPatch` has no caller in `src/`; only
 `scripts/prove-disclosure.ts:32` counts it. It is a latent escape in the only
 in-repo patch writer.
 
-Next: compare with `path.relative` plus a separator check, resolve the parent
-directory rather than the file, and write the temp file inside the target
-directory.
+Resolved 2026-10-29: containment is `path.relative` plus a separator check
+(`isInside` / `isInsideOrEqual`), the parent is resolved through the nearest
+existing ancestor (`resolveAncestor`), and a realpath check rejects a symlinked
+parent, a symlinked target, and a symlinked `.bak`. The temp file is written in
+the target directory with the target mode preserved and `rename`d in place, and
+a failure unlinks it. `prove-e30` covers traversal, sibling prefixes, a missing
+base, symlinked parent/target/backup, nested creation, mode preservation, dry
+run, lock release, failure cleanup, directory targets, and tmpdir isolation
+(31 assertions).
 
 #### E-31 Event metrics are written to a collector that is thrown away — done (2026-10-26)
 
@@ -2726,7 +2735,7 @@ its own hub and starts with no inherited count (8 assertions).
 
 `scripts/prove-proof-catalog.ts` asserted `>= 25` proof files and `>= 24`
 proof steps, so a file and its gate step could disappear together. The tree
-now has 100 files.
+now has 103 files.
 
 Resolved by G-11: the catalog pins the exact sorted file list and the exact
 proofs-stage step count, and fails on any unrecorded addition or removal.
@@ -2899,6 +2908,80 @@ for C-03, E-12, E-14, and E-19. Progress 2026-10-26:
 closed), and `prove-c02` covers the bridge seed/write-back plus the live
 consent answer/execute loop (C-02 closed); `prove-c03` covers the no-agent and
 unrecognized-agent consent paths (C-03 closed).
+
+### E-53 The S-053 task census never got a disposition — open (P2)
+
+`SHARED.md` S-053 closes with a census of seven unchecked v1 tasks: pause
+during a live session, a task longer than 420s, an image-gen 401 retry,
+confidentiality at rest, user-level rate limiting, shared-memory signing,
+and deleted-agent persistence. The entry asks for each one to be ported as a
+v2 test or recorded as out of scope, but no v2 file names any of the seven:
+they appear only inside `SHARED.md`, while the entry still reads
+`v2 status: DONE on v2`.
+
+Impact: the census is the last place where a v1 behaviour can be missing from
+v2 without a trace. Two items touch live operation (pause during a live
+session, deleted-agent persistence); the other five are policy items that need
+an explicit decision rather than silence.
+
+Next: give every item a row in `docs/SHARED-PARITY.md` with either a proof or a
+written out-of-scope reason, then re-derive the S-053 status. Until then the
+ledger keeps S-053 `partial`, and `gate:fast` rejects a `partial` row without
+this entry.
+
+### E-54 A bare "quota exceeded" message is now a recoverable quota with delayed probes (2026-10-29)
+
+`quota exceeded` is not a final stop. Providers restore a quota through a grace
+period, a top-up, or a trial bucket reset, so both earlier treatments were
+wrong: deferring it to the 2.2.1 host retry burned attempts on a billing error,
+and treating it as `free-daily-limit` stopped permanently without a probe.
+
+The parser now returns a dedicated `quota-exhausted` signal. The wording lives
+in `QUOTA_TEXT_PATTERNS` (`quota exceeded`, `insufficient_quota`,
+`exceeded your current quota`), `isQuotaExhausted` exposes the predicate, and
+`DEFAULT_RATE_LIMIT_PATTERNS` keeps the same strings so the event reaches
+`handleRateLimitError`. `shouldDeferRateLimitToHost` still returns false for
+this signal, so the host never owns the decision.
+
+`scheduleQuotaProbe` in `src/bootstrap/plugin-init.ts` schedules a delayed
+probe at 5, 10, and 20 minutes (`QUOTA_PROBE_BASE_MS` 5 minutes,
+`QUOTA_PROBE_MAX` 3, 30-minute cap). A pending probe is de-duplicated per
+session, the attempt count survives each fired probe, the fourth quota error
+sends the final notice instead of scheduling a timer, and (because
+`promptAsync` only confirms enqueue) a stale counter is retired after six
+hours so a later episode starts again at five minutes. The new
+`quotaRetryScheduled`, `quotaRetryExhausted`, and `quotaRetryPrompt` strings
+explain the recovery window. `scripts/prove-e44.ts` now covers 62 assertions,
+including the signal, the no-deferral rule, the 5/10/20 sequence,
+de-duplication, persistence across a resolved probe prompt, and exhaustion;
+`scripts/prove-g003i1.ts` asserts the text fallback and the predicates.
+
+### E-55 The host `/goal` reached 2.2.1 with no plugin surface (2026-10-29)
+
+OpenCode 2.2.1 ships `opencode.goal` (`get` plus the `changed` event) and the
+opt-in `experimental.idle` session hook. Neither is exported from
+`@opencode/plugin`, so the plugin had no way to read the host goal, and a
+second continuation would have raced the host's own `/goal` run.
+
+Decision: the host goal is mirrored read-only. `src/services/host-goal.ts`
+normalises the state (`active|paused|complete`, objective, rounds, maxRounds,
+reason, stalls, boot, updatedAt) and caches it per session with a 5-second TTL
+and a 256-session cap; a broadcast `changed` event refreshes or clears the
+cache. `src/v2/host-goal.ts` declares the RPC domain structurally with a
+StandardSchema passthrough, so no `@opencode/schema` import and no bundle
+growth is needed: the host client decodes only Effect schemas, so the payload
+passes through unchanged. `src/v2/setup.ts` attaches the mirror at boot and
+disposes it with the other registrations. `goal(host: true)` and
+`goal(get: "host")` read it, `goal(board: true)` appends it, and every write
+form (`update`, `close`, `delete`, `evidence`) rejects the literal `host` and
+points at `/goal pause|resume|clear`.
+
+`experimental.idle` is deliberately not registered: the host `/goal` already
+owns continuation, and registering idle would give one session two drivers.
+`prove-host-goal` covers normalisation, TTL and cap, changed-event updates and
+clears, read errors, the tool surface and write guard, the RPC bridge, the
+missing-RPC path, the setup never registering idle, and the `goal.d.ts`
+contract (42 assertions).
 
 ### Corrections to existing entries
 

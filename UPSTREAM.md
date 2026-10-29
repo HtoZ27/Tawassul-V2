@@ -1,6 +1,6 @@
 # Upstream Watch — OpenCode Compatibility
 
-Status: 2026-10-27 · audited through v2.2.0 · built host contract 2.2.0
+Status: 2026-10-29 · audited through v2.2.1 · built host contract 2.2.1
 
 Purpose: one standing section that answers, for every OpenCode release, four
 questions — what changed, does it touch Tawassul, what did we do about it, and
@@ -8,7 +8,9 @@ where is the evidence. The goal is that a host upgrade never arrives as a
 surprise: compatibility work is planned, conflicts are caught before a live
 session, and host improvements become tracked candidates instead of folklore.
 
-Source: <https://opencode.ai/changelog>
+Sources: <https://github.com/anomalyco/opencode/releases> (live feed) and
+<https://opencode.ai/changelog> (published page). The GitHub feed is the
+earlier signal; the page sometimes lags by a release.
 
 ## Three layers
 
@@ -22,15 +24,18 @@ Source: <https://opencode.ai/changelog>
    an audit date not before the release, unique pull requests and topics, known
    verdicts, an issue id on every adopted/guarded/tracked change, and an
    `auditedThrough` that equals the newest audited release.
-3. **Live check** — `bun scripts/check-upstream.ts` reads the changelog and
-   compares it with the registry. It exits 1 when a release above the audited
-   ceiling appears, and 0 when the tree is aligned. It is read-only: it never
-   upgrades a dependency, edits a permission entry, or changes state.
+3. **Live check** — `bun scripts/check-upstream.ts` reads both live sources,
+   merges their versions, and compares the union with the registry. It exits 1
+   when a release above the audited ceiling appears in either source, 0 when
+   the tree is aligned, and 2 when neither source is reachable. A source whose
+   newest release is below `auditedThrough` is reported as lagging instead of
+   hiding the newer release. It is read-only: it never upgrades a dependency,
+   edits a permission entry, or changes state.
 
-`scripts/prove-upstream-sync.ts` proves the parser, the validator, and the
-drift report, including twelve deliberate registry corruptions that must each
-fail. The live check is not part of `ci` because it needs the network; the
-offline gate is.
+`scripts/prove-upstream-sync.ts` proves both parsers, the merge, the
+validator, and the drift report, including nineteen deliberate registry
+corruptions that must each fail. The live check is not part of `ci` because it
+needs the network; the offline gate is.
 
 ## Routine when a new release appears
 
@@ -43,6 +48,7 @@ offline gate is.
 4. Do the work one fix per commit, each with an isolated proof.
 5. Raise `auditedThrough` only when the release is fully assessed, and update
    `hostContract` only when the built dependency actually moves.
+6. Record the outcome in `ISSUES.md` and in the ledger below.
 
 ## Host compatibility policy
 
@@ -61,8 +67,10 @@ an exact pin:
   and wins over the range.
 
 `auditedThrough` is the newest *assessed* release, not the installed one, so a
-patch release on a user machine never turns into a hard failure.
-6. Record the outcome in `ISSUES.md` and in the ledger below.
+patch release on a user machine never turns into a hard failure. The build
+dependency uses a caret range (`^2.2.1`), never an exact pin; the lockfile
+supplies reproducibility and `check-sdk-pins` keeps the range, the lock, the
+installed package, and the audited ceiling in agreement.
 
 Never: auto-bump dependencies, auto-edit a permission entry, or adopt an
 experimental API without a proof. The owner's bash-permission rule applies to
@@ -86,6 +94,7 @@ still running), or `blocked` (a host defect prevents the work).
 
 | Release | Date | Audited | Host contract | Status | Summary |
 | --- | --- | --- | --- | --- | --- |
+| v2.2.1 | 2026-10-29 | 2026-10-29 | 2.2.1 | partial | 24 tracked changes: one follow-up (`E-44`), eight candidates, six aligned, nine ignored |
 | v2.2.0 | 2026-10-27 | 2026-10-27 | 2.2.0 | partial | 30 tracked changes: one guard (`E-43`, fixed), one adoption (`E-42`, fixed), three follow-ups (`E-44`, `E-45`, and `E-46` fixed), eight candidates, eleven aligned, six ignored |
 
 ## v2.2.0 — what changed for us
@@ -137,7 +146,73 @@ still running), or `blocked` (a host defect prevents the work).
 | #59090 | Machine hostname in `/api/info` | Informational; the plugin does not identify the machine |
 | #59207 | Kimi tool-schema fix | No Kimi model is pinned here |
 
-## Open follow-ups from v2.2.0
+## v2.2.1 — what changed for us
+
+Audited 2026-10-29 against
+<https://github.com/anomalyco/opencode/releases/tag/v2.2.1>. The
+`@opencode/plugin` 2.2.1 type surface changes one line (`generate` returns
+`ExperimentalGenerateApi`) and adds `experimental.idle`; no import in this
+tree breaks. `SessionDomain` still has no `export`/`import`, so the portable
+handoff plan cannot use them.
+
+### Follow-up
+
+| PR | Change | Verdict | Issue | Action |
+| --- | --- | --- | --- | --- |
+| #59649 | Throttling retries instead of a false context overflow | tracked | `E-44` | Host 2.2.1 keeps the defer path; `prove-e44` runs the 2.2.0/2.2.1 boundary |
+| #59437 | `/goal` plus the `experimental.idle` session hook | tracked | `E-55` | The host `/goal` is mirrored read-only by `goal(host: true)` and `goal(board)`; `experimental.idle` is not registered, so the host keeps sole ownership of continuation |
+
+### Candidates
+
+| PR | Change | Why it is not adopted yet |
+| --- | --- | --- |
+| #59939 | Opt-in `image_generate` tool | Experimental; the Codex imagegen transport still works |
+| #60096 | Configurable default image model | Depends on the `image_generate` decision |
+| #59401 | Opt-in scheduled prompts | Our scheduler only runs database maintenance |
+| #60085 | GPT Image 2 after Codex sign-in | Host image models may replace the external transport |
+| #59963 | Responses API freeform tools | Tool-schema travel changes; verify against our JSON schemas |
+| #59934 | Tool output keeps more context headroom | Remeasure large tool results on 2.2.1 |
+| #59887 | Desktop `/reload` | Must be proven against the plugin reload fingerprint |
+
+### Aligned
+
+| PR | Change | Action |
+| --- | --- | --- |
+| #60057 | Credential and cache keys stay out of model variants | Our generated config adds none |
+| #59500 | Prompt-cache settings stay host configuration | Matches the no-cache-policy stance |
+| #59417 | Git snapshots handle a split index | Our worktree commands do not touch the index |
+| #59834 | Code Mode parse/await diagnostics | The tawa `execute` guard is unchanged |
+| #60087 | Desktop follows each plugin server endpoint | Our event stream uses the resolved URL |
+| #59736 | The timeline tolerates malformed tool metadata | Reinforces the JSON-safe metadata fix in `E-42` |
+
+### Ignored
+
+| PR | Change | Reason |
+| --- | --- | --- |
+| #59977 | `@opencode/ai` provider removals | The plugin imports only `@opencode/plugin` |
+| #59506 | Legacy `@opencode/ai` entry points removed | No such import in this tree |
+| #59765 | `@opencode/ai` configure types renamed | Provider types live outside the plugin |
+| #59457 | Schedule client methods | The plugin never manages host schedules |
+| #59419 | Snapshot capture coalescing | Host-side; no plugin surface |
+| #59592 | Console web search gating | Web search stays opt-in and unused |
+| #59072 | Experimental client method grouping | No generated client calls |
+| #59987 | Compaction through the Promise AI client | Requires `@opencode/ai`, which is not imported |
+| #59948 | Code Mode extension globals | The plugin declares none |
+
+## Open follow-ups
+
+### From v2.2.1
+
+1. `E-44`: confirm on the live 2.2.1 host that throttling is retried by the
+   host and the plugin schedules no second retry.
+2. `E-55`: the host `/goal` mirror is attached; verify it on a live 2.2.1 host
+   and confirm our ledger stays the only writer (no `experimental.idle`).
+3. Prove Desktop `/reload` against the plugin reload fingerprint (`E-38`).
+4. `E-54`: recoverable quota probes are implemented; verify a real quota
+   notice, the 5/10/20-minute probe sequence, and the final notice after three
+   probes.
+
+### From v2.2.0
 
 1. `E-43`: verify on a live 2.2.0 host that tawa cannot start Code Mode.
 2. `E-42`: done 2026-10-27. The encode failure was undefined keys in a fresh

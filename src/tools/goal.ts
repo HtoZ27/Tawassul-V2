@@ -4,6 +4,7 @@ import { t } from "../translations.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 import type { GoalStatus, GoalItemState } from "../types/goal-types.ts";
 import type { GoalStore } from "../services/goal-store.ts";
+import { formatHostGoal, readHostGoal } from "../services/host-goal.ts";
 import { GoalStatusSchema, GoalItemStateSchema, GoalListFilterSchema } from "../validation.ts";
 
 
@@ -50,6 +51,10 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
       "  goal(list: true)              → active goals (+ filter: all|open|partial|blocked|completed|verified|dropped|stale)",
       "  goal(board: true)             → tiered digest: attention + compact roster (dozens fit) + counts",
       "",
+      'HOST (read-only): goal(host: true) or goal(get: "host") reads the host /goal for this',
+      "session; goal(board: true) appends it when one is set. This tool never sets, pauses,",
+      "resumes, or clears the host goal — use /goal pause|resume|clear in the host for that.",
+      "",
       "RULES: evidence needs ≥8 chars, no duplicates, ≤100/goal. A goal with no items and no",
       "acceptance criteria can never close (anti-theater). progressPct is always derived from items.",
     ].join("\n"),
@@ -63,6 +68,7 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
         .optional()
         .describe("List filter"),
       board: tool.schema.boolean().optional().describe("Tiered digest of all goals"),
+      host: tool.schema.boolean().optional().describe("Read the host /goal state for this session (read-only)"),
       evidence: tool.schema.string().optional().describe("Goal ID to attach evidence to"),
       evidenceText: tool.schema.string().optional().describe("Evidence text (≥8 chars)"),
       close: tool.schema.string().optional().describe("Goal ID to close (completed; verify:true → verified)"),
@@ -109,6 +115,37 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
       const agent = normalizeName(cctx.agent);
       const str = (v: unknown): string => String(v);
 
+      const hostRead =
+        args.host === true ||
+        (typeof args.get === "string" && args.get.trim().toLowerCase() === "host");
+      if (hostRead) {
+        const hostGoal = await readHostGoal(cctx.sessionID);
+        if (!hostGoal) {
+          return { title: "Host /goal", output: "No host /goal is active for this session." };
+        }
+        const lines = [
+          formatHostGoal(hostGoal),
+          `updated: ${new Date(hostGoal.updatedAt).toISOString()}`,
+          hostGoal.reason ? `reason: ${hostGoal.reason}` : "",
+          hostGoal.stalls !== undefined ? `stalls: ${hostGoal.stalls}` : "",
+        ].filter(Boolean);
+        return {
+          title: `Host /goal · ${hostGoal.status}`,
+          output: lines.join("\n"),
+          metadata: { hostGoal },
+        };
+      }
+
+      const hostAlias = [args.update, args.close, args.delete, args.evidence].find(
+        (value) => typeof value === "string" && value.trim().toLowerCase() === "host",
+      );
+      if (hostAlias !== undefined) {
+        return {
+          output:
+            '`host` is the host /goal, not a ledger goal. Use /goal pause, /goal resume, or /goal clear in the host; this tool mirrors it for reading only.',
+        };
+      }
+
       
       if (args.get) {
         const goal = store.get(str(args.get));
@@ -144,7 +181,11 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
       }
       if (args.board) {
         const digest = store.buildDigest();
-        return { title: t("goalBoardTitle"), output: digest.text };
+        const hostGoal = await readHostGoal(cctx.sessionID);
+        return {
+          title: t("goalBoardTitle"),
+          output: hostGoal ? `${digest.text}\n\n${formatHostGoal(hostGoal)}` : digest.text,
+        };
       }
 
       

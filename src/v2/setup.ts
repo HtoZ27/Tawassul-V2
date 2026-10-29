@@ -14,6 +14,7 @@ import { buildPluginInput } from "./client-shim.ts";
 import { isTaskTool, subagentArgsToV1, toolNameToV1, v1ArgsToSubagent } from "./delegation.ts";
 import { mapV2EventToV1 } from "./event-adapter.ts";
 import { startSchemaRefresh } from "./schema-refresh.ts";
+import { installHostGoalMirror, uninstallHostGoalMirror } from "./host-goal.ts";
 import { applyV1AfterOutput, jsonSafeMetadata, metadataChanged, resultText, titleFromMetadata, withTitleMetadata } from "./result-bridge.ts";
 import type { V2Context, V2SessionEvent, V2ToolContext, V2ToolHookInput } from "./types.ts";
 
@@ -320,6 +321,8 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
       }
     };
     const readyProbe = getInitReady(plugin);
+    const hostGoalMirror = installHostGoalMirror(ctx);
+    if (hostGoalMirror) registered.push(async () => uninstallHostGoalMirror(hostGoalMirror));
     const askRegistration = await registerAskPermission(ctx);
     if (askRegistration) registered.push(() => askRegistration.dispose());
     const askEnabled = askRegistration !== undefined;
