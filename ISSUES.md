@@ -2074,14 +2074,12 @@ content, and the copy path never touches the live files.
    B-04 cleanup; the single remaining router file stays as the permitted
    read-only legacy fallback. Its root-level siblings were deleted on
    2026-10-26 under item 6.
-8. D-05 enforcement shape — open. Recommended: keep the D-01 roles and
-   replace the fixed-path census with a bounded read-only census, fail when
-   the shared or launcher-legacy copy grows past the 14/14 D-02 baseline, and
-   declare the v2 CLI namespace as an explicit test-only role (or require
-   `TAWASSUL_ALLOW_SECOND_DB=1` before creating a non-canonical DB). Do not
-   auto-move at boot: the sidecar can be live with a WAL, and a failed move
-   can leave the canonical empty. Alternative rejected: automatic
-   newest-copy import on every boot.
+8. ~~D-05 enforcement shape~~ — done 2026-10-27. The recommended shape is
+   what shipped: a bounded read-only census with a 32-file cap, a 14/14
+   baseline guard on the shared and launcher copies (growth only through
+   `TAWASSUL_ALLOW_LEGACY_GROWTH=1`), the v2 CLI namespace classified as
+   test-only and failed when it holds sessions, and no boot-time auto-move.
+   `scripts/prove-d05.ts` proves it with 28 assertions; see D-05.
 
 ## Verification baseline (for regression)
 

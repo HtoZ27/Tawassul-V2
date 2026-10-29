@@ -24,7 +24,7 @@ Rules for this file:
 | Fact | Value | Anchor |
 | --- | --- | --- |
 | Open register entries | 0 | `ISSUES.md` headings |
-| Pending decisions still listed open | 1 real (`3`); `8` is implemented in code and stale in the list | `ISSUES.md:2038-2078` |
+| Pending decisions still listed open | 1 real (`3`) | `ISSUES.md:2038-2079` |
 | Product gaps open | 3 (`P-01`, `P-02`, `P-03`) | `ISSUES.md:1246-1261` |
 | Partial verification verdicts | 3 (`V-13`, `V-26`, `V-27`) | `VERIFICATION-20261026.md:283,427,438` |
 | Resolved partial verdicts | 6 (`V-15`, `V-19`, `V-20`, `V-30`, `V-31`, `V-52`) | `VERIFICATION-20261026.md:495-506` |
@@ -56,7 +56,7 @@ Rules for this file:
 | ID | State | Verified evidence | Decision needed | Work after the decision |
 | --- | --- | --- | --- | --- |
 | Decision `3` | decision | On disk: 10 `tawassul.js.pre-refresh-*` in 5 workspaces, 6 `tawassul.js.retired-20261024`, 5 dist-only package dirs (`ciel-osk-workspace`, `dart22222222`, `vpro`, `vusial 2`, `vusual`). `athan new vrsion` has no `.opencode`; the doc's 12/14/6 counts are stale. `tawassyl/.opencode/plugins/tawassul` is the read-only v1 tree, not an inert dist dir. | Delete the 16 files and 5 dirs, or keep them | delete, rerun `doctor-v2.sh --scan-desktop`, and assert zero residue in the existing scan proof |
-| Decision `8` (`D-05`) | doc | `D-05` is implemented and proven: bounded census, 32-file cap, 14/14 baselines, `TAWASSUL_ALLOW_LEGACY_GROWTH=1`, `prove-d05` 28 assertions (`ISSUES.md:831-900`) | Confirm the implemented shape stays | mark the pending row resolved; no code change |
+| Decision `8` (`D-05`) | resolved 2026-10-29 | `D-05` shipped the recommended shape: bounded census, 32-file cap, 14/14 baselines, `TAWASSUL_ALLOW_LEGACY_GROWTH=1`, the CLI namespace failed when it holds sessions, and no boot auto-move; `prove-d05` 28 assertions (`ISSUES.md:831-900`) | none — pending row marked resolved | none |
 | `P-01` | decision | Fail-closed shipped in `ccb2cb6`; `@opencode/plugin` 2.2.1 exposes no `session.form` surface, while the host protocol has `session.form.*` | Accept the fail-closed limitation, or fund a direct protocol client | either document the limitation beside `E-03`, or build and prove the client |
 | `P-02` | decision | `src/services/goal-store.ts:102` allows `completed -> dropped`; counts stay correct, the label is cosmetic | Accept the label, or write `completed` for a completed-origin close | one-line state choice plus a digest assertion |
 | `P-03` | decision | `src/hooks/n2-auto.ts:43` caps the set at 512 and evicts the oldest | Measure a 500-message session first, then raise the cap or evict by age | measurement note plus the chosen cap and a proof of the miss rate |
@@ -84,7 +84,7 @@ numbers are final.
 | `E-DOC-2` | `VERIFICATION-20261026.md` | `V-26`/`V-27` still labeled `PARTIAL` without table rows | add both to the resolution table as bounded measurements, or relabel them closed-as-measured |
 | `E-DOC-3` | `ISSUES.md:2903-2910` | says `E-07 / P-04` and `I-09` are unchanged | both closed 2026-10-29 (`P-04` done, `I-09` done); replace the correction lines |
 | `E-DOC-4` | `ISSUES.md:1135,1240,2879,2887` | "green at 87 proofs"; "seven scripts"; "32 proof scripts"; `E-10` cites baseline HEAD `d740865` | 101 proofs-stage steps; 10 shell scripts, 6 with comments; 104 proof files; mark `E-10` as historical |
-| `E-DOC-5` | `ISSUES.md:2038-2078` | decision 4 says `/tmp/opencode` is empty; decision 8 says open; decision 3 counts 12/14/6 | 5 artifacts exist; decision 8 implemented; residue is 10/6/5 dirs |
+| `E-DOC-5` | `ISSUES.md:2038-2078` | decision 4 says `/tmp/opencode` is empty; decision 3 counts 12/14/6 | 5 artifacts exist; residue is 10/6/5 dirs (decision 8 already resolved in the list) |
 | `E-DOC-6` | `SCRIPT-PARITY.md:29` | summary row "Missing (support/measurement only) 4" conflicts with the header that calls the four rows out of scope, not defects | rename the row to "Out of scope (support/measurement)" |
 | `E-DOC-7` | `RECOVERY-20261025.md:95,160` | "Remaining hazard: bun-installed v1 binary (H-07)"; doctor orphan cwd `/tmp/opencode/smoke-probe` | mark both historical; `H-07` is done and the path is not a live hazard |
 | `E-DOC-8` | `UPSTREAM.md:89,109-114` | version ledger status `partial`; `#58331`, `#58866`, `#58817` still `tracked` | `E-46`, `E-44`, `E-45` are fixed; move the rows to aligned and set the release status accordingly |
@@ -118,13 +118,13 @@ numbers are final.
 ## H. Closure order
 
 1. `V-13` decision, then implementation or documented limitation.
-2. Decision 8: mark the implemented pending row resolved.
-3. Decision 3, `P-01`, `P-02`, `P-03` and the resulting work.
-4. `F-1`-`F-3` cleanup.
-5. `E-DOC-1`-`E-DOC-14` regeneration after the code and decisions are final.
-6. `G-1` re-measure, then decide whether to commit `docs/FUTURE-WORK-PLAN.md`.
+2. Decision 3, `P-01`, `P-02`, `P-03` and the resulting work.
+3. `F-1`-`F-3` cleanup.
+4. `E-DOC-1`-`E-DOC-14` regeneration after the code and decisions are final.
+5. `G-1` re-measure, then decide whether to commit `docs/FUTURE-WORK-PLAN.md`.
 
-`E-30`, `E-37`, `E-39`, `E-40`, and `E-41` closed 2026-10-29.
+`E-30`, `E-37`, `E-39`, `E-40`, and `E-41` closed, and decision 8 resolved,
+on 2026-10-29.
 
 After each batch: `npm run verify`; after a proof batch: update
 `scripts/gate-manifest.json` and `scripts/prove-proof-catalog.ts` in the same
@@ -134,7 +134,7 @@ commit.
 
 | Source | Open or partial items found | Ledger rows | Status |
 | --- | --- | --- | --- |
-| `ISSUES.md` | 0 open register entries, decisions 3 and 8, `P-01`-`P-03`, corrections, standing decisions | Decision 3/8, `P-01`..`P-03`, `E-DOC-3`..`E-DOC-5`, `G-6`, `G-7` | covered |
+| `ISSUES.md` | 0 open register entries, decision 3 (decision 8 resolved), `P-01`-`P-03`, corrections, standing decisions | Decision 3, `P-01`..`P-03`, `E-DOC-3`..`E-DOC-5`, `G-6`, `G-7` | covered |
 | `VERIFICATION-20261026.md` | `V-13`, `V-26`, `V-27`; six resolved partials; `V-36`/`V-37`; eight next actions; SHARED audit count | `V-13`, `V-26`, `V-27`, `V-15`/`V-19`/`V-20`/`V-30`/`V-31`/`V-52`, `V-G`, `V-36`, `V-37`, `E-DOC-2`, `E-DOC-12`, `E-DOC-14` | covered |
 | `SCRIPT-PARITY.md` | 4 out-of-scope rows and the summary label | `E-DOC-6` | covered |
 | `PLAN-DB-INSTALL.md` | P0-P7 closed; F14 observation; F20/F24/F25/F27/F32 fixed | `G-5` | covered |
@@ -165,7 +165,7 @@ Measured discrepancies against the source documents:
 3. `E-41` said 32 proof scripts; the entry now records 104 files and 101 proofs-stage steps.
 4. Two `ISSUES.md` bodies still say 87 proofs (lines 1135 and 1240).
 5. Pending decision 4 says `/tmp/opencode` is empty; five artifacts exist.
-6. Pending decision 8 is implemented; only the list row is stale.
+6. Pending decision 8 is resolved; its row now records the shipped D-05 shape.
 7. `V-13` remains partial: the global config is never permission-repaired.
 8. `DECOUPLING.md` now records the 35 names the user-owned file carries; the
    inventory matches the on-disk list.
