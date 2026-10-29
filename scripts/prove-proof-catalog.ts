@@ -55,17 +55,128 @@ for (const step of steps) {
   }
 }
 
+const PINNED_PROOF_FILES = [
+  "prove-b01.ts",
+  "prove-b02.ts",
+  "prove-b03.ts",
+  "prove-b05.ts",
+  "prove-b11.ts",
+  "prove-b12.ts",
+  "prove-backup-cap.ts",
+  "prove-blocked-tool.ts",
+  "prove-boot-budget.ts",
+  "prove-boot-gate.ts",
+  "prove-bundle-freshness.ts",
+  "prove-c02.ts",
+  "prove-c03.ts",
+  "prove-cancel-metric.ts",
+  "prove-catch-discipline.ts",
+  "prove-closure-artifacts.ts",
+  "prove-d05.ts",
+  "prove-db-lock.ts",
+  "prove-db-retention.ts",
+  "prove-db-scheduler.ts",
+  "prove-desktop-scan.ts",
+  "prove-disclosure.ts",
+  "prove-e02.ts",
+  "prove-e11.ts",
+  "prove-e12.ts",
+  "prove-e13.ts",
+  "prove-e14.ts",
+  "prove-e15.ts",
+  "prove-e17.ts",
+  "prove-e18.ts",
+  "prove-e19.ts",
+  "prove-e20.ts",
+  "prove-e21.ts",
+  "prove-e22.ts",
+  "prove-e23.ts",
+  "prove-e24.ts",
+  "prove-e25.ts",
+  "prove-e27.ts",
+  "prove-e28.ts",
+  "prove-e29.ts",
+  "prove-e31.ts",
+  "prove-e33.ts",
+  "prove-e34.ts",
+  "prove-e35.ts",
+  "prove-e36.ts",
+  "prove-e38.ts",
+  "prove-e42.ts",
+  "prove-e44.ts",
+  "prove-e45.ts",
+  "prove-e46.ts",
+  "prove-event-trust-p1.ts",
+  "prove-feature-index-english.ts",
+  "prove-first-boot-seed.ts",
+  "prove-g002i2.ts",
+  "prove-g002i3.ts",
+  "prove-g002i4.ts",
+  "prove-g003i1.ts",
+  "prove-g003i2.ts",
+  "prove-g003i3.ts",
+  "prove-g003i4.ts",
+  "prove-g003i5.ts",
+  "prove-g003i6.ts",
+  "prove-gen-guard-wal.ts",
+  "prove-gen-lock-contention.ts",
+  "prove-gen-merge-guards.ts",
+  "prove-global-boot.ts",
+  "prove-global-install.ts",
+  "prove-goal-capture.ts",
+  "prove-goal-item-ids.ts",
+  "prove-goal-item-update.ts",
+  "prove-goal-resurrection.ts",
+  "prove-guard-matrix.ts",
+  "prove-handoff-rescue.ts",
+  "prove-handoff-undo.ts",
+  "prove-host-discovery.ts",
+  "prove-host-refresh.ts",
+  "prove-independence-boot.ts",
+  "prove-p08.ts",
+  "prove-p09.ts",
+  "prove-partial-install.ts",
+  "prove-pipeline-early-exit.ts",
+  "prove-portability.ts",
+  "prove-proof-catalog.ts",
+  "prove-roster-boundary.ts",
+  "prove-rule-gate.ts",
+  "prove-s020.ts",
+  "prove-s021.ts",
+  "prove-s024.ts",
+  "prove-s028.ts",
+  "prove-s029.ts",
+  "prove-s038.ts",
+  "prove-setup-delegation.ts",
+  "prove-shell-alias.ts",
+  "prove-state-namespace.ts",
+  "prove-store-priming.ts",
+  "prove-upstream-sync.ts",
+  "prove-v2-ask-bridge.ts",
+  "prove-v2-compat.ts",
+  "prove-v2-independence.ts",
+  "prove-web-ssrf.ts",
+];
+
+const PINNED_PROOF_STEPS = 97;
+const SMOKE_PROOFS = new Set(["prove-global-boot.ts", "prove-independence-boot.ts"]);
+
 const proofFiles = readdirSync(join(repo, "scripts"))
   .filter((file) => file.startsWith("prove-") && file.endsWith(".ts"))
   .sort();
-assert(proofFiles.length >= 25, `proof catalog has at least 25 files (found ${proofFiles.length})`);
+assert(
+  JSON.stringify(proofFiles) === JSON.stringify(PINNED_PROOF_FILES),
+  `proof catalog matches the pinned file list (found ${proofFiles.length}, pinned ${PINNED_PROOF_FILES.length})`,
+);
 
 for (const file of proofFiles) {
   const target = `scripts/${file}`;
   const owners = steps.filter((step) => step.cmd.includes(target));
   assert(owners.length === 1, `${file} is wired into exactly one gate step (found ${owners.length})`);
   const owner = owners[0];
-  if (owner) {
+  if (owner && SMOKE_PROOFS.has(file)) {
+    assert(owner.stage === "smoke", `${file} runs in smoke after the build`);
+  } else if (owner) {
     assert(
       owner.stage === "proofs" || (owner.stage === "fast" && file === "prove-proof-catalog.ts"),
       `${file} runs in proofs (or fast for the catalog)`,
@@ -83,13 +194,15 @@ const fast = manifest["fast"] ?? [];
 const proofs = manifest["proofs"] ?? [];
 const smoke = manifest["smoke"] ?? [];
 const fastNames = fast.map((step) => step.name);
-for (const required of ["source-rules", "shell-syntax", "typecheck", "config", "facts", "proof-catalog"]) {
+for (const required of ["source-rules", "shell-syntax", "typecheck", "config", "facts", "sdk-pins", "proof-catalog"]) {
   assert(fastNames.includes(required), `fast stage includes ${required}`);
 }
-assert(proofs.length >= 24, `proofs stage has at least 24 steps (found ${proofs.length})`);
+assert(proofs.length === PINNED_PROOF_STEPS, `proofs stage matches the pinned step count (found ${proofs.length}, pinned ${PINNED_PROOF_STEPS})`);
 const smokeNames = smoke.map((step) => step.name);
 assert(smokeNames.includes("build"), "smoke stage builds the bundle");
 assert(smokeNames.includes("release-smoke"), "smoke stage runs the release smoke");
+assert(smokeNames.includes("global-boot"), "smoke stage boots the isolated global install");
+assert(smokeNames.includes("independence-boot"), "smoke stage boots without the v1 tree");
 
 const catalogOwners = steps.filter((step) => step.cmd.includes("scripts/prove-proof-catalog.ts"));
 assert(

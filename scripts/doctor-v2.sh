@@ -154,10 +154,96 @@ PY
   fi
 }
 
+desktop_scan() {
+  section "desktop plugin-entry scan"
+  scan_root="${1:-${TAWASSUL_DESKTOP_SCAN_ROOT:-$HOME_DIR/Desktop}}"
+  if [ ! -d "$scan_root" ]; then
+    info "scan root missing: $scan_root (nothing to scan)"
+    return 0
+  fi
+  workspaces=0
+  active_total=0
+  v2_total=0
+  v1_total=0
+  dual_total=0
+  unknown_total=0
+  retired_total=0
+  while IFS= read -r ws; do
+    [ -n "$ws" ] || continue
+    plugin_dirs=""
+    for candidate in "$ws/.opencode/plugin" "$ws/.opencode/plugins"; do
+      [ -d "$candidate" ] || continue
+      plugin_dirs="${plugin_dirs}${plugin_dirs:+
+}$candidate"
+    done
+    [ -n "$plugin_dirs" ] || continue
+    workspaces=$((workspaces + 1))
+    entries=0
+    v2=0
+    v1=0
+    dual=0
+    unknown=0
+    retired=0
+    while IFS= read -r entry; do
+      [ -f "$entry" ] || continue
+      base="${entry##*/}"
+      case "$base" in
+        *retired*|*.disabled)
+          retired=$((retired + 1))
+          info "retired plugin entry: $entry"
+          continue
+          ;;
+      esac
+      entries=$((entries + 1))
+      if grep -Eq 'Plugin\.define[[:space:]]*\(' "$entry" 2>/dev/null; then
+        v2=$((v2 + 1))
+      elif grep -Eq 'server[[:space:]]*:' "$entry" 2>/dev/null &&
+        grep -Eq "id[[:space:]]*:[[:space:]]*['\"]tawassul(-v2)?['\"]" "$entry" 2>/dev/null; then
+        if grep -Eq 'setup[[:space:]]*[:(]|effect[[:space:]]*:' "$entry" 2>/dev/null; then
+          dual=$((dual + 1))
+          fail "dual v1/v2 plugin entry: $entry"
+        else
+          v1=$((v1 + 1))
+          fail "v1-only plugin entry: $entry"
+        fi
+      else
+        unknown=$((unknown + 1))
+        warn "unclassified plugin entry: $entry"
+      fi
+    done < <(
+      printf '%s\n' "$plugin_dirs" | while IFS= read -r dir; do
+        [ -n "$dir" ] || continue
+        find "$dir" -maxdepth 1 -type f \( -name '*.js' -o -name '*.ts' -o -name '*.mjs' -o -name '*.cjs' \) -print 2>/dev/null
+        find "$dir" -mindepth 2 -maxdepth 2 -type f \( -name 'index.js' -o -name 'index.ts' -o -name 'index.mjs' -o -name 'index.cjs' \) -print 2>/dev/null
+        find "$dir" -maxdepth 2 -type f \( -name '*retired*' -o -name '*.disabled' \) -print 2>/dev/null
+      done | sort -u
+    )
+    info "workspace $ws: entries=$entries v2=$v2 v1=$v1 dual=$dual unknown=$unknown retired=$retired"
+    active_total=$((active_total + entries))
+    v2_total=$((v2_total + v2))
+    v1_total=$((v1_total + v1))
+    dual_total=$((dual_total + dual))
+    unknown_total=$((unknown_total + unknown))
+    retired_total=$((retired_total + retired))
+  done < <({ printf '%s\n' "$scan_root"; find "$scan_root" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null; } | sort -u)
+  info "scan: root=$scan_root workspaces=$workspaces active=$active_total v2=$v2_total v1=$v1_total dual=$dual_total unknown=$unknown_total retired=$retired_total"
+  if [ "$active_total" -eq 0 ] && [ "$retired_total" -eq 0 ]; then
+    info "scan: no plugin entries found under $scan_root"
+  fi
+}
+
 if [ "${1:-}" = "--db-contract" ]; then
   db_contract
   printf '\n== summary ==\n'
   printf 'checks: %d failure(s), %d warning(s)\n' "$fails" "$warns"
+  exit 0
+fi
+
+if [ "${1:-}" = "--scan-desktop" ]; then
+  desktop_scan "${2:-}"
+  printf '\n== summary ==\n'
+  printf 'checks: %d failure(s), %d warning(s)\n' "$fails" "$warns"
+  if [ "$fails" -gt 0 ]; then exit 1; fi
   exit 0
 fi
 

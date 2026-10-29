@@ -21,6 +21,10 @@
       "cmd": ["bun", "src/scripts/facts.ts", "check"]
     },
     {
+      "name": "sdk-pins",
+      "cmd": ["bun", "scripts/check-sdk-pins.ts"]
+    },
+    {
       "name": "upstream-registry",
       "cmd": ["bun", "scripts/check-upstream.ts", "--offline"]
     },
@@ -303,6 +307,22 @@
       "cmd": ["bun", "scripts/prove-db-lock.ts"]
     },
     {
+      "name": "guard-matrix",
+      "cmd": ["bun", "scripts/prove-guard-matrix.ts"]
+    },
+    {
+      "name": "host-discovery",
+      "cmd": ["bun", "scripts/prove-host-discovery.ts"]
+    },
+    {
+      "name": "blocked-tool",
+      "cmd": ["bun", "scripts/prove-blocked-tool.ts"]
+    },
+    {
+      "name": "desktop-scan",
+      "cmd": ["bun", "scripts/prove-desktop-scan.ts"]
+    },
+    {
       "name": "portability",
       "cmd": ["bun", "scripts/prove-portability.ts"]
     },
@@ -331,12 +351,20 @@
       "cmd": ["bun", "scripts/prove-catch-discipline.ts"]
     },
     {
+      "name": "closure-artifacts",
+      "cmd": ["bun", "scripts/prove-closure-artifacts.ts"]
+    },
+    {
       "name": "independence",
       "cmd": ["bun", "scripts/prove-v2-independence.ts"]
     },
     {
       "name": "global-install",
       "cmd": ["bun", "scripts/prove-global-install.ts"]
+    },
+    {
+      "name": "setup-delegation",
+      "cmd": ["bun", "scripts/prove-setup-delegation.ts"]
     },
     {
       "name": "shell-alias",
@@ -406,6 +434,14 @@
       "env": {
         "TAWASSUL_SMOKE_SKIP_BUILD": "1"
       }
+    },
+    {
+      "name": "global-boot",
+      "cmd": ["bun", "scripts/prove-global-boot.ts"]
+    },
+    {
+      "name": "independence-boot",
+      "cmd": ["bun", "scripts/prove-independence-boot.ts"]
     }
   ]
 }

@@ -1,5 +1,6 @@
-import { readFileSync, readdirSync, existsSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { execFileSync } from "node:child_process";
+import { readFileSync, readdirSync, existsSync, realpathSync } from "node:fs";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 function fail(msg: string): never {
@@ -110,5 +111,56 @@ assert(
   bundles.length === 1 && bundles[0] === ".opencode/plugin/tawassul.js",
   `exactly one host plugin entry exists (found ${bundles.join(", ") || "none"})`,
 );
+
+const tracked = execFileSync("git", ["ls-files"], { cwd: repo, encoding: "utf-8" })
+  .split("\n")
+  .filter((file) => file.length > 0);
+assert(tracked.length > 100, `tracked-file census is populated (${tracked.length} files)`);
+const trackedCode = tracked.filter(
+  (file) => /\.(ts|mjs|js|sh|json)$/.test(file) && existsSync(join(repo, file)),
+);
+const trackedHits = trackedCode.filter((file) => foreignRef.test(text(join(repo, file))));
+assert(
+  trackedHits.length === 0,
+  `no tracked source or script references the v1 tree (found ${trackedHits.join(", ") || "none"})`,
+);
+
+const packageEntries: string[] = [];
+for (const baseName of ["plugin", "plugins"]) {
+  const base = join(repo, ".opencode", baseName);
+  if (!existsSync(base)) continue;
+  for (const entry of readdirSync(base, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    for (const extension of [".js", ".ts", ".mjs", ".cjs"]) {
+      const index = join(base, entry.name, `index${extension}`);
+      if (existsSync(index)) packageEntries.push(rel(index));
+    }
+  }
+}
+assert(
+  packageEntries.length === 0,
+  `no package-directory plugin entry exists (H-09 shape: found ${packageEntries.join(", ") || "none"})`,
+);
+
+const symlinks: string[] = [];
+function walkLinks(dir: string): void {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "dist") continue;
+    const full = join(dir, entry.name);
+    if (entry.isSymbolicLink()) {
+      symlinks.push(`${rel(full)} -> ${realpathSync(full)}`);
+    } else if (entry.isDirectory()) {
+      walkLinks(full);
+    }
+  }
+}
+walkLinks(repo);
+const treeRoot = `${resolve(repo)}${sep}`;
+const escaping = symlinks.filter((link) => !resolve(link.split(" -> ")[1] ?? "").startsWith(treeRoot));
+assert(
+  escaping.length === 0,
+  `no repository symlink escapes the tree (found ${escaping.join(", ") || "none"})`,
+);
+assert(!symlinks.some((link) => /tawassyl/i.test(link)), "no symlink points at the v1 tree");
 
 console.log("PROOF PASS: v2 runs without the v1 tree and ships one host entry");
