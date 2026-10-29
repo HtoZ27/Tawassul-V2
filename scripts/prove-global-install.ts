@@ -39,7 +39,8 @@ const ROOT = mkdtempSync(join(tmpdir(), "tawassul-global-install-"));
 const HOME = join(ROOT, "home");
 const CONFIG = join(HOME, ".config");
 const GLOBAL = join(CONFIG, "opencode");
-const TARGET = join(GLOBAL, "plugins", "tawassul.js");
+const PLUGIN_DIR = join(GLOBAL, "plugins");
+const TARGET = join(PLUGIN_DIR, "tawassul.js");
 const LEGACY = join(GLOBAL, "plugins", "tawassul");
 const RUNTIME = join(GLOBAL, "tawassul-runtime");
 const MARKER = join(RUNTIME, "VERSION");
@@ -164,6 +165,7 @@ try {
   assert(help.code === 0 && help.out.includes("--takeover"), "help documents --takeover");
   assert(help.out.includes("--purge --yes"), "help documents the purge confirmation");
   assert(help.out.includes("agent roster"), "help states that purge keeps the agent roster");
+  assert(help.out.includes("pre-force"), "help documents the pre-force target backup");
   mkdirSync(GLOBAL, { recursive: true });
   writeFileSync(USER_CONFIG, BODY);
   mkdirSync(SMOKE_ROOT, { recursive: true });
@@ -356,6 +358,25 @@ try {
   assert(repairedDb.code === 0 && !repairedDb.out.includes("already installed"), "install repairs a tampered db script");
   assert(run(["--verify"]).code === 0, "verify passes after the db repair");
 
+  const staleDir = join(WASM, "legacy-tree");
+  mkdirSync(staleDir, { recursive: true });
+  const staleFile = join(staleDir, "old.wasm");
+  writeFileSync(staleFile, "stale-wasm\n");
+  const staleRun = run([]);
+  assert(staleRun.code === 0, "install succeeds while a stale wasm file exists");
+  assert(staleRun.out.includes("removed 1 stale wasm file"), "install reports the stale wasm pruning");
+  assert(!existsSync(staleFile), "install removes a wasm file that the marker does not record");
+  assert(!existsSync(staleDir), "install prunes the empty stale wasm directory");
+
+  const dryStaleDir = join(WASM, "dry-tree");
+  mkdirSync(dryStaleDir, { recursive: true });
+  const dryStaleFile = join(dryStaleDir, "old.wasm");
+  writeFileSync(dryStaleFile, "stale-wasm\n");
+  const staleDry = run(["--dry-run"]);
+  assert(staleDry.code === 0 && staleDry.out.includes("would remove 1 stale wasm file"), "dry run reports stale wasm pruning");
+  assert(existsSync(dryStaleFile), "dry run removes no stale wasm file");
+  assert(run([]).code === 0 && !existsSync(dryStaleFile), "a real run prunes the dry-run stale file");
+
   chmodSync(join(DB_DIR, "guard-db-generation.sh"), 0o600);
   const execBit = run(["--verify"]);
   assert(execBit.code !== 0 && execBit.out.includes("lost its exec bit"), "verify fails when a db script loses its exec bit");
@@ -411,7 +432,8 @@ try {
   assert(dry.code === 0 && !existsSync(TARGET) && !existsSync(RUNTIME), "dry run writes nothing");
 
   mkdirSync(dirname(TARGET), { recursive: true });
-  writeFileSync(TARGET, "export default 1;\n");
+  const previousTarget = "export default 1;\n";
+  writeFileSync(TARGET, previousTarget);
   const unmarked = run([]);
   assert(
     unmarked.code !== 0 && unmarked.out.includes("without a Tawassul marker"),
@@ -421,7 +443,18 @@ try {
   assert(unmarkedRemove.code !== 0, "uninstall refuses an unmarked target");
   const forced = run(["--force"]);
   assert(forced.code === 0, "--force replaces an unmarked target");
+  const preForce = readdirSync(PLUGIN_DIR).filter((name) => name.startsWith("tawassul.js.pre-force-"));
+  assert(preForce.length === 1, "--force keeps exactly one pre-force backup");
+  assert(forced.out.includes("kept the previous target at"), "the installer reports the pre-force backup");
+  assert(
+    readFileSync(join(PLUGIN_DIR, preForce[0] as string), "utf-8") === previousTarget,
+    "the pre-force backup keeps the replaced file byte-identical",
+  );
   assert(run(["--uninstall"]).code === 0, "uninstall removes a forced install");
+  assert(
+    existsSync(join(PLUGIN_DIR, preForce[0] as string)),
+    "a plain uninstall keeps the pre-force backup",
+  );
 
   assert(run([]).code === 0, "install succeeds before the marker-loss trial");
   const orphanNote = join(RUNTIME, "notes.txt");
@@ -495,6 +528,27 @@ try {
   );
   assert(existsSync(join(GLOBAL, "agent", "keeper.md")), "purge keeps the global agent roster");
   assert(purgedYes.out.includes("kept 1 agent file"), "purge reports the kept agent roster");
+  assert(
+    !readdirSync(PLUGIN_DIR).some((name) => name.startsWith("tawassul.js.pre-force-")),
+    "purge removes the pre-force target backup",
+  );
+
+  const emptyAssets = join(ROOT, "empty-assets");
+  const noAssetsGlobal = join(ROOT, "no-assets-global");
+  mkdirSync(emptyAssets, { recursive: true });
+  const noAssets = runWith([], {
+    ...proofEnv(),
+    TAWASSUL_GLOBAL_DIR: noAssetsGlobal,
+    TAWASSUL_ASSET_ROOTS: emptyAssets,
+  });
+  assert(noAssets.code !== 0, "install fails when the wasm asset roots are empty");
+  assert(noAssets.out.includes("missing wasm assets"), "the failure names the missing wasm assets");
+  assert(noAssets.out.includes("run npm install"), "the failure prints the exact npm install command");
+  assert(!noAssets.out.includes("running npm install"), "the installer never runs npm install on its own");
+  assert(
+    !existsSync(join(noAssetsGlobal, "plugins", "tawassul.js")),
+    "the missing-asset failure writes no bundle",
+  );
 
   const verifiedMissing = run(["--verify"]);
   assert(verifiedMissing.code !== 0, "verify fails when nothing is installed");

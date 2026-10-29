@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, delimiter, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { sourceDigest } from "./source-digest.ts";
 
@@ -201,23 +201,32 @@ function readHost(bin: string): Host | undefined {
   return version ? { bin, version } : undefined;
 }
 
-function hostCandidates(): string[] {
+export function hostCandidates(): string[] {
   const out: string[] = [];
   const explicit = process.env.OPENCODE_BIN?.trim();
   if (explicit) out.push(resolve(explicit));
-  const desktop = join(HOME, ".config", "ai.opencode.desktop", "cli");
-  if (existsSync(desktop)) {
+  const desktopRoots = [
+    join(HOME, ".config", "ai.opencode.desktop", "cli"),
+    join(HOME, "Library", "Application Support", "ai.opencode.desktop", "cli"),
+  ];
+  const localAppData = process.env.LOCALAPPDATA?.trim();
+  if (localAppData) desktopRoots.push(join(localAppData, "ai.opencode.desktop", "cli"));
+  for (const desktop of desktopRoots) {
+    if (!existsSync(desktop)) continue;
     for (const entry of readdirSync(desktop).sort()) {
       out.push(join(desktop, entry, "opencode-cli"));
+      out.push(join(desktop, entry, "opencode-cli.exe"));
     }
   }
-  for (const dir of (process.env.PATH ?? "").split(":")) {
-    if (dir) out.push(join(dir, "opencode"));
+  const names = ["opencode", "opencode.cmd", "opencode.exe"];
+  for (const dir of (process.env.PATH ?? "").split(delimiter)) {
+    if (!dir) continue;
+    for (const name of names) out.push(join(dir, name));
   }
   return [...new Set(out)];
 }
 
-function hosts(): Host[] {
+export function hosts(): Host[] {
   const found: Host[] = [];
   for (const candidate of hostCandidates()) {
     const host = readHost(candidate);
@@ -422,8 +431,21 @@ function assertBundleMatchesSource(contentSha: string | undefined): void {
   }
 }
 
+function assetRoots(): string[] {
+  const override = process.env.TAWASSUL_ASSET_ROOTS?.trim();
+  if (override) {
+    const roots = override
+      .split(delimiter)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => resolve(entry));
+    if (roots.length > 0) return roots;
+  }
+  return [join(REPO, "node_modules"), join(REPO, ".opencode", "node_modules")];
+}
+
 function locateAssets(): { resolved: ResolvedAsset[]; missing: AssetSpec[] } {
-  const roots = [join(REPO, "node_modules"), join(REPO, ".opencode", "node_modules")];
+  const roots = assetRoots();
   const resolved: ResolvedAsset[] = [];
   const missing: AssetSpec[] = [];
   for (const asset of ASSETS) {
@@ -444,26 +466,8 @@ function locateAssets(): { resolved: ResolvedAsset[]; missing: AssetSpec[] } {
   return { resolved, missing };
 }
 
-function runNpmInstall(): void {
-  const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-  const result = spawnSync(npm, ["install", "--no-audit", "--no-fund"], {
-    cwd: REPO,
-    stdio: "inherit",
-  });
-  if (result.status !== 0) {
-    fail(`npm install failed in ${REPO}; install the tree-sitter wasm packages manually`);
-  }
-}
-
-function resolveAssets(allowInstall: boolean): ResolvedAsset[] {
-  let scan = locateAssets();
-  if (scan.missing.length > 0 && allowInstall) {
-    console.log(
-      `install-global: missing wasm assets (${scan.missing.map((asset) => asset.id).join(", ")}); running npm install`,
-    );
-    runNpmInstall();
-    scan = locateAssets();
-  }
+function resolveAssets(): ResolvedAsset[] {
+  const scan = locateAssets();
   if (scan.missing.length > 0) {
     fail(
       `missing wasm assets: ${scan.missing.map((asset) => asset.id).join(", ")}; ` +
@@ -873,9 +877,10 @@ function install(): void {
   refuseForeignOwner();
   noteRepoOwnEntry();
   const bundle = requireBundle();
-  const assets = resolveAssets(!flags.has("--dry-run"));
+  const assets = resolveAssets();
   const wasm = assetRecords(assets);
   const db = dbRecords();
+  const staleWasm = staleWasmFiles(wasm);
   const existing = readMarker();
   if (existsSync(TARGET) && !existing && !flags.has("--force")) {
     fail(`target exists without a Tawassul marker: ${TARGET} (use --force to replace)`);
@@ -884,20 +889,27 @@ function install(): void {
     fail(`target belongs to another plugin: ${TARGET}`);
   }
   if (!flags.has("--force")) assertBundleMatchesSource(bundle.contentSha);
-  if (upToDate(existing, bundle.sha, wasm, bundle.sourceSha, bundle.contentSha, db)) {
-    claimOwnership();
-    console.log(
-      `install-global: already installed at ${TARGET} ` +
-        `(v${existing?.version ?? "unknown"}, ${bundle.sha.slice(0, 12)})`,
-    );
-    return;
-  }
   if (flags.has("--dry-run")) {
     console.log(
       `install-global: dry run — would write ${TARGET} (${bundle.bytes.length} bytes, ${bundle.sha.slice(0, 12)})`,
     );
     console.log(`install-global: dry run — would write ${assets.length} wasm assets under ${WASM_DIR}`);
     console.log(`install-global: dry run — would write ${DB_SHIP.length} db scripts under ${DB_DIR}`);
+    if (staleWasm.length > 0) {
+      console.log(`install-global: dry run — would remove ${staleWasm.length} stale wasm file(s) under ${WASM_DIR}`);
+    }
+    return;
+  }
+  const pruned = pruneStaleWasm(wasm);
+  if (pruned > 0) {
+    console.log(`install-global: removed ${pruned} stale wasm file(s) under ${WASM_DIR}`);
+  }
+  if (upToDate(existing, bundle.sha, wasm, bundle.sourceSha, bundle.contentSha, db)) {
+    claimOwnership();
+    console.log(
+      `install-global: already installed at ${TARGET} ` +
+        `(v${existing?.version ?? "unknown"}, ${bundle.sha.slice(0, 12)})`,
+    );
     return;
   }
   try {
@@ -912,6 +924,11 @@ function install(): void {
     );
   }
   claimOwnership();
+  if (existsSync(TARGET) && (!existing || existing.package !== PLUGIN_ID)) {
+    const backup = `${TARGET}.pre-force-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+    renameSync(TARGET, backup);
+    console.log(`install-global: kept the previous target at ${backup}`);
+  }
   writeAtomic(TARGET, bundle.bytes);
   for (const asset of assets) {
     mkdirSync(dirname(asset.dest), { recursive: true, mode: 0o700 });
@@ -974,6 +991,28 @@ function removeEmptyTree(dir: string): void {
   }
 }
 
+function staleWasmFiles(current: Record<string, AssetRecord>): string[] {
+  if (!existsSync(WASM_DIR)) return [];
+  const keep = new Set(Object.values(current).map((record) => resolve(fromMarker(record.path))));
+  const stale: string[] = [];
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (!keep.has(resolve(path))) stale.push(path);
+    }
+  };
+  walk(WASM_DIR);
+  return stale.sort();
+}
+
+function pruneStaleWasm(current: Record<string, AssetRecord>): number {
+  const stale = staleWasmFiles(current);
+  for (const file of stale) rmSync(file, { force: true });
+  removeEmptyTree(WASM_DIR);
+  return stale.length;
+}
+
 function purgePaths(): string[] {
   return [
     join(configBase(), "tawassul-v2"),
@@ -1005,6 +1044,17 @@ function purge(): void {
     const archive = `${path}.purged-${stamp}`;
     renameSync(path, archive);
     console.log(`install-global: archived ${path} to ${archive}`);
+  }
+  const backups = existsSync(PLUGIN_DIR)
+    ? readdirSync(PLUGIN_DIR).filter((name) => name.startsWith("tawassul.js.pre-force-"))
+    : [];
+  if (backups.length > 0) {
+    if (flags.has("--dry-run")) {
+      console.log(`install-global: dry run — would remove ${backups.length} pre-force target backup(s)`);
+    } else {
+      for (const name of backups) rmSync(join(PLUGIN_DIR, name), { force: true });
+      console.log(`install-global: removed ${backups.length} pre-force target backup(s)`);
+    }
   }
   const agents = join(GLOBAL_DIR, "agent");
   if (existsSync(agents)) {
@@ -1168,6 +1218,7 @@ function usage(): void {
   console.log(`  runtime: ${RUNTIME}`);
   console.log(`  owner:   ${OWNER_FILE}`);
   console.log("  --takeover treats a live owner record from another tree as transferable");
+  console.log("  --force keeps a previous unmarked target as tawassul.js.pre-force-<timestamp>");
   console.log("  --purge --yes archives Tawassul state beside its old paths");
   console.log("  the purge keeps the global agent roster (~/.config/opencode/agent)");
   console.log("  the installer never edits the global opencode.json(c)");
@@ -1192,4 +1243,7 @@ async function main(): Promise<void> {
   install();
 }
 
-await main();
+const invokedDirectly = process.argv[1]
+  ? resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  : false;
+if (invokedDirectly) await main();
