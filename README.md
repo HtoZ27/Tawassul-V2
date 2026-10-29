@@ -7,7 +7,7 @@ read-only.
 
 - Host: OpenCode `2.2.0` (pinned)
 - Plugin API: `@opencode/plugin` 2.2.0
-- Runtime: Node 24+ and Bun
+- Runtime: Node 26.13.0 (pinned in `.nvmrc`) and Bun
 - Language: English only; no code comments
 
 ## Install
@@ -15,6 +15,7 @@ read-only.
 From this directory:
 
 ```
+nvm use
 npm install
 npm run build
 ```
