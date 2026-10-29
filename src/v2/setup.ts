@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { PluginInput, TawassulHooks } from "../plugin-types.ts";
 import { getInitReady, initPlugin } from "../bootstrap/plugin-init.ts";
+import { detectInstallScope } from "../core/install-scope.ts";
 import { ToolBlockedError } from "../hooks/tool-execute.ts";
 import { isBlockedToolForTawa } from "../security-policy.ts";
 import { logger } from "../utils/logger.ts";
@@ -64,7 +68,7 @@ function toV1MessageID(messageID: string): string {
   return messageID.startsWith("msg") ? messageID : `msg_${messageID}`;
 }
 
-function isBlockError(error: unknown): boolean {
+export function isBlockError(error: unknown): boolean {
   const name = error instanceof Error ? error.name : "";
   return name === "ToolBlockedError" || name === "ConsentBlockedError";
 }
@@ -229,12 +233,77 @@ export type V2SetupDeps = {
   refresh?: { attempts?: number; delayMs?: number; initialWaitMs?: number };
 };
 
+const PROJECT_ENTRY_EXTENSIONS = [".js", ".ts", ".mjs", ".cjs"] as const;
+
+function projectEntryCandidates(directory: string): string[] {
+  const preferred: string[] = [];
+  const fallback: string[] = [];
+  for (const dirName of ["plugin", "plugins"]) {
+    const base = join(directory, ".opencode", dirName);
+    if (!existsSync(base)) continue;
+    for (const extension of PROJECT_ENTRY_EXTENSIONS) {
+      const flat = join(base, `tawassul${extension}`);
+      if (existsSync(flat)) preferred.push(flat);
+      const index = join(base, "tawassul", `index${extension}`);
+      if (existsSync(index)) preferred.push(index);
+    }
+    for (const entry of readdirSync(base, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      if (entry.name === "tawassul" || /retired|disabled/i.test(entry.name)) continue;
+      const path = join(base, entry.name);
+      if (entry.isFile() && PROJECT_ENTRY_EXTENSIONS.some((extension) => entry.name.endsWith(extension))) {
+        fallback.push(path);
+      } else if (entry.isDirectory()) {
+        for (const extension of PROJECT_ENTRY_EXTENSIONS) {
+          const index = join(path, `index${extension}`);
+          if (existsSync(index)) fallback.push(index);
+        }
+      }
+    }
+  }
+  return [...new Set([...preferred, ...fallback])];
+}
+
+type DelegatedSetup = (ctx: V2Context) => Promise<() => Promise<void>>;
+
+async function loadProjectSetup(directory: string, selfUrl: string): Promise<DelegatedSetup | undefined> {
+  if (!directory) return undefined;
+  for (const candidate of projectEntryCandidates(directory)) {
+    const url = pathToFileURL(candidate).href;
+    if (url === selfUrl) continue;
+    try {
+      const mod = (await import(url)) as { default?: unknown; tawassul?: unknown };
+      const exported = (mod.default ?? mod.tawassul) as { id?: unknown; setup?: unknown } | undefined;
+      if (!exported || exported.id !== "tawassul" || typeof exported.setup !== "function") continue;
+      logger.info(`[tawassul] global copy delegates to the project copy at ${candidate}`);
+      return exported.setup as DelegatedSetup;
+    } catch (e) {
+      logger.warn(
+        `[tawassul] global copy could not load the project copy at ${candidate}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+  return undefined;
+}
+
 export function createV2Setup(deps: V2SetupDeps = {}) {
   return async (rawCtx: unknown): Promise<() => Promise<void>> => {
     const ctx = rawCtx as V2Context;
     if (!ctx || !ctx.session || !ctx.tool) {
       logger.error("[tawassul] v2 setup aborted: host missing required domains (session/tool)");
       return async () => undefined;
+    }
+
+    if (detectInstallScope(import.meta.url) === "global") {
+      const projectSetup = await loadProjectSetup(ctx.location?.directory?.trim() ?? "", import.meta.url);
+      if (projectSetup) {
+        try {
+          return await projectSetup(ctx);
+        } catch (e) {
+          logger.warn(
+            `[tawassul] delegated project setup failed; the global copy continues: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
+      }
     }
 
     const input = buildPluginInput(ctx);
