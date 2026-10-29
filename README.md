@@ -99,7 +99,7 @@ replaces an unmarked file and keeps the previous copy as
 
 ```
 npm run gate:fast    # rules + shell syntax + typecheck + config + facts + contract + parity + catalog
-npm run gate:proofs  # 101 proofs, one isolated child process each
+npm run gate:proofs  # 102 proofs, one isolated child process each
 npm run gate:smoke   # build + release smoke (one scratch boot)
 npm run ci           # all three stages, sequentially, each in its own process
 npm run verify       # gate:fast + build

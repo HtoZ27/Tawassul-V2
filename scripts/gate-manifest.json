@@ -307,6 +307,10 @@
       "cmd": ["bun", "scripts/prove-state-namespace.ts"]
     },
     {
+      "name": "n2-cap",
+      "cmd": ["bun", "scripts/prove-n2-cap.ts"]
+    },
+    {
       "name": "boot-gate",
       "cmd": ["bun", "scripts/prove-boot-gate.ts"]
     },

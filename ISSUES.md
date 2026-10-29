@@ -92,9 +92,11 @@ Outcome (2026-10-25):
   PATH, when the v1 Bun global package is installed, when Bun exposes an
   `opencode` binary, and when the global config pins the v1 plugin SDK.
 
-Remaining hazard: the bun-installed v1 binary (H-07). Do not rerun
-`opencode uninstall` while the Desktop is open: it stops the shared service
-and removes the shared cache again.
+Historical hazard (2026-10-25): the bun-installed v1 binary (H-07). It was
+removed the same day, the doctor reports no `opencode` on PATH, and no Bun
+binary is linked. The uninstall caution still applies: do not rerun
+`opencode uninstall` while the Desktop is open, because it stops the shared
+service and removes the shared cache again.
 
 Evidence:
 
@@ -964,7 +966,8 @@ Fixed in the goal store and tool:
 and unknown refusals, evidence-required drop, progress at 50%, done archive,
 pending vs dropped close invariants, full close at 100%, and a dropped item
 surviving todo reconcile. Wired as the `goal-item-update` proofs step;
-`npm run verify` is green at 83 proofs.
+`npm run verify` was green at that baseline (83 proofs); the current gate runs
+102 proofs-stage steps.
 
 ---
 
@@ -1133,8 +1136,8 @@ leaves the recipient health counts, circuit state, capability tracker, shared
 memory, and training evaluator unchanged; the migration zeroes tawa (three
 cancellations), leaves build at 2 of 3 (one genuine drop), never charges the
 recipient (general stays 1), and a second pass does not subtract again. Wired as
-the `cancel-metric` proofs step; `npm run verify` was green at the historical
-87-proof baseline.
+the `cancel-metric` proofs step; `npm run verify` was green at that baseline (87 proofs); the current gate
+runs 102 proofs-stage steps.
 
 ### E-48 Deliberate cancellation still scored failures in the tracker stack — fixed (2026-10-27)
 
@@ -1238,8 +1241,8 @@ inspect its output for Arabic at all. After the rebuild,
 zero Arabic lines; `dist/global.js`, `dist/index.js`, and the plugin entry all
 define `GoalItemStateSchema` with the `dropped` state.
 
-`npm run check:rules` scans 428 files with zero exemptions; `npm run verify` is
-green at the historical 87-proof baseline.
+`npm run check:rules` scans 428 files with zero exemptions; `npm run verify` was
+green at that baseline (87 proofs); the current gate runs 102 proofs-stage steps.
 
 ---
 
@@ -1247,18 +1250,29 @@ green at the historical 87-proof baseline.
 
 - **P-01** `select`/`input` elicitation: fixed in `ccb2cb6`. Unbridged types
   now throw a visible error instead of returning `undefined`; `noReply` uses
-  `session.synthetic` and never queues a model turn. The plugin SDK 2.1.4 has
-  no select bridge, so an unbridged tool call fails closed rather than
-  guessing. The host protocol does expose `session.form.create/reply/list/
-  cancel`, but `@opencode/plugin` 2.1.4 does not surface it; closing P-01 for
-  real needs the SDK form surface or a direct protocol client. P1 per E-03.
+  `session.synthetic` and never queues a model turn. The plugin SDK has no
+  select bridge, so an unbridged tool call fails closed rather than guessing.
+  The host protocol exposes `session.form.create/reply/list/cancel`, but
+  `@opencode/plugin` 2.2.1 still does not surface it. Done 2026-10-29: accept
+  the fail-closed limitation; `prove-v2-ask-bridge` asserts that `select` and
+  `multiselect` fail with a visible error, and a future SDK form surface can
+  replace the path without changing the tool contract. P1 per E-03.
 - **P-02** A goal closed from `completed` writes a `dropped` tombstone; the
-  digest counts stay correct, the label is cosmetic. Next: accept the label as
-  cosmetic, or write `completed` for a `completed`-origin close; no data is at
-  risk either way.
+  digest counts stay correct, the label is cosmetic. Done 2026-10-29: accept
+  the label. The dropped tombstone is the internal removal marker that lets
+  replay count the prior terminal state and remove the goal from the live
+  set; writing `completed` there would re-open the deleted goal. `bumpTerminal`
+  counts `completed`, `verified`, or `dropped` from the prior state, and
+  `prove-goal-capture` asserts that deleting a completed goal keeps one
+  completed count, never a dropped count, and that replay agrees.
 - **P-03** N2 assistant dedup set is capped at 512; long sessions can
-  re-process an old message. Next: raise the cap or evict by age, and measure
-  a 500-message session for the current miss rate first.
+  re-process an old message. Done 2026-10-29: `prove-n2-cap` measures the
+  boundary. A 500-message session and the exact 512-message boundary record
+  the oldest text part with no miss; the 513th assistant message evicts the
+  oldest, and only a burst of 513 assistant messages before the first text
+  part of the process can miss. The cap stays 512: `done` stops the hook
+  after the first record, so the set is a bounded pre-record buffer, and
+  raising it would only enlarge that buffer without changing the common path.
 - **P-04** Done 2026-10-29: the static independence proof now scans tracked
   files, the package-entry shape, and symlinks, and
   `scripts/prove-independence-boot.ts` boots the built bundle in a v1-free
@@ -1398,6 +1412,13 @@ Fixed in `ccb2cb6`: `noReply` now goes through `session.synthetic` (no model
 turn), and unbridged select/input throws a visible error. `prove-v2-ask-bridge`
 asserts both. The host still has no select result channel; a future host form
 API can replace the fail-closed path.
+
+P-01 disposition (2026-10-29): accept the fail-closed limitation. The host
+protocol has `session.form.create/reply/list/cancel`, but `@opencode/plugin`
+2.2.1 does not surface it, and a direct protocol client would duplicate the
+host transport for one tool type. The tool contract stays honest: `select` and
+`multiselect` fail with `cannot be delivered` instead of guessing or hanging;
+a future SDK form surface can replace the path without changing the caller.
 
 ### E-04 Legacy state path and quarantine — fixed
 
@@ -2061,15 +2082,23 @@ content, and the copy path never touches the live files.
    `.opencode` at all. `doctor-v2.sh` passes
    `external tree has no live v1 entry` for both. Only six inert
    `tawassul.js.retired-20261024` files remain in other workspaces.
-3. Delete the 12 `tawassul.js.pre-refresh-*` copies, the 14
-   `*.retired-20261024` files, and the six inert `dist`-only
-   `.opencode/plugins/tawassul/` package dirs (`athan new vrsion`,
-   `ciel-osk-workspace`, `dart22222222`, `vpro`, `vusial 2`, `vusual`).
+3. ~~Delete the workspace residue~~ — declined by the owner on 2026-10-29. The
+   owner will replace the v1-loaded plugin with v2 in each project manually
+   after the fixes finish; no agent may delete files outside this tree.
+   Measured residue at the decision point: ten `tawassul.js.pre-refresh-*`
+   copies in five workspaces, twelve `*.retired-20261024` files (six
+   `tawassul.js`, six `tawassul.mjs`), and five inert `dist`-only
+   `.opencode/plugins/tawassul/` package dirs (`ciel-osk-workspace`,
+   `dart22222222`, `vpro`, `vusial 2`, `vusual`). The retired v1 source tree
+   `tawassyl` stays a read-only reference. The owner decided this on
+   2026-10-29, and it replaces the earlier delete proposal.
 4. ~~Delete the `/tmp/opencode` artifacts~~ — done 2026-10-26. All scratch
    under `/tmp/opencode` was removed (about 1.09 GB, including the four
-   `v1tree-*` copies and the probe/build directories); the directory is empty.
-   P-07 is also done; the only remaining exit item is the opt-in global
-   install (I-01).
+   `v1tree-*` copies and the probe/build directories). The directory has since
+   been reused as owner and session scratch (logos, art, and probe scripts),
+   so it is not empty and is not an agent cleanup target; `/tmp` is cleared on
+   reboot, which removes it automatically. P-07 is also done; the only
+   remaining exit item is the opt-in global install (I-01).
 5. ~~D-01 roles~~ — done 2026-10-26. The sidecar is canonical, the shared DB
    was legacy read-only for the completed D-02 import, and the launcher DB
    is test-only; no file was deleted or moved. `doctor-v2.sh` prints the canonical DB, labels the
@@ -2922,7 +2951,7 @@ safety documentation was deleted to satisfy a gate that never read it.
 
 #### E-41 There is no unit suite, and some proofs assert the defect — done (2026-10-29)
 
-Validation is 104 `scripts/prove-*.ts` files, run as 101 isolated
+Validation is 105 `scripts/prove-*.ts` files, run as 102 isolated
 `gate:proofs` steps plus the catalog in `gate:fast` and two boot proofs in
 `gate:smoke`. The old body said 32 scripts; that count was stale. There is
 still no `tests/` directory, and this closure keeps it that way by decision.
@@ -3030,10 +3059,12 @@ contract (42 assertions).
 - **B-02**: the window is 750 ms plus 20 × 500 ms ≈ 10.25 s, not "about
   10 s"; the placeholder schema served during the window is
   `additionalProperties: true` (E-17).
-- **E-07 / P-04**: unchanged. `scripts/prove-v2-independence.ts:35-97` is a
-  static text scan; round 3 found no behavioural proof to add.
-- **I-09**: unchanged. `scripts/prove-global-install.ts:147-149` still calls
-  the coexistence helpers directly instead of booting a dual-copy workspace.
+- **E-07 / P-04**: done 2026-10-29. The independence proof now scans tracked
+  files, the package-entry shape, and symlinks, and
+  `prove-independence-boot` boots the built bundle in a v1-free HOME and
+  workspace, asserting loads, tools, and no v1 state (see E-07).
+- **I-09**: done 2026-10-29. The dual-copy proof boots both copies; the global
+  copy delegates to the project entry and logs the path (see I-09).
 
 ### Agent claims rejected or merged
 

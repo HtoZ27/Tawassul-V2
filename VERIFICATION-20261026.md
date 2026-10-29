@@ -504,10 +504,11 @@ The partial verdicts above are closed, not re-argued:
 | V-31 (no CI transcript) | `npm run ci` writes `docs/CI-TRANSCRIPT.md` from per-stage records. |
 | V-52 (closures on manual transcripts) | `prove-closure-artifacts` pins H-02, H-06, H-07, P-05, P-07, and E-09 to gate-wired proofs and literal markers. |
 | V-13 (global config never permission-repaired) | Resolved as a documented boundary: boot repair is project-only by design, the runtime `execute.before` deny covers a stale global config, and `prove-e02` leaves a stale global config byte-identical beside a repaired project config (27 assertions). |
+| V-26 (refresh retry loop) | Closed as a bounded measurement: the retry loop is bounded and the final budget emits one warning; no code action. |
+| V-27 (10.25 s worst case) | Closed as a bounded measurement: `750 + 19 x 500 = 10,250 ms` plus probe latency, and the 6-attempt budget is about 3 s; the boot-budget proof asserts the envelope. |
 
-V-26 (refresh retry loop) and V-27 (10.25 s worst case) remain bounded
-measurements, not defects: the retry loop is bounded and the boot budget
-asserts the measured envelope.
+All partial verdicts are now either resolved or recorded as bounded
+measurements; none is an open defect.
 
 ### A3. Minor
 
@@ -898,13 +899,15 @@ not re-executed unless a current proof already covers them. No file in
 | --- | --- | --- |
 | Closed: implemented, or explicitly v1-only/docs-only | S-001…S-032, S-036, S-038, S-039, S-040, S-041, S-043, S-045, S-049, S-052, S-054, S-056 | 43 |
 | Closed by design, N/A, or triaged | S-033, S-034, S-035, S-037, S-050, S-055 | 6 |
-| Mitigated plugin-side; host contract still open | S-042, S-044, S-046, S-047, S-048, S-051 | 6 |
+| Mitigated plugin-side; host contract still open | S-042, S-046, S-048, S-051 | 4 |
+| Closed in this repo on 2026-10-29 | S-044 (select/multiselect), S-047 (streaming and compaction contract) | 2 |
 | Closed in this repo on 2026-10-26 | S-053 (proof gap → G-14), S-057 (code → P-11) | 2 |
 
-**Answer: no, not every entry is complete — but only two are actionable in
-this tree.** Six entries ask the host for an API or a documented contract
-that `@opencode/plugin` 2.1.4 does not expose; the plugin already fails
-closed or approximates in all six.
+**Answer: no, not every entry is complete — but only four are actionable in
+this tree.** Four entries ask the host for an API or a documented contract
+that `@opencode/plugin` 2.1.4 did not expose; the plugin already fails
+closed or approximates in all four. `S-044` and `S-047` moved to the closed
+list on 2026-10-29 (`PLAN.md:330-337`).
 
 ### The early port entries
 

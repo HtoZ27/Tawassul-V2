@@ -26,7 +26,7 @@ tree now carries ten shell scripts and 3,586 lines.
 | --- | --- |
 | Ported | 5 |
 | Merged into one script or launcher | 4 |
-| Missing (support/measurement only) | 4 |
+| Out of scope (support/measurement) | 4 |
 | Replaced or obsolete | 3 |
 
 ## Table

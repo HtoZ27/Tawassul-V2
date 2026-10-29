@@ -321,9 +321,10 @@ JSON-safe tool metadata, with live create and cancel results confirmed. The
 remaining follow-ups are listed in `UPSTREAM.md`.
 
 Exit: `npm run gate:fast` includes `upstream-registry`; the live check reports
-`aligned: no release newer than v2.2.0`; `prove:upstream-sync` is green.
-Next: bump the dev dependency to `@opencode/plugin` 2.2.0 after the running
-host is restarted on this build, then adopt the follow-ups in the order listed.
+`aligned: no release newer than v2.2.1`; `prove:upstream-sync` is green.
+Delivered 2026-10-29: the dev dependency is `@opencode/plugin` `^2.2.1`, and
+the v2.2.1 audit is in `UPSTREAM.md`; its remaining follow-ups are listed
+there.
 
 ## P2 backlog (after cutover)
 

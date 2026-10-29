@@ -94,8 +94,8 @@ still running), or `blocked` (a host defect prevents the work).
 
 | Release | Date | Audited | Host contract | Status | Summary |
 | --- | --- | --- | --- | --- | --- |
-| v2.2.1 | 2026-10-29 | 2026-10-29 | 2.2.1 | partial | 24 tracked changes: one follow-up (`E-44`), eight candidates, six aligned, nine ignored |
-| v2.2.0 | 2026-10-27 | 2026-10-27 | 2.2.0 | partial | 30 tracked changes: one guard (`E-43`, fixed), one adoption (`E-42`, fixed), three follow-ups (`E-44`, `E-45`, and `E-46` fixed), eight candidates, eleven aligned, six ignored |
+| v2.2.1 | 2026-10-29 | 2026-10-29 | 2.2.1 | partial | 24 tracked changes: two follow-ups (`E-44`, `E-55`), seven candidates, six aligned, nine ignored |
+| v2.2.0 | 2026-10-27 | 2026-10-27 | 2.2.0 | partial | 30 tracked changes: one guard (`E-43`, fixed), one adoption (`E-42`, fixed), one follow-up (`E-44`), thirteen aligned (`E-45`, `E-46`), eight candidates, six ignored |
 
 ## v2.2.0 — what changed for us
 
@@ -114,18 +114,27 @@ still running), or `blocked` (a host defect prevents the work).
 | #58798 | Tool schemas convert once | aligned | `B-01` | Placeholder and reload contract unchanged |
 | #59082 | Agent and provider lists wait for plugins | aligned | `E-17` | Empty-catalog window narrows; fail-closed check stays |
 | #58851 | Streamed text survives a finish reason | aligned | `E-15` | Truncation window closes on the host side |
+| #58864 | Event type filter | aligned | — | Whole-stream mapping is unchanged; filtering is available if profiling asks for it |
+| #58847 | `@opencode/ai` promise root | aligned | — | The plugin does not import `@opencode/ai` directly; the external list is unchanged |
+| #58448 | Tool-call memory release | aligned | — | The host releases tool-call memory; RSS is remeasured after the next restart |
+| #59441 | Compaction token sizing | aligned | — | Compaction uses the provider token count; our context hook is unaffected |
+| #58997 | Deleted project sessions | aligned | — | Sessions and instruction entries survive a deleted project directory |
+| #58815 | Service state out of shells | aligned | — | The background service state directory stays out of tool shells |
+| #59089 | External-directory project filesystem | aligned | `E-39` | External-directory checks use the project filesystem; the pre-flight URL check stays |
+| #58331 | Dev builds use a separate server, database, and port | aligned | `E-46` | `health` names the desktop sidecar DB lane instead of calling it a mismatch |
+| #58817 | Shutdown exits after ten seconds | aligned | `E-45` | Dispose is bounded at 7.5 s with a 2.5 s margin under the host cap |
 
 ### Follow-ups that need a host restart or a measurement
 
 | PR | Change | Verdict | Issue | Action |
 | --- | --- | --- | --- | --- |
-| #58331 | Dev builds use a separate server, database, and port | tracked | `E-46` | `health` now names the desktop sidecar DB lane instead of calling it a mismatch |
 | #58866 | Throttled requests retry instead of reporting context overflow | tracked | `E-44` | Defer transient limits to the 2.2.0 host retry; keep the legacy path below it |
-| #58817 | Shutdown exits after ten seconds | tracked | `E-45` | Bound dispose at 7.5 s with a 2.5 s margin under the host cap |
 
 ### Candidates
 
 | PR | Change | Why it is not adopted yet |
+| --- | --- | --- |
+| #55246 | Desktop plugin manager shares plugins | Experimental; install follow-ups stay frozen until it settles |
 | --- | --- | --- |
 | #56550 | Keyed session instruction entries | Replaces synthetic notices, but needs a 2.2.0 host build first |
 | #59469 | GUI plugin APIs (toasts, dialogs, tabs) | Experimental; text notices stay until the API settles |

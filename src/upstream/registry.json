@@ -265,7 +265,7 @@
         {
           "pr": 58331,
           "topic": "dev-build-isolation",
-          "verdict": "tracked",
+          "verdict": "aligned",
           "issue": "E-46",
           "note": "The dev lane is the desktop sidecar DB; health reports its lane instead of a keyed-path mismatch."
         },
@@ -279,7 +279,7 @@
         {
           "pr": 58817,
           "topic": "shutdown-ten-second-cap",
-          "verdict": "tracked",
+          "verdict": "aligned",
           "issue": "E-45",
           "note": "Shutdown cleanup is bounded at 7.5 seconds under the host 10-second cap."
         },
