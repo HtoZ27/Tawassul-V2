@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
-import { handleRateLimitError } from "../src/bootstrap/plugin-init.ts";
+import { handleRateLimitError, isQuotaProbePending, matchesRateLimit } from "../src/bootstrap/plugin-init.ts";
 import {
   hostRetriesThrottledRequests,
+  isQuotaExhausted,
+  parseFreeLimitSignal,
   parseHostVersion,
+  QUOTA_PROBE_MAX,
+  quotaProbeDelayMs,
   shouldDeferRateLimitToHost,
 } from "../src/services/free-limit.ts";
 import type { PluginInput } from "../src/plugin-types.ts";
@@ -62,6 +66,11 @@ check(!shouldDeferRateLimitToHost("2.2.0", dailyLimit), "a daily limit is never 
 check(!shouldDeferRateLimitToHost("2.2.0", "a plain tool failure"), "a non-rate-limit is not deferred");
 check(!shouldDeferRateLimitToHost(undefined, typedTransient), "an unknown host keeps the plugin retry");
 
+check(parseFreeLimitSignal("quota exceeded").signal === "quota-exhausted", "a bare quota message is a recoverable quota");
+check(isQuotaExhausted("insufficient_quota"), "the provider quota code is classified as quota-exhausted");
+check(matchesRateLimit("quota exceeded"), "a provider quota enters the plugin retry path");
+check(!shouldDeferRateLimitToHost("2.2.1", "quota exceeded"), "a provider quota is never deferred to the host retry");
+
 const mapped = buildPluginInput({
   app: { version: "2.2.0" },
   location: { directory: "/tmp/opencode/e44" },
@@ -72,14 +81,15 @@ check(unmapped.hostVersion === undefined, "a host without a version leaves the p
 
 type TimerCall = { fn: () => void; delay: number };
 
-function makeInput(hostVersion: string | undefined, prompts: string[]): PluginInput {
+function makeInput(hostVersion: string | undefined, prompts: string[], failRetry = false): PluginInput {
   return {
     client: {
       session: {
         promptAsync: async (input: unknown) => {
-          const rec = input as { body?: { parts?: Array<{ text?: string }> } };
+          const rec = input as { body?: { parts?: Array<{ text?: string }>; noReply?: boolean } };
           const text = rec.body?.parts?.map((part) => part.text ?? "").join("") ?? "";
           prompts.push(text);
+          if (failRetry && rec.body?.noReply !== true) throw new Error("provider quota still exhausted");
           return undefined;
         },
       },
@@ -148,5 +158,58 @@ const dailyRetried = await handleRateLimitError(
 check(dailyRetried === false, "a daily limit does not fall into the host retry path");
 check(dailyPrompts.length === 0 && dailyTimers.length === 0, "a daily limit schedules no host retry from the plugin");
 
-assert.equal(passed, 36);
+async function flushMicrotasks(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+const quotaPrompts: string[] = [];
+const quotaTimers: TimerCall[] = [];
+const quotaInput = makeInput("2.2.1", quotaPrompts);
+const quotaCtx = makeTawaContext(quotaTimers);
+const quotaId = "ses_e44_quota";
+const quotaRetried = await handleRateLimitError(quotaInput, quotaCtx, quotaId, "quota exceeded");
+check(quotaRetried === true, "a provider quota schedules a delayed probe");
+check(quotaPrompts.length === 1, "a provider quota sends one scheduled notice");
+check(quotaPrompts[0]?.includes("300s") === true, "the scheduled notice states the five-minute delay");
+check(quotaTimers.length === 1, "the provider quota schedules one probe timer");
+check(quotaTimers[0]?.delay === quotaProbeDelayMs(0), "the first probe uses the base delay");
+check(quotaTimers[0]?.delay === 300_000, "the first probe waits five minutes");
+check(isQuotaProbePending(quotaId), "a scheduled probe is marked pending");
+const quotaDuplicate = await handleRateLimitError(quotaInput, quotaCtx, quotaId, "quota exceeded");
+check(quotaDuplicate === true && quotaTimers.length === 1, "a pending quota probe is not duplicated");
+quotaTimers[0]?.fn();
+await flushMicrotasks();
+check(quotaPrompts.length === 2, "the probe sends the retry prompt when the timer fires");
+check(!isQuotaProbePending(quotaId), "the fired probe clears the pending flag");
+const quotaAfterSuccess = await handleRateLimitError(quotaInput, quotaCtx, quotaId, "quota exceeded");
+check(quotaAfterSuccess === true && quotaTimers.length === 2, "a resolved probe prompt starts the next probe");
+check(quotaTimers[1]?.delay === 600_000, "a resolved probe prompt advances the ladder to ten minutes");
+
+const seqPrompts: string[] = [];
+const seqTimers: TimerCall[] = [];
+const seqInput = makeInput("2.2.1", seqPrompts, true);
+const seqCtx = makeTawaContext(seqTimers);
+const seqId = "ses_e44_quota_seq";
+check((await handleRateLimitError(seqInput, seqCtx, seqId, "quota exceeded")) === true, "quota probe one schedules");
+check(seqTimers[0]?.delay === 300_000, "quota probe one waits five minutes");
+seqTimers[0]?.fn();
+await flushMicrotasks();
+check((await handleRateLimitError(seqInput, seqCtx, seqId, "insufficient_quota")) === true, "quota probe two schedules");
+check(seqTimers[1]?.delay === 600_000, "quota probe two waits ten minutes");
+seqTimers[1]?.fn();
+await flushMicrotasks();
+check(
+  (await handleRateLimitError(seqInput, seqCtx, seqId, "exceeded your current quota")) === true,
+  "quota probe three schedules",
+);
+check(seqTimers[2]?.delay === 1_200_000, "quota probe three waits twenty minutes");
+seqTimers[2]?.fn();
+await flushMicrotasks();
+const beforeExhausted = seqPrompts.length;
+check((await handleRateLimitError(seqInput, seqCtx, seqId, "quota exceeded")) === false, "the quota stops probing after the maximum");
+check(seqTimers.length === 3, "the exhausted quota schedules no fourth timer");
+check(seqPrompts.length === beforeExhausted + 1, "the exhausted quota sends one final notice");
+check(QUOTA_PROBE_MAX === 3, "the quota probe cap is three attempts");
+
+assert.equal(passed, 62);
 console.log(`PROOF PASS: transient rate limits defer to the host retry (${passed} assertions)`);

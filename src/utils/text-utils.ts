@@ -8,8 +8,11 @@ export const DEFAULT_RATE_LIMIT_PATTERNS: readonly string[] = [
   "rate-limit",
   "overloaded",
   "too many requests",
-  "quota exceeded",
   "resource exhausted",
+  "quota exceeded",
+  "insufficient quota",
+  "insufficient_quota",
+  "exceeded your current quota",
 ];
 
 

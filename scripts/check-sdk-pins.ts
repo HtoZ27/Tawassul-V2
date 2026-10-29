@@ -28,6 +28,16 @@ function versionOf(value: unknown): string {
   return match[0];
 }
 
+function notAbove(left: string, right: string): boolean {
+  const a = left.split(".").map(Number);
+  const b = right.split(".").map(Number);
+  for (let index = 0; index < 3; index++) {
+    const diff = (a[index] ?? 0) - (b[index] ?? 0);
+    if (diff !== 0) return diff < 0;
+  }
+  return true;
+}
+
 type Manifest = {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
@@ -49,6 +59,7 @@ const opencodeLock = readJson<Lock>(join(REPO, ".opencode", "package-lock.json")
 const registry = readJson<Registry>(join(REPO, "src", "upstream", "registry.json"));
 const installer = readFileSync(join(REPO, "scripts", "install-global.ts"), "utf-8");
 const smoke = readFileSync(join(REPO, "scripts", "release-smoke.sh"), "utf-8");
+const launcher = readFileSync(join(REPO, "scripts", "opencode-v2-iso.sh"), "utf-8");
 const doctor = readFileSync(join(REPO, "scripts", "doctor-v2.sh"), "utf-8");
 
 const rootDeclared = versionOf(rootManifest.devDependencies?.["@opencode/plugin"]);
@@ -92,13 +103,22 @@ const installerMin = versionOf(installer.match(/const HOST_MIN = "([^"]+)"/)?.[1
 const installerAudited = versionOf(installer.match(/const HOST_AUDITED = "([^"]+)"/)?.[1]);
 const smokeMin = versionOf(smoke.match(/MIN_VERSION="([^"]+)"/)?.[1]);
 const smokeAudited = versionOf(smoke.match(/AUDITED_VERSION="([^"]+)"/)?.[1]);
-assert(installerMin === audited, `the installer host minimum matches the SDK pin (${installerMin})`);
+const launcherAudited = versionOf(launcher.match(/OPENCODE_VERSION_AUDITED="([^"]+)"/)?.[1]);
 assert(installerAudited === audited, `the installer audited host matches the SDK pin (${installerAudited})`);
-assert(smokeMin === audited, `the smoke host minimum matches the SDK pin (${smokeMin})`);
 assert(smokeAudited === audited, `the smoke audited host matches the SDK pin (${smokeAudited})`);
+assert(launcherAudited === audited, `the launcher audited host matches the SDK pin (${launcherAudited})`);
+assert(installerMin === smokeMin, `the installer and smoke host minimum agree (${installerMin})`);
 assert(
-  doctor.includes(`v>=${audited} <3.0.0`),
-  `the doctor names the same supported host range (v>=${audited} <3.0.0)`,
+  notAbove(installerMin, audited),
+  `the host minimum ${installerMin} does not exceed the audited ${audited}`,
+);
+assert(
+  doctor.includes(`v>=${installerMin} <3.0.0`),
+  `the doctor names the same supported host range (v>=${installerMin} <3.0.0)`,
+);
+assert(
+  doctor.includes(`newer than the audited v${audited}`),
+  `the doctor names the audited ceiling (v${audited})`,
 );
 
 console.log(`CHECK PASS: the SDK pin agrees across manifests, lockfiles, installed packages, and the host range (${passed} assertions)`);

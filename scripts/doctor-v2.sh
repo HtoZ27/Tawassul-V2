@@ -639,7 +639,7 @@ if [ -n "$resolved" ] && [ -x "$resolved" ]; then
     if [ "${cli_version%%.*}" != "2" ] || [ "$(printf '%s\n%s\n' "2.2.0" "$cli_version" | sort -V | head -n1)" != "2.2.0" ]; then
       warn "opencode on PATH is v$cli_version; supported hosts are v>=2.2.0 <3.0.0 (v1 hosts must not run)"
     elif [ "$cli_version" != "2.2.0" ]; then
-      warn "opencode on PATH is v$cli_version, newer than the audited v2.2.0; run npm run check:upstream"
+      warn "opencode on PATH is v$cli_version, newer than the audited v2.2.1; run npm run check:upstream"
     fi
   fi
 fi

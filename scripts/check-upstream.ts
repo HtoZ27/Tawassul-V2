@@ -2,8 +2,10 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  compareVersions,
   diffReleases,
-  parseChangelog,
+  mergeEntries,
+  parseFeed,
   renderSummary,
   validateRegistry,
   type ChangelogEntry,
@@ -20,13 +22,25 @@ type Options = {
   source: string | undefined;
 };
 
+type SourceReport = {
+  url: string;
+  ok: boolean;
+  entries: ChangelogEntry[];
+  latest: ChangelogEntry | undefined;
+  lagging: boolean;
+  error?: string;
+};
+
 function usage(): string {
   return [
     "usage: bun scripts/check-upstream.ts [--offline] [--source <url|file>] [--json]",
     "",
     "  --offline       validate src/upstream/registry.json without network access",
-    "  --source        read the changelog from a URL or a local HTML file",
+    "  --source        read one feed from a URL or a local file instead of both live sources",
     "  --json          print one machine-readable object",
+    "",
+    "without --offline the check reads the GitHub releases feed and the changelog page,",
+    "merges their versions, and reports when either source lags the audited ceiling.",
   ].join("\n");
 }
 
@@ -69,10 +83,36 @@ async function readRemote(source: string): Promise<ChangelogEntry[]> {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       headers: { "user-agent": "tawassul-upstream-check/1.0" },
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status} from ${source}`);
-    return parseChangelog(await response.text());
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return parseFeed(await response.text());
   }
-  return parseChangelog(readFileSync(resolve(source), "utf8"));
+  return parseFeed(readFileSync(resolve(source), "utf8"));
+}
+
+async function readSource(url: string): Promise<SourceReport> {
+  try {
+    const entries = await readRemote(url);
+    if (entries.length === 0) throw new Error("no releases parsed");
+    return { url, ok: true, entries, latest: entries[0], lagging: false };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { url, ok: false, entries: [], latest: undefined, lagging: false, error: message };
+  }
+}
+
+function sourceUrls(registry: UpstreamRegistry, override: string | undefined): string[] {
+  if (override) return [override];
+  return [`${registry.releasesUrl}.atom`, registry.source];
+}
+
+function reportJson(report: SourceReport): Record<string, unknown> {
+  return {
+    url: report.url,
+    ok: report.ok,
+    latest: report.latest ?? null,
+    lagging: report.lagging,
+    ...(report.error === undefined ? {} : { error: report.error }),
+  };
 }
 
 async function main(): Promise<number> {
@@ -107,7 +147,17 @@ async function main(): Promise<number> {
   if (options.offline) {
     if (options.json) {
       process.stdout.write(
-        `${JSON.stringify({ ok: true, mode: "offline", auditedThrough: registry.auditedThrough, releases: registry.releases.length }, null, 2)}\n`,
+        `${JSON.stringify(
+          {
+            ok: true,
+            mode: "offline",
+            releasesUrl: registry.releasesUrl,
+            auditedThrough: registry.auditedThrough,
+            releases: registry.releases.length,
+          },
+          null,
+          2,
+        )}\n`,
       );
     } else {
       process.stdout.write(`${renderSummary(registry)}\n`);
@@ -116,22 +166,36 @@ async function main(): Promise<number> {
     return 0;
   }
 
-  const source = options.source ?? registry.source;
-  let remote: ChangelogEntry[];
-  try {
-    remote = await readRemote(source);
-  } catch (error) {
-    process.stderr.write(
-      `[upstream] cannot read ${source}: ${error instanceof Error ? error.message : String(error)}\n`,
+  const urls = sourceUrls(registry, options.source);
+  const reports = await Promise.all(urls.map(readSource));
+  for (const report of reports) {
+    if (!report.latest) continue;
+    report.lagging = compareVersions(report.latest.version, registry.auditedThrough) < 0;
+    if (options.json) continue;
+    const suffix = report.lagging ? ` — lags the audited v${registry.auditedThrough}` : "";
+    process.stdout.write(
+      `[upstream] source ${report.url}: v${report.latest.version} (${report.latest.date})${suffix}\n`,
     );
+  }
+
+  const usable = reports.filter((report) => report.ok);
+  if (usable.length === 0) {
+    for (const report of reports) {
+      process.stderr.write(`[upstream] cannot read ${report.url}: ${report.error ?? "unknown error"}\n`);
+    }
     process.stderr.write("[upstream] network check unavailable; the offline gate still runs\n");
     return 2;
   }
-  if (remote.length === 0) {
-    process.stderr.write(`[upstream] no releases parsed from ${source}\n`);
-    return 2;
+  if (!options.json) {
+    for (const report of reports) {
+      if (report.ok) continue;
+      process.stderr.write(
+        `[upstream] warning: ${report.url} unavailable (${report.error ?? "unknown error"}); the other source still counts\n`,
+      );
+    }
   }
 
+  const remote = mergeEntries(usable.map((report) => report.entries));
   const drift = diffReleases(registry, remote);
   const ok = drift.unaudited.length === 0;
 
@@ -141,9 +205,9 @@ async function main(): Promise<number> {
         {
           ok,
           mode: "live",
-          source,
           auditedThrough: drift.auditedThrough,
           latest: drift.latest ?? null,
+          sources: reports.map(reportJson),
           unaudited: drift.unaudited,
           unlisted: drift.unlisted,
         },
@@ -155,12 +219,9 @@ async function main(): Promise<number> {
   }
 
   process.stdout.write(`${renderSummary(registry)}\n`);
-  process.stdout.write(
-    `[upstream] live latest: v${drift.latest?.version ?? "unknown"} (${drift.latest?.date ?? "unknown"})\n`,
-  );
   for (const version of drift.unlisted) {
     process.stdout.write(
-      `[upstream] warning: audited v${version.version} is not on the live page anymore\n`,
+      `[upstream] warning: audited v${version.version} is not on any live source anymore\n`,
     );
   }
   if (!ok) {

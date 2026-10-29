@@ -1,4 +1,9 @@
-import { parseFreeLimitSignal, isFreeDailyLimit, isTransientRateLimit } from "../src/services/free-limit.ts";
+import {
+  parseFreeLimitSignal,
+  isFreeDailyLimit,
+  isQuotaExhausted,
+  isTransientRateLimit,
+} from "../src/services/free-limit.ts";
 
 let passed = 0;
 
@@ -88,7 +93,12 @@ function typedPaths(): void {
   assert(bareType.matchedBy === "error-type", "the bare class name decides by type, not text");
 
   const quota = parseFreeLimitSignal(new Error("quota exceeded"));
-  assert(quota.signal === "transient-rate-limit", "a generic quota-exceeded message is a transient limit");
+  assert(quota.signal === "quota-exhausted", "a generic quota-exceeded message is a recoverable quota");
+  assert(quota.matchedBy === "text", "the quota message is decided by text, not type");
+  assert(isQuotaExhausted("insufficient_quota") === true, "isQuotaExhausted accepts the provider quota code");
+  assert(isQuotaExhausted("exceeded your current quota") === true, "isQuotaExhausted accepts the current-quota wording");
+  assert(isFreeDailyLimit("quota exceeded") === false, "a provider quota is not the free daily limit");
+  assert(isTransientRateLimit("quota exceeded") === false, "a provider quota is not a transient rate limit");
 
   const transient = parseFreeLimitSignal({ type: "provider.rate-limit", message: "slow down" });
   assert(transient.signal === "transient-rate-limit", "a typed provider.rate-limit stays transient");
@@ -113,6 +123,11 @@ function textFallbacks(): void {
   const transientTexts = ["Rate limit exceeded", "HTTP 429 too many requests", "throttled by the gateway"];
   for (const message of transientTexts) {
     assert(parseFreeLimitSignal(message).signal === "transient-rate-limit", `transient text matches: ${message}`);
+  }
+
+  const quotaTexts = ["quota exceeded", "insufficient_quota", "You exceeded your current quota"];
+  for (const message of quotaTexts) {
+    assert(parseFreeLimitSignal(message).signal === "quota-exhausted", `quota text matches: ${message}`);
   }
 }
 

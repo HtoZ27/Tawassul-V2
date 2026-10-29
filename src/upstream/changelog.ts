@@ -21,12 +21,14 @@ export type UpstreamRelease = {
   date: string;
   auditedAt: string;
   hostContract: string;
+  notesUrl: string;
   status: UpstreamStatus;
   items: UpstreamItem[];
 };
 
 export type UpstreamRegistry = {
   source: string;
+  releasesUrl: string;
   auditedThrough: string;
   releases: UpstreamRelease[];
 };
@@ -45,6 +47,8 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const TOPIC = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ISSUE = /^[A-Z]-\d{2}$/;
 const SOURCE = /^https:\/\/opencode\.ai\/changelog$/;
+const RELEASES = /^https:\/\/github\.com\/anomalyco\/opencode\/releases$/;
+export const RELEASES_URL = "https://github.com/anomalyco/opencode/releases";
 const ISSUE_VERDICTS: readonly UpstreamVerdict[] = ["adopted", "guarded", "tracked"];
 const VERDICTS: readonly UpstreamVerdict[] = [
   "adopted",
@@ -79,6 +83,10 @@ function isStatus(value: unknown): value is UpstreamStatus {
   return typeof value === "string" && (STATUSES as readonly string[]).includes(value);
 }
 
+export function releaseNotesUrl(version: string): string {
+  return `${RELEASES_URL}/tag/v${version}`;
+}
+
 export function compareVersions(left: string, right: string): number {
   const a = left.split(".").map((part) => Number.parseInt(part, 10));
   const b = right.split(".").map((part) => Number.parseInt(part, 10));
@@ -105,11 +113,46 @@ export function parseChangelog(html: string): ChangelogEntry[] {
   return entries;
 }
 
+export function parseReleaseFeed(xml: string): ChangelogEntry[] {
+  const seen = new Set<string>();
+  const entries: ChangelogEntry[] = [];
+  for (const block of xml.matchAll(/<entry\b[\s\S]*?<\/entry>/gi)) {
+    const body = block[0];
+    const version = /<title>\s*v(\d+\.\d+\.\d+)\s*<\/title>/i.exec(body)?.[1] ?? "";
+    const date = /<updated>\s*(\d{4}-\d{2}-\d{2})T[^<]*<\/updated>/i.exec(body)?.[1] ?? "";
+    if (!isVersion(version) || !isDay(date) || seen.has(version)) continue;
+    seen.add(version);
+    entries.push({ version, date });
+  }
+  entries.sort((left, right) => compareVersions(right.version, left.version));
+  return entries;
+}
+
+export function parseFeed(text: string): ChangelogEntry[] {
+  return /<feed\b|<entry\b/i.test(text) ? parseReleaseFeed(text) : parseChangelog(text);
+}
+
+export function mergeEntries(feeds: readonly ChangelogEntry[][]): ChangelogEntry[] {
+  const merged = new Map<string, ChangelogEntry>();
+  for (const feed of feeds) {
+    for (const entry of feed) {
+      const known = merged.get(entry.version);
+      if (!known || entry.date < known.date) merged.set(entry.version, entry);
+    }
+  }
+  return Array.from(merged.values()).sort((left, right) =>
+    compareVersions(right.version, left.version),
+  );
+}
+
 export function validateRegistry(value: unknown): string[] {
   const problems: string[] = [];
   if (!isRecord(value)) return ["registry is not an object"];
   if (typeof value.source !== "string" || !SOURCE.test(value.source)) {
     problems.push("source must be https://opencode.ai/changelog");
+  }
+  if (typeof value.releasesUrl !== "string" || !RELEASES.test(value.releasesUrl)) {
+    problems.push(`releasesUrl must be ${RELEASES_URL}`);
   }
   if (!isVersion(value.auditedThrough)) {
     problems.push("auditedThrough is not a semantic version");
@@ -146,6 +189,11 @@ export function validateRegistry(value: unknown): string[] {
     }
     if (!isVersion(release.hostContract)) {
       problems.push(`${at}.hostContract is not a semantic version`);
+    }
+    if (typeof release.notesUrl !== "string") {
+      problems.push(`${at}.notesUrl is not a release tag url`);
+    } else if (isVersion(version) && release.notesUrl !== releaseNotesUrl(version)) {
+      problems.push(`${at}.notesUrl must be ${releaseNotesUrl(version)}`);
     }
     if (!isStatus(release.status)) problems.push(`${at}.status is not a known status`);
     const items = release.items;
@@ -239,6 +287,8 @@ export function renderSummary(registry: UpstreamRegistry): string {
   const releases = registry.releases.length === 1 ? "release" : "releases";
   return [
     `[upstream] audited through v${registry.auditedThrough} (${registry.releases.length} ${releases}, ${items} tracked changes)`,
+    `[upstream] releases: ${registry.releasesUrl}`,
+    `[upstream] latest notes: ${registry.releases[0]?.notesUrl ?? "unknown"}`,
     `[upstream] verdicts: ${verdictLine}`,
   ].join("\n");
 }

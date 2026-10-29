@@ -2,9 +2,14 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  RELEASES_URL,
   compareVersions,
   diffReleases,
+  mergeEntries,
   parseChangelog,
+  parseFeed,
+  parseReleaseFeed,
+  releaseNotesUrl,
   validateRegistry,
   verdictCounts,
   type UpstreamRegistry,
@@ -14,6 +19,9 @@ const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const registry = JSON.parse(
   readFileSync(join(repo, "src", "upstream", "registry.json"), "utf8"),
 ) as UpstreamRegistry;
+const installed = JSON.parse(
+  readFileSync(join(repo, "node_modules", "@opencode", "plugin", "package.json"), "utf8"),
+) as { version?: string };
 
 let passed = 0;
 
@@ -34,12 +42,14 @@ type MutableRelease = {
   date: unknown;
   auditedAt: unknown;
   hostContract: unknown;
+  notesUrl?: unknown;
   status: unknown;
   items: Array<Record<string, unknown>>;
 };
 
 type MutableRegistry = {
   source: unknown;
+  releasesUrl?: unknown;
   auditedThrough: unknown;
   releases: MutableRelease[];
 };
@@ -56,25 +66,65 @@ function expectProblem(document: unknown, needle: string, name: string): void {
 function fixture(): string {
   return [
     '<header><h2><a href="#v2-3-0">v2.3.0</a></h2><time datetime="2026-11-01">November 1, 2026</time></header>',
+    '<header><h2><a href="#v2-2-1">v2.2.1</a></h2><time datetime="2026-10-29">October 29, 2026</time></header>',
     '<header><h2><a href="#v2-2-0">v2.2.0</a></h2><time datetime="2026-10-27">October 27, 2026</time></header>',
     '<header><h2><a href="#v2-1-4">v2.1.4</a></h2><time datetime="2026-10-23">October 23, 2026</time></header>',
     '<header><h2><a href="#notes">Notes</a></h2><time datetime="2026-10-01">October 1, 2026</time></header>',
   ].join("\n");
 }
 
+function feed(): string {
+  return [
+    '<feed><title>Release notes from opencode</title><updated>2026-10-29T04:27:12Z</updated>',
+    '<entry><title>v2.2.1</title><updated>2026-10-29T05:16:55Z</updated><link href="https://github.com/anomalyco/opencode/releases/tag/v2.2.1"/></entry>',
+    '<entry><title>v2.2.0</title><updated>2026-10-27T10:00:00Z</updated><link href="https://github.com/anomalyco/opencode/releases/tag/v2.2.0"/></entry>',
+    '<entry><title>v2.3.0-beta.1</title><updated>2026-11-02T10:00:00Z</updated></entry>',
+    '</feed>',
+  ].join("\n");
+}
+
 const parsed = parseChangelog(fixture());
-assert(parsed.length === 3, "parser returns only release headings");
+assert(parsed.length === 4, "parser returns only release headings");
 assert(parsed[0]?.version === "2.3.0", "parser sorts the newest release first");
-assert(parsed[2]?.version === "2.1.4", "parser keeps the oldest release last");
+assert(parsed[3]?.version === "2.1.4", "parser keeps the oldest release last");
 assert(parsed[0]?.date === "2026-11-01", "parser carries the release date");
 assert(parseChangelog("").length === 0, "parser returns nothing for empty input");
 assert(compareVersions("2.10.0", "2.9.9") > 0, "version comparison is numeric");
 assert(compareVersions("2.2.0", "2.2.0") === 0, "equal versions compare at zero");
 
+const atom = parseReleaseFeed(feed());
+assert(atom.length === 2, "the release feed skips a prerelease title");
+assert(atom[0]?.version === "2.2.1", "the release feed sorts the newest tag first");
+assert(atom[0]?.date === "2026-10-29", "the release feed reads the entry update day");
+assert(parseFeed(feed())[0]?.version === "2.2.1", "the feed parser auto-detects atom");
+assert(parseFeed(fixture())[0]?.version === "2.3.0", "the feed parser falls back to the changelog page");
+const merged = mergeEntries([
+  [{ version: "2.2.1", date: "2026-10-29" }],
+  [
+    { version: "2.2.1", date: "2026-10-28" },
+    { version: "2.3.0", date: "2026-11-01" },
+  ],
+]);
+assert(merged.length === 2, "merged feeds drop a duplicate version");
+assert(merged[0]?.version === "2.3.0", "merged feeds sort newest first");
+assert(merged[1]?.date === "2026-10-28", "merged feeds keep the earliest day for a version");
+
 assert(validateRegistry(registry).length === 0, "the checked-in registry is valid");
 assert(registry.source === "https://opencode.ai/changelog", "registry points at the changelog");
+assert(registry.releasesUrl === RELEASES_URL, "registry points at the GitHub releases");
+assert(
+  registry.releases.every((release) => release.notesUrl === releaseNotesUrl(release.version)),
+  "every release carries its own notes link",
+);
 assert(registry.auditedThrough === registry.releases[0]?.version, "auditedThrough is the newest release");
-assert(registry.releases[0]?.hostContract === "2.2.0", "the audited release records the built host contract");
+assert(
+  registry.releases[0]?.hostContract === installed.version,
+  `the audited release records the built host contract (${installed.version ?? "unknown"})`,
+);
+assert(
+  registry.releases[0]?.hostContract === registry.auditedThrough,
+  "the newest host contract matches auditedThrough",
+);
 assert(
   (registry.releases[0]?.items.length ?? 0) >= 20,
   "the audited release tracks at least 20 changes",
@@ -97,7 +147,7 @@ assert(drift.unlisted.length === 0, "a full page lists every audited release");
 
 const equal = diffReleases(registry, parseChangelog(fixture()).slice(1));
 assert(equal.unaudited.length === 0, "an audited page has no unaudited release");
-assert(equal.latest?.version === "2.2.0", "the drift report exposes the live latest release");
+assert(equal.latest?.version === "2.2.1", "the drift report exposes the live latest release");
 
 const older = diffReleases(registry, [
   { version: "2.2.0", date: "2026-10-27" },
@@ -106,13 +156,17 @@ const older = diffReleases(registry, [
 assert(older.unaudited.length === 0, "releases below auditedThrough are not flagged");
 
 const patchAbove = diffReleases(registry, [
-  { version: "2.2.1", date: "2026-10-28" },
-  { version: "2.2.0", date: "2026-10-27" },
+  { version: "2.2.2", date: "2026-10-30" },
+  { version: "2.2.1", date: "2026-10-29" },
 ]);
-assert(patchAbove.unaudited[0]?.version === "2.2.1", "a patch release above the ceiling is flagged");
+assert(patchAbove.unaudited[0]?.version === "2.2.2", "a patch release above the ceiling is flagged");
+
+const feedDrift = diffReleases(registry, parseReleaseFeed(feed()));
+assert(feedDrift.unaudited.length === 0, "the audited ceiling is not flagged from the release feed");
+assert(feedDrift.latest?.version === "2.2.1", "the release feed exposes the live latest tag");
 
 const pruned = diffReleases(registry, [{ version: "2.1.4", date: "2026-10-23" }]);
-assert(pruned.unlisted.length === 1, "a pruned audited release is reported");
+assert(pruned.unlisted.length === 2, "a pruned audited release is reported");
 assert(pruned.latest?.version === "2.1.4", "a pruned page reports its own latest release");
 
 const duplicateVersion = mutable();
@@ -144,12 +198,16 @@ if (verdictItem) verdictItem.verdict = "banana";
 expectProblem(unknownVerdict, "known verdict", "an unknown verdict fails validation");
 
 const missingIssue = mutable();
-const guardedItem = missingIssue.releases[0]?.items.find((item) => item.verdict === "guarded");
+const guardedItem = missingIssue.releases
+  .flatMap((release) => release.items)
+  .find((item) => item.verdict === "guarded");
 if (guardedItem) delete guardedItem.issue;
 expectProblem(missingIssue, "required for verdict", "a guarded change needs an issue id");
 
 const badIssue = mutable();
-const adoptedItem = badIssue.releases[0]?.items.find((item) => item.verdict === "adopted");
+const adoptedItem = badIssue.releases
+  .flatMap((release) => release.items)
+  .find((item) => item.verdict === "adopted");
 if (adoptedItem) adoptedItem.issue = "issue-1";
 expectProblem(badIssue, "not an issue id", "a malformed issue id fails validation");
 
@@ -186,6 +244,25 @@ expectProblem(staleCeiling, "not the newest release", "a stale auditedThrough fa
 const wrongSource = mutable();
 wrongSource.source = "https://example.com/changelog";
 expectProblem(wrongSource, "source must be", "a foreign source fails validation");
+
+const foreignReleases = mutable();
+foreignReleases.releasesUrl = "https://example.com/releases";
+expectProblem(foreignReleases, "releasesUrl must be", "a foreign releases url fails validation");
+
+const missingReleases = mutable();
+delete missingReleases.releasesUrl;
+expectProblem(missingReleases, "releasesUrl must be", "a missing releases url fails validation");
+
+const foreignNotes = mutable();
+const notesRelease = foreignNotes.releases[0];
+if (notesRelease) notesRelease.notesUrl = releaseNotesUrl("2.2.0");
+expectProblem(foreignNotes, "notesUrl must be", "a mismatched notes link fails validation");
+
+const missingNotes = mutable();
+if (missingNotes.releases[0]) delete missingNotes.releases[0].notesUrl;
+expectProblem(missingNotes, "not a release tag url", "a missing notes link fails validation");
+
+assert(parseReleaseFeed("<feed><title>Release notes</title></feed>").length === 0, "an empty feed yields no releases");
 
 const notAnObject = validateRegistry(["2.2.0"]);
 assert(notAnObject.length === 1, "a non-object registry fails validation");

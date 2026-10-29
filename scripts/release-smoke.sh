@@ -25,7 +25,7 @@ done
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PIN="${TAWASSUL_OPENCODE_VERSION:-}"
 MIN_VERSION="2.2.0"
-AUDITED_VERSION="2.2.0"
+AUDITED_VERSION="2.2.1"
 SUPPORTED_MAJOR="2"
 
 version_at_least() {

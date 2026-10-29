@@ -46,7 +46,14 @@ import {
 import { releaseFSLock } from "../infra/file-lock.ts";
 import { createHandoffEntry } from "../services/handoff-entry.ts";
 import { requiresConsent } from "../hooks/guards/shared/limits.ts";
-import { evaluateFreeLimitBridge, buildFreeLimitNotice, shouldDeferRateLimitToHost } from "../services/free-limit.ts";
+import {
+  evaluateFreeLimitBridge,
+  buildFreeLimitNotice,
+  isQuotaExhausted,
+  quotaProbeDelayMs,
+  QUOTA_PROBE_MAX,
+  shouldDeferRateLimitToHost,
+} from "../services/free-limit.ts";
 import { detectInstallScope, claimCoexistence, isCoexistenceOwner, releaseCoexistence } from "../core/install-scope.ts";
 import {
   ensureAddAgentToolPermissions,
@@ -203,6 +210,85 @@ export async function notifySession(ctx: PluginInput, sessionId: string, text: s
     return false;
   }
 }
+export const quotaProbes = new Map<string, { attempts: number; at: number }>();
+const quotaProbePending = new Set<string>();
+const QUOTA_PROBE_RESET_MS = 6 * 60 * 60_000;
+
+export function clearQuotaProbe(sessionId: string): void {
+  quotaProbes.delete(sessionId);
+  quotaProbePending.delete(sessionId);
+}
+
+export function isQuotaProbePending(sessionId: string): boolean {
+  return quotaProbePending.has(sessionId);
+}
+
+function currentQuotaAttempt(sessionId: string, now: number): number {
+  const state = quotaProbes.get(sessionId);
+  if (!state) return 0;
+  if (now - state.at > QUOTA_PROBE_RESET_MS) {
+    quotaProbes.delete(sessionId);
+    return 0;
+  }
+  return state.attempts;
+}
+
+export async function scheduleQuotaProbe(
+  ctx: PluginInput,
+  tawaCtx: TawassulContext,
+  sessionId: string,
+  errorMessage: string,
+): Promise<boolean> {
+  if (!isQuotaExhausted(errorMessage)) return false;
+  if (quotaProbePending.has(sessionId)) {
+    logger.debug(`[tawassul] quota probe already pending for session ${sessionId}`);
+    return true;
+  }
+  const attempt = currentQuotaAttempt(sessionId, Date.now());
+  if (attempt >= QUOTA_PROBE_MAX) {
+    quotaProbes.delete(sessionId);
+    logger.warn(`[tawassul] quota probe exhausted for session ${sessionId}`);
+    void notifySession(ctx, sessionId, t("quotaRetryExhausted", { attempts: String(QUOTA_PROBE_MAX) }));
+    return false;
+  }
+  const client = ctx.client as TranscriptClient | undefined;
+  const promptAsync = client?.session?.promptAsync ?? client?.session?.prompt;
+  if (!promptAsync || !tawaCtx.timerManager) {
+    quotaProbes.delete(sessionId);
+    logger.warn(`[tawassul] quota probe cannot be scheduled for session ${sessionId}: transcript bridge unavailable`);
+    return false;
+  }
+  const delayMs = quotaProbeDelayMs(attempt);
+  lruSet(quotaProbes, sessionId, { attempts: attempt + 1, at: Date.now() }, { moveToFront: true, cap: MAX_RETRYING_SESSIONS });
+  quotaProbePending.add(sessionId);
+  void notifySession(
+    ctx,
+    sessionId,
+    t("quotaRetryScheduled", {
+      attempt: String(attempt + 1),
+      delay: String(Math.round(delayMs / 1000)),
+      max: String(QUOTA_PROBE_MAX),
+    }),
+  );
+  logger.warn(
+    `[tawassul] provider quota exhausted for session ${sessionId} — probe ${attempt + 1}/${QUOTA_PROBE_MAX} in ${delayMs}ms`,
+  );
+  tawaCtx.timerManager.setTimeout(() => {
+    quotaProbePending.delete(sessionId);
+    Promise.resolve(
+      (promptAsync as (o: TranscriptPromptInput) => Promise<unknown>)({
+        path: { id: sessionId },
+        body: { parts: [{ type: "text", text: t("quotaRetryPrompt") }], noReply: false },
+        query: { directory: ctx.directory },
+      }),
+    ).catch((err) => {
+      logger.debug(
+        `[tawassul] quota probe prompt failed for session ${sessionId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
+  }, delayMs);
+  return true;
+}
 export async function handleRateLimitError(
   ctx: PluginInput,
   tawaCtx: TawassulContext,
@@ -210,6 +296,9 @@ export async function handleRateLimitError(
   errorMessage: string,
 ): Promise<boolean> {
   if (!matchesRateLimit(errorMessage)) return false;
+  if (isQuotaExhausted(errorMessage)) {
+    return scheduleQuotaProbe(ctx, tawaCtx, sessionId, errorMessage);
+  }
   if (shouldDeferRateLimitToHost(ctx.hostVersion, errorMessage)) {
     logger.debug(
       `[tawassul] transient rate limit for session ${sessionId} left to the host retry (${ctx.hostVersion})`,

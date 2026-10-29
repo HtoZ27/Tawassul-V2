@@ -1,4 +1,8 @@
-export type FreeLimitSignal = "free-daily-limit" | "transient-rate-limit" | "no-limit";
+export type FreeLimitSignal =
+  | "free-daily-limit"
+  | "transient-rate-limit"
+  | "quota-exhausted"
+  | "no-limit";
 
 export interface FreeLimitParseResult {
   signal: FreeLimitSignal;
@@ -23,12 +27,16 @@ const FREE_LIMIT_TEXT_PATTERNS = [
   /you'?ve used all your free (messages|requests)/i,
   /exceeded your free (message|request) limit/i,
 ];
+const QUOTA_TEXT_PATTERNS = [
+  /quota exceeded/i,
+  /\binsufficient[ _-]?quota\b/i,
+  /exceeded your current quota/i,
+];
 const TRANSIENT_TEXT_PATTERNS = [
   /rate[ _-]?limit/i,
   /too many requests/i,
   /\b429\b/,
   /throttled/i,
-  /quota exceeded/i,
 ];
 
 function normalizedTypeName(value: string): string {
@@ -109,6 +117,14 @@ function localResetStamp(epochMs: number): string {
   );
 }
 
+export const QUOTA_PROBE_BASE_MS = 5 * 60_000;
+export const QUOTA_PROBE_MAX = 3;
+
+export function quotaProbeDelayMs(attempt: number): number {
+  const exponent = Math.max(0, Math.min(attempt, 4));
+  return Math.min(30 * 60_000, QUOTA_PROBE_BASE_MS * Math.pow(2, exponent));
+}
+
 export function parseFreeLimitSignal(error: unknown): FreeLimitParseResult {
   if (error === undefined || error === null) return { signal: "no-limit" };
 
@@ -130,6 +146,10 @@ export function parseFreeLimitSignal(error: unknown): FreeLimitParseResult {
   if (FREE_LIMIT_TEXT_PATTERNS.some((pattern) => pattern.test(text))) {
     return { signal: "free-daily-limit", matchedBy: "text" };
   }
+  if (QUOTA_TEXT_PATTERNS.some((pattern) => pattern.test(text))) {
+    const source = (typeof error === "object" ? (error as Record<string, unknown>) : {}) as Record<string, unknown>;
+    return { signal: "quota-exhausted", retryAfterMs: readRetryAfterMs(source), matchedBy: "text" };
+  }
   if (TRANSIENT_TEXT_PATTERNS.some((pattern) => pattern.test(text))) {
     return { signal: "transient-rate-limit", matchedBy: "text" };
   }
@@ -142,6 +162,10 @@ export function isFreeDailyLimit(error: unknown): boolean {
 
 export function isTransientRateLimit(error: unknown): boolean {
   return parseFreeLimitSignal(error).signal === "transient-rate-limit";
+}
+
+export function isQuotaExhausted(error: unknown): boolean {
+  return parseFreeLimitSignal(error).signal === "quota-exhausted";
 }
 
 export function parseHostVersion(version: string | undefined): [number, number, number] | undefined {
