@@ -1,7 +1,7 @@
 # Tawassul V2 — Issue Register
 
-Status date: 2026-10-28 · Gate: `npm run ci` rc=0 (3 isolated stages, 91 proof files / 90 proof steps, smoke pass)
-Real global install: not performed (opt-in; see I-01).
+Status date: 2026-10-29 · Gate: `npm run ci` rc=0 (3 isolated stages, 92 proof files / 91 proof steps, smoke pass)
+Real global install: not performed (owner declined on 2026-10-29; isolated sandbox validation only; see I-01).
 Active P0: none open — E-12 (state writes reported before they happen) and
 E-13 (a rejected state file replaced by an older backup) are resolved. The
 project entry is rebuilt from this tree, and `npm run host:refresh` reloads the
@@ -284,7 +284,7 @@ The flat self-contained install is implemented and proven at the file level
 (H-08). The items below are the remaining gaps; none of them blocks the
 project install, which stays the default.
 
-### I-01 Real global install is not performed — verified, deferred (owner opt-in)
+### I-01 Real global install is not performed — verified; owner declined the install (2026-10-29)
 
 State of this machine (2026-10-26): no global Tawassul install exists.
 `~/.config/opencode/` contains `opencode.jsonc`, `package.json` (`{}`),
@@ -313,7 +313,14 @@ returns `global` for the projected
 bundle. Nothing was written: the config directory still has only its five
 original files.
 
-Next: on explicit request, run `npm run build`, `npm run install:global`,
+Owner decision (2026-10-29): no real global install on this machine. The
+installer and the DB lane are validated with isolated sandbox experiments
+only: `npm run prove:global-install` rehearses the whole lifecycle in a
+temporary HOME (install, verify, tamper repair, uninstall, and purge, with
+the real host untouched), and `scripts/prove-db-lock.ts` serializes
+concurrent maintenance runs issued from two separate project copies against
+one synthetic DB (see E-52). The install stays opt-in if the owner ever
+re-opens the decision: `npm run build`, `npm run install:global`,
 `npm run verify:global`, then boot the Desktop (or an isolated HOME) and
 confirm one `loading plugin` line for the flat file, 42 tools, and a working
 `astquery`.
@@ -1911,7 +1918,7 @@ no fresh init, a reload whose live bundle differs, a missing plugin log,
 `--verify-only` (fresh, stale, digest mismatch, and live-bundle mismatch), the
 fingerprint utility, the mtime fallback, the restart dry run, and the detached
 restart path producing a fresh and a stale report. `prove-proof-catalog` now
-counts 91 proof files / 90 steps.
+counts 92 proof files / 91 steps.
 
 Live check 2026-10-28 (the server restart reset the PID to 3157):
 `npm run host:refresh -- --verify-only` matched the logged bundle fingerprint
@@ -1920,6 +1927,27 @@ with the entry file's SHA-256; `npm run host:refresh` then printed
 recorded `v2 registered 42 tools` at 22:06:08.833Z, and the service PID stayed
 3157. The earlier reload at 12:30:27.054Z kept pid 1249993 and registered 42
 tools, so both runs load the new bundle without an operator restart.
+
+### E-52 The maintenance lock loser deleted the holder lock — fixed (2026-10-29)
+
+The single-run lock was ported from the v1 tree with its EXIT trap intact:
+the trap removes `$LOCK_DIR` whenever the variable is set, but both loser
+branches (exit 8 when a live holder owns the lock, and exit 8 after a
+contested reclaim) left `LOCK_DIR` pointing at the holder's directory. A
+losing run therefore deleted the live winner's lock, and a third run could
+enter while the winner still worked. An isolated sandbox reproduced it
+deterministically: with a live holder pid recorded in the lock, the loser
+exited 8 and removed the lock, and the next run completed with rc=0 while
+the holder was alive. The retired v1 tree carries the same flaw; it is not
+fixed there.
+
+Fix: `scripts/opencode-db-maintenance.sh` clears `LOCK_DIR` in both exit-8
+branches before exiting, so only the owner that created the lock removes it.
+`scripts/prove-db-lock.ts` (the `db-lock` step, 26 assertions) stages the DB
+scripts into two separate project copies, asserts a loser keeps the live
+holder lock and leaves the DB byte-identical, asserts dead-owner reclaim, and
+runs a four-way concurrent wave (one winner observed, losers exit 8 and name
+the contended lock) with `PRAGMA integrity_check` clean before and after.
 
 ### G-14 The generation guard's orphaned-WAL branch has no fixture — done (2026-10-26)
 

@@ -97,7 +97,7 @@ replaces an unmarked file.
 
 ```
 npm run gate:fast    # rules + shell syntax + typecheck + config + facts + catalog
-npm run gate:proofs  # 90 proofs, one isolated child process each
+npm run gate:proofs  # 91 proofs, one isolated child process each
 npm run gate:smoke   # build + release smoke (one scratch boot)
 npm run ci           # all three stages, sequentially, each in its own process
 npm run verify       # gate:fast + build
