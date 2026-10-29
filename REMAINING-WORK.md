@@ -1,6 +1,6 @@
 # Remaining Work Ledger
 
-Status: 2026-10-29 · HEAD `4258815` · `npm run verify` green (fast 9/9, 104 proof files,
+Status: 2026-10-29 · HEAD `edb163e` · `npm run verify` green (fast 9/9, 104 proof files,
 101 proofs-stage steps, 4 smoke steps).
 
 Purpose: one list of every open or partially closed item in `SCRIPT-PARITY.md`,
