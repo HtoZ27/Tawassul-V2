@@ -3,6 +3,7 @@ import { isRootLikeAgent, isShellTool, requiresConsent } from "./shared.ts";
 import { logger } from "../../utils/logger.ts";
 import { t } from "../../translations.ts";
 import { ASK_PENDING } from "../../services/ask-channel.ts";
+import { isAcceptToken } from "../../services/ask-channel-parse.ts";
 
 export let consentGateEnabled = true;
 
@@ -16,7 +17,8 @@ function isApprovalWord(value: unknown): boolean {
   if (value === true) return true;
   if (typeof value !== "string") return false;
   const norm = value.toLowerCase().trim();
-  return norm === "true" || norm === "yes" || norm === "ok" || norm === "once";
+  if (norm === "once") return true;
+  return isAcceptToken(value);
 }
 
 function buildDryRunPreview(tool: string, args: Record<string, unknown>): string {

@@ -45,8 +45,13 @@ assert(
 const statePaths = text(join(srcDir, "utils", "state-paths.ts"));
 assert(statePaths.includes('LEGACY_STATE_DIR_NAME = "tawassyl"'), "legacy state directory is named explicitly");
 const primaryCheck = statePaths.indexOf("existsSync(primary)");
+const gateCheck = statePaths.indexOf("if (!legacyReadsEnabled())");
 const legacyCheck = statePaths.indexOf("legacyStatePath(fileName)");
-assert(primaryCheck !== -1 && legacyCheck !== -1 && primaryCheck < legacyCheck, "state reads prefer the v2 path and fall back only when it is absent");
+assert(
+  primaryCheck !== -1 && gateCheck !== -1 && legacyCheck !== -1 && primaryCheck < gateCheck && gateCheck < legacyCheck,
+  "state reads prefer the v2 path and gate the legacy fallback behind an explicit opt-in",
+);
+assert(statePaths.includes("TAWASSUL_V2_LEGACY_READS"), "the legacy read gate is named explicitly");
 
 const pkg = JSON.parse(text(join(repo, "package.json"))) as {
   dependencies?: Record<string, string>;

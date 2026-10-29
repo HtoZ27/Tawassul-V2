@@ -516,7 +516,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/ask-channel-parse.ts",
-            "line": 8,
+            "line": 16,
             "marker": "YES_RE"
           },
           "proofs": [
@@ -981,7 +981,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/ask-channel-parse.ts",
-            "line": 4,
+            "line": 12,
             "marker": "multiselect"
           },
           "proofs": [
@@ -1359,7 +1359,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/utils/state-paths.ts",
-            "line": 98,
+            "line": 104,
             "marker": "legacyFallbackFor"
           },
           "proofs": [

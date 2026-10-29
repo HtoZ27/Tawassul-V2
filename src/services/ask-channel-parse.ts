@@ -1,3 +1,11 @@
+import {
+  consentTokensPath,
+  customTokenCount,
+  isCustomAcceptToken,
+  isCustomDenyToken,
+  normalizeToken,
+} from "./consent-tokens.ts";
+
 export type AskKind =
   | { type: "confirm"; default: boolean }
   | { type: "select"; options: string[] }
@@ -6,7 +14,21 @@ export type AskKind =
 export type AskReply = boolean | string | string[];
 
 const YES_RE = /^(yes|y|yep|yeah|sure|ok|okay|aye|fine|go ahead|1|true)$/i;
-const NO_RE = /^(no|n|nope|nah|nay|stop|reject|rejected|refuse|refused|forbidden|deny|decline|0|false)$/i;
+const NO_RE = /^(no|n|nope|nah|nay|stop|reject|rejected|refuse|refused|forbidden|deny|decline|no thanks|no thank you|not now|0|false)$/i;
+
+export function isAcceptToken(value: unknown): boolean {
+  if (value === true) return true;
+  if (typeof value !== "string") return false;
+  const token = normalizeToken(value);
+  return token !== "" && (YES_RE.test(token) || isCustomAcceptToken(token));
+}
+
+export function isRejectToken(value: unknown): boolean {
+  if (value === false) return true;
+  if (typeof value !== "string") return false;
+  const token = normalizeToken(value);
+  return token !== "" && (NO_RE.test(token) || isCustomDenyToken(token));
+}
 
 export const ASK_MARKER = "\u0002TAWASSUL_ASK\u0002";
 
@@ -35,8 +57,8 @@ export function parseUserReply(content: string, kind: AskKind): AskReply | undef
   if (!text) return undefined;
 
   if (kind.type === "confirm") {
-    if (YES_RE.test(text)) return true;
-    if (NO_RE.test(text)) return false;
+    if (isAcceptToken(content)) return true;
+    if (isRejectToken(content)) return false;
     return undefined;
   }
 
@@ -85,10 +107,17 @@ export function parseUserReply(content: string, kind: AskKind): AskReply | undef
 export function formatAskPrompt(title: string, kind: AskKind): string {
   if (kind.type === "confirm") {
     const hint = kind.default ? "Yes" : "No";
+    const tokensPath = consentTokensPath();
+    const custom = customTokenCount();
+    const customLine =
+      custom > 0
+        ? `👉 Custom words loaded (${custom}): ${tokensPath}`
+        : `👉 Add your own accept/reject words to ${tokensPath}`;
     return [
       `⚠️ ${title}`,
       "👉 To accept, reply with any acceptance token: yes, sure, ok, okay, go ahead",
       "👉 To reject, reply with any rejection token: no, stop, no thanks",
+      customLine,
       "⚠️ I'll treat any acceptance token as immediate consent and execute.",
       `(default ${hint})`,
     ].join("\n");

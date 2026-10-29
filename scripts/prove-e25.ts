@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TawassulContext } from "../src/context.ts";
@@ -109,6 +109,36 @@ async function confirmCapCase(): Promise<void> {
   } finally {
     channel.dispose();
     timers.dispose();
+  }
+}
+
+async function customTokenCase(work: string): Promise<void> {
+  const tokensFile = join(work, "consent-tokens.json");
+  const accept = String.fromCodePoint(0x0646, 0x0639, 0x0645);
+  const deny = String.fromCodePoint(0x0644, 0x0627);
+  const prior = process.env.TAWASSUL_CONSENT_TOKENS;
+  writeFileSync(tokensFile, JSON.stringify({ accept: [accept], deny: [deny] }), "utf-8");
+  process.env.TAWASSUL_CONSENT_TOKENS = tokensFile;
+  const { channel, timers } = makeChannel();
+  try {
+    const accepted = channel.ask("Proceed?", CONFIRM);
+    channel.onUserMessage("sess-main", accept);
+    assert((await accepted) === true, "a configured acceptance token approves the question");
+    const denied = channel.ask("Proceed?", CONFIRM);
+    channel.onUserMessage("sess-main", deny);
+    assert((await denied) === false, "a configured rejection token denies the question");
+    const vocalized = String.fromCodePoint(0x0646, 0x064e, 0x0639, 0x064e, 0x0645);
+    const diacritics = channel.ask("Proceed?", CONFIRM);
+    channel.onUserMessage("sess-main", vocalized);
+    assert((await diacritics) === true, "diacritics do not hide a configured token");
+    const quoted = channel.ask("Proceed?", CONFIRM);
+    channel.onUserMessage("sess-main", "\u00AByes\u00BB");
+    assert((await quoted) === true, "edge punctuation does not hide a built-in token");
+  } finally {
+    channel.dispose();
+    timers.dispose();
+    if (prior === undefined) delete process.env.TAWASSUL_CONSENT_TOKENS;
+    else process.env.TAWASSUL_CONSENT_TOKENS = prior;
   }
 }
 
@@ -239,6 +269,7 @@ async function main(): Promise<void> {
     await elicitationCase();
     await reviewCases();
     await kickCases(work);
+    await customTokenCase(work);
   } finally {
     rmSync(work, { recursive: true, force: true });
   }

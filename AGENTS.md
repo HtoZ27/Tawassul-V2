@@ -44,8 +44,9 @@ re-open the v1 transfer channel.
    verify (`npm run verify`), and commit code changes.
 3. **One plugin copy.** This tree is the only runnable Tawassul plugin.
    v2 must not import from, build with, or execute the v1 tree. The only
-   permitted v1-era reads are the documented legacy state fallback and the
-   existing HMAC key file; `npm run prove:independence` enforces this.
+   permitted v1-era reads are the existing HMAC key file and a one-time legacy
+   state import gated behind `TAWASSUL_V2_LEGACY_READS=1` (default off);
+   `npm run prove:independence` enforces this.
 4. **One host in production.** The Desktop and its sidecar are the supported
    host. Two hosts run only in isolated tests (`XDG_*`, `OPENCODE_DB`, and
    state separated), never on the same workspace at the same time.

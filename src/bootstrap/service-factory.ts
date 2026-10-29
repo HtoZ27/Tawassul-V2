@@ -69,7 +69,7 @@ import { createHandoffEntry } from "../services/handoff-entry.ts";
 import { logger } from "../utils/logger.ts";
 import { t } from "../translations.ts";
 import { resolveRuntimeStateDir } from "../utils/path-resolver.ts";
-import { scopedStatePath, stateReadPath } from "../utils/state-paths.ts";
+import { legacyReadsEnabled, scopedStatePath, stateReadPath } from "../utils/state-paths.ts";
 
 
 
@@ -156,6 +156,7 @@ export function migrateLegacyCollectiveMemory(
   memFile: string,
   projectKey: string | undefined,
 ): "migrated" | "skipped" {
+  if (!legacyReadsEnabled()) return "skipped";
   const newMemFile = join(newStateDir, memFile);
   const legacyMemFile = join(legacyStateDir, "collective-memory.json");
   if (!projectKey || newMemFile === legacyMemFile || existsSync(newMemFile) || !existsSync(legacyMemFile)) {

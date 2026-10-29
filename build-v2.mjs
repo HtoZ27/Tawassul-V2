@@ -127,4 +127,16 @@ console.log(`Embedded content SHA: ${contentSha.slice(0, 12)}`);
 const pluginDir = join(".opencode", "plugin");
 mkdirSync(pluginDir, { recursive: true });
 copyFileSync(join(outdir, "index.js"), join(pluginDir, "tawassul.js"));
+const localRuntimeDir = join(".opencode", "tawassul-runtime", "db");
+mkdirSync(localRuntimeDir, { recursive: true });
+for (const file of [
+  "opencode-db-maintenance.sh",
+  "guard-db-generation.sh",
+  "opencode-db-scheduled.sh",
+  "db-env.sh",
+  "doctor-v2.sh",
+]) {
+  copyFileSync(join("scripts", file), join(localRuntimeDir, file));
+}
+console.log(`Local runtime ready: ${localRuntimeDir}`);
 console.log(`Plugin entry ready: ${join(pluginDir, "tawassul.js")} (run bun install --cwd .opencode once)`);

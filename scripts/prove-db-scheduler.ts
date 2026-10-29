@@ -128,6 +128,10 @@ async function lockCases(): Promise<void> {
 
   mkdirSync(lock, { recursive: true });
   writeFileSync(join(lock, "pid"), "999999\n");
+  delete process.env.TAWASSUL_DB_SCRIPT;
+  const nonCanonical = await arm("non-canonical");
+  assert(!nonCanonical.ran, "a non-canonical project cannot supply the lane script");
+  process.env.TAWASSUL_DB_SCRIPT = shim;
   const deadOwner = await arm("dead-owner");
   assert(deadOwner.ran, "a lock held by a dead pid is reclaimed and the lane runs");
   assert(!existsSync(lock), "the reclaimed lock is released by the lane");
@@ -149,6 +153,7 @@ async function lockCases(): Promise<void> {
   utimesSync(lock, old, old);
   const staleUntagged = await arm("stale-untagged");
   assert(staleUntagged.ran, "an old lock without a pid file is reclaimed");
+  delete process.env.TAWASSUL_DB_SCRIPT;
 }
 
 try {

@@ -19,6 +19,7 @@ const childSource = [
   'import { mkdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";',
   'import { join } from "node:path";',
   `import { legacyFallbackFor, legacyStatePath, statePath, stateReadPath } from ${JSON.stringify(modules.statePaths)};`,
+  'process.env.TAWASSUL_V2_LEGACY_READS = "1";',
   "let passed = 0;",
   "function assert(cond, name) {",
   '  if (!cond) { console.error(`PROOF FAIL: ${name}`); process.exit(1); }',
@@ -51,7 +52,11 @@ const childSource = [
   'assert(legacyStatePath(fileName) === router, "an exact tie prefers the non-retired directory");',
   'assert(stateReadPath(fileName) === router, "the read path prefers the non-retired directory on a tie");',
   'process.env.TAWASSUL_V2_STATE_DIR = join(work, "v2state");',
-  'assert(legacyFallbackFor(join(work, "v2state", fileName)) === router, "the fallback resolver follows the same newest candidate");',
+  'delete process.env.TAWASSUL_V2_LEGACY_READS;',
+  'assert(stateReadPath(fileName) === statePath(fileName), "legacy reads are off by default");',
+  'assert(legacyFallbackFor(join(work, "v2state", fileName)) === undefined, "legacy fallback is off by default");',
+  'process.env.TAWASSUL_V2_LEGACY_READS = "1";',
+  'assert(legacyFallbackFor(join(work, "v2state", fileName)) === router, "the fallback resolver follows the same newest candidate when enabled");',
   "delete process.env.TAWASSUL_V2_STATE_DIR;",
   "rmSync(router, { force: true });",
   'assert(legacyStatePath(fileName) === retired, "a single candidate is returned");',
@@ -74,6 +79,7 @@ env.HOME = fakeHome;
 delete env.XDG_CONFIG_HOME;
 delete env.TAWASSUL_V2_STATE_DIR;
 delete env.TAWASSUL_V2_LEGACY_STATE_DIR;
+delete env.TAWASSUL_V2_LEGACY_READS;
 
 try {
   const run = spawnSync("bun", [childPath], { encoding: "utf8", env, timeout: 120_000 });

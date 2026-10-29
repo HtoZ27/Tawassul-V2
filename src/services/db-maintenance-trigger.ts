@@ -21,13 +21,24 @@ function lockPath(): string {
   return resolve(dbMaintenanceRoot(), "trigger.lock");
 }
 
+function canonicalRepo(projectDir: string): boolean {
+  try {
+    const pkg = JSON.parse(readFileSync(resolve(projectDir, "package.json"), "utf-8")) as { name?: unknown };
+    return pkg.name === "tawassul-v2";
+  } catch {
+    return false;
+  }
+}
+
 function laneScript(projectDir: string): string | undefined {
+  const override = process.env.TAWASSUL_DB_SCRIPT?.trim();
+  if (override) return existsSync(override) ? override : undefined;
   const pluginDir = dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    resolve(pluginDir, "..", "tawassul-runtime", "db", "opencode-db-scheduled.sh"),
-    resolve(projectDir, "scripts", "opencode-db-scheduled.sh"),
-  ];
-  return candidates.find((candidate) => existsSync(candidate));
+  const runtime = resolve(pluginDir, "..", "tawassul-runtime", "db", "opencode-db-scheduled.sh");
+  if (existsSync(runtime)) return runtime;
+  if (!canonicalRepo(projectDir)) return undefined;
+  const local = resolve(projectDir, "scripts", "opencode-db-scheduled.sh");
+  return existsSync(local) ? local : undefined;
 }
 
 function dbExists(): boolean {

@@ -4,6 +4,7 @@ import { globalConfigBaseDir, safeHomedir, type InstallScope } from "./path-reso
 
 export const STATE_DIR_ENV = "TAWASSUL_V2_STATE_DIR";
 export const LEGACY_STATE_DIR_ENV = "TAWASSUL_V2_LEGACY_STATE_DIR";
+export const LEGACY_READS_ENV = "TAWASSUL_V2_LEGACY_READS";
 export const STATE_DIR_NAME = "tawassul-v2";
 export const LEGACY_STATE_DIR_NAME = "tawassyl";
 export const LEGACY_ROUTER_DIR_NAME = "tawassul";
@@ -34,6 +35,10 @@ export function legacyStateDir(): string {
   const override = process.env[LEGACY_STATE_DIR_ENV]?.trim();
   if (override) return resolve(override);
   return resolve(safeHomedir(), ".config", LEGACY_STATE_DIR_NAME, STATE_SUBDIR);
+}
+
+export function legacyReadsEnabled(): boolean {
+  return process.env[LEGACY_READS_ENV]?.trim() === "1";
 }
 
 function legacyStateCandidateDirs(): string[] {
@@ -90,6 +95,7 @@ export function legacyStatePath(fileName: string): string {
 export function stateReadPath(fileName: string): string {
   const primary = statePath(fileName);
   if (existsSync(primary)) return primary;
+  if (!legacyReadsEnabled()) return primary;
   const legacy = legacyStatePath(fileName);
   if (existsSync(legacy)) return legacy;
   return primary;
@@ -99,6 +105,7 @@ export function legacyFallbackFor(filePath: string): string | undefined {
   const target = resolve(filePath);
   const rel = relative(stateDir(), target);
   if (rel !== "" && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel)) {
+    if (!legacyReadsEnabled()) return undefined;
     const hit = newestExisting(legacyStateCandidates(rel).filter((candidate) => candidate !== target));
     return hit;
   }

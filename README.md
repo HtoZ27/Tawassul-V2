@@ -34,6 +34,22 @@ printf '{"type":"module","dependencies":{"@opencode/plugin":"^2.2.1"}}\n' > .ope
 bun install --cwd .opencode
 ```
 
+### Consent words
+
+The consent gate accepts the built-in English words and any extra accept/deny
+words listed in `~/.config/tawassul-v2/consent-tokens.json`:
+
+```
+{
+  "accept": ["yes", "ok"],
+  "deny": ["no", "stop"]
+}
+```
+
+Use `TAWASSUL_CONSENT_TOKENS=/path/to/file.json` to point at a different file.
+Matching ignores case, surrounding punctuation, Arabic diacritics, and common
+letter variants, so a word may be written naturally.
+
 Use the pinned launcher for normal boots:
 
 ```

@@ -29,6 +29,7 @@ function nonEmptyLines(path: string): string[] {
 }
 
 const root = mkdtempSync(join(tmpdir(), "s024-"));
+const priorTokens = process.env.TAWASSUL_CONSENT_TOKENS;
 try {
   const tlDir = join(root, "tl");
   const tl = new TimelineStore(tlDir, { flushIntervalMs: 3_600_000, maxFlushBuffer: 2 });
@@ -150,8 +151,13 @@ try {
   const confirm = { type: "confirm", default: false } as const;
   const arabicYes = String.fromCodePoint(0x0646, 0x0639, 0x0645);
   const arabicNo = String.fromCodePoint(0x0644, 0x0627);
-  assert(parseUserReply(arabicYes, confirm) === undefined, "chat path ignores a non-English approval");
-  assert(parseUserReply(arabicNo, confirm) === undefined, "chat path ignores a non-English denial");
+  const tokensFile = join(root, "consent-tokens.json");
+  process.env.TAWASSUL_CONSENT_TOKENS = tokensFile;
+  assert(parseUserReply(arabicYes, confirm) === undefined, "chat path ignores an unconfigured non-English approval");
+  assert(parseUserReply(arabicNo, confirm) === undefined, "chat path ignores an unconfigured non-English denial");
+  writeFileSync(tokensFile, JSON.stringify({ accept: [arabicYes], deny: [arabicNo] }), "utf-8");
+  assert(parseUserReply(arabicYes, confirm) === true, "chat path honors a configured approval word");
+  assert(parseUserReply(arabicNo, confirm) === false, "chat path honors a configured denial word");
   assert(parseUserReply("ok", confirm) === true, "chat path honors ok");
   assert(parseUserReply("please help me with the code", confirm) === undefined, "chat path ignores prose");
   const guardSrc = readFileSync("src/hooks/guards/consent-gate-guard.ts", "utf-8");
@@ -159,6 +165,8 @@ try {
   const dbIsoSrc = readFileSync("src/bootstrap/db-isolation.ts", "utf-8");
   assert(!dbIsoSrc.includes("installationHealth"), "installer-coupled health stays unported");
 } finally {
+  if (priorTokens === undefined) delete process.env.TAWASSUL_CONSENT_TOKENS;
+  else process.env.TAWASSUL_CONSENT_TOKENS = priorTokens;
   rmSync(root, { recursive: true, force: true });
 }
 

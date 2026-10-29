@@ -69,7 +69,10 @@ try {
 
   mkdirSync(legacyStateDir(), { recursive: true });
   writeFileSync(legacyStatePath("seed.json"), "legacy-seed", "utf-8");
-  assert(stateReadPath("seed.json") === legacyStatePath("seed.json"), "legacy file is read when the namespaced file is absent");
+  delete process.env.TAWASSUL_V2_LEGACY_READS;
+  assert(stateReadPath("seed.json") === statePath("seed.json"), "legacy reads are off by default");
+  process.env.TAWASSUL_V2_LEGACY_READS = "1";
+  assert(stateReadPath("seed.json") === legacyStatePath("seed.json"), "legacy file is read when enabled and the namespaced file is absent");
 
   mkdirSync(stateDir(), { recursive: true });
   writeFileSync(statePath("seed.json"), "new-seed", "utf-8");

@@ -47,7 +47,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-021 | The 37-commit sweep remainders are ported: invocation fallback, scoped budgets, honest cost, and the MAX doctrine. | `src/tools/agent-management.ts:63` `tawaFallbackPermission` | `scripts/prove-s021.ts` | verified |
 | S-023 | The reconciliation remainders are ported: iteration budgets, timers, torn reads, and abort. | `src/services/iteration-budget.ts:63` `applyIterationBudgets` | `scripts/prove-s021.ts` | verified |
 | S-024 | The atomic-audit findings are ported and the gate hole is closed. | `src/services/timeline-store.ts:161` `getFlushStats` | `scripts/prove-s024.ts` | verified |
-| S-025 | The round-2 findings are ported and no blocker remains. | `src/services/ask-channel-parse.ts:8` `YES_RE` | `scripts/prove-s024.ts` | verified |
+| S-025 | The round-2 findings are ported and no blocker remains. | `src/services/ask-channel-parse.ts:16` `YES_RE` | `scripts/prove-s024.ts` | verified |
 | S-026 | The rule gate rejects comments, Arabic literals, and glued directives. | `scripts/check-v2-rules.mjs:9` `ARABIC_RE` | `scripts/prove-rule-gate.ts` | verified |
 | S-027 | The S-022 closure was re-verified bilaterally. | - | - | doc-only |
 | S-028 | The provider model cache is the source of truth for suffix governance. | `src/core/model-registry.ts:148` `getProviderModelTokens` | `scripts/prove-s028.ts` | verified |
@@ -70,7 +70,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-041.2 | Item 7 ran as a live dual-generation boot and the v1 guard refused a v2 DB. | `CUTOVER.md:3` `live dual-generation gate` | `CUTOVER.md` | verified |
 | S-042 | Local plugin entries must be deduplicated by the loader, not only by the plugin. | `src/core/install-scope.ts:56` `claimCoexistence` | - | host-bound |
 | S-043 | Legacy config keys no longer produce per-boot normalization warnings. | `src/utils/opencode-config.ts:376` `applyBootRepairs` | - | anchored |
-| S-044 | Select and multiselect elicitation fail closed through the ask bridge. | `src/services/ask-channel-parse.ts:4` `multiselect` | `scripts/prove-v2-ask-bridge.ts` | verified |
+| S-044 | Select and multiselect elicitation fail closed through the ask bridge. | `src/services/ask-channel-parse.ts:12` `multiselect` | `scripts/prove-v2-ask-bridge.ts` | verified |
 | S-045 | Deferred tool schemas are refreshed after init with a bounded retry. | `src/v2/setup.ts:23` `SCHEMA_RETRY_ATTEMPTS` | `scripts/prove-b02.ts` | verified |
 | S-046 | Unknown permission actions need a host default policy or rule registration. | `src/v2/ask.ts:18` `evaluate` | - | host-bound |
 | S-047 | Tool output deltas and a compaction prompt contract are implemented. | `src/hooks/tool-output-stream.ts:90` `message.part.delta` | `scripts/prove-e15.ts` | verified |
@@ -91,7 +91,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-053.10 | Deleted-agent names persist in the user-owned deletion list and survive a seed. | `src/scripts/gen-opencode-config.ts:57` `deletedPath: resolve(root, ".opencode", "deleted-agents.json"),` | `scripts/prove-seed-agents.ts`, `scripts/prove-first-boot-seed.ts` | verified |
 | S-054 | The frozen boot-scorecard fixes are ported. | `scripts/boot-scorecard-v2.sh:30` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
 | S-055 | The v1 docs and atomic backlog is triaged before retirement. | - | - | doc-only |
-| S-056 | v1 shared state, HMAC, lock, seat, and N2 surfaces are namespaced. | `src/utils/state-paths.ts:98` `legacyFallbackFor` | `scripts/prove-state-namespace.ts` | verified |
+| S-056 | v1 shared state, HMAC, lock, seat, and N2 surfaces are namespaced. | `src/utils/state-paths.ts:104` `legacyFallbackFor` | `scripts/prove-state-namespace.ts` | verified |
 | S-057 | The addagent advisory consults the provider before warning about an unknown model. | `src/core/model-registry.ts:171` `shouldWarnUnverifiedModel` | `scripts/prove-s028.ts` | verified |
 
 ## Open items
