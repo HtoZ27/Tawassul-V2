@@ -146,6 +146,33 @@ async function main(): Promise<void> {
     generatedRepair.fixes.length === 0,
     "a freshly generated config already satisfies the permission repair",
   );
+
+  const liveConfig = readFileSync(join(repo, "opencode.json"), "utf8");
+  assert(!liveConfig.includes("subagent_depth"), "the live config carries no subagent_depth key");
+  assert(!liveConfig.includes('"compaction"'), "the live config carries no compaction block");
+  assert(!generatedRaw.includes("subagent_depth"), "generated config never emits subagent_depth");
+  assert(!generatedRaw.includes('"compaction"'), "generated config never emits compaction");
+
+  const legacyRaw = JSON.stringify(
+    {
+      model: "opencode/big-pickle",
+      subagent_depth: 3,
+      compaction: { prune: true },
+    },
+    null,
+    2,
+  );
+  const legacyRepair = applyBootRepairs(legacyRaw);
+  assert(legacyRepair.fixes.length === 0, "legacy v1 keys trigger no boot repair pass");
+  const legacyConfig = JSON.parse(legacyRepair.next) as Record<string, unknown>;
+  assert(legacyConfig["subagent_depth"] === 3, "boot repair leaves subagent_depth untouched");
+  assert(
+    (legacyConfig["compaction"] as { prune?: boolean }).prune === true,
+    "boot repair leaves compaction.prune untouched",
+  );
+  const repairSource = readFileSync(join(repo, "src", "utils", "opencode-config.ts"), "utf8");
+  assert(!repairSource.includes("subagent_depth"), "the repair source names no subagent_depth key");
+  assert(!repairSource.includes("compaction.prune"), "the repair source names no compaction.prune key");
 }
 
 try {

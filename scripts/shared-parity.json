@@ -9,19 +9,21 @@
       "requirements": [
         {
           "text": "The v2 entry is a module exporting a plugin object with id, server, and setup.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/index.ts",
             "line": 8,
             "marker": "setup: createV2Setup"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-host-entry.ts"
+          ],
           "issue": null,
           "note": "The same object is passed to Plugin.define, so the host receives the recognized fields.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-002",
@@ -30,19 +32,21 @@
       "requirements": [
         {
           "text": "The build resolves the host plugin package through the ESM exports condition instead of a static external list.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "build-v2.mjs",
             "line": 18,
             "marker": "import.meta.resolve"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-host-entry.ts"
+          ],
           "issue": null,
           "note": "Runtime resolve guard keeps host packages external when they resolve.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-003",
@@ -74,19 +78,21 @@
       "requirements": [
         {
           "text": "Setup aborts before registration when the host lacks the session or tool domain.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/v2/setup.ts",
             "line": 293,
             "marker": "host missing required domains"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-host-entry.ts"
+          ],
           "issue": null,
           "note": "Fail-closed capability probe before any tool registration.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-005",
@@ -116,19 +122,21 @@
       "requirements": [
         {
           "text": "Model display names are English-only with no bilingual shape or lang parameter.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/core/model-registry.ts",
             "line": 91,
             "marker": "MODEL_DISPLAY_NAMES"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-feature-index-english.ts"
+          ],
           "issue": null,
           "note": "One display string per model; no language branch remains.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-007",
@@ -154,19 +162,21 @@
       "requirements": [
         {
           "text": "The translations stub is English-only and has no logger dependency.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/translations.ts",
             "line": 3,
             "marker": "Lang"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-feature-index-english.ts"
+          ],
           "issue": null,
           "note": "The stub resolves keys from the English dictionary for importers.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-009",
@@ -175,19 +185,21 @@
       "requirements": [
         {
           "text": "One object serves the v1 host through server and the v2 host through setup.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/index.ts",
             "line": 7,
             "marker": "server: initPlugin"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-host-entry.ts"
+          ],
           "issue": null,
           "note": "Dual export is the shipped entry shape.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-010",
@@ -213,19 +225,21 @@
       "requirements": [
         {
           "text": "Status changes refresh the board index and carry session provenance.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/services/mission-board.ts",
             "line": 188,
             "marker": "scheduleIndexWrite"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-board-invariants.ts"
+          ],
           "issue": null,
           "note": "Index sync and sessionId are on the update path.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-012",
@@ -234,19 +248,21 @@
       "requirements": [
         {
           "text": "A completed board cannot be reopened; transitions are close-only.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/services/mission-board.ts",
             "line": 304,
             "marker": "isCompleted"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-board-invariants.ts"
+          ],
           "issue": null,
           "note": "Close-only semantics live in the board store.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-013",
@@ -276,19 +292,21 @@
       "requirements": [
         {
           "text": "A standalone health tool exists in the tawa namespace.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/tools/tawa/health.ts",
             "line": 55,
             "marker": "buildHealthTool"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-e46.ts"
+          ],
           "issue": null,
           "note": "Registered as a distinct tool under the tawa namespace.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-015",
@@ -622,19 +640,21 @@
       "requirements": [
         {
           "text": "The live roster is aligned with the generation-layer retire.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/scripts/gen-opencode-config.ts",
             "line": 286,
             "marker": "unionDeletedVariants"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-s029.ts"
+          ],
           "issue": null,
           "note": "Generation excludes retired variants; check:config runs in gate:fast and no dedicated proof asserts the union.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-031",
@@ -666,19 +686,21 @@
       "requirements": [
         {
           "text": "A stale project-scope copy must not win registration in a shared process.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/core/install-scope.ts",
             "line": 56,
             "marker": "claimCoexistence"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-s038.ts"
+          ],
           "issue": null,
           "note": "The per-workspace claim is in place; the duplicate-winner observation is a host check.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-033",
@@ -791,19 +813,22 @@
       "requirements": [
         {
           "text": "Bare-base derivation, no-env hardening, kick bulk, and the roster updates are ported.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/tools/agent-add-helpers.ts",
             "line": 104,
             "marker": "deriveVariantSpec"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-s028.ts",
+            "scripts/prove-s036.ts"
+          ],
           "issue": null,
           "note": "The addagent derivation and refusal paths are shipped.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-037",
@@ -957,19 +982,21 @@
       "requirements": [
         {
           "text": "Legacy config keys no longer produce per-boot normalization warnings.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/utils/opencode-config.ts",
             "line": 376,
             "marker": "applyBootRepairs"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-e02.ts"
+          ],
           "issue": null,
           "note": "subagent_depth and compaction.prune are absent from opencode.json and boot repair does not re-add them.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-044",

@@ -1,4 +1,14 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { FeatureIndex } from "../src/services/feature-index.ts";
+import {
+  MODEL_CATALOG,
+  MODEL_DISPLAY_NAMES,
+  getAllModelDisplayNames,
+  getUserFacingModelName,
+} from "../src/core/model-registry.ts";
+import { getLanguage, loadLocale, recordTypeLabel, setLanguage, t } from "../src/translations.ts";
 
 let passed = 0;
 
@@ -92,4 +102,46 @@ assert(
   "normalizing a second time keeps the English legacy name",
 );
 
-console.log(`PROOF PASS: feature index text is English-only (${passed} assertions)`);
+const repo = dirname(dirname(fileURLToPath(import.meta.url)));
+const registrySource = readFileSync(join(repo, "src", "core", "model-registry.ts"), "utf8");
+assert(!/\blang\b/i.test(registrySource), "the model registry exposes no lang parameter");
+assert(
+  MODEL_CATALOG.every((model) => model.display.length > 0 && !ARABIC_RE.test(model.display)),
+  "every model display name is non-empty English",
+);
+assert(
+  MODEL_CATALOG.every((model) => /^[\x20-\x7E]+$/.test(model.display)),
+  "every model display name stays printable ASCII",
+);
+assert(Object.keys(MODEL_DISPLAY_NAMES).length === MODEL_CATALOG.length, "the display map covers the whole catalog");
+assert(
+  MODEL_CATALOG.every((model) => MODEL_DISPLAY_NAMES[model.id] === model.display),
+  "the display map mirrors the catalog one-to-one",
+);
+assert(getAllModelDisplayNames().length === MODEL_CATALOG.length, "the display list returns one name per model");
+assert(getUserFacingModelName.length === 1, "the user-facing resolver takes only the model id");
+assert(
+  MODEL_CATALOG.every((model) => getUserFacingModelName(model.id) === model.display),
+  "the resolver returns the English display name",
+);
+assert(
+  getUserFacingModelName("vendor/unknown-model") === "Model unknown-model",
+  "an unknown model gets a single English fallback",
+);
+
+const translationsSource = readFileSync(join(repo, "src", "translations.ts"), "utf8");
+assert(!translationsSource.includes("logger"), "the translations stub has no logger dependency");
+assert(translationsSource.includes('export type Lang = "en";'), "the stub declares English as the only language");
+setLanguage("en");
+assert(getLanguage() === "en", "the stub reports English");
+const english = await loadLocale("en");
+assert(Object.keys(english).length > 400, "the English dictionary is loaded");
+assert(JSON.stringify(await loadLocale("ar")) === "{}", "an unsupported locale resolves to an empty dictionary");
+assert(
+  t("addagentDerived", { from: "dev", to: "dev-gemini", model: "gemini" }).includes("dev-gemini"),
+  "the stub resolves English keys with parameters",
+);
+assert(t("no-such-key") === "[missing: no-such-key]", "a missing key falls back to the English marker");
+assert(recordTypeLabel("fix", "critical") === "Fix (critical)", "record labels stay English");
+
+console.log(`PROOF PASS: feature index text and display surfaces are English-only (${passed} assertions)`);

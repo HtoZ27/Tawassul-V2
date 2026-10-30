@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
@@ -9,6 +9,7 @@ import {
   isolatedDbPathFor,
 } from "../src/bootstrap/db-isolation.ts";
 import { buildHealthTool } from "../src/tools/tawa/health.ts";
+import { TAWASSUL_TOOL_NAMES } from "../src/tool-names.ts";
 
 let passed = 0;
 
@@ -71,6 +72,13 @@ const health = buildHealthTool(ctx, {
   pendingFlushes: () => 0,
 });
 
+check(TAWASSUL_TOOL_NAMES.includes("health"), "health is a registered tawa tool name");
+check(health.description.includes("Report plugin health"), "the standalone health tool describes its purpose");
+check(
+  readFileSync("src/bootstrap/tool-registry.ts", "utf8").includes("health: buildHealthTool(tawaCtx)"),
+  "the tool registry wires health under the tawa namespace",
+);
+
 async function healthWith(dbPath: string | undefined): Promise<string> {
   if (dbPath === undefined) delete process.env.OPENCODE_DB;
   else process.env.OPENCODE_DB = dbPath;
@@ -109,5 +117,5 @@ if (previousKeyDir === undefined) delete process.env.TAWASSUL_HMAC_KEY_DIR;
 else process.env.TAWASSUL_HMAC_KEY_DIR = previousKeyDir;
 rmSync(keyDir, { recursive: true, force: true });
 
-assert.equal(passed, 30);
+assert.equal(passed, 33);
 console.log(`PROOF PASS: the DB lane is classified truthfully (${passed} assertions)`);

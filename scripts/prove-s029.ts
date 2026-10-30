@@ -6,7 +6,13 @@ import { computePinEntries, formatAddResult } from "../src/tools/agent-managemen
 import { defaultAgentModelForRole } from "../src/services/proxy-fallback-chains.ts";
 import { sameRoleDistributionGuard, deletedAgentGuard } from "../src/hooks/guards/dispatch-guards.ts";
 import { isKnownDynamicAgent } from "../src/scripts/gen-opencode-config.ts";
-import { buildAgents } from "../src/scripts/gen-opencode-config.ts";
+import {
+  buildAgents,
+  derivedExpectedCount,
+  EXPECTED_AGENT_COUNT,
+  unionDeletedVariants,
+} from "../src/scripts/gen-opencode-config.ts";
+import { DELETED_AGENTS } from "../src/security-policy.ts";
 import type { Ctx, Input, StageOutput } from "../src/hooks/guards/shared/types.ts";
 
 let passed = 0;
@@ -85,6 +91,23 @@ assert(!isKnownDynamicAgent("analyst-evil!"), "invalid characters rejected");
 assert(!isKnownDynamicAgent("analyst"), "base name without suffix rejected");
 assert(buildAgents()["analyst-ling"] === undefined, "retired variants excluded from default generation");
 assert(buildAgents([])["analyst-ling"] !== undefined, "explicit empty deletion list keeps every variant");
+
+const retired = unionDeletedVariants([]);
+const defaultGeneration = buildAgents();
+const explicitGeneration = buildAgents(retired);
+assert(retired.length > 0, "the deletion union names generated retired variants");
+assert(retired.every((name) => DELETED_AGENTS.has(name)), "the union contains only retired names");
+assert(retired.every((name) => defaultGeneration[name] === undefined), "default generation excludes every retired variant");
+assert(retired.every((name) => explicitGeneration[name] === undefined), "the explicit union also excludes every retired variant");
+assert(
+  derivedExpectedCount(retired) === EXPECTED_AGENT_COUNT - retired.length,
+  "the derived count subtracts every retired variant",
+);
+const liveConfig = JSON.parse(readFileSync("opencode.json", "utf8")) as { agent?: Record<string, unknown> };
+assert(
+  !Object.keys(liveConfig.agent ?? {}).some((name) => retired.includes(name)),
+  "the live config lists no retired variant",
+);
 
 const root = mkdtempSync(join(tmpdir(), "s029-"));
 function runLoggerChild(extraEnv: Record<string, string>, dropKeys: string[] = []): number {

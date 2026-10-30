@@ -208,6 +208,7 @@ export class MissionBoard {
     if (!board._taskIndex) this._rebuildTaskIndex(board);
     board._taskIndex!.set(item.id, { column: "backlog", idx: board.columns.backlog.length - 1 });
     this.persistAndLog(board);
+    this.scheduleIndexWrite();
   }
 
   updateStatus(boardId: string, taskId: string, status: Status, reason?: string, sessionId?: string): void {
@@ -222,11 +223,10 @@ export class MissionBoard {
     if (!loc) return;
     const from = loc.column;
     const col = board.columns[from];
-    const removed = col.splice(loc.idx, 1);
-    if (!removed.length) return;
-    const task = removed[0]!;
-    if (task.status !== from) return;
+    const task = col[loc.idx];
+    if (!task || task.status !== from) return;
     if (task.status === "done" && status !== "done") return;
+    col.splice(loc.idx, 1);
     task.status = status;
     task.updatedAt = Date.now();
     task.blockedReason = status === "blocked" ? reason : undefined;

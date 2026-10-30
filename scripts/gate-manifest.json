@@ -295,6 +295,10 @@
       "cmd": ["bun", "scripts/prove-s029.ts"]
     },
     {
+      "name": "s036",
+      "cmd": ["bun", "scripts/prove-s036.ts"]
+    },
+    {
       "name": "s038",
       "cmd": ["bun", "scripts/prove-s038.ts"]
     },
@@ -335,12 +339,20 @@
       "cmd": ["bun", "scripts/prove-host-discovery.ts"]
     },
     {
+      "name": "host-entry",
+      "cmd": ["bun", "scripts/prove-host-entry.ts"]
+    },
+    {
       "name": "host-goal",
       "cmd": ["bun", "scripts/prove-host-goal.ts"]
     },
     {
       "name": "blocked-tool",
       "cmd": ["bun", "scripts/prove-blocked-tool.ts"]
+    },
+    {
+      "name": "board-invariants",
+      "cmd": ["bun", "scripts/prove-board-invariants.ts"]
     },
     {
       "name": "desktop-scan",
