@@ -309,6 +309,10 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
 
     const input = buildPluginInput(ctx);
     const plugin = (deps.init ?? initPlugin)(input);
+    const capability = (value: unknown): number => (typeof value === "function" ? 1 : 0);
+    logger.info(
+      `[tawassul] host capabilities: session=1 tool=1 transform=${capability(ctx.tool.transform)} reload=${capability(ctx.tool.reload)} hook=${capability(ctx.tool.hook)} compacting=${capability(plugin["experimental.session.compacting"])}`,
+    );
     const wrapped = plugin.tool ?? {};
     const registered: Array<() => Promise<void>> = [];
     const processedMessages = new Set<string>();

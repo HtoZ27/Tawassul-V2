@@ -26,7 +26,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PIN="${TAWASSUL_OPENCODE_VERSION:-}"
 MIN_VERSION="2.2.0"
 AUDITED_VERSION="2.2.1"
-SUPPORTED_MAJOR="2"
+AUDITED_MAJOR="2"
 
 version_at_least() {
   [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n1)" = "$2" ]
@@ -57,8 +57,8 @@ if [ "$RESOLVE_ONLY" = "1" ]; then printf '%s\n' "$BIN"; exit 0; fi
 ACTUAL="$("$BIN" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
 [ -n "$ACTUAL" ] || { echo "release-smoke: cannot read host version from $BIN." >&2; exit 2; }
 if [ -n "$PIN" ]; then
-  if [ "${PIN%%.*}" != "$SUPPORTED_MAJOR" ] || ! version_at_least "$PIN" "$MIN_VERSION"; then
-    echo "release-smoke: pin v$PIN is outside the supported range v>=$MIN_VERSION <$((SUPPORTED_MAJOR + 1)).0.0." >&2
+  if ! version_at_least "$PIN" "$MIN_VERSION"; then
+    echo "release-smoke: pin v$PIN is outside the supported range v>=$MIN_VERSION." >&2
     exit 2
   fi
   if [ "$ACTUAL" != "$PIN" ]; then
@@ -66,13 +66,17 @@ if [ -n "$PIN" ]; then
     exit 2
   fi
   echo "release-smoke: host v$ACTUAL matches the pin"
-elif [ "${ACTUAL%%.*}" != "$SUPPORTED_MAJOR" ] || ! version_at_least "$ACTUAL" "$MIN_VERSION"; then
-  echo "release-smoke: refusing host v$ACTUAL — supported v>=$MIN_VERSION <$((SUPPORTED_MAJOR + 1)).0.0 (override: TAWASSUL_OPENCODE_VERSION)." >&2
+elif ! version_at_least "$ACTUAL" "$MIN_VERSION"; then
+  echo "release-smoke: refusing host v$ACTUAL — supported v>=$MIN_VERSION (audited v$AUDITED_VERSION; newer majors untested) (override: TAWASSUL_OPENCODE_VERSION)." >&2
   exit 2
 else
   echo "release-smoke: host v$ACTUAL is inside the supported range (audited v$AUDITED_VERSION)"
   if [ "$ACTUAL" != "$AUDITED_VERSION" ]; then
-    echo "release-smoke: host v$ACTUAL is newer than the audited v$AUDITED_VERSION; run npm run check:upstream" >&2
+    if [ "${ACTUAL%%.*}" -gt "$AUDITED_MAJOR" ] 2>/dev/null; then
+      echo "release-smoke: host v$ACTUAL is a newer major than the audited v$AUDITED_VERSION; running in untested mode — the plugin probes host capabilities at init." >&2
+    else
+      echo "release-smoke: host v$ACTUAL is newer than the audited v$AUDITED_VERSION; run npm run check:upstream" >&2
+    fi
   fi
 fi
 

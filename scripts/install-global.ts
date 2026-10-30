@@ -21,7 +21,7 @@ const PROJECT_BUNDLE = join(REPO, ".opencode", "plugin", "tawassul.js");
 const HOME = process.env.HOME?.trim() || homedir();
 const HOST_MIN = "2.2.0";
 const HOST_AUDITED = "2.2.1";
-const HOST_MAJOR = 2;
+const HOST_AUDITED_MAJOR = 2;
 const HOST_OVERRIDE = process.env.TAWASSUL_OPENCODE_VERSION?.trim();
 const PLUGIN_ID = "tawassul-v2";
 const MARKER_NAME = "VERSION";
@@ -162,7 +162,6 @@ function compareHostVersions(left: string, right: string): number {
 function isSupportedHost(version: string): boolean {
   const parts = versionParts(version);
   if (!parts) return false;
-  if (parts[0] !== HOST_MAJOR) return false;
   if (compareHostVersions(version, HOST_MIN) < 0) return false;
   return HOST_OVERRIDE ? version === HOST_OVERRIDE : true;
 }
@@ -173,8 +172,8 @@ function overrideRangeError(): string | undefined {
   if (!parts) {
     return `TAWASSUL_OPENCODE_VERSION=v${HOST_OVERRIDE} is not a semantic version`;
   }
-  if (parts[0] !== HOST_MAJOR || compareHostVersions(HOST_OVERRIDE, HOST_MIN) < 0) {
-    return `TAWASSUL_OPENCODE_VERSION=v${HOST_OVERRIDE} is outside the supported range >=${HOST_MIN} <${HOST_MAJOR + 1}.0.0`;
+  if (compareHostVersions(HOST_OVERRIDE, HOST_MIN) < 0) {
+    return `TAWASSUL_OPENCODE_VERSION=v${HOST_OVERRIDE} is outside the supported range >=${HOST_MIN}`;
   }
   return undefined;
 }
@@ -182,12 +181,16 @@ function overrideRangeError(): string | undefined {
 function hostRange(): string {
   return HOST_OVERRIDE
     ? `the pinned v${HOST_OVERRIDE}`
-    : `a supported host v>=${HOST_MIN} <${HOST_MAJOR + 1}.0.0`;
+    : `a supported host v>=${HOST_MIN} (audited v${HOST_AUDITED}; newer majors run untested)`;
 }
 
 function hostWarning(version: string): string | undefined {
   if (HOST_OVERRIDE || !isSupportedHost(version)) return undefined;
   if (compareHostVersions(version, HOST_AUDITED) > 0) {
+    const major = versionParts(version)?.[0] ?? HOST_AUDITED_MAJOR;
+    if (major > HOST_AUDITED_MAJOR) {
+      return `host v${version} is a newer major than the audited v${HOST_AUDITED}; installing in untested mode — the plugin probes host capabilities at init and reports any missing domain`;
+    }
     return `host v${version} is newer than the audited v${HOST_AUDITED}; run npm run check:upstream`;
   }
   return undefined;

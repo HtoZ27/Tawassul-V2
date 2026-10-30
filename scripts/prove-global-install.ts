@@ -289,6 +289,9 @@ try {
   newer.host = "2.2.1";
   writeFileSync(MARKER, `${JSON.stringify(newer, null, 2)}\n`);
   assert(runWith(["--verify"], rangeEnv).code === 0, "verify accepts a newer 2.x marker");
+  newer.host = "3.0.0";
+  writeFileSync(MARKER, `${JSON.stringify(newer, null, 2)}\n`);
+  assert(runWith(["--verify"], rangeEnv).code === 0, "verify accepts an untested major marker");
   assert(run([]).code === 0, "install restores the selected host marker");
 
   const again = run([]);

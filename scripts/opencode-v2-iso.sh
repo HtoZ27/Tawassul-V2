@@ -209,7 +209,7 @@ launcher_host_bin() {
 # Pin the host binary version: a v1/mismatched CLI must not open a v2 DB.
 OPENCODE_VERSION_MIN="2.2.0"
 OPENCODE_VERSION_AUDITED="2.2.1"
-OPENCODE_VERSION_MAJOR="2"
+OPENCODE_VERSION_AUDITED_MAJOR="2"
 OPENCODE_VERSION_PIN="${TAWASSUL_OPENCODE_VERSION:-}"
 OPENCODE_BIN="$(launcher_host_bin)" || OPENCODE_BIN=""
 if [ -z "$OPENCODE_BIN" ]; then
@@ -225,19 +225,24 @@ version_at_least() {
 }
 _OPENCODE_ACTUAL="$("$OPENCODE_BIN" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)"
 if [ -n "$OPENCODE_VERSION_PIN" ]; then
-  if [ "${OPENCODE_VERSION_PIN%%.*}" != "$OPENCODE_VERSION_MAJOR" ] || ! version_at_least "$OPENCODE_VERSION_PIN" "$OPENCODE_VERSION_MIN"; then
-    echo "opencode-v2-iso: pin v$OPENCODE_VERSION_PIN is outside the supported range v>=$OPENCODE_VERSION_MIN <$((OPENCODE_VERSION_MAJOR + 1)).0.0." >&2
+  if ! version_at_least "$OPENCODE_VERSION_PIN" "$OPENCODE_VERSION_MIN"; then
+    echo "opencode-v2-iso: pin v$OPENCODE_VERSION_PIN is outside the supported range v>=$OPENCODE_VERSION_MIN." >&2
     exit 2
   fi
   if [ "$_OPENCODE_ACTUAL" != "$OPENCODE_VERSION_PIN" ]; then
     echo "opencode-v2-iso: refusing binary ${_OPENCODE_ACTUAL:-unknown} at $OPENCODE_BIN — pinned v$OPENCODE_VERSION_PIN (override: TAWASSUL_OPENCODE_VERSION)." >&2
     exit 2
   fi
-elif [ -z "$_OPENCODE_ACTUAL" ] || [ "${_OPENCODE_ACTUAL%%.*}" != "$OPENCODE_VERSION_MAJOR" ] || ! version_at_least "$_OPENCODE_ACTUAL" "$OPENCODE_VERSION_MIN"; then
-  echo "opencode-v2-iso: refusing binary ${_OPENCODE_ACTUAL:-unknown} at $OPENCODE_BIN — supported v>=$OPENCODE_VERSION_MIN <$((OPENCODE_VERSION_MAJOR + 1)).0.0 (override: TAWASSUL_OPENCODE_VERSION)." >&2
+elif [ -z "$_OPENCODE_ACTUAL" ] || ! version_at_least "$_OPENCODE_ACTUAL" "$OPENCODE_VERSION_MIN"; then
+  echo "opencode-v2-iso: refusing binary ${_OPENCODE_ACTUAL:-unknown} at $OPENCODE_BIN — supported v>=$OPENCODE_VERSION_MIN (audited v$OPENCODE_VERSION_AUDITED; newer majors untested) (override: TAWASSUL_OPENCODE_VERSION)." >&2
   exit 2
 elif [ "$_OPENCODE_ACTUAL" != "$OPENCODE_VERSION_AUDITED" ]; then
-  echo "opencode-v2-iso: host v$_OPENCODE_ACTUAL is newer than the audited v$OPENCODE_VERSION_AUDITED; run npm run check:upstream." >&2
+  _OPENCODE_ACTUAL_MAJOR="${_OPENCODE_ACTUAL%%.*}"
+  if [ "$_OPENCODE_ACTUAL_MAJOR" -gt "$OPENCODE_VERSION_AUDITED_MAJOR" ] 2>/dev/null; then
+    echo "opencode-v2-iso: host v$_OPENCODE_ACTUAL is a newer major than the audited v$OPENCODE_VERSION_AUDITED; running in untested mode — the plugin probes host capabilities at init." >&2
+  else
+    echo "opencode-v2-iso: host v$_OPENCODE_ACTUAL is newer than the audited v$OPENCODE_VERSION_AUDITED; run npm run check:upstream." >&2
+  fi
 fi
 
 # ── file-watcher policy (D1/D7) ─────────────────────────────────────────────

@@ -703,7 +703,7 @@
           "status": "anchored",
           "anchor": {
             "file": "scripts/install-global.ts",
-            "line": 204,
+            "line": 207,
             "marker": "hostCandidates"
           },
           "proofs": [],
@@ -1176,7 +1176,7 @@
           "status": "verified",
           "anchor": {
             "file": "scripts/opencode-v2-iso.sh",
-            "line": 297,
+            "line": 302,
             "marker": "[launcher] watcher mode="
           },
           "proofs": [

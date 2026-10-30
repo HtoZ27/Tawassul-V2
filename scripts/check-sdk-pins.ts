@@ -113,8 +113,12 @@ assert(
   `the host minimum ${installerMin} does not exceed the audited ${audited}`,
 );
 assert(
-  doctor.includes(`v>=${installerMin} <3.0.0`),
-  `the doctor names the same supported host range (v>=${installerMin} <3.0.0)`,
+  doctor.includes(`supported hosts are v>=${installerMin}`),
+  `the doctor names the same supported floor (v>=${installerMin})`,
+);
+assert(
+  doctor.includes(`newer major than the audited v${audited}`),
+  `the doctor names the untested-major tier (v${audited})`,
 );
 assert(
   doctor.includes(`newer than the audited v${audited}`),

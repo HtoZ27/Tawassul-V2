@@ -202,13 +202,13 @@ try {
     assert(newer.stderr.includes("newer than the audited v2.2.1"), "a newer 2.x host warns about the audited ceiling");
 
     const major = versionBinary(lBin, "opencode-major", "3.0.0");
-    const refusedMajor = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: major });
-    assert(refusedMajor.status === 2, "a 3.x host is refused");
-    assert(refusedMajor.stderr.includes("supported v>=2.2.0 <3.0.0"), "the refusal names the supported range");
+    const acceptedMajor = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: major, TAWASSUL_WATCHER: "off" });
+    assert(acceptedMajor.status === 0, "a 3.x host is accepted in untested mode");
+    assert(acceptedMajor.stderr.includes("newer major"), "the 3.x acceptance warns about the untested major");
 
     const old = versionBinary(lBin, "opencode-old", "2.1.4");
     const refusedOld = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: old });
-    assert(refusedOld.status === 2 && refusedOld.stderr.includes("supported v>=2.2.0 <3.0.0"), "a pre-2.2 host is refused");
+    assert(refusedOld.status === 2 && refusedOld.stderr.includes("supported v>=2.2.0"), "a pre-2.2 host is refused");
 
     const pinned = runLauncher(lHome, {
       TAWASSUL_OPENCODE_BIN: future,
@@ -216,6 +216,12 @@ try {
       TAWASSUL_WATCHER: "off",
     });
     assert(pinned.status === 0, "an explicit pin accepts its exact version");
+    const pinnedMajor = runLauncher(lHome, {
+      TAWASSUL_OPENCODE_BIN: major,
+      TAWASSUL_OPENCODE_VERSION: "3.0.0",
+      TAWASSUL_WATCHER: "off",
+    });
+    assert(pinnedMajor.status === 0, "an explicit pin accepts an untested major exactly");
     const pinnedMismatch = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: supported, TAWASSUL_OPENCODE_VERSION: "2.2.2" });
     assert(pinnedMismatch.status === 2 && pinnedMismatch.stderr.includes("pinned v2.2.2"), "an explicit pin refuses another version");
 

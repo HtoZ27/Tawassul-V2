@@ -5,7 +5,7 @@ handoffs, a goal ledger, mission boards, checkpoints, and a 42-tool surface.
 This tree is the only runnable Tawassul plugin. The v1 tree is retired and
 read-only.
 
-- Host: OpenCode `2.2.1` (supported range `>=2.2.0 <3.0.0`)
+- Host: OpenCode `2.2.1` audited (accepted `>=2.2.0`; newer majors run untested with a capability probe at init)
 - Plugin API: `@opencode/plugin` `^2.2.1`
 - Runtime: Node 26.13.0 (pinned in `.nvmrc`) and Bun
 - Language: English only; no code comments
@@ -57,8 +57,8 @@ scripts/opencode-v2-iso.sh run --standalone --auto --format json \
   --model opencode/big-pickle "Reply with exactly: OK"
 ```
 
-The launcher enforces the supported host range `>=2.2.0 <3.0.0`, refuses a
-binary outside it, applies the
+The launcher enforces the host floor `>=2.2.0`, accepts newer 2.x and 3.x in
+untested mode with a warning, refuses a binary below the floor, applies the
 generation guard, runs DB maintenance at the cap, and logs one
 `[launcher] watcher mode=… decision=…` line per launch.
 
@@ -288,7 +288,7 @@ Rules:
 | A stray `opencode serve` keeps running | It is a separate host, not the sidecar. `npm run doctor` fails on `~/.opencode/bin/opencode serve`; stop that PID. |
 | Terminal `opencode` still resolves after uninstall | `~/.opencode/bin` is still on PATH (`~/.bashrc`). `opencode uninstall` also stops the shared service, so do not run it while the Desktop is open. |
 | `generation guard refused` | The DB belongs to the other generation; use the v2 DB or a fresh file. |
-| `refusing host vX — supported v>=2.2.0 <3.0.0` | Install a supported host or set `TAWASSUL_OPENCODE_VERSION` deliberately to an exact version. |
+| `refusing host vX — supported v>=2.2.0` | Install a host at or above the floor; newer majors are accepted untested, pre-2.2 hosts are refused. |
 | Plugin registered 0 tools | Run `npm run build`; confirm `.opencode/plugin/tawassul.js` exists. |
 | Plugin behaves as if a fix were absent | The live host still holds the pre-build module; run `npm run host:refresh` (it reloads and verifies a fresh init). |
 | Boot has no watcher line | Use `scripts/opencode-v2-iso.sh`; a bare host binary skips the launcher policy. |
