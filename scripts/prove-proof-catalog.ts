@@ -73,6 +73,20 @@ const PINNED_PROOF_FILES = [
   "prove-cancel-metric.ts",
   "prove-catch-discipline.ts",
   "prove-closure-artifacts.ts",
+  "prove-context-accounting.ts",
+  "prove-context-bridge.ts",
+  "prove-context-budget.ts",
+  "prove-context-claim.ts",
+  "prove-context-failure-pack.ts",
+  "prove-context-hook-idempotent.ts",
+  "prove-context-hook-latency.ts",
+  "prove-context-inject.ts",
+  "prove-context-kill-switch.ts",
+  "prove-context-revalidate.ts",
+  "prove-context-sanitize.ts",
+  "prove-context-selection.ts",
+  "prove-context-store.ts",
+  "prove-context-transport.ts",
   "prove-d05.ts",
   "prove-db-lock.ts",
   "prove-db-retention.ts",
@@ -138,6 +152,7 @@ const PINNED_PROOF_FILES = [
   "prove-host-goal.ts",
   "prove-host-refresh.ts",
   "prove-independence-boot.ts",
+  "prove-model-switch.ts",
   "prove-n2-cap.ts",
   "prove-p08.ts",
   "prove-p09.ts",
@@ -164,6 +179,7 @@ const PINNED_PROOF_FILES = [
   "prove-shell-alias.ts",
   "prove-state-namespace.ts",
   "prove-store-priming.ts",
+  "prove-thread-tool.ts",
   "prove-upstream-sync.ts",
   "prove-v2-ask-bridge.ts",
   "prove-v2-compat.ts",
@@ -171,7 +187,7 @@ const PINNED_PROOF_FILES = [
   "prove-web-ssrf.ts",
 ];
 
-const PINNED_PROOF_STEPS = 110;
+const PINNED_PROOF_STEPS = 126;
 const SMOKE_PROOFS = new Set(["prove-global-boot.ts", "prove-independence-boot.ts"]);
 
 const proofFiles = readdirSync(join(repo, "scripts"))

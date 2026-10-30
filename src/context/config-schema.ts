@@ -98,8 +98,16 @@ export const configSchema = tool.schema.object({
   
   
   innovations: tool.schema
-    .record(
-      tool.schema.string(),
+    .object({
+      contextHandoff: tool.schema
+        .object({
+          enabled: tool.schema.boolean().optional(),
+          beta: tool.schema.boolean().optional(),
+          mandatory: tool.schema.boolean().optional(),
+        })
+        .optional(),
+    })
+    .catchall(
       tool.schema.object({
         enabled: tool.schema.boolean().optional(),
         beta: tool.schema.boolean().optional(),

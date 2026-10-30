@@ -15,6 +15,7 @@ import { getFallbackChain } from "../services/proxy-fallback-chains.ts";
 import { logger } from "../utils/logger.ts";
 import { resolveRole } from "../utils/agent.ts";
 import { MAX_PARALLEL_COPIES } from "../context/constants.ts";
+import { attachPackToHandoff } from "../services/context-pack/index.ts";
 
 function buildAccumulatedContext(
   ctx: TawassulContext,
@@ -744,6 +745,21 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
       }
 
       ctx.handoffs.set(entry.id, entry as HandoffEntry);
+
+      try {
+        const pack = await attachPackToHandoff({
+          worktree: cctx.worktree || cctx.directory,
+          sessionID: cctx.sessionID,
+          agent: cctx.agent,
+          entry: entry as unknown as import("../services/context-pack/index.ts").PackHandoffEntryLike,
+          config: ctx.config,
+        });
+        if (pack) {
+          entry.context = `${entry.context}\n\n## Portable Context Pack ${pack.digest.slice(0, 16)}\n${pack.preview}`;
+        }
+      } catch (e) {
+        logger.warn("[tawassul] context pack creation skipped:", e instanceof Error ? e.message : String(e));
+      }
 
       try {
         if (ctx.queueDrainer?.shouldDrain(args.to as string)) {

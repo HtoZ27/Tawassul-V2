@@ -88,6 +88,10 @@ export const HandoffEntrySchema = z.object({
   sourceRecordId: z.string().optional(),
   decisionRuleId: z.string().optional(),
   decision: RuleDecisionSchema.optional(),
+  contextPackId: z.string().optional(),
+  contextPackDigest: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+  contextPackActivatedAt: z.string().optional(),
+  parentID: z.string().optional(),
 });
 
 const CapabilityRecordSchema = z.object({

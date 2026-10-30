@@ -27,6 +27,8 @@ import {
 import { logger } from "../utils/logger.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 import { translateError } from "../lib/conversational.ts";
+import { activatePack } from "../services/context-pack/index.ts";
+import { getSessionBridge } from "../v2/session-bridge.ts";
 
 import type { DispatchTask } from "../services/parallel-dispatcher.ts";
 
@@ -292,11 +294,12 @@ async function handleFirstTimeAgent(
   }
 }
 
-function acceptHandoffs(
+async function acceptHandoffs(
   ctx: MessageUpdatedContext,
   agentTag: string,
   output: { parts: { type: string; text?: string; [key: string]: unknown }[] },
-): void {
+  sessionID: string,
+): Promise<void> {
   const handoffsIterable = ctx.handoffs instanceof Map ? ctx.handoffs.values() : ctx.handoffs;
   for (const h of handoffsIterable) {
     if (h.status !== "pending" || normalizeName(h.to) !== normalizeName(agentTag)) continue;
@@ -329,9 +332,37 @@ function acceptHandoffs(
     }
     ctx.recordHandoffAccepted(agentTag, h.id);
     ctx.updateLastActive(agentTag);
-    ctx.saveState();
+    await ctx.saveState();
 
-    if (h.checkpoint && Array.isArray(output?.parts)) {
+    let packActive = false;
+    let packReason: string | undefined;
+    if (h.contextPackDigest) {
+      const activation = await activatePack({
+        worktree: ctx.directory,
+        sessionID,
+        digest: h.contextPackDigest,
+        readMessages: async () => {
+          const bridge = getSessionBridge();
+          if (!bridge) return [];
+          try {
+            return await bridge.context({ sessionID });
+          } catch {
+            return [];
+          }
+        },
+      });
+      packActive = activation.ok;
+      packReason = activation.reason;
+    }
+
+    if (!packActive && h.contextPackDigest && Array.isArray(output?.parts)) {
+      output.parts.push({
+        type: "text" as const,
+        text: `⚠️ Portable context pack ${h.contextPackDigest.slice(0, 16)} is unavailable (${packReason ?? "unknown"}); the checkpoint below is the fallback.`,
+      });
+    }
+
+    if (!packActive && h.checkpoint && Array.isArray(output?.parts)) {
       const cp = h.checkpoint;
       const summary = [
         t("continuationTitle", { id: h.id }),
@@ -698,7 +729,7 @@ export function createMessageUpdatedHook(ctx: MessageUpdatedContext) {
 
         await handleFirstTimeAgent(ctx, input, output, agentTag, realPluginRoot);
 
-        acceptHandoffs(ctx, agentTag, output);
+        await acceptHandoffs(ctx, agentTag, output, input.sessionID);
       }
 
       injectModeAndStatus(ctx, input, output, role);

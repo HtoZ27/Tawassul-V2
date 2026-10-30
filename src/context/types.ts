@@ -62,6 +62,12 @@ export type HandoffEntry = {
   
   
   reroutedModel?: string;
+
+
+  contextPackId?: string;
+  contextPackDigest?: string;
+  contextPackActivatedAt?: string;
+  parentID?: string;
 };
 
 export type Strictness = "relaxed" | "normal" | "strict";

@@ -51,6 +51,7 @@ import {
   buildHealthTool,
   buildTimelineTool,
   buildGoalTool,
+  buildThreadTool,
 } from "../tools/index.ts";
 import type { HandoffEntry } from "../context/types.ts";
 import type { MemoryEntry } from "../conflict-resolver/types.ts";
@@ -106,6 +107,7 @@ export function buildToolRegistry(
     override: buildOverrideTool(tawaCtx, services?.handoffService),
     handoff: buildHandoffTool(tawaCtx),
     record: buildRecordTool(tawaCtx),
+    thread: buildThreadTool(tawaCtx),
     addagent: buildAddAgentTool(tawaCtx),
     kick: buildKickTool(tawaCtx),
     check: buildCheckTool(tawaCtx),

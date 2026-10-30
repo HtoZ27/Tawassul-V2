@@ -29,6 +29,7 @@ export const TAWASSUL_TOOL_NAMES: readonly string[] = [
   "review",
   "smartgrep",
   "status",
+  "thread",
   "vote",
   "web",
   "imagegen",

@@ -81,7 +81,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/v2/setup.ts",
-            "line": 293,
+            "line": 342,
             "marker": "host missing required domains"
           },
           "proofs": [
@@ -1069,7 +1069,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/v2/setup.ts",
-            "line": 23,
+            "line": 31,
             "marker": "SCHEMA_RETRY_ATTEMPTS"
           },
           "proofs": [

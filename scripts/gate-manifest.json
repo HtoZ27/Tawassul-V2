@@ -477,6 +477,70 @@
     {
       "name": "host-refresh",
       "cmd": ["bun", "scripts/prove-host-refresh.ts"]
+    },
+    {
+      "name": "context-accounting",
+      "cmd": ["bun", "scripts/prove-context-accounting.ts"]
+    },
+    {
+      "name": "context-selection",
+      "cmd": ["bun", "scripts/prove-context-selection.ts"]
+    },
+    {
+      "name": "context-budget",
+      "cmd": ["bun", "scripts/prove-context-budget.ts"]
+    },
+    {
+      "name": "context-store",
+      "cmd": ["bun", "scripts/prove-context-store.ts"]
+    },
+    {
+      "name": "context-claim",
+      "cmd": ["bun", "scripts/prove-context-claim.ts"]
+    },
+    {
+      "name": "context-inject",
+      "cmd": ["bun", "scripts/prove-context-inject.ts"]
+    },
+    {
+      "name": "context-transport",
+      "cmd": ["bun", "scripts/prove-context-transport.ts"]
+    },
+    {
+      "name": "context-hook-latency",
+      "cmd": ["bun", "scripts/prove-context-hook-latency.ts"]
+    },
+    {
+      "name": "context-hook-idempotent",
+      "cmd": ["bun", "scripts/prove-context-hook-idempotent.ts"]
+    },
+    {
+      "name": "context-bridge",
+      "cmd": ["bun", "scripts/prove-context-bridge.ts"]
+    },
+    {
+      "name": "context-revalidate",
+      "cmd": ["bun", "scripts/prove-context-revalidate.ts"]
+    },
+    {
+      "name": "context-failure-pack",
+      "cmd": ["bun", "scripts/prove-context-failure-pack.ts"]
+    },
+    {
+      "name": "context-kill-switch",
+      "cmd": ["bun", "scripts/prove-context-kill-switch.ts"]
+    },
+    {
+      "name": "context-sanitize",
+      "cmd": ["bun", "scripts/prove-context-sanitize.ts"]
+    },
+    {
+      "name": "thread-tool",
+      "cmd": ["bun", "scripts/prove-thread-tool.ts"]
+    },
+    {
+      "name": "model-switch",
+      "cmd": ["bun", "scripts/prove-model-switch.ts"]
     }
   ],
   "smoke": [

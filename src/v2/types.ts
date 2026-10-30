@@ -58,11 +58,48 @@ export type V2SessionEvent = {
 
 export type V2SessionIdle = SessionIdle;
 
+export type V2SessionFile = {
+  uri: string;
+  name: string;
+};
+
+export type V2SessionCreateInput = {
+  title?: string;
+  agent?: string;
+  model?: { providerID: string; id: string };
+  location?: unknown;
+  metadata?: Record<string, unknown>;
+};
+
 export type V2Session = {
-  prompt: (input: { sessionID: string; text: string; delivery?: "steer" | "queue" }) => Promise<unknown>;
+  create: (input: V2SessionCreateInput) => Promise<{ id: string; [key: string]: unknown }>;
+  prompt: (input: {
+    sessionID: string;
+    text: string;
+    files?: V2SessionFile[];
+    delivery?: "steer" | "queue";
+  }) => Promise<unknown>;
   synthetic?: (input: { sessionID: string; text: string; description?: string }) => Promise<unknown>;
   interrupt: (input: { sessionID: string; continue?: boolean }) => Promise<unknown>;
+  context: (input: { sessionID: string }) => Promise<Array<Record<string, unknown>>>;
+  wait: (input: { sessionID: string }) => Promise<unknown>;
   hook: ModelHooks<SessionHooks>;
+};
+
+export type V2ModelListEntry = {
+  providerID?: string;
+  id?: string;
+  limit?: { context?: number };
+  [key: string]: unknown;
+};
+
+export type V2ModelList = {
+  location?: unknown;
+  data: V2ModelListEntry[];
+};
+
+export type V2Model = {
+  list: () => Promise<V2ModelList>;
 };
 
 export type V2Tool = {
@@ -92,6 +129,7 @@ export type V2Context = {
   app: Pick<HostContext["app"], "version">;
   location: Pick<HostContext["location"], "directory">;
   session: V2Session;
+  model: V2Model;
   tool: V2Tool;
   event: V2Event;
   rpc: V2RpcDomain;

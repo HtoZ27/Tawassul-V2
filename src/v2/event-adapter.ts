@@ -161,6 +161,10 @@ export function mapV2EventToV1(event: unknown, options: V1EventMapOptions = {}):
     }
     case "session.execution.interrupted":
       return [rawEvent(ev), v1("session.idle", props)];
+    case "session.compaction.ended":
+      return [rawEvent(ev), v1("session.compaction.ended", { ...props, ...(dataOf(ev) ?? {}) })];
+    case "session.step.failed":
+      return [rawEvent(ev), v1("session.step.failed", { ...props, ...(dataOf(ev) ?? {}) })];
     case "session.status": {
       const st = statusType(ev);
       if (st === "idle") return [rawEvent(ev), v1("session.idle", props)];

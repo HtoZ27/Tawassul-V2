@@ -45,6 +45,7 @@ import {
 } from "../utils/opencode-config.ts";
 import { releaseFSLock } from "../infra/file-lock.ts";
 import { createHandoffEntry } from "../services/handoff-entry.ts";
+import { setContextHandoffConfig } from "../services/context-pack/index.ts";
 import { requiresConsent } from "../hooks/guards/shared/limits.ts";
 import {
   evaluateFreeLimitBridge,
@@ -508,6 +509,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
     logger.warn("Plugin disabled via config.disabled");
     return {};
   }
+  setContextHandoffConfig(tawaCtx.config);
 
   
   

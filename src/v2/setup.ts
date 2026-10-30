@@ -16,6 +16,14 @@ import { mapV2EventToV1 } from "./event-adapter.ts";
 import { startSchemaRefresh } from "./schema-refresh.ts";
 import { installHostGoalMirror, uninstallHostGoalMirror } from "./host-goal.ts";
 import { applyV1AfterOutput, jsonSafeMetadata, metadataChanged, resultText, titleFromMetadata, withTitleMetadata } from "./result-bridge.ts";
+import { clearSessionBridge, installSessionBridge, type SessionBridge } from "./session-bridge.ts";
+import {
+  classifyTerminalFailure,
+  createFailurePack,
+  handleContextEvent,
+  refreshSessionInjection,
+  warmWorkspace,
+} from "../services/context-pack/index.ts";
 import type { V2Context, V2SessionEvent, V2ToolContext, V2ToolHookInput } from "./types.ts";
 
 const MAX_PROCESSED_MESSAGES = 1024;
@@ -266,6 +274,47 @@ function projectEntryCandidates(directory: string): string[] {
 
 type DelegatedSetup = (ctx: V2Context) => Promise<() => Promise<void>>;
 
+function eventRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+async function handlePackEvent(raw: unknown, worktree: string, bridge: SessionBridge): Promise<void> {
+  const event = eventRecord(raw);
+  if (!event) return;
+  const type = typeof event.type === "string" ? event.type : "";
+  const data = eventRecord(event.data);
+  const sessionID = typeof data?.sessionID === "string" ? data.sessionID : undefined;
+  if (!sessionID) return;
+  if (type === "session.compaction.ended") {
+    await refreshSessionInjection({
+      worktree,
+      sessionID,
+      readMessages: async () => bridge.context({ sessionID }),
+    });
+    return;
+  }
+  if (type === "session.step.failed") {
+    const failure = classifyTerminalFailure(data?.error);
+    if (!failure.terminal) return;
+    let messages: unknown[] = [];
+    try {
+      messages = await bridge.context({ sessionID });
+    } catch {
+      messages = [];
+    }
+    await createFailurePack({
+      worktree,
+      sessionID,
+      agent: typeof data?.agent === "string" ? data.agent : undefined,
+      messages,
+      error: data?.error,
+      retryAfterMs: failure.retryAfterMs,
+    });
+  }
+}
+
 async function loadProjectSetup(directory: string, selfUrl: string): Promise<DelegatedSetup | undefined> {
   if (!directory) return undefined;
   for (const candidate of projectEntryCandidates(directory)) {
@@ -315,6 +364,16 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
     );
     const wrapped = plugin.tool ?? {};
     const registered: Array<() => Promise<void>> = [];
+    const sessionBridge = installSessionBridge(ctx);
+    registered.push(async () => clearSessionBridge());
+    try {
+      await warmWorkspace({
+        worktree: input.directory,
+        readMessages: async (sessionID) => sessionBridge.context({ sessionID }),
+      });
+    } catch (e) {
+      logger.warn("[tawassul] v2 context pack warm-up skipped:", e instanceof Error ? e.message : String(e));
+    }
     const processedMessages = new Set<string>();
     const callTools = new Map<string, string>();
     const rememberCallTool = (id: string, tool: string): void => {
@@ -499,15 +558,28 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
       }
     }
 
-    if (plugin["chat.message"]) {
-      try {
-        const contextRegistration = await ctx.session.hook("context", async (event) => {
-          await runChatMessageBridge(plugin, event as unknown as V2SessionEvent, processedMessages);
-        });
-        registered.push(() => contextRegistration.dispose());
-      } catch (e) {
-        logger.error("[tawassul] v2 session.context registration failed:", e);
-      }
+    try {
+      const contextRegistration = await ctx.session.hook("context", async (event) => {
+        const sessionEvent = event as unknown as V2SessionEvent;
+        if (plugin["chat.message"]) {
+          await runChatMessageBridge(plugin, sessionEvent, processedMessages);
+        }
+        handleContextEvent(sessionEvent);
+      });
+      registered.push(() => contextRegistration.dispose());
+    } catch (e) {
+      logger.error("[tawassul] v2 session.context registration failed:", e);
+    }
+
+    try {
+      const retryRegistration = await ctx.session.hook("retry", (event) => {
+        const payload = event as unknown as { error?: unknown; decision?: unknown };
+        const failure = classifyTerminalFailure(payload.error);
+        if (failure.terminal) payload.decision = { retry: false };
+      });
+      registered.push(() => retryRegistration.dispose());
+    } catch (e) {
+      logger.error("[tawassul] v2 session.retry registration failed:", e);
     }
 
     if (plugin["experimental.session.compacting"]) {
@@ -521,13 +593,19 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
       }
     }
 
-    if (plugin.event) {
+    if (typeof ctx.event?.subscribe === "function") {
       let disposed = false;
       const relay = (async () => {
         try {
           const stream = ctx.event.subscribe();
           for await (const raw of stream) {
             if (disposed) return;
+            try {
+              await handlePackEvent(raw, input.directory, sessionBridge);
+            } catch (e) {
+              logger.debug("[tawassul] v2 context pack event failed:", e);
+            }
+            if (!plugin.event) continue;
             const mapped = mapV2EventToV1(raw, { toolOf: (id) => callTools.get(id) });
             for (const ev of mapped) {
               try {

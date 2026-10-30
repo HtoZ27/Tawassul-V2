@@ -37,7 +37,7 @@ function stub(mode: Mode): string {
 if [ "$1" = "--version" ]; then printf '2.2.0\\n'; exit 0; fi
 if [ "$1" = "run" ]; then
   printf 'initPlugin=1\\n' >> "$TAWASSUL_LOG_FILE"
-  printf 'v2 registered 42 tools\\n' >> "$TAWASSUL_LOG_FILE"
+  printf 'v2 registered 43 tools\\n' >> "$TAWASSUL_LOG_FILE"
   ${body}fi
 exit 0
 `,

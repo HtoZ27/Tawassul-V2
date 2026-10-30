@@ -121,7 +121,7 @@ BOOT_RC=$?
 PLUGIN_BOOT=0
 MODEL_REPLY=0
 DEGRADED=""
-if grep -q 'initPlugin=' "$WORK/tawassul.log" 2>/dev/null && grep -q 'v2 registered 42 tools' "$WORK/tawassul.log" 2>/dev/null; then
+if grep -q 'initPlugin=' "$WORK/tawassul.log" 2>/dev/null && grep -q 'v2 registered 43 tools' "$WORK/tawassul.log" 2>/dev/null; then
   PLUGIN_BOOT=1
 fi
 if [ "$BOOT_RC" -ne 0 ]; then
@@ -143,7 +143,7 @@ if [ "$BOOT_RC" -ne 0 ]; then
   fi
 fi
 if [ "$PLUGIN_BOOT" != "1" ]; then
-  echo "release-smoke: plugin boot markers missing (initPlugin or 42 tools)." >&2
+  echo "release-smoke: plugin boot markers missing (initPlugin or 43 tools)." >&2
   KEEP=1
   exit 3
 fi
@@ -174,8 +174,8 @@ const dir = process.env.SMOKE_DIR;
 const mod = await import(entry);
 const hooks = await mod.tawassul.server({ client: {}, directory: dir, worktree: dir });
 const names = Object.keys(hooks.tool ?? {});
-if (names.length !== 42) {
-  console.error(`release-smoke: expected 42 tools, found ${names.length}`);
+if (names.length !== 43) {
+  console.error(`release-smoke: expected 43 tools, found ${names.length}`);
   process.exit(4);
 }
 const health = await hooks.tool.health.execute({}, {});
@@ -190,11 +190,11 @@ if (!helpOut.includes("Available tools")) {
   console.error("release-smoke: help tool output is not the expected catalog");
   process.exit(4);
 }
-console.log("release-smoke: direct tools OK (42 registered, health + help executed)");
+console.log("release-smoke: direct tools OK (43 registered, health + help executed)");
 ' || { KEEP=1; exit 4; }
 
 if [ "$MODEL_REPLY" = "1" ]; then
-  echo "SMOKE PASS: host v$ACTUAL, scratch boot, 42 tools, model reply, health + help"
+  echo "SMOKE PASS: host v$ACTUAL, scratch boot, 43 tools, model reply, health + help"
 else
-  echo "SMOKE PASS (no model reply — $DEGRADED): host v$ACTUAL, scratch boot, 42 tools, health + help"
+  echo "SMOKE PASS (no model reply — $DEGRADED): host v$ACTUAL, scratch boot, 43 tools, health + help"
 fi
