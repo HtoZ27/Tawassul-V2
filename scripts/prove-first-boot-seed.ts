@@ -113,16 +113,16 @@ async function proveGlobalSeedOptOut(): Promise<void> {
   }
 }
 
-async function proveMcpBundle(): Promise<void> {
+async function proveMcpBundleIgnored(): Promise<void> {
   const dir = mkdtempSync(join(tmpdir(), "tawassul-seed-"));
   try {
     mkdirSync(join(dir, ".opencode", "mcp"), { recursive: true });
     writeFileSync(join(dir, ".opencode", "mcp", "tawassul.mjs"), "export default {};\n", "utf-8");
     const r = await ensureMinimalProjectContract(dir, "project");
-    if (!r.created) fail("contract with bundle not created");
+    if (!r.created) fail("contract with a legacy bundle not created");
     const doc = JSON.parse(readFileSync(join(dir, "opencode.json"), "utf-8")) as { mcp?: unknown };
-    if (!doc.mcp) fail("mcp must be present with a bundle");
-    console.log("mcp-bundle ok");
+    if (doc.mcp) fail("a legacy MCP bundle must not be registered");
+    console.log("mcp-bundle-ignored ok");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -133,5 +133,5 @@ await proveOptOut();
 await proveGlobalSeed();
 await proveGlobalSeedPreservesManualRoster();
 await proveGlobalSeedOptOut();
-await proveMcpBundle();
+await proveMcpBundleIgnored();
 console.log("PROOF PASS: first-boot seeding");

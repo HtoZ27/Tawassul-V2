@@ -71,6 +71,10 @@
       "cmd": ["bun", "scripts/prove-disclosure.ts"]
     },
     {
+      "name": "s013",
+      "cmd": ["bun", "scripts/prove-s013.ts"]
+    },
+    {
       "name": "s020",
       "cmd": ["bun", "scripts/prove-s020.ts"]
     },

@@ -8,16 +8,16 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 
 | Status | Requirements |
 | --- | --- |
-| verified | 47 |
-| anchored | 8 |
+| verified | 48 |
+| anchored | 7 |
 | partial | 0 |
 | missing | 0 |
 | host-bound | 4 |
-| n-a | 9 |
+| n-a | 10 |
 | doc-only | 2 |
-| total | 70 |
+| total | 71 |
 
-57 entries, 70 requirements.
+57 entries, 71 requirements.
 
 ## Ledger
 
@@ -35,12 +35,13 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-010 | Conflict-marker debris must never reach v2 sources. | - | - | n-a |
 | S-011 | Status changes refresh the board index and carry session provenance. | `src/services/mission-board.ts:188` `scheduleIndexWrite` | `scripts/prove-board-invariants.ts` | verified |
 | S-012 | A completed board cannot be reopened; transitions are close-only. | `src/services/mission-board.ts:304` `isCompleted` | `scripts/prove-board-invariants.ts` | verified |
-| S-013 | Role-scoped permissions, record read-back, and the MCP boundary are enforced. | `src/security-policy.ts:461` `TAWASSUL_TOOL_ROLES` | - | anchored |
+| S-013.1 | Role-scoped plugin permissions and record/eval read-back are enforced. | `src/security-policy.ts:546` `TAWASSUL_TOOL_ROLES` | `scripts/prove-s013.ts`, `scripts/prove-e21.ts` | verified |
+| S-013.2 | The MCP boundary is not applicable because v2 ships no MCP server or client. | - | - | n-a |
 | S-014 | A standalone health tool exists in the tawa namespace. | `src/tools/tawa/health.ts:55` `buildHealthTool` | `scripts/prove-e46.ts` | verified |
 | S-015 | The retired kanban-board name must not return. | - | - | n-a |
 | S-016 | Conflict-marker pollutants must not be propagated. | - | - | n-a |
 | S-017 | The three-day hardening batch is ported on merit: model retirements, generator hardening, governance, and runtime rows. | `src/services/proxy-fallback-chains.ts:67` `sweepRetiredModelPins` | - | anchored |
-| S-018 | R-008, R-009, and R-011 are ported in a v2 shape with first-boot roster seeding. | `src/utils/opencode-config.ts:511` `ensureGlobalRosterSeed` | `scripts/prove-first-boot-seed.ts` | verified |
+| S-018 | R-008, R-009, and R-011 are ported in a v2 shape with first-boot roster seeding. | `src/utils/opencode-config.ts:506` `ensureGlobalRosterSeed` | `scripts/prove-first-boot-seed.ts` | verified |
 | S-019 | The atomic-audit P0 closures are ported: containment, WAL probe, backup environment, and fail-closed gates. | `scripts/opencode-db-maintenance.sh:596` `require_v2_generation` | `scripts/prove-db-retention.ts` | verified |
 | S-020 | The nine-day batch is ported: tool surface, cache generation, guards, and wiring. | `src/context/model-utils.ts:24` `getPortCacheGen` | `scripts/prove-s020.ts` | verified |
 | S-022 | The 37-commit backlog rows are triaged and the actionable ones ported. | `src/services/goal-store.ts:444` `mutate` | `scripts/prove-goal-resurrection.ts` | verified |

@@ -485,11 +485,6 @@ export async function ensureMinimalProjectContract(
       $schema: "https://opencode.ai/config.json",
       agent: {},
     };
-    if (existsSync(resolve(projectDir, ".opencode", "mcp", "tawassul.mjs"))) {
-      doc.mcp = {
-        tawassul: { type: "local", command: ["node", ".opencode/mcp/tawassul.mjs"], enabled: true },
-      };
-    }
     const configPath = resolve(projectDir, "opencode.json");
     await atomicWriteFile(configPath, JSON.stringify(doc, null, 2) + "\n");
     logger.warn(`[tawassul] boot: no opencode.json found — generated minimal contract at ${configPath}`);

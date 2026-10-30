@@ -270,20 +270,32 @@
       "sharedLine": 160,
       "requirements": [
         {
-          "text": "Role-scoped permissions, record read-back, and the MCP boundary are enforced.",
-          "status": "anchored",
+          "text": "Role-scoped plugin permissions and record/eval read-back are enforced.",
+          "status": "verified",
           "anchor": {
             "file": "src/security-policy.ts",
-            "line": 461,
+            "line": 546,
             "marker": "TAWASSUL_TOOL_ROLES"
           },
+          "proofs": [
+            "scripts/prove-s013.ts",
+            "scripts/prove-e21.ts"
+          ],
+          "issue": null,
+          "note": "The role matrix gates dispatch and consent; record and evaluationreport read stored data back and disclose stale saves.",
+          "hostNote": null
+        },
+        {
+          "text": "The MCP boundary is not applicable because v2 ships no MCP server or client.",
+          "status": "n-a",
+          "anchor": null,
           "proofs": [],
           "issue": null,
-          "note": "The role matrix plus the persistence read-back guard are shipped.",
+          "note": "No MCP directory, entrypoint, dependency, or live config block exists; the generator ignores a legacy bundle and only the boundary guidance text remains.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-014",
@@ -373,7 +385,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/utils/opencode-config.ts",
-            "line": 511,
+            "line": 506,
             "marker": "ensureGlobalRosterSeed"
           },
           "proofs": [
