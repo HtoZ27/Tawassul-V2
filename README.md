@@ -1,7 +1,7 @@
 # Tawassul V2
 
 Tawassul is an OpenCode plugin: a per-workspace team runtime with routing,
-handoffs, a goal ledger, mission boards, checkpoints, and a 42-tool surface.
+handoffs, a goal ledger, mission boards, checkpoints, and a 43-tool surface.
 This tree is the only runnable Tawassul plugin. The v1 tree is retired and
 read-only.
 
@@ -237,7 +237,7 @@ Exit `0` is allowed, `2` is a generation refusal, and `3` is a probe failure
 (fail-closed). `CUTOVER.md` records the full dual-generation matrix and the
 rollback procedure.
 
-## 42-tool surface
+## 43-tool surface
 
 Every tool is callable directly; `help` lists the catalog and each tool carries
 its own description. Common entry points:
@@ -247,6 +247,7 @@ its own description. Common entry points:
 - `goal` — goal ledger, board, evidence, close gate
 - `handoff` / `fasttrack` — task transfer between agents
 - `record` — decisions, fixes, incidents, notes
+- `thread` — portable context packs: list, read, pack, continue, revoke (`dev`/`tawa` only)
 - `checkpoint` / `codestate` — code snapshots and undo
 - `pause` / `resume` / `panic` — workflow control
 

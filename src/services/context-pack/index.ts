@@ -19,6 +19,7 @@ import { buildPackText, previewText, renderPackSource } from "./render.ts";
 import { selectConversation } from "./select.ts";
 import {
   appendLedger,
+  assertPackDigest,
   collectGarbage,
   listPackRecords,
   packDigest,
@@ -26,7 +27,6 @@ import {
   readIndex,
   readPackRecord,
   resolvePackRoot,
-  revokeIndexDigest,
   setIndexEntry,
   writeIndex,
   writePackRecord,
@@ -39,7 +39,6 @@ import type {
   HostUserMessage,
   PackClaimFields,
   PackFailureInput,
-  PackIndexEntry,
   PackMessage,
   PackRecord,
   PackSource,
@@ -61,7 +60,9 @@ export {
 export { selectConversation, renderPackMessage, selectText } from "./select.ts";
 export {
   appendLedger,
+  assertPackDigest,
   collectGarbage,
+  isPackDigest,
   listPackRecords,
   packDigest,
   readIndex,
@@ -222,20 +223,7 @@ export async function createPack(input: {
       handoffId: input.handoffId,
       at: issuedAt,
     });
-    const index = await readIndex(root);
-    const entry: PackIndexEntry = {
-      digest,
-      sessionID: input.sessionID,
-      agent: input.agent,
-      handoffId: input.handoffId,
-      parentID: input.parentID,
-      activatedAt: issuedAt,
-      transferredTo: record.transferredTo,
-      revoked: false,
-    };
-    index[input.sessionID] = entry;
-    await writeIndex(root, index);
-    await collectGarbage(root);
+    await collectGarbage(root, [digest]);
   });
   return record;
 }
@@ -251,7 +239,7 @@ export async function activatePack(input: {
   const root = resolvePackRoot(input.worktree);
   let record: PackRecord;
   try {
-    record = await readPackRecord(root, input.digest, { allowRevoked: true });
+    record = await readPackRecord(root, input.digest);
   } catch (error) {
     revokeInjection(input.sessionID, input.digest);
     return {
@@ -259,12 +247,6 @@ export async function activatePack(input: {
       alreadyPresent: false,
       reason: error instanceof Error ? error.message : String(error),
     };
-  }
-  const index = await readIndex(root);
-  const entry = index[input.sessionID];
-  if (entry?.revoked) {
-    revokeInjection(input.sessionID, input.digest);
-    return { ok: false, alreadyPresent: false, reason: "revoked" };
   }
   let alreadyPresent = input.transferred === true;
   if (!alreadyPresent) {
@@ -278,22 +260,17 @@ export async function activatePack(input: {
       alreadyPresent = record.transferredTo.includes(input.sessionID);
     }
   }
-  warmInjection({
-    sessionID: input.sessionID,
-    digest: input.digest,
-    message: record.message,
-    alreadyPresent,
-  });
   await withPackLock(root, async () => {
     const current = (await readIndex(root))[input.sessionID];
+    const sameDigest = current?.digest === input.digest;
     await setIndexEntry(root, {
       digest: input.digest,
       sessionID: input.sessionID,
       agent: record.agent,
       handoffId: record.handoffId || undefined,
       parentID: record.parentID || undefined,
-      activatedAt: current?.activatedAt ?? new Date().toISOString(),
-      transferredTo: current?.transferredTo ?? record.transferredTo,
+      activatedAt: sameDigest && current?.activatedAt ? current.activatedAt : new Date().toISOString(),
+      transferredTo: sameDigest ? current?.transferredTo ?? record.transferredTo : record.transferredTo,
       warmed: true,
       revoked: false,
     });
@@ -306,6 +283,12 @@ export async function activatePack(input: {
       reason: alreadyPresent ? "already-present" : "warm",
     });
   });
+  warmInjection({
+    sessionID: input.sessionID,
+    digest: input.digest,
+    message: record.message,
+    alreadyPresent,
+  });
   return { ok: true, alreadyPresent, record };
 }
 
@@ -315,19 +298,22 @@ export async function markPackTransferred(input: {
   sessionID: string;
   alreadyPresent?: boolean;
 }): Promise<void> {
+  assertPackDigest(input.digest);
   const root = resolvePackRoot(input.worktree);
   await withPackLock(root, async () => {
     const index = await readIndex(root);
-    const entry =
-      index[input.sessionID] ??
-      {
-        digest: input.digest,
-        sessionID: input.sessionID,
-        activatedAt: new Date().toISOString(),
-        revoked: false,
-      };
-    const transferredTo = [...new Set([...(entry.transferredTo ?? []), input.sessionID])];
-    index[input.sessionID] = { ...entry, transferredTo, warmed: true };
+    const current = index[input.sessionID];
+    const sameDigest = current?.digest === input.digest;
+    const base = sameDigest
+      ? current
+      : {
+          digest: input.digest,
+          sessionID: input.sessionID,
+          activatedAt: new Date().toISOString(),
+          revoked: false,
+        };
+    const transferredTo = [...new Set([...(base.transferredTo ?? []), input.sessionID])];
+    index[input.sessionID] = { ...base, digest: input.digest, transferredTo, warmed: true };
     await writeIndex(root, index);
     await appendLedger(root, {
       type: "transfer",
@@ -348,7 +334,7 @@ export async function markPackTransferred(input: {
     }
   });
   try {
-    const record = await readPackRecord(root, input.digest, { allowRevoked: true });
+    const record = await readPackRecord(root, input.digest);
     warmInjection({
       sessionID: input.sessionID,
       digest: input.digest,
@@ -367,13 +353,21 @@ export async function revokePack(input: {
   digest: string;
   sessionID?: string;
   reason?: string;
-}): Promise<{ removed: boolean; revoked: boolean }> {
+  confirm?: boolean;
+}): Promise<{ removed: boolean; revoked: boolean; confirmationRequired?: boolean; error?: string }> {
+  assertPackDigest(input.digest);
   const root = resolvePackRoot(input.worktree);
   const index = await readIndex(root);
   const entries = Object.values(index).filter((entry) => entry.digest === input.digest);
   const transferred = entries.some((entry) => (entry.transferredTo ?? []).length > 0);
   const warmed = entries.some((entry) => entry.warmed === true);
   const injected = input.sessionID ? isInjectionWarm(input.sessionID, input.digest) : false;
+  const destructive = !warmed && !transferred && !injected;
+  if (destructive && input.confirm !== true) {
+    return { removed: false, revoked: false, confirmationRequired: true };
+  }
+  let removed = false;
+  let error: string | undefined;
   await withPackLock(root, async () => {
     await appendLedger(root, {
       type: "revoke",
@@ -389,21 +383,49 @@ export async function revokePack(input: {
       at: new Date().toISOString(),
       reason: input.reason ?? "manual",
     });
+    if (destructive) {
+      try {
+        await unlink(join(root, "packs", `${input.digest}.json`));
+        removed = true;
+      } catch (cause) {
+        const code =
+          cause && typeof cause === "object" && "code" in cause
+            ? (cause as { code?: unknown }).code
+            : undefined;
+        if (code === "ENOENT") {
+          removed = true;
+        } else {
+          error = cause instanceof Error ? cause.message : String(cause);
+        }
+      }
+    }
+    if (!(destructive && removed)) {
+      try {
+        const record = await readPackRecord(root, input.digest, { allowExpired: true, allowRevoked: true });
+        if (!record.revokedAt) {
+          record.revokedAt = new Date().toISOString();
+          await writePackRecord(root, record);
+        }
+      } catch (cause) {
+        if (!error) error = cause instanceof Error ? cause.message : String(cause);
+        logger.debug(
+          `context pack revoke marker skipped for ${input.digest}: ${error}`,
+        );
+      }
+    }
+    const current = await readIndex(root);
+    let changed = false;
+    for (const entry of Object.values(current)) {
+      if (entry.digest === input.digest && !entry.revoked) {
+        entry.revoked = true;
+        changed = true;
+      }
+    }
+    if (changed) await writeIndex(root, current);
   });
   revokeDigestEverywhere(input.digest);
   if (input.sessionID) revokeInjection(input.sessionID, input.digest);
-  if (!warmed && !transferred && !injected) {
-    await withPackLock(root, async () => {
-      const current = await readIndex(root);
-      for (const [sessionID, entry] of Object.entries(current)) {
-        if (entry.digest === input.digest) delete current[sessionID];
-      }
-      await writeIndex(root, current);
-      await unlink(join(root, "packs", `${input.digest}.json`)).catch(() => undefined);
-    });
-    return { removed: true, revoked: true };
-  }
-  await revokeIndexDigest(root, input.digest);
+  if (destructive) return { removed, revoked: true, ...(error ? { error } : {}) };
   return { removed: false, revoked: true };
 }
 
@@ -496,12 +518,13 @@ export async function listPackStatuses(worktree: string): Promise<PackStatus[]> 
     issuedAt: record.issuedAt,
     expiresAt: record.expiresAt,
     transferredTo: record.transferredTo,
-    revoked: revoked.has(record.digest),
+    revoked: revoked.has(record.digest) || Boolean(record.revokedAt),
     expired: isPackExpired(record),
   }));
 }
 
 export function packTransportFile(worktree: string, digest: string): TransportFile {
+  assertPackDigest(digest);
   const root = resolvePackRoot(worktree);
   const path = `${root}/packs/${digest}.json`;
   return { uri: pathToFileURL(path).href, name: `context-pack-${digest.slice(0, 16)}.json` };

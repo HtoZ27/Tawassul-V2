@@ -7,6 +7,7 @@ import type { TawassulHooks } from "../src/plugin-types.ts";
 import { createV2Setup } from "../src/v2/setup.ts";
 import { clearSessionBridge } from "../src/v2/session-bridge.ts";
 import {
+  activatePack,
   clearInjectionCache,
   createPack,
   handleContextEvent,
@@ -57,6 +58,9 @@ async function main(): Promise<void> {
     agent: "dev",
     selection: "REVALIDATE-PACK",
   });
+  const activation = await activatePack({ worktree, sessionID: "ses-reval", digest: record.digest });
+  assert(activation.ok, "the pack is activated and indexed before setup");
+  clearInjectionCache();
   const root = resolvePackRoot(worktree);
 
   const goFirst = deferred();

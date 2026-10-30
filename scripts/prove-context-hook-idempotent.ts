@@ -7,10 +7,12 @@ import {
   createPack,
   handleContextEvent,
   injectionCacheSize,
+  isInjectionWarm,
   messagesContainDigest,
   revokeInjection,
   warmInjection,
 } from "../src/services/context-pack/index.ts";
+import { cachedDigests } from "../src/services/context-pack/hook.ts";
 
 function fail(message: string): never {
   console.error(`PROOF FAIL: ${message}`);
@@ -49,52 +51,57 @@ async function main(): Promise<void> {
   clearInjectionCache();
   const first = await createPack({ worktree, sessionID: "ses-idem", agent: "dev", selection: "PACK-ALPHA" });
   const second = await createPack({ worktree, sessionID: "ses-idem", agent: "dev", selection: "PACK-BETA" });
+
   warmInjection({ sessionID: "ses-idem", digest: first.digest, message: first.message, alreadyPresent: false });
+  eq(injectionCacheSize(), 1, "the session starts with one active digest");
+  eq(cachedDigests("ses-idem").join(","), first.digest, "the first digest is active");
+
+  const firstRequest: Array<Record<string, unknown>> = [{ role: "user", content: "go" }];
+  eq(handleContextEvent({ sessionID: "ses-idem", messages: firstRequest }), 1, "the first request receives one pack");
+  eq(countBody(firstRequest, first.text), 1, "the active digest appears once");
+  eq(handleContextEvent({ sessionID: "ses-idem", messages: firstRequest }), 0, "a repeated call on the same request appends nothing");
+  eq(countBody(firstRequest, first.text), 1, "the digest is still not duplicated");
+
   warmInjection({ sessionID: "ses-idem", digest: second.digest, message: second.message, alreadyPresent: false });
-  eq(injectionCacheSize(), 2, "both digests are cached once");
+  eq(injectionCacheSize(), 1, "the replacement digest is the only cached entry");
+  eq(cachedDigests("ses-idem").join(","), second.digest, "the second digest replaces the first");
+  assert(!isInjectionWarm("ses-idem", first.digest), "the replaced digest is no longer warm");
 
-  warmInjection({ sessionID: "ses-idem", digest: first.digest, message: first.message, alreadyPresent: false });
-  eq(injectionCacheSize(), 2, "re-warming a digest does not duplicate the cache entry");
+  const secondRequest: Array<Record<string, unknown>> = [{ role: "user", content: "again" }];
+  eq(handleContextEvent({ sessionID: "ses-idem", messages: secondRequest }), 1, "the next request receives the replacement only");
+  eq(countBody(secondRequest, first.text), 0, "the replaced digest is not injected");
+  eq(countBody(secondRequest, second.text), 1, "the replacement appears once");
 
-  const request: Array<Record<string, unknown>> = [{ role: "user", content: "go" }];
-  eq(handleContextEvent({ sessionID: "ses-idem", messages: request }), 2, "the first request receives both packs");
-  eq(countBody(request, first.text), 1, "the first digest appears once");
-  eq(countBody(request, second.text), 1, "the second digest appears once");
-
-  eq(handleContextEvent({ sessionID: "ses-idem", messages: request }), 0, "a repeated call on the same request appends nothing");
-  eq(countBody(request, first.text), 1, "the first digest is still not duplicated");
-  eq(countBody(request, second.text), 1, "the second digest is still not duplicated");
-
-  const next: Array<Record<string, unknown>> = [{ role: "user", content: "again" }];
-  eq(handleContextEvent({ sessionID: "ses-idem", messages: next }), 2, "the next host request re-applies both packs once");
+  warmInjection({ sessionID: "ses-idem", digest: second.digest, message: second.message, alreadyPresent: false });
+  eq(injectionCacheSize(), 1, "re-warming the active digest does not duplicate the cache entry");
 
   const compacted: Array<Record<string, unknown>> = [
     { role: "user", content: "summary" },
-    { role: "user", content: [{ type: "text", text: first.text }] },
     { role: "user", content: [{ type: "text", text: second.text }] },
   ];
-  assert(messagesContainDigest(compacted, first.digest), "the post-compaction history still carries the first digest");
-  assert(messagesContainDigest(compacted, second.digest), "the post-compaction history still carries the second digest");
-  warmInjection({ sessionID: "ses-idem", digest: first.digest, message: first.message, alreadyPresent: true });
+  assert(messagesContainDigest(compacted, second.digest), "the post-compaction history still carries the active digest");
   warmInjection({ sessionID: "ses-idem", digest: second.digest, message: second.message, alreadyPresent: true });
   eq(handleContextEvent({ sessionID: "ses-idem", messages: compacted }), 0, "a surviving pack is not re-injected after compaction");
-  eq(countBody(compacted, first.text), 1, "compaction leaves exactly one copy of the first pack");
-  eq(countBody(compacted, second.text), 1, "compaction leaves exactly one copy of the second pack");
+  eq(countBody(compacted, second.text), 1, "compaction leaves exactly one copy of the pack");
 
   const vanished: Array<Record<string, unknown>> = [{ role: "user", content: "summary only" }];
-  warmInjection({ sessionID: "ses-idem", digest: first.digest, message: first.message, alreadyPresent: false });
   warmInjection({ sessionID: "ses-idem", digest: second.digest, message: second.message, alreadyPresent: false });
-  eq(handleContextEvent({ sessionID: "ses-idem", messages: vanished }), 2, "a vanished pack returns exactly once per request");
-  eq(countBody(vanished, first.text), 1, "the vanished first digest returns once");
-  eq(countBody(vanished, second.text), 1, "the vanished second digest returns once");
+  eq(handleContextEvent({ sessionID: "ses-idem", messages: vanished }), 1, "a vanished pack returns exactly once per request");
+  eq(countBody(vanished, second.text), 1, "the vanished digest returns once");
 
-  revokeInjection("ses-idem", first.digest);
+  revokeInjection("ses-idem", second.digest);
   const tombstoned: Array<Record<string, unknown>> = [{ role: "user", content: "after revoke" }];
-  eq(handleContextEvent({ sessionID: "ses-idem", messages: tombstoned }), 1, "a tombstoned digest is skipped");
-  eq(countBody(tombstoned, first.text), 0, "the tombstoned digest never returns");
-  eq(countBody(tombstoned, second.text), 1, "the live digest still returns once");
+  eq(handleContextEvent({ sessionID: "ses-idem", messages: tombstoned }), 0, "a tombstoned digest is skipped");
+  eq(countBody(tombstoned, second.text), 0, "the tombstoned digest never returns");
 
-  console.log("PROOF PASS: one append per digest per request, no cache duplication, and compaction never re-injects");
+  warmInjection({ sessionID: "ses-idem", digest: first.digest, message: first.message, alreadyPresent: false });
+  eq(injectionCacheSize(), 1, "another live digest can replace a tombstoned one");
+  const recovered: Array<Record<string, unknown>> = [{ role: "user", content: "recovered" }];
+  eq(handleContextEvent({ sessionID: "ses-idem", messages: recovered }), 1, "the other live digest is injected");
+  eq(countBody(recovered, first.text), 1, "the other live digest appears once");
+  eq(countBody(recovered, second.text), 0, "the tombstoned digest stays out");
+
+  console.log("PROOF PASS: one active digest per session, one append per request, and compaction never re-injects");
 }
 
 function eq(actual: unknown, expected: unknown, label: string): void {

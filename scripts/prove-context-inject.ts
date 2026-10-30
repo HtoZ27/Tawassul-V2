@@ -138,15 +138,17 @@ async function main(): Promise<void> {
 
   warmInjection({ sessionID: "ses-many", digest: "d-a", message: message(), alreadyPresent: false });
   warmInjection({ sessionID: "ses-many", digest: "d-b", message: message(), alreadyPresent: false });
+  eq(cachedDigests("ses-many").join(","), "d-b", "a session keeps a single active digest");
+  assert(!isInjectionWarm("ses-many", "d-a"), "warming a new digest drops the previous one");
   const many: Array<Record<string, unknown>> = [{ role: "user" }];
-  eq(handleContextEvent({ sessionID: "ses-many", messages: many }), 2, "each warmed digest is appended once");
-  eq(many.length, 3, "two digests produce two messages");
+  eq(handleContextEvent({ sessionID: "ses-many", messages: many }), 1, "only the active digest is appended");
+  eq(many.length, 2, "one active digest produces one message");
 
   assert(messagesContainDigest([{ content: TEXT }], "0123456789"), "digest detection finds a pack in history");
   assert(!messagesContainDigest([{ content: "nothing" }], "0123456789"), "digest detection ignores unrelated history");
 
   clearSessionInjection("ses-many");
-  assert(!isInjectionWarm("ses-many", "d-a"), "clearing a session forgets its digests");
+  assert(!isInjectionWarm("ses-many", "d-b"), "clearing a session forgets its digests");
 
   const pack = await createPack({
     worktree,

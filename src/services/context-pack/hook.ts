@@ -27,6 +27,9 @@ export function warmInjection(input: {
   alreadyPresent: boolean;
 }): void {
   const entries = bucket(input.sessionID);
+  for (const digest of [...entries.keys()]) {
+    if (digest !== input.digest) entries.delete(digest);
+  }
   const existing = entries.get(input.digest);
   if (existing) {
     existing.alreadyPresent = input.alreadyPresent;

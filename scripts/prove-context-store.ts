@@ -1,13 +1,16 @@
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   collectGarbage,
   createPack,
+  isPackDigest,
   listPackStatuses,
+  readIndex,
   readPackRecord,
   revokePack,
+  setIndexEntry,
   writePackRecord,
 } from "../src/services/context-pack/index.ts";
 import {
@@ -71,6 +74,8 @@ async function main(): Promise<void> {
   const workspaces = readdirSync(root);
   eq(workspaces.length, 1, "one workspace bucket exists");
   const bucket = join(root, workspaces[0] ?? "missing");
+  const freshIndex = await readIndex(bucket);
+  eq(Object.keys(freshIndex).length, 0, "createPack does not write the session index");
   const packFile = join(bucket, "packs", `${record.digest}.json`);
   assert(existsSync(packFile), "the pack file exists at its digest path");
   eq(statSync(packFile).mode & 0o777, 0o600, "the pack file is 0600");
@@ -150,13 +155,101 @@ async function main(): Promise<void> {
   );
 
   const liveExpired = await createPack({ worktree, sessionID: "ses-live", agent: "dev", selection: "live", now: old });
-  const collected = await collectGarbage(bucket, [], now);
-  assert(collected.removed === 0, "collection protects a pack referenced by the index");
-  assert(existsSync(join(bucket, "packs", `${liveExpired.digest}.json`)), "a live expired pack is not collected");
+  const unreferenced = await collectGarbage(bucket, [], now);
+  eq(unreferenced.removed, 1, "an expired pack with no index entry is collected");
+  assert(!existsSync(join(bucket, "packs", `${liveExpired.digest}.json`)), "the unreferenced expired pack is gone");
 
-  const revoked = await revokePack({ worktree, digest: liveExpired.digest });
+  const protectedPack = await createPack({
+    worktree,
+    sessionID: "ses-protected",
+    agent: "dev",
+    selection: "protected",
+    now: old,
+  });
+  await setIndexEntry(bucket, {
+    digest: protectedPack.digest,
+    sessionID: "ses-protected",
+    agent: "dev",
+    activatedAt: new Date().toISOString(),
+    warmed: true,
+    revoked: false,
+  });
+  const protectedGc = await collectGarbage(bucket, [], now);
+  eq(protectedGc.removed, 0, "collection protects an expired pack referenced by the index");
+  assert(existsSync(join(bucket, "packs", `${protectedPack.digest}.json`)), "the protected expired pack survives");
+
+  const cold = await createPack({ worktree, sessionID: "ses-cold", agent: "dev", selection: "cold" });
+  const unconfirmed = await revokePack({ worktree, digest: cold.digest });
+  eq(unconfirmed.confirmationRequired, true, "a destructive revoke requires confirmation");
+  eq(unconfirmed.removed, false, "an unconfirmed revoke removes nothing");
+  assert(existsSync(join(bucket, "packs", `${cold.digest}.json`)), "the unconfirmed pack file survives");
+
+  const revoked = await revokePack({ worktree, digest: cold.digest, confirm: true });
   assert(revoked.removed && revoked.revoked, "revoking before injection removes and revokes");
-  assert(!existsSync(join(bucket, "packs", `${liveExpired.digest}.json`)), "the pre-injection revoke unlinks the pack file");
+  assert(!existsSync(join(bucket, "packs", `${cold.digest}.json`)), "the pre-injection revoke unlinks the pack file");
+
+  const stuck = await createPack({ worktree, sessionID: "ses-stuck", agent: "dev", selection: "stuck" });
+  const stuckPath = join(bucket, "packs", `${stuck.digest}.json`);
+  unlinkSync(stuckPath);
+  mkdirSync(stuckPath);
+  const failed = await revokePack({ worktree, digest: stuck.digest, confirm: true });
+  eq(failed.removed, false, "a failed unlink reports removed false");
+  eq(failed.revoked, true, "a failed unlink still tombstones the digest");
+  assert(typeof failed.error === "string" && failed.error.length > 0, "a failed unlink reports the error");
+
+  const indexAfter = await readIndex(bucket);
+  const coldEntry = indexAfter["ses-cold"];
+  assert(coldEntry === undefined, "an unindexed revoked pack gains no synthetic index entry");
+  const protectedEntry = indexAfter["ses-protected"];
+  eq(protectedEntry?.digest, protectedPack.digest, "an indexed pack keeps its session key");
+
+  const marked = await createPack({ worktree, sessionID: "ses-marked", agent: "dev", selection: "marked" });
+  await setIndexEntry(bucket, {
+    digest: marked.digest,
+    sessionID: "ses-marked",
+    agent: "dev",
+    activatedAt: new Date().toISOString(),
+    warmed: true,
+    revoked: false,
+  });
+  const additive = await revokePack({ worktree, digest: marked.digest });
+  assert(!additive.removed && additive.revoked, "an injected revoke stays additive");
+  const markedRecord = await readPackRecord(bucket, marked.digest, { allowRevoked: true });
+  assert(typeof markedRecord.revokedAt === "string" && markedRecord.revokedAt.length > 0, "an additive revoke marks the record");
+  let markedRefused = false;
+  try {
+    await readPackRecord(bucket, marked.digest);
+  } catch {
+    markedRefused = true;
+  }
+  assert(markedRefused, "a marked record is refused without allowRevoked");
+
+  const replacement = await createPack({ worktree, sessionID: "ses-marked", agent: "dev", selection: "replacement" });
+  await setIndexEntry(bucket, {
+    digest: replacement.digest,
+    sessionID: "ses-marked",
+    agent: "dev",
+    activatedAt: new Date().toISOString(),
+    warmed: true,
+    revoked: false,
+  });
+  markedRefused = false;
+  try {
+    await readPackRecord(bucket, marked.digest);
+  } catch {
+    markedRefused = true;
+  }
+  assert(markedRefused, "the record tombstone survives an index entry replacement");
+
+  let traversalRejected = false;
+  try {
+    await revokePack({ worktree, digest: "../victim", confirm: true });
+  } catch {
+    traversalRejected = true;
+  }
+  assert(traversalRejected, "a traversal digest is rejected before any unlink");
+  assert(!isPackDigest("../victim"), "the traversal digest is not a valid digest");
+  assert(isPackDigest(record.digest), "a real digest passes validation");
 
   const ledger = await readLedger(bucket);
   assert(ledger.some((entry) => entry.type === "write"), "writes are recorded in the ledger");

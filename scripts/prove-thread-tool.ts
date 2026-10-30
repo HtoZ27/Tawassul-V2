@@ -137,6 +137,11 @@ async function main(): Promise<void> {
   const activation = await activatePack({ worktree, sessionID: "ses-source", digest });
   assert(activation.ok, "the handoff pack can be warmed before revoke");
 
+  const repacked = await run({ action: "pack", handoffId: "H-100" });
+  assert(repacked.output.includes("Already packed"), "packing the same handoff twice is idempotent");
+  assert(entry.contextPackDigest === digest, "the second pack keeps the same digest");
+  assert(entry.context.split("## Portable Context Pack ").length - 1 === 1, "the handoff carries one preview block");
+
   const listed = await run({ action: "list" });
   assert(listed.output.includes(digest.slice(0, 16)), "list shows the stored digest prefix");
   assert(listed.output.includes("handoff=H-100"), "list shows the handoff id");
@@ -145,6 +150,13 @@ async function main(): Promise<void> {
   const read = await run({ action: "read", handoffId: "H-100" });
   assert(read.output.includes(`digest=${digest}`), "read resolves the handoff digest");
   assert(read.output.includes("Portable context pack"), "read shows the pack body");
+
+  const malformedModel = await run({ action: "continue", sessionID: "ses-source", model: "nope" });
+  assert(malformedModel.output.includes("model must be provider/model"), "a malformed model fails explicitly");
+  assert(created.length === 0 && prompts.length === 0, "a malformed model creates no successor");
+
+  const unknown = await run({ action: "pause" });
+  assert(unknown.output.includes("Unknown action"), "an unknown action is rejected explicitly");
 
   const noTransfer = await run({ action: "continue", sessionID: "ses-source" });
   assert(noTransfer.output.includes("within budget"), "a within-budget session is not rewritten");
@@ -172,13 +184,38 @@ async function main(): Promise<void> {
   const revokeWarm = await run({ action: "revoke", handoffId: "H-100" });
   assert(revokeWarm.output.includes("tombstoned"), "revoking an injected pack tombstones it");
   assert(entry.contextPackDigest === undefined, "the handoff drops the digest on revoke");
+  assert(!entry.context.includes("Portable Context Pack"), "the handoff context loses the preview on revoke");
   assert(saves >= 2, "the revoke action saves state");
 
+  const reactivated = await activatePack({ worktree, sessionID: "ses-other", digest });
+  assert(!reactivated.ok, "a revoked pack refuses activation for a fresh session");
+
+  const replacement = await createPack({ worktree, sessionID: "ses-source", agent: "dev", selection: "REPLACEMENT-PACK" });
+  const replaced = await activatePack({ worktree, sessionID: "ses-source", digest: replacement.digest });
+  assert(replaced.ok, "a new pack replaces the session index entry");
+  const oldAfterReplace = await activatePack({ worktree, sessionID: "ses-source", digest });
+  assert(!oldAfterReplace.ok, "a revoked digest stays refused after the index entry is replaced");
+
   const cold = await createPack({ worktree, sessionID: "ses-cold", agent: "dev", selection: "COLD-PACK" });
-  const revoked = await run({ action: "revoke", digest: cold.digest });
-  assert(revoked.output.includes("removed from disk"), "revoking before injection removes the pack");
+  const unconfirmed = await run({ action: "revoke", digest: cold.digest });
+  assert(unconfirmed.output.includes("confirm: true"), "a destructive revoke asks for confirmation");
   const bucket = join(work, "data", "tawassul", "context-packs", readdirSync(join(work, "data", "tawassul", "context-packs"))[0] ?? "");
+  assert(existsSync(join(bucket, "packs", `${cold.digest}.json`)), "the unconfirmed pack stays on disk");
+  const revoked = await run({ action: "revoke", digest: cold.digest, confirm: true });
+  assert(revoked.output.includes("removed from disk"), "revoking before injection removes the pack");
   assert(!existsSync(join(bucket, "packs", `${cold.digest}.json`)), "the removed pack file is gone");
+
+  const victimPath = join(bucket, "victim.json");
+  writeFileSync(victimPath, "SENTINEL\n", "utf-8");
+  const traversal = await run({ action: "revoke", digest: "../victim", confirm: true });
+  assert(traversal.output.includes("Invalid digest"), "a traversal digest is rejected before any unlink");
+  assert(existsSync(victimPath), "a sentinel outside the packs directory survives revoke");
+  assert(readFileSync(victimPath, "utf-8") === "SENTINEL\n", "the sentinel outside the packs directory is unchanged");
+
+  const longPack = await createPack({ worktree, sessionID: "ses-long", agent: "dev", selection: "L".repeat(12000) });
+  const truncated = await run({ action: "read", digest: longPack.digest });
+  assert(truncated.output.includes("[truncated: showing 8192 of"), "a large pack is truncated with a notice");
+  assert(truncated.metadata?.truncated === true, "the truncation is reported in metadata");
 
   const unavailable = await run({ action: "read", digest: "f".repeat(64) });
   assert(unavailable.output.includes("unavailable"), "reading a missing pack fails explicitly");

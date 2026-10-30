@@ -1,9 +1,9 @@
 # Portable Context Handoff — Implementation Plan
 
-Status: REVISION 5 — 2026-10-30. Transport decided after the independent
+Status: REVISION 6 — 2026-10-30. Transport decided after the independent
 isolated re-run on host 2.2.2 (section 10): the `context` hook carries the
 persistent layer, `prompt({ text, files })` carries the transfer, and `synthetic`
-is not used for injection. One unit, no phases. Implemented in full; 16 feature
+is not used for injection. One unit, no phases. Implemented in full; 15 feature
 proofs and the three gate stages pass.
 Repository: `/home/htoz/Desktop/Tawassul V2`
 Scope rule: one unit. No phases, no MVPs, no per-agent slices.
@@ -37,7 +37,8 @@ failed delivery.
    host `instructions.entry` cap is 262144 bytes
    (`MaxValueBytes = 256 * 1024` in `@opencode/schema/dist/instruction-entry.js:20`),
    but instruction entries are not used for pack content.
-6. The first request is pinned. The current request is never truncated.
+6. The first request is pinned only when it fits next to the current
+   request; the current request is never truncated.
    Attachments are never copied into a pack, but they are charged to
    `requestBytes` at 8192 for an image and 4096 for any other attachment. On
    the transfer path they are replayed as `prompt.files`, so no attachment is
@@ -125,8 +126,8 @@ re-injection are rejected designs (section 6).
 
 Runtime path A, handoff and continuation:
 
-1. `src/tools/thread.ts` (new) — `continue` resolves the source session, the
-   worktree, the branch and the commit, read-only.
+1. `src/tools/thread.ts` — `continue` resolves the source session and
+   worktree, read-only.
 2. `src/tools/handoff.ts:750` — the tool writes `ctx.handoffs` directly, so the
    pack write goes through `attachPackToHandoff`, which calls `createPack` and
    takes the pack `lock`: accounting, selection, render, `store.write`, then
@@ -193,6 +194,56 @@ the new handoff fields are optional), `src/services/context-pack/*`, the hooks,
 
 ---
 
+## 2.1 Activation, revocation and roles
+
+Index ownership: `createPack` writes the pack file and the ledger entry only.
+The session index (`sessions.json`) is written by `activatePack` and
+`markPackTransferred`. A pack that is created and never activated carries no
+index entry, so garbage collection treats it by age, bytes and count.
+
+One active pack per session: `warmInjection` deletes every other digest cached
+for that session before inserting the new one. A session therefore never holds
+two warm packs, and an outbound transfer replaces the cache rather than adding
+to it.
+
+Activation is idempotent by digest: activating the same digest again keeps the
+original `activatedAt` and does not duplicate anything. Activating a different
+digest replaces the index entry and the warm cache. A pack that is revoked or
+expired is refused (`readPackRecord` is called without `allowRevoked` or
+`allowExpired`), so a tombstoned digest can never be injected again. The hook
+drops a stale cache entry on any activation failure.
+
+`thread pack` is idempotent for a live pack: packing the same handoff, or the
+same session without a handoff, returns the stored digest and does not rebuild
+the pack or duplicate the preview block in `entry.context`. The preview is
+stripped before a new block is appended, and it is stripped when the pack is
+revoked.
+
+Revocation has two states:
+
+- Before injection (never warmed, never transferred, not in the injection
+  cache) the revocation is destructive: it deletes the pack file and requires
+  `confirm: true`. Without the confirmation the tool reports what would happen
+  and changes nothing. `removed: true` is returned only when the unlink
+  succeeded or the file was already gone (`ENOENT`); any other unlink failure
+  is reported as `removed: false` with an explicit `error`.
+- After injection (warmed, transferred or currently cached) the revocation is
+  additive: it writes the tombstone, retains the index entry with
+  `revoked: true`, and stamps `revokedAt` into the pack record. The record
+  marker keeps the digest refused even if a later activation replaces the
+  session's index entry. It needs no confirmation and the file stays readable
+  for audit.
+
+A revoked digest is never activated or injected again, but `list` and `read`
+still show it so the audit trail is inspectable.
+
+Roles: `thread` is registered for `dev` and `tawa` only. It creates sessions on
+the `continue` path and can delete pack files on the `revoke` path, so it is not
+shared with read-only roles. No retired v1 precedent exists for sharing
+persistent pack state with read-only roles.
+
+---
+
 ## 3. Files
 
 | File | Change |
@@ -225,13 +276,13 @@ the new handoff fields are optional), `src/services/context-pack/*`, the hooks,
 | `prove:context-accounting` | 1 equals 1 byte, `Buffer.byteLength`, Arabic and CJK text stay intact |
 | `prove:context-selection` | First request pinned, current request whole, turn boundaries intact |
 | `prove:context-budget` | Reserve and budget never go negative at W=96k and W=8k; `room` and overflow boundary |
-| `prove:context-store` | Atomic write, 0600, dir fsync, digest on read, 64000 total, 2048/61952 split, GC order |
+| `prove:context-store` | Atomic write, 0600, dir fsync, digest on read, 64000 total, 2048/61952 split, GC order, record tombstones |
 | `prove:context-claim` | HMAC rejects on any bound field, refuses the sentinel key, enforces `expiresAt` |
 | `prove:context-inject` | Hook appends `{ role: "user", content: [{ type: "text", text }] }`, dedupes by digest, tombstone blocks, no double injection with checkpoint |
 | `prove:context-transport` | The persistent layer is the hook and stores nothing; the transfer is a flat `prompt({ sessionID, text, files })`; no `synthetic` call; no `instructions.entry` write |
 | `prove:context-hook-latency` | p95 handler time at or below 2 ms with a 64000-byte pack; zero filesystem, crypto or session calls inside the handler |
-| `prove:context-hook-idempotent` | Exactly one append per digest per request; the pack survives compaction without re-injection |
-| `prove:thread-tool` | Five actions and no mutation of the source checkout |
+| `prove:context-hook-idempotent` | One active digest per session, exactly one append per request, and the pack survives compaction without re-injection |
+| `prove:thread-tool` | Five actions, digest validation, idempotent pack, revoke confirmation, read truncation, and no mutation of the source checkout |
 | `prove:model-switch` | No rewrite without measured overflow; overflow uses `create` then a flat `prompt({ sessionID, text, files })`, never `fork` |
 | `prove:context-bridge` | Splice not reassignment, no second bridge entry, dedupe does not swallow the injection |
 | `prove:context-revalidate` | `session.compaction.ended` is recorded and does not re-inject; a transferred pack that survived stays put and one that vanished returns once |
@@ -395,13 +446,14 @@ or suggest a model. Choosing the model belongs to the owner.
   `:562` unconditional context hook (chat bridge then injection); `:575` retry
   veto.
 - `src/v2/session-bridge.ts:18` `installSessionBridge`.
-- `src/tools/thread.ts:49` `buildThreadTool`; `:246` `transferOverflow`.
+- `src/tools/thread.ts:66` `buildThreadTool`; `transferOverflow` lives in
+  `src/services/context-pack/outbound.ts:86`.
 - `src/tools/handoff.ts:750` `attachPackToHandoff`.
 - `src/hooks/message-updated.ts:340` `activatePack` plus bullet suppression.
 - `src/bootstrap/plugin-init.ts:512` `setContextHandoffConfig(tawaCtx.config)`.
-- `src/services/context-pack/index.ts:168` `createPack` (takes the lock),
-  `:243` `activatePack`.
-- `src/services/context-pack/hook.ts:103` `handleContextEvent` (synchronous,
+- `src/services/context-pack/index.ts:169` `createPack` (takes the lock),
+  `:231` `activatePack`, `:349` `revokePack`.
+- `src/services/context-pack/hook.ts:106` `handleContextEvent` (synchronous,
   cache only).
 
 ---

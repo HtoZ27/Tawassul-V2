@@ -80,7 +80,16 @@ export function packDigest(id: string, payload: string): string {
   return createHash("sha256").update(`${id}\n${payload}`, "utf-8").digest("hex");
 }
 
+export function isPackDigest(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{64}$/u.test(value);
+}
+
+export function assertPackDigest(value: unknown): asserts value is string {
+  if (!isPackDigest(value)) throw new PackStoreError("pack digest must be 64 lowercase hex characters");
+}
+
 export async function writePackRecord(root: string, record: PackRecord): Promise<string> {
+  assertPackDigest(record.digest);
   const paths = packPaths(root);
   await ensurePackRoot(root);
   const target = join(paths.packs, `${record.digest}.json`);
@@ -142,6 +151,7 @@ function parseRecord(raw: string, digest: string): PackRecord {
     transferredTo: Array.isArray(record.transferredTo)
       ? record.transferredTo.filter((value): value is string => typeof value === "string")
       : [],
+    revokedAt: optionalString(record, "revokedAt") || undefined,
   };
   if (out.digest !== digest) throw new PackStoreError(`pack ${digest} digest field does not match its filename`);
   const recomputed = packDigest(out.id, out.payload);
@@ -159,6 +169,7 @@ export async function readPackRecord(
   digest: string,
   options: { allowExpired?: boolean; allowRevoked?: boolean } = {},
 ): Promise<PackRecord> {
+  assertPackDigest(digest);
   const target = join(packPaths(root).packs, `${digest}.json`);
   let raw: string;
   try {
@@ -169,6 +180,7 @@ export async function readPackRecord(
   const record = parseRecord(raw, digest);
   if (!options.allowExpired) assertPackFresh(record);
   if (!options.allowRevoked) {
+    if (record.revokedAt) throw new PackStoreError(`pack ${digest} is revoked`);
     const index = await readIndex(root);
     const entry = Object.values(index).find((candidate) => candidate.digest === digest);
     if (entry?.revoked) throw new PackStoreError(`pack ${digest} is revoked`);
@@ -191,6 +203,7 @@ export async function listPackRecords(
   for (const file of files) {
     if (!file.endsWith(".json")) continue;
     const digest = file.slice(0, -5);
+    if (!isPackDigest(digest)) continue;
     const target = join(paths.packs, file);
     try {
       const record = await readPackRecord(root, digest, { allowExpired: true, allowRevoked: true });

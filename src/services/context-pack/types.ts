@@ -66,6 +66,7 @@ export type PackRecord = PackClaimFields & {
   message: HostUserMessage;
   claim: string;
   transferredTo: string[];
+  revokedAt?: string;
 };
 
 export type PackIndexEntry = {
