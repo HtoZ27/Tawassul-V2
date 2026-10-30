@@ -8,8 +8,8 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 
 | Status | Requirements |
 | --- | --- |
-| verified | 49 |
-| anchored | 6 |
+| verified | 55 |
+| anchored | 0 |
 | partial | 0 |
 | missing | 0 |
 | host-bound | 4 |
@@ -40,7 +40,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-014 | A standalone health tool exists in the tawa namespace. | `src/tools/tawa/health.ts:55` `buildHealthTool` | `scripts/prove-e46.ts` | verified |
 | S-015 | The retired kanban-board name must not return. | - | - | n-a |
 | S-016 | Conflict-marker pollutants must not be propagated. | - | - | n-a |
-| S-017 | The three-day hardening batch is ported on merit: model retirements, generator hardening, governance, and runtime rows. | `src/services/proxy-fallback-chains.ts:67` `sweepRetiredModelPins` | - | anchored |
+| S-017 | The three-day hardening batch is ported on merit: model retirements, generator hardening, governance, and runtime rows. | `src/services/proxy-fallback-chains.ts:67` `sweepRetiredModelPins` | `scripts/prove-s017.ts`, `scripts/prove-gen-lock-contention.ts`, `scripts/prove-gen-merge-guards.ts`, `scripts/prove-gen-guard-wal.ts`, `scripts/prove-roster-boundary.ts`, `scripts/prove-event-trust-p1.ts`, `scripts/prove-web-ssrf.ts`, `scripts/prove-s028.ts`, `scripts/prove-state-namespace.ts` | verified |
 | S-018 | R-008, R-009, and R-011 are ported in a v2 shape with first-boot roster seeding. | `src/utils/opencode-config.ts:506` `ensureGlobalRosterSeed` | `scripts/prove-first-boot-seed.ts` | verified |
 | S-019 | The atomic-audit P0 closures are ported: containment, WAL probe, backup environment, and fail-closed gates. | `scripts/opencode-db-maintenance.sh:596` `require_v2_generation` | `scripts/prove-db-retention.ts` | verified |
 | S-020 | The nine-day batch is ported: tool surface, cache generation, guards, and wiring. | `src/context/model-utils.ts:24` `getPortCacheGen` | `scripts/prove-s020.ts` | verified |
@@ -56,8 +56,8 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-030 | The live roster is aligned with the generation-layer retire. | `src/scripts/gen-opencode-config.ts:287` `unionDeletedVariants` | `scripts/prove-s029.ts` | verified |
 | S-031 | The documented install path materializes the plugin entry on every build. | `build-v2.mjs:129` `tawassul.js` | `scripts/release-smoke.sh` | verified |
 | S-032 | A stale project-scope copy must not win registration in a shared process. | `src/core/install-scope.ts:56` `claimCoexistence` | `scripts/prove-s038.ts` | verified |
-| S-033.1 | The plugin-side cold-boot wave is ported: quiet resolution, write-behind, save debounce, jitter, logger stamp, quarantine, and save guard. | `src/utils/quiet.ts:6` `forceQuietMode` | - | anchored |
-| S-033.2 | Launcher and installer duties stay in the host install script, not in the plugin. | `scripts/install-global.ts:207` `hostCandidates` | - | anchored |
+| S-033.1 | The plugin-side cold-boot wave is ported: quiet resolution, write-behind, save debounce, jitter, logger stamp, quarantine, and save guard. | `src/utils/quiet.ts:6` `forceQuietMode` | `scripts/prove-s033.ts` | verified |
+| S-033.2 | Launcher and installer duties stay in the host install script, not in the plugin. | `scripts/install-global.ts:207` `hostCandidates` | `scripts/prove-s033.ts` | verified |
 | S-033.3 | The cold-boot launch wave passes only after a recorded cold-boot run meets N1 to N5. | - | - | n-a |
 | S-034.1 | N2 records only announced assistant text parts. | `src/hooks/n2-auto.ts:40` `assistantMessages` | `scripts/prove-v2-compat.ts` | verified |
 | S-034.2 | A v2 boot scorecard implements N1 to N5 with an explicit since gate. | `scripts/boot-scorecard-v2.sh:30` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
@@ -84,9 +84,9 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-053.1 | The watcher policy is owned by the v2 launcher with env over pinned over auto and one decision line. | `scripts/opencode-v2-iso.sh:302` `[launcher] watcher mode=` | `scripts/prove-boot-gate.ts` | verified |
 | S-053.2 | DB retention prunes event rows and the backup probe counts both session tables. | `scripts/opencode-db-maintenance.sh:91` `EVENT_KEEP` | `scripts/prove-db-retention.ts` | verified |
 | S-053.3 | The seven-item unchecked-task census is either ported as tests or recorded as out of scope. | `ISSUES.md:2978` `### E-53` | `scripts/prove-handoff-rescue.ts`, `scripts/prove-state-namespace.ts`, `scripts/prove-seed-agents.ts` | verified |
-| S-053.4 | Pause during a live session halts dispatch and persists the paused handoff set. | `src/tools/system-controls.ts:79` `const pauseState: PauseState = {` | - | anchored |
-| S-053.5 | A task that runs longer than 420 seconds is tracked by the task timeout. | `src/hooks/tool-execute.ts:67` `const TASK_TIMEOUT_MS = 420_000;` | - | anchored |
-| S-053.6 | An image-generation 401 refreshes the token once and fails closed on a second 401. | `src/tools/image-gen.ts:190` `const refreshed = await refreshAndUpdateToken();` | - | anchored |
+| S-053.4 | Pause during a live session halts dispatch and persists the paused handoff set. | `src/tools/system-controls.ts:79` `const pauseState: PauseState = {` | `scripts/prove-s053.ts` | verified |
+| S-053.5 | A task that runs longer than 420 seconds is tracked by the task timeout. | `src/hooks/tool-execute.ts:67` `export const TASK_TIMEOUT_MS = 420_000;` | `scripts/prove-s053.ts` | verified |
+| S-053.6 | An image-generation 401 refreshes the token once and fails closed on a second 401. | `src/tools/image-gen.ts:190` `const refreshed = await refreshAndUpdateToken();` | `scripts/prove-s053.ts` | verified |
 | S-053.7 | Confidentiality at rest for plugin state is a host and OS responsibility, not a plugin feature. | - | - | n-a |
 | S-053.8 | User-level rate limiting is not a single-user local plugin surface. | - | - | n-a |
 | S-053.9 | Shared state is signed with HMAC-SHA256 before it is written and verified on read. | `src/utils/crypto.ts:20` `export const HMAC_PREFIX = "TAWASSUL_V2_HMAC_V1:";` | `scripts/prove-state-namespace.ts` | verified |

@@ -64,7 +64,28 @@ export {
   __resetPendingAnalysesForTest,
 } from "../services/lifecycle-drain.ts";
 
-const TASK_TIMEOUT_MS = 420_000;
+export const TASK_TIMEOUT_MS = 420_000;
+
+export function armTaskTimeout(sessionID: string, normalizedAgent: string, timeoutMs = TASK_TIMEOUT_MS): void {
+  const key = `${sessionID}:${normalizedAgent}`;
+  const previous = _taskTimeouts.get(key);
+  if (previous) clearTimeout(previous);
+  const taskTimer = setTimeout(() => {
+    logger.warn(`[tawassul] P0.7: task timeout for ${normalizedAgent} (session ${sessionID})`);
+    _taskTimeouts.delete(key);
+  }, timeoutMs);
+  taskTimer.unref?.();
+  _taskTimeouts.set(key, taskTimer);
+}
+
+export function clearTaskTimeout(sessionID: string, normalizedAgent: string): void {
+  const key = `${sessionID}:${normalizedAgent}`;
+  const timer = _taskTimeouts.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    _taskTimeouts.delete(key);
+  }
+}
 
 
 
@@ -273,14 +294,7 @@ export function createToolExecuteBeforeHook(ctx: ToolExecuteBeforeContext) {
 
       
       if (input.tool === "task" && input.sessionID) {
-        const key = `${input.sessionID}:${normalizeName(normalizedAgent ?? "unknown")}`;
-        if (_taskTimeouts.has(key)) clearTimeout(_taskTimeouts.get(key));
-        const taskTimer = setTimeout(() => {
-          logger.warn(`[tawassul] P0.7: task timeout for ${normalizedAgent ?? "unknown"} (session ${input.sessionID})`);
-          _taskTimeouts.delete(key);
-        }, TASK_TIMEOUT_MS);
-        taskTimer.unref?.();
-        _taskTimeouts.set(key, taskTimer);
+        armTaskTimeout(input.sessionID, normalizeName(normalizedAgent ?? "unknown"));
       }
 
       
@@ -627,12 +641,7 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
 
       
       if (input.tool === "task" && input.sessionID) {
-        const key = `${input.sessionID}:${normalizeName(normalizedAgent ?? "unknown")}`;
-        const t = _taskTimeouts.get(key);
-        if (t) {
-          clearTimeout(t);
-          _taskTimeouts.delete(key);
-        }
+        clearTaskTimeout(input.sessionID, normalizeName(normalizedAgent ?? "unknown"));
       }
 
       

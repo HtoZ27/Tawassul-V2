@@ -79,6 +79,10 @@
       "cmd": ["bun", "scripts/prove-s013.ts"]
     },
     {
+      "name": "s017",
+      "cmd": ["bun", "scripts/prove-s017.ts"]
+    },
+    {
       "name": "s020",
       "cmd": ["bun", "scripts/prove-s020.ts"]
     },
@@ -301,6 +305,14 @@
     {
       "name": "s029",
       "cmd": ["bun", "scripts/prove-s029.ts"]
+    },
+    {
+      "name": "s033",
+      "cmd": ["bun", "scripts/prove-s033.ts"]
+    },
+    {
+      "name": "s053",
+      "cmd": ["bun", "scripts/prove-s053.ts"]
     },
     {
       "name": "s036",

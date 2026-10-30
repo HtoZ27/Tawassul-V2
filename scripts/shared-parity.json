@@ -364,19 +364,29 @@
       "requirements": [
         {
           "text": "The three-day hardening batch is ported on merit: model retirements, generator hardening, governance, and runtime rows.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/services/proxy-fallback-chains.ts",
             "line": 67,
             "marker": "sweepRetiredModelPins"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-s017.ts",
+            "scripts/prove-gen-lock-contention.ts",
+            "scripts/prove-gen-merge-guards.ts",
+            "scripts/prove-gen-guard-wal.ts",
+            "scripts/prove-roster-boundary.ts",
+            "scripts/prove-event-trust-p1.ts",
+            "scripts/prove-web-ssrf.ts",
+            "scripts/prove-s028.ts",
+            "scripts/prove-state-namespace.ts"
+          ],
           "issue": null,
-          "note": "Individual rows are named in the entry; the retirement sweep is the shared anchor.",
+          "note": "All four groups are proven: the retirement set and sweep, in-lock generation with permission and facts checks, the roster and add allowlists, and every named runtime row has a source marker or a behavioral probe. Eight existing proofs remain part of the evidence.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-018",
@@ -724,28 +734,32 @@
       "requirements": [
         {
           "text": "The plugin-side cold-boot wave is ported: quiet resolution, write-behind, save debounce, jitter, logger stamp, quarantine, and save guard.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/utils/quiet.ts",
             "line": 6,
             "marker": "forceQuietMode"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-s033.ts"
+          ],
           "issue": null,
-          "note": "The seven pieces are shipped; a single combined proof is still missing, and the cold-boot gate is tracked separately as S-033.3.",
+          "note": "prove-s033 binds the seven pieces: quiet resolution, ledger write-behind, the quiet debounce, coordinator jitter, the durable logger stamp, the per-mtime quarantine copy, and the pre-save guard.",
           "hostNote": null
         },
         {
           "text": "Launcher and installer duties stay in the host install script, not in the plugin.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "scripts/install-global.ts",
             "line": 207,
             "marker": "hostCandidates"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-s033.ts"
+          ],
           "issue": null,
-          "note": "v2 global installer owns host discovery; the v1 launcher shim, self-bootstrap, and pinned.env layer remain skipped.",
+          "note": "prove-s033 asserts the installer owns candidate discovery, version probing, and scheduling units, and the plugin carries no launcher or installer duty.",
           "hostNote": null
         },
         {
@@ -758,7 +772,7 @@
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-034",
@@ -1271,41 +1285,47 @@
         },
         {
           "text": "Pause during a live session halts dispatch and persists the paused handoff set.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/tools/system-controls.ts",
             "line": 79,
             "marker": "const pauseState: PauseState = {"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-s053.ts"
+          ],
           "issue": null,
-          "note": "The pause tool records the scope, the affected handoffs, and the original statuses, then saves state; prove-handoff-rescue only covers rescuing an already paused handoff, not the pause transition itself.",
+          "note": "prove-s053 pauses two of three handoffs, keeps the original statuses, saves once, refuses a second pause, and restores both statuses on resume.",
           "hostNote": null
         },
         {
           "text": "A task that runs longer than 420 seconds is tracked by the task timeout.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/hooks/tool-execute.ts",
             "line": 67,
-            "marker": "const TASK_TIMEOUT_MS = 420_000;"
+            "marker": "export const TASK_TIMEOUT_MS = 420_000;"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-s053.ts"
+          ],
           "issue": null,
-          "note": "The 420-second bound is the v2 task timer; it logs a warning and clears the per-session entry when the bound is reached.",
+          "note": "prove-s053 asserts the 420s constant, re-arms one entry, warns once, clears at the bound, and never warns after a clear.",
           "hostNote": null
         },
         {
           "text": "An image-generation 401 refreshes the token once and fails closed on a second 401.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
             "file": "src/tools/image-gen.ts",
             "line": 190,
             "marker": "const refreshed = await refreshAndUpdateToken();"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-s053.ts"
+          ],
           "issue": null,
-          "note": "The first 401 triggers one token refresh and retry; a second 401 throws a precise renewal error instead of looping.",
+          "note": "prove-s053 asserts one refresh then success, and a second 401 fails closed with exactly one refresh and no loop.",
           "hostNote": null
         },
         {
@@ -1358,7 +1378,7 @@
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-054",
