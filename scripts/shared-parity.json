@@ -729,7 +729,7 @@
           },
           "proofs": [],
           "issue": null,
-          "note": "The plugin-side pieces are shipped.",
+          "note": "The seven pieces are shipped; a single combined proof is still missing, and the cold-boot gate is tracked separately as S-033.3.",
           "hostNote": null
         },
         {
@@ -742,11 +742,20 @@
           },
           "proofs": [],
           "issue": null,
-          "note": "Launcher and installer live in the install script.",
+          "note": "v2 global installer owns host discovery; the v1 launcher shim, self-bootstrap, and pinned.env layer remain skipped.",
+          "hostNote": null
+        },
+        {
+          "text": "The cold-boot launch wave passes only after a recorded cold-boot run meets N1 to N5.",
+          "status": "partial",
+          "anchor": null,
+          "proofs": [],
+          "issue": "E-56",
+          "note": "Not met: the v1 scorecard records 10 overall FAIL rows out of 14 (N2 in every one), and v2 has no cold-boot runner or recorded N1-N5 run.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "partial"
     },
     {
       "id": "S-034",

@@ -3050,6 +3050,25 @@ clears, read errors, the tool surface and write guard, the RPC bridge, the
 missing-RPC path, the setup never registering idle, and the `goal.d.ts`
 contract (42 assertions).
 
+### E-56 The v1 cold-boot gate is a recorded failure and v2 has no cold-boot runner — open (2026-10-30)
+
+The S-033 launch wave cannot be accepted on port parity alone. The v1 M3
+cold-boot evidence at `/home/htoz/tawassyl-measure/scorecard.log` records 14
+scored boots (cases 7-17): 10 rows are `overall=FAIL`, every one with
+`N2=FAIL`; only cases 11 and 15-17 pass. `~/tawassyl-measure/REPORT.md`
+attributes the stall to the host file watcher on a rotational disk (94.7s
+session-open refresh, ~197s readiness), not to the plugin's ~4-12s init. The
+v1 plan's M3 exit gate accepts only "all N met, or a proven FAIL"
+(`/home/htoz/Desktop/tawassyl/docs/BOOT-STALL-FIX-PLAN-2026-10-19.md` §5), so
+the wave is a proven FAIL, not a pass.
+
+v2 ships `scripts/boot-scorecard-v2.sh` but no cold-boot runner and no recorded
+v2 N1-N5 run. Disposition: S-033 stays `partial`; the plugin-side pieces remain
+anchored, launcher and installer duties are host-bound, and no parity claim may
+treat the failed v1 cold boot as a success. Re-open only with a fresh v2
+cold-boot run that meets N1-N5, or an owner decision to declare the boot gate
+out of scope.
+
 ### Corrections to existing entries
 
 - **B-12**: `src/tools/system-controls.ts:232` appends
