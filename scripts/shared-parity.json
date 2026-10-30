@@ -424,7 +424,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/goal-store.ts",
-            "line": 436,
+            "line": 444,
             "marker": "mutate"
           },
           "proofs": [
@@ -1153,7 +1153,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/goal-store.ts",
-            "line": 697,
+            "line": 705,
             "marker": "finishLocked"
           },
           "proofs": [

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { TawassulContext } from "../src/context-class.ts";
+import { MAX_HANDOFFS_DEFAULT, MAX_RECORDS_DEFAULT } from "../src/context/constants.ts";
 import { buildRecordTool } from "../src/tools/record.ts";
 import type { RecordEntry } from "../src/context/types.ts";
 
@@ -213,6 +214,8 @@ async function killAfterRecord(): Promise<void> {
 }
 
 try {
+  assert(MAX_RECORDS_DEFAULT >= 5000, "the record cap default leaves room beyond the legacy 500");
+  assert(MAX_HANDOFFS_DEFAULT >= 2000, "the handoff cap default leaves room beyond the legacy 500");
   await durability();
   await concurrentMutation();
   await killAfterRecord();

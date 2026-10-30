@@ -148,7 +148,7 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
 
       
       if (args.get) {
-        const goal = store.get(str(args.get));
+        const goal = store.getAny(str(args.get));
         if (!goal) return { output: t("goalNotFound", { id: str(args.get) }) };
         const items = goal.items.map((i) => `  - [${i.state}] ${i.id} · ${i.title}`).join("\n");
         const dod = goal.acceptance.map((d) => `  - [${d.status}] ${d.criterion}`).join("\n");

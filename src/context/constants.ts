@@ -19,8 +19,8 @@ export const SUGGESTED_HANDOFFS_DEFAULT: Record<string, string[]> = {
 
 export const AGENTS_DEFAULT: readonly string[] = ALL_AGENTS.map((a) => `@${a.name}`);
 
-export const MAX_RECORDS_DEFAULT = 500;
-export const MAX_HANDOFFS_DEFAULT = 500;
+export const MAX_RECORDS_DEFAULT = 5000;
+export const MAX_HANDOFFS_DEFAULT = 2000;
 export const MAX_COMPACT_ITEMS_DEFAULT = 20;
 
 export const MAX_DYNAMIC_AGENTS_DEFAULT = 50;

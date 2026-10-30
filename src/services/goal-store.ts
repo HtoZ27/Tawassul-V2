@@ -158,6 +158,7 @@ export class GoalStore {
   private minEvidenceIntervalMs: number;
 
   private goals = new Map<string, Goal>();
+  private tombstones = new Map<string, Goal>();
   private seq = 0;
   private warned = false;
   
@@ -307,7 +308,10 @@ export class GoalStore {
     
     
     for (const [id, goal] of this.goals) {
-      if (goal.status === "dropped") this.goals.delete(id);
+      if (goal.status === "dropped") {
+        this.tombstones.set(id, goal);
+        this.goals.delete(id);
+      }
     }
     
     
@@ -315,7 +319,7 @@ export class GoalStore {
     
     const ledgerSeq = this.seq;
     const metaTrusted = !!(meta && typeof meta.seq === "number" && typeof meta.ledgerHash === "string");
-    if (!metaTrusted || meta.ledgerHash !== ledgerHash || meta.seq !== ledgerSeq) {
+    if (!metaTrusted || meta.ledgerHash !== ledgerHash || meta.seq !== ledgerSeq || meta?.count !== this.goals.size) {
       this.lifecycleCounts = { ...replayed };
       this.ledgerHash = ledgerHash;
       if (metaTrusted && (meta.ledgerHash !== ledgerHash || meta.seq < ledgerSeq))
@@ -347,8 +351,20 @@ export class GoalStore {
   
   private async commit(next: Goal, opts: { remove?: boolean } = {}): Promise<void> {
     await this.writeEvent(next);
-    if (opts.remove) this.goals.delete(next.id);
-    else this.goals.set(next.id, next);
+    if (opts.remove) {
+      this.goals.delete(next.id);
+      this.tombstones.set(next.id, next);
+    } else {
+      this.goals.set(next.id, next);
+    }
+    try {
+      await this.persistMeta();
+    } catch (e) {
+      logger.warn(
+        `[goal-store] meta write fell behind the ledger for ${next.id} (seq ${next.seq}) — will heal on next load:`,
+        e,
+      );
+    }
   }
 
   private async writeEvent(goal: Goal): Promise<void> {
@@ -375,14 +391,6 @@ export class GoalStore {
     }
     this.lastLines.add(line);
     this.ledgerHash = GoalStore.foldLedgerHash(this.ledgerHash, goal.id, goal.seq, goal.updatedAt);
-    try {
-      await this.persistMeta();
-    } catch (e) {
-      logger.warn(
-        `[goal-store] meta write fell behind the ledger for ${goal.id} (seq ${goal.seq}) — will heal on next load:`,
-        e,
-      );
-    }
   }
 
   
@@ -814,8 +822,14 @@ export class GoalStore {
     return this.goals.get(id);
   }
 
+  getAny(id: string): Goal | undefined {
+    return this.goals.get(id) ?? this.tombstones.get(id);
+  }
+
   list(filter: GoalListFilter = "active"): Goal[] {
-    const all = [...this.goals.values()].sort((a, b) => a.seq - b.seq);
+    if (filter === "dropped") return [...this.tombstones.values()].sort((a, b) => a.seq - b.seq);
+    const base = filter === "all" ? [...this.goals.values(), ...this.tombstones.values()] : [...this.goals.values()];
+    const all = base.sort((a, b) => a.seq - b.seq);
     if (filter === "all") return all;
     if (filter === "active") return all.filter((g) => (ACTIVE_STATUSES as readonly string[]).includes(g.status));
     return all.filter((g) => g.status === filter);

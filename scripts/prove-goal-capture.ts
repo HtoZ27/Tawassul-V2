@@ -58,6 +58,12 @@ function tombstoneCount(dir: string): number {
   return n;
 }
 
+function metaLiveCount(dir: string): number {
+  const raw = readFileSync(join(dir, "goals", "goals-meta.json"), "utf-8");
+  const parsed = JSON.parse(raw.slice(raw.indexOf("{"))) as { count?: number };
+  return parsed.count ?? -1;
+}
+
 async function createCloseable(store: GoalStore, title: string): Promise<string> {
   const created = await store.create({ title, owner: "@dev", acceptance: ["done"] });
   if (!created.ok) fail(`seed goal "${title}" failed: ${created.reason}`);
@@ -77,6 +83,12 @@ try {
   const closed = await closeStore.close(closeId, false, "@dev");
   assert(closed.ok, "close() completes a ready goal");
   assert(closeStore.size === 0, "close() removes the goal from the live map");
+  assert(closeStore.get(closeId) === undefined, "close() keeps the live lookup empty");
+  const closeTomb = closeStore.getAny(closeId);
+  assert(closeTomb?.status === "dropped", "close() keeps the tombstone readable by id");
+  assert(closeStore.list("dropped").some((g) => g.id === closeId), "list(dropped) shows the tombstone");
+  assert(closeStore.list("all").some((g) => g.id === closeId), "list(all) shows the tombstone");
+  assert(metaLiveCount(dirClose) === 0, "close() persists a zero live count");
   const closeLine = countsLine(closeStore);
   assert(closeLine.includes("1 completed"), "close() counts one completed goal");
   assert(closeLine.includes("0 verified"), "close() leaves verified empty");
@@ -117,6 +129,8 @@ try {
   const healedClose = makeStore(dirClose);
   await healedClose.ensureLoaded();
   assert(countsLine(healedClose) === closeLine, "missing meta replays the completed count");
+  assert(healedClose.getAny(closeId)?.status === "dropped", "missing meta keeps the tombstone readable");
+  assert(healedClose.list("dropped").some((g) => g.id === closeId), "missing meta keeps list(dropped) populated");
   assert(existsSync(join(dirClose, "goals", "goals-meta.json")), "replay rewrites the meta file");
 
   unlinkSync(join(dirVerifyUntilClose, "goals", "goals-meta.json"));
