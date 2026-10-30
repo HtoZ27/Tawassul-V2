@@ -10,10 +10,10 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | --- | --- |
 | verified | 48 |
 | anchored | 7 |
-| partial | 1 |
+| partial | 0 |
 | missing | 0 |
 | host-bound | 4 |
-| n-a | 10 |
+| n-a | 11 |
 | doc-only | 2 |
 | total | 72 |
 
@@ -58,7 +58,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-032 | A stale project-scope copy must not win registration in a shared process. | `src/core/install-scope.ts:56` `claimCoexistence` | `scripts/prove-s038.ts` | verified |
 | S-033.1 | The plugin-side cold-boot wave is ported: quiet resolution, write-behind, save debounce, jitter, logger stamp, quarantine, and save guard. | `src/utils/quiet.ts:6` `forceQuietMode` | - | anchored |
 | S-033.2 | Launcher and installer duties stay in the host install script, not in the plugin. | `scripts/install-global.ts:207` `hostCandidates` | - | anchored |
-| S-033.3 | The cold-boot launch wave passes only after a recorded cold-boot run meets N1 to N5. | - | - | partial |
+| S-033.3 | The cold-boot launch wave passes only after a recorded cold-boot run meets N1 to N5. | - | - | n-a |
 | S-034.1 | N2 records only announced assistant text parts. | `src/hooks/n2-auto.ts:40` `assistantMessages` | `scripts/prove-v2-compat.ts` | verified |
 | S-034.2 | A v2 boot scorecard implements N1 to N5 with an explicit since gate. | `scripts/boot-scorecard-v2.sh:30` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
 | S-035.1 | The generation guard and the maintenance gate carry the v1 semantics. | `scripts/guard-db-generation.sh:254` `marker-v1-content` | `scripts/prove-db-retention.ts` | verified |
@@ -98,9 +98,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 
 ## Open items
 
-| Entry | Requirement | Issue |
-| --- | --- | --- |
-| S-033 | The cold-boot launch wave passes only after a recorded cold-boot run meets N1 to N5. | E-56 |
+None.
 
 ## Host-bound items
 

@@ -70,3 +70,9 @@ contracts are checked by `tsc --noEmit` in `gate:fast`, and the runtime paths
 are checked by the proofs. Host-bound behaviour that the plugin cannot observe
 is recorded in `docs/SHARED-PARITY.md` instead of being asserted against a
 mock that would only prove the mock.
+
+Cold-boot acceptance is out of scope for v2 (owner decision 2026-10-30,
+`E-56`). The v1 M3 scorecard remains the recorded measurement: 10 of 14 rows
+are `overall=FAIL`, with `N2` in every failing row. v2 keeps
+`scripts/boot-scorecard-v2.sh` for window scoring but ships no cold-boot runner
+and makes no N1-N5 claim.

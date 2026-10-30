@@ -747,15 +747,15 @@
         },
         {
           "text": "The cold-boot launch wave passes only after a recorded cold-boot run meets N1 to N5.",
-          "status": "partial",
+          "status": "n-a",
           "anchor": null,
           "proofs": [],
-          "issue": "E-56",
-          "note": "Not met: the v1 scorecard records 10 overall FAIL rows out of 14 (N2 in every one), and v2 has no cold-boot runner or recorded N1-N5 run.",
+          "issue": null,
+          "note": "Owner decision 2026-10-30: the cold-boot gate is out of scope for v2. The v1 scorecard keeps the recorded failure (10 of 14 rows overall FAIL, N2 in every one); v2 keeps boot-scorecard-v2.sh but claims no N1-N5 pass. See E-56.",
           "hostNote": null
         }
       ],
-      "status": "partial"
+      "status": "anchored"
     },
     {
       "id": "S-034",

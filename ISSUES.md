@@ -3050,7 +3050,7 @@ clears, read errors, the tool surface and write guard, the RPC bridge, the
 missing-RPC path, the setup never registering idle, and the `goal.d.ts`
 contract (42 assertions).
 
-### E-56 The v1 cold-boot gate is a recorded failure and v2 has no cold-boot runner — open (2026-10-30)
+### E-56 The v1 cold-boot gate is a recorded failure and v2 has no cold-boot runner — out of scope (owner decision 2026-10-30)
 
 The S-033 launch wave cannot be accepted on port parity alone. The v1 M3
 cold-boot evidence at `/home/htoz/tawassyl-measure/scorecard.log` records 14
@@ -3063,11 +3063,13 @@ v1 plan's M3 exit gate accepts only "all N met, or a proven FAIL"
 the wave is a proven FAIL, not a pass.
 
 v2 ships `scripts/boot-scorecard-v2.sh` but no cold-boot runner and no recorded
-v2 N1-N5 run. Disposition: S-033 stays `partial`; the plugin-side pieces remain
-anchored, launcher and installer duties are host-bound, and no parity claim may
-treat the failed v1 cold boot as a success. Re-open only with a fresh v2
-cold-boot run that meets N1-N5, or an owner decision to declare the boot gate
-out of scope.
+v2 N1-N5 run.
+
+Decision (2026-10-30): the owner declared the cold-boot gate out of scope for
+v2. The failure stays documented, v2 makes no N1-N5 claim, and the scorecard
+remains available for anyone who wants to score a window. `S-033.3` is `n-a`;
+the plugin-side port and the host-installer duty keep their own rows. Re-open
+only with a new owner decision and a fresh v2 cold-boot run that meets N1-N5.
 
 ### Corrections to existing entries
 
