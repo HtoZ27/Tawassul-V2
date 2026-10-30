@@ -6,7 +6,8 @@ import { FeatureIndex } from "../src/services/feature-index.ts";
 import { EvaluationTracker } from "../src/services/evaluation-tracker.ts";
 import { buildRecordTool } from "../src/tools/record.ts";
 import { buildEvaluationReportTool } from "../src/tools/evaluation-report.ts";
-import { SecurityPolicy, TAWASSUL_TOOL_ROLES, getAllowedToolsForRole } from "../src/security-policy.ts";
+import { SecurityPolicy } from "../src/security-policy.ts";
+import { TAWASSUL_TOOL_ROLES, getAllowedToolsForRole } from "../src/role-matrix.ts";
 import { SYSTEM_CONCORDANCE_TEXT } from "../src/hooks/message-updated.ts";
 import { ensureMinimalProjectContract } from "../src/utils/opencode-config.ts";
 
@@ -40,13 +41,10 @@ assert(SecurityPolicy.checkTawassulToolPermission("tawa", "goal").allowed === tr
 assert(SecurityPolicy.checkTawassulToolPermission("dev", "addagent").allowed === false, "the policy denies dev addagent");
 assert(SecurityPolicy.checkTawassulToolPermission("unknown-role", "handoff").allowed === false, "the policy denies an unknown role");
 
-const policySource = readFileSync(join(repo, "src", "security-policy.ts"), "utf8");
-const matrixStart = policySource.indexOf("export const TAWASSUL_TOOL_ROLES");
-const matrixEnd = policySource.indexOf("export default SecurityPolicy");
-assert(matrixStart > 0 && matrixEnd > matrixStart, "the role matrix block is present");
-const matrixBlock = policySource.slice(matrixStart, matrixEnd);
-assert(!/\bt\(/.test(matrixBlock), "the matrix never calls the translation helper");
-assert(!/matchRole|stem|nlp|translations|arabic/i.test(matrixBlock), "the matrix has no i18n or NLP dependency");
+const matrixSource = readFileSync(join(repo, "src", "role-matrix.ts"), "utf8");
+assert(matrixSource.includes("export const TAWASSUL_TOOL_ROLES"), "the role matrix module is present");
+assert(!/\bt\(/.test(matrixSource), "the matrix module never calls the translation helper");
+assert(!/matchRole|stem|nlp|translations|arabic/i.test(matrixSource), "the matrix module has no i18n or NLP dependency");
 
 const records: Array<{ id: string; type: string; title: string; detail: string; agent: string; timestamp: string }> = [];
 let stale = false;

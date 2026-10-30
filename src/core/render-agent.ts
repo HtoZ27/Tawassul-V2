@@ -1,5 +1,5 @@
 
-import { getAllowedToolsForRole } from "../security-policy.ts";
+import { getAllowedToolsForRole } from "../role-matrix.ts";
 import { resolveRole } from "../utils/agent.ts";
 import type { AgentTemplate } from "./agent-data.ts";
 

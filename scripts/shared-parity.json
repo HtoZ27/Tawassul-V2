@@ -101,19 +101,22 @@
       "requirements": [
         {
           "text": "The role to tool matrix is ported without an i18n or NLP dependency.",
-          "status": "anchored",
+          "status": "verified",
           "anchor": {
-            "file": "src/security-policy.ts",
-            "line": 475,
-            "marker": "getAllowedToolsForRole"
+            "file": "src/role-matrix.ts",
+            "line": 40,
+            "marker": "TAWASSUL_TOOL_ROLES"
           },
-          "proofs": [],
+          "proofs": [
+            "scripts/prove-s005.ts",
+            "scripts/prove-s013.ts"
+          ],
           "issue": null,
-          "note": "One matrix serves dispatch, consent, and the allowlist checks.",
+          "note": "The role matrix, its tool groups, and getAllowedToolsForRole live in src/role-matrix.ts, which imports only tool-names.ts. security-policy.ts imports the module and re-exports both symbols for compatibility; the render, generator, agent-add, and guard consumers import the matrix module directly.",
           "hostNote": null
         }
       ],
-      "status": "anchored"
+      "status": "verified"
     },
     {
       "id": "S-006",
@@ -274,8 +277,8 @@
           "status": "verified",
           "anchor": {
             "file": "src/security-policy.ts",
-            "line": 546,
-            "marker": "TAWASSUL_TOOL_ROLES"
+            "line": 458,
+            "marker": "checkTawassulToolPermission"
           },
           "proofs": [
             "scripts/prove-s013.ts",
@@ -655,7 +658,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/scripts/gen-opencode-config.ts",
-            "line": 286,
+            "line": 287,
             "marker": "unionDeletedVariants"
           },
           "proofs": [
@@ -837,7 +840,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/tools/agent-add-helpers.ts",
-            "line": 104,
+            "line": 105,
             "marker": "deriveVariantSpec"
           },
           "proofs": [
@@ -1343,7 +1346,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/scripts/gen-opencode-config.ts",
-            "line": 57,
+            "line": 58,
             "marker": "deletedPath: resolve(root, \".opencode\", \"deleted-agents.json\"),"
           },
           "proofs": [

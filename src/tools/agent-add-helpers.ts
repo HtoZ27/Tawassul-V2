@@ -6,7 +6,8 @@ import { getProviderModelTokens, MODEL_ID_TO_SUFFIX } from "../core/model-regist
 import { buildCapabilitySummary } from "../core/capability-summary.ts";
 import { isGeneratedVariant } from "../core/variant-names.ts";
 import { levenshtein } from "../core/nlp.ts";
-import { DELETED_AGENTS, getAllowedToolsForRole } from "../security-policy.ts";
+import { DELETED_AGENTS } from "../security-policy.ts";
+import { getAllowedToolsForRole } from "../role-matrix.ts";
 import { t } from "../translations.ts";
 
 export const BASE_ROLE_NAMES: ReadonlySet<string> = new Set(ALL_AGENTS.map((a) => a.name));

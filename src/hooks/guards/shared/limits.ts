@@ -1,5 +1,5 @@
 import { TAWASSUL_TOOL_NAMES } from "../../../tool-names.ts";
-import { TAWASSUL_TOOL_ROLES } from "../../../security-policy.ts";
+import { TAWASSUL_TOOL_ROLES } from "../../../role-matrix.ts";
 import { normalizeToolName } from "../../../utils/name-utils.ts";
 
 

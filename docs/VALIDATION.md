@@ -18,7 +18,7 @@ Tawassul V2 validates through isolated proof processes, not through a
 `scripts/gate-manifest.json` fails the catalog, and a proof wired twice fails
 as well.
 
-The current totals are 109 proof files: 106 in `gate:proofs`, the catalog in
+The current totals are 110 proof files: 107 in `gate:proofs`, the catalog in
 `gate:fast`, and two boot proofs in `gate:smoke`.
 
 ## Why there is no separate unit runner
