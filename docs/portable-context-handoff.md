@@ -1,10 +1,11 @@
 # Portable Context Handoff — Implementation Plan
 
-Status: REVISION 6 — 2026-10-30. Transport decided after the independent
-isolated re-run on host 2.2.2 (section 10): the `context` hook carries the
-persistent layer, `prompt({ text, files })` carries the transfer, and `synthetic`
-is not used for injection. One unit, no phases. Implemented in full; 15 feature
-proofs and the three gate stages pass.
+Status: REVISION 7 — 2026-10-30. REVISION 7 removes the role restriction:
+`thread` is available to every agent. The transport decision from REVISION 6
+stands after the independent isolated re-run on host 2.2.2 (section 10): the
+`context` hook carries the persistent layer, `prompt({ text, files })` carries
+the transfer, and `synthetic` is not used for injection. One unit, no phases.
+Implemented in full; 15 feature proofs and the three gate stages pass.
 Repository: `/home/htoz/Desktop/Tawassul V2`
 Scope rule: one unit. No phases, no MVPs, no per-agent slices.
 
@@ -237,10 +238,11 @@ Revocation has two states:
 A revoked digest is never activated or injected again, but `list` and `read`
 still show it so the audit trail is inspectable.
 
-Roles: `thread` is registered for `dev` and `tawa` only. It creates sessions on
-the `continue` path and can delete pack files on the `revoke` path, so it is not
-shared with read-only roles. No retired v1 precedent exists for sharing
-persistent pack state with read-only roles.
+Roles: `thread` is available to every agent, including read-only roles and host
+agents outside the Tawassul roster. It creates sessions on the `continue` path
+and can delete pack files on the `revoke` path; availability is not role-gated,
+so those effects are documented explicitly. No retired v1 precedent exists for
+sharing persistent pack state with read-only roles.
 
 ---
 

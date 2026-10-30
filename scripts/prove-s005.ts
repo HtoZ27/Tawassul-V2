@@ -322,7 +322,7 @@ assert(!/security-policy/.test(matrixSource), "the matrix module has no dependen
 
 const policySource = readFileSync(join(repo, "src", "security-policy.ts"), "utf8");
 assert(
-  policySource.includes('import { TAWASSUL_TOOL_ROLES, getAllowedToolsForRole } from "./role-matrix.ts";'),
+  policySource.includes('import { TAWASSUL_TOOL_ROLES, UNIVERSAL_TOOL_NAMES, getAllowedToolsForRole } from "./role-matrix.ts";'),
   "the policy module imports the matrix module",
 );
 assert(

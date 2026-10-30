@@ -49,6 +49,8 @@ export const TAWASSUL_TOOL_ROLES: Record<string, Set<string> | "*"> = {
   addagent: new Set(["addagent", "kick"]),
 };
 
+export const UNIVERSAL_TOOL_NAMES: ReadonlySet<string> = new Set(["thread"]);
+
 export function getAllowedToolsForRole(role: string): string[] {
   const p = TAWASSUL_TOOL_ROLES[role];
   if (!p) return [];

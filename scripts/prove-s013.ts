@@ -35,6 +35,10 @@ assert(!getAllowedToolsForRole("tawa").includes("addagent"), "tawa never receive
 assert(!getAllowedToolsForRole("dev").includes("addagent"), "dev never receives management tools");
 assert(getAllowedToolsForRole("addagent").includes("addagent"), "the addagent role owns its tool");
 assert(!getAllowedToolsForRole("addagent").includes("handoff"), "the addagent role stays management-only");
+assert(
+  roles.every((role) => SecurityPolicy.checkTawassulToolPermission(role, "thread").allowed === true),
+  "thread is available to every base role",
+);
 assert(getAllowedToolsForRole("unknown-role").length === 0, "an unknown role receives no tools");
 assert(SecurityPolicy.checkTawassulToolPermission("dev", "handoff").allowed === true, "the policy allows dev handoff");
 assert(SecurityPolicy.checkTawassulToolPermission("tawa", "goal").allowed === true, "the policy allows tawa goal");

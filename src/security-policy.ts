@@ -1,6 +1,6 @@
 
 
-import { TAWASSUL_TOOL_ROLES, getAllowedToolsForRole } from "./role-matrix.ts";
+import { TAWASSUL_TOOL_ROLES, UNIVERSAL_TOOL_NAMES, getAllowedToolsForRole } from "./role-matrix.ts";
 import { logger } from "./utils/logger.ts";
 import { sanitizeOutput, filterEnvKeys } from "./services/privacy.ts";
 import { resolveRole } from "./utils/agent.ts";
@@ -461,6 +461,7 @@ export class SecurityPolicy {
     const permission = TAWASSUL_TOOL_ROLES[baseRole];
     
     const bareTool = normalizeToolName(tool);
+    if (UNIVERSAL_TOOL_NAMES.has(bareTool)) return { allowed: true };
     
     if (!permission) {
       const knownRoles = Object.keys(TAWASSUL_TOOL_ROLES).join(", ");

@@ -247,7 +247,7 @@ its own description. Common entry points:
 - `goal` — goal ledger, board, evidence, close gate
 - `handoff` / `fasttrack` — task transfer between agents
 - `record` — decisions, fixes, incidents, notes
-- `thread` — portable context packs: list, read, pack, continue, revoke (`dev`/`tawa` only)
+- `thread` — portable context packs: list, read, pack, continue, revoke (available to every agent)
 - `checkpoint` / `codestate` — code snapshots and undo
 - `pause` / `resume` / `panic` — workflow control
 
