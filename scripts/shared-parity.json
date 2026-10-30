@@ -1276,7 +1276,7 @@
           },
           "proofs": [],
           "issue": null,
-          "note": "The pause tool records the scope, the affected handoffs, and the original statuses, then saves state; prove-handoff-rescue covers the paused-handoff path.",
+          "note": "The pause tool records the scope, the affected handoffs, and the original statuses, then saves state; prove-handoff-rescue only covers rescuing an already paused handoff, not the pause transition itself.",
           "hostNote": null
         },
         {
