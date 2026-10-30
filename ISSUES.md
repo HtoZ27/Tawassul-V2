@@ -967,7 +967,7 @@ and unknown refusals, evidence-required drop, progress at 50%, done archive,
 pending vs dropped close invariants, full close at 100%, and a dropped item
 surviving todo reconcile. Wired as the `goal-item-update` proofs step;
 `npm run verify` was green at that baseline (83 proofs); the current gate runs
-102 proofs-stage steps.
+110 proofs-stage steps.
 
 ---
 
@@ -1137,7 +1137,7 @@ memory, and training evaluator unchanged; the migration zeroes tawa (three
 cancellations), leaves build at 2 of 3 (one genuine drop), never charges the
 recipient (general stays 1), and a second pass does not subtract again. Wired as
 the `cancel-metric` proofs step; `npm run verify` was green at that baseline (87 proofs); the current gate
-runs 102 proofs-stage steps.
+runs 110 proofs-stage steps.
 
 ### E-48 Deliberate cancellation still scored failures in the tracker stack — fixed (2026-10-27)
 
@@ -1242,7 +1242,7 @@ zero Arabic lines; `dist/global.js`, `dist/index.js`, and the plugin entry all
 define `GoalItemStateSchema` with the `dropped` state.
 
 `npm run check:rules` scans 428 files with zero exemptions; `npm run verify` was
-green at that baseline (87 proofs); the current gate runs 102 proofs-stage steps.
+green at that baseline (87 proofs); the current gate runs 110 proofs-stage steps.
 
 ---
 
