@@ -6,6 +6,7 @@ import {
   FAILOVER_CLAIM_TTL_MS,
   clearFailoverClaim,
   commitFailover,
+  failoverSummary,
   failoverSwitchCount,
   formatTarget,
   hasFailoverClaim,
@@ -182,6 +183,16 @@ async function main(): Promise<void> {
   });
   assert(defaultCap.action === "switch", "an oversized budget is clamped, not rejected");
   assert(formatTarget({ providerID: "o", modelID: "m" }) === "o/m", "the target format is stable");
+
+  resetFailoverState();
+  assert(failoverSummary().sessions === 0, "an empty failover table reports zero");
+  commitFailover("s-summary", "alpha/one");
+  const oneSummary = failoverSummary();
+  assert(oneSummary.switches === 1 && oneSummary.claimed === 1, "a live switch is counted and claimed");
+  assert(oneSummary.sessions === 1, "the tracked session is counted");
+  commitFailover("s-summary", "alpha/two", Date.now() - FAILOVER_CLAIM_TTL_MS - 1);
+  const staleSummary = failoverSummary();
+  assert(staleSummary.switches === 2 && staleSummary.claimed === 0, "a stale claim is counted but not live");
 
   const setup = readFileSync(join(repo, "src", "v2", "setup.ts"), "utf-8");
   assert(setup.includes("planFailover("), "the v2 retry hook plans a failover");

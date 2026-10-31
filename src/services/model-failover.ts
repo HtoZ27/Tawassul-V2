@@ -56,6 +56,22 @@ export function clearFailoverClaim(sessionID: string): void {
   _sessions.delete(sessionID);
 }
 
+export type FailoverSummary = {
+  sessions: number;
+  switches: number;
+  claimed: number;
+};
+
+export function failoverSummary(now = Date.now()): FailoverSummary {
+  let switches = 0;
+  let claimed = 0;
+  for (const state of _sessions.values()) {
+    switches += state.count;
+    if (state.count > 0 && now - state.at <= FAILOVER_CLAIM_TTL_MS) claimed += 1;
+  }
+  return { sessions: _sessions.size, switches, claimed };
+}
+
 function stateFor(sessionID: string, now: number): SessionState {
   const existing = _sessions.get(sessionID);
   if (existing) {

@@ -6,6 +6,7 @@ import { logger } from "../../utils/logger.ts";
 import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { defaultKeyFile, classifyDbLane, isolatedDbPathFor, dataRoot } from "../../bootstrap/db-isolation.ts";
+import { failoverSummary } from "../../services/model-failover.ts";
 import { scopedStatePath, statePath } from "../../utils/state-paths.ts";
 
 const LAG_WARN_THRESHOLD_MS = 500;
@@ -85,6 +86,7 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
       const routerFile = scopedStatePath(ctx.stateDir, ctx.scope, "predictive-router.json");
       const legacyRouterFile = statePath("predictive-router.json");
       const flushes = pendingFlushes();
+      const failover = failoverSummary();
       return {
         title: "Health",
         output: [
@@ -92,6 +94,7 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
           `- Event-loop lag: ${lagMs}ms`,
           `- RSS: ${rss} MiB`,
           `- Active timers: ${activeTimers}`,
+          `- Model failover: ${failover.switches} switch(es), ${failover.claimed} live claim(s), ${failover.sessions} tracked session(s)`,
           `- DB path (${dbSource}): ${dbPath}`,
           `- DB lane: ${dbLane}`,
           `- DB isolated: ${dbIsolated ? "yes" : "no"}`,

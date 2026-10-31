@@ -88,6 +88,7 @@ async function healthWith(dbPath: string | undefined): Promise<string> {
 
 const sidecarOutput = await healthWith(sidecar);
 check(sidecarOutput.includes("- DB lane: desktop-sidecar"), "health names the desktop sidecar lane");
+check(sidecarOutput.includes("- Model failover:"), "health reports the model failover state");
 check(sidecarOutput.includes("- DB isolated: yes"), "health counts the sidecar DB as isolated");
 
 const sharedOutput = await healthWith(shared);
@@ -117,5 +118,5 @@ if (previousKeyDir === undefined) delete process.env.TAWASSUL_HMAC_KEY_DIR;
 else process.env.TAWASSUL_HMAC_KEY_DIR = previousKeyDir;
 rmSync(keyDir, { recursive: true, force: true });
 
-assert.equal(passed, 33);
+assert.equal(passed, 34);
 console.log(`PROOF PASS: the DB lane is classified truthfully (${passed} assertions)`);

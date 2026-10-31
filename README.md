@@ -290,7 +290,8 @@ read-only HMAC key, and the host database.
   the global file. `npm run doctor` reports both files and warns when the
   global one is newer.
 - `health` prints the install scope, state file, router files, `OPENCODE_DB`,
-  the HMAC-expected DB, and whether they match.
+  the HMAC-expected DB, whether they match, and the model failover state
+  (switches, live claims, tracked sessions).
 - `npm run doctor` also snapshots every known DB and reports how many sessions
   belong to this project, so a "missing session" is visible as a DB split
   instead of data loss.

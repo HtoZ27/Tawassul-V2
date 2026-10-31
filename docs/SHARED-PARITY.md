@@ -37,7 +37,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-012 | A completed board cannot be reopened; transitions are close-only. | `src/services/mission-board.ts:304` `isCompleted` | `scripts/prove-board-invariants.ts` | verified |
 | S-013.1 | Role-scoped plugin permissions and record/eval read-back are enforced. | `src/security-policy.ts:458` `checkTawassulToolPermission` | `scripts/prove-s013.ts`, `scripts/prove-e21.ts` | verified |
 | S-013.2 | The MCP boundary is not applicable because v2 ships no MCP server or client. | - | - | n-a |
-| S-014 | A standalone health tool exists in the tawa namespace. | `src/tools/tawa/health.ts:55` `buildHealthTool` | `scripts/prove-e46.ts` | verified |
+| S-014 | A standalone health tool exists in the tawa namespace. | `src/tools/tawa/health.ts:56` `buildHealthTool` | `scripts/prove-e46.ts` | verified |
 | S-015 | The retired kanban-board name must not return. | - | - | n-a |
 | S-016 | Conflict-marker pollutants must not be propagated. | - | - | n-a |
 | S-017 | The three-day hardening batch is ported on merit: model retirements, generator hardening, governance, and runtime rows. | `src/services/proxy-fallback-chains.ts:67` `sweepRetiredModelPins` | `scripts/prove-s017.ts`, `scripts/prove-gen-lock-contention.ts`, `scripts/prove-gen-merge-guards.ts`, `scripts/prove-gen-guard-wal.ts`, `scripts/prove-roster-boundary.ts`, `scripts/prove-event-trust-p1.ts`, `scripts/prove-web-ssrf.ts`, `scripts/prove-s028.ts`, `scripts/prove-state-namespace.ts` | verified |
