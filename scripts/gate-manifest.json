@@ -553,6 +553,10 @@
     {
       "name": "payload-cache",
       "cmd": ["bun", "scripts/prove-payload-cache.ts"]
+    },
+    {
+      "name": "routing-eval",
+      "cmd": ["bun", "scripts/prove-routing-eval.ts"]
     }
   ],
   "smoke": [

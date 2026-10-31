@@ -26,7 +26,7 @@ export const COMPLEX_PHRASES_REGEX = /(from|in)\s?(all|every)\s?(sides|angles|di
 
 export const DETAILED_PHRASES_REGEX = /(from\s?a\s?to\s?z|in\sfull\sdetail|step\sby\sstep|on\sall\slevels|in\s(comprehensive|thorough|detailed)\sform)/i;
 
-export const ALL_OF_PLURAL_REGEX = /all\s+the\s+[\p{L}]{4,}(?=\s|$|[.,])/iu;
+export const ALL_OF_PLURAL_REGEX = /all\s+(?:of\s+)?the\s+[\p{L}]{4,}(?=\s|$|[.,])/iu;
 
 export const SAFETY_PATTERNS = [
   /\b(api[_-]?key|api key|apikey|secret|token|password|passwd)\b/i,

@@ -54,7 +54,7 @@ export function analyzeMessage(text: string): RoutingResult {
       const r = ROLE_FROM_KEYWORD[fuzzy.matched];
       if (r) {
         role = r;
-        matchType = "fuzzy";
+        matchType = fuzzy.type === "fuzzy" ? "fuzzy" : "keyword";
       }
     }
   }

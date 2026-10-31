@@ -176,6 +176,7 @@ const PINNED_PROOF_FILES = [
   "prove-proof-catalog.ts",
   "prove-repeat-guard.ts",
   "prove-roster-boundary.ts",
+  "prove-routing-eval.ts",
   "prove-rule-gate.ts",
   "prove-s005.ts",
   "prove-s013.ts",
@@ -202,7 +203,7 @@ const PINNED_PROOF_FILES = [
   "prove-web-ssrf.ts",
 ];
 
-const PINNED_PROOF_STEPS = 129;
+const PINNED_PROOF_STEPS = 130;
 const SMOKE_PROOFS = new Set(["prove-global-boot.ts", "prove-independence-boot.ts"]);
 
 const proofFiles = readdirSync(join(repo, "scripts"))

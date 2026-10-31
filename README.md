@@ -142,6 +142,23 @@ ends the turn. The plugin's own rate-limit retry and quota probe stand down for
 five minutes while a failover claim owns the session, so a turn is never resumed
 twice; after that window the normal recovery paths apply again.
 
+## Routing evals
+
+`analyzeMessage` decides whether a message is a task and who should own it.
+`prove-routing-eval` runs a fixed fixture set through it and fails on drift:
+
+- 8 task fixtures must land on their agent and size.
+- 21 chatter fixtures — greetings, acknowledgements, plain prose — must not
+  reach `auto-status` or above.
+- A secret must raise a warning and route nowhere.
+
+The fixture set caught a real defect: the fuzzy matcher compared short
+technology keywords as substrings of ordinary words, so `hi` matched `ui`,
+`said` matched `ai`, and `carry on` matched the curated typo `arr`. The
+matcher now normalizes the text, matches whole words, and only fuzzy matches
+keywords of four characters or more, so a two letter keyword can no longer
+claim a sentence.
+
 ## Prompt payload stability
 
 Every injection runs through one bridge that touches only the last message and
@@ -159,7 +176,7 @@ bytes on every build, with a stable key order.
 ## Verify
 ```
 npm run gate:fast    # rules + shell syntax + typecheck + config + facts + contract + parity + catalog
-npm run gate:proofs  # 129 proofs, one isolated child process each (the full CI run)
+npm run gate:proofs  # 130 proofs, one isolated child process each (the full CI run)
 npm run gate:proofs:1  # shard 1 of 4, about a minute, nice 10 (2, 3, 4 for the rest)
 npm run gate:smoke   # build + release smoke (one scratch boot)
 npm run ci           # all three stages, sequentially, each in its own process
@@ -174,7 +191,7 @@ in order instead of chaining the proof commands. Use
 durations. The manifest is `scripts/gate-manifest.json`;
 `prove-proof-catalog` fails when a proof file is missing from it.
 
-The 129 proofs run in about 227s in one pass. For a fast local loop the stage
+The 130 proofs run in about 228s in one pass. For a fast local loop the stage
 is split into four balanced shards in `scripts/proof-shards.json` (56.7s of
 recorded duration each): `npm run gate:proofs:1` through `gate:proofs:4`, or
 `npm run gate:proofs -- --shard 3 --timings`. Each shard runs at niceness 10 so
