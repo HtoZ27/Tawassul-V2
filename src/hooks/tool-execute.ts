@@ -40,6 +40,11 @@ import {
   recordToolFailure,
   recordToolSuccess,
   recordNoProgress,
+  recordToolResult,
+  resetToolResultRun,
+  resultSignature,
+  repeatResultWarning,
+  REPEAT_RESULT_WARN_AT,
   isToolLoopBlocked,
   sweepStaleEntries,
 } from "./guards/tool-loop-guard.ts";
@@ -210,7 +215,11 @@ export function createToolExecuteBeforeHook(ctx: ToolExecuteBeforeContext) {
 
       
       if (normalizedAgent && input.tool) {
-        const blockReason = isToolLoopBlocked(normalizedAgent, input.tool);
+        const blockReason = isToolLoopBlocked(
+          normalizedAgent,
+          input.tool,
+          canonicalStringify(output.args ?? {}),
+        );
         if (blockReason) {
           blockTool(blockReason);
         }
@@ -554,8 +563,18 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
       if (normalizedAgent) {
         if (success) {
           recordToolSuccess(normalizedAgent, input.tool);
+          const repeatCount = recordToolResult(
+            normalizedAgent,
+            input.tool,
+            canonicalStringify(input.args ?? {}),
+            resultSignature(output.output),
+          );
+          if (repeatCount === REPEAT_RESULT_WARN_AT && typeof output.output === "string") {
+            output.output += repeatResultWarning(input.tool, repeatCount);
+          }
         } else {
           recordToolFailure(normalizedAgent, input.tool);
+          resetToolResultRun(normalizedAgent, input.tool);
           refund(normalizedAgent, input.sessionID);
           recordNoProgress(normalizedAgent);
         }

@@ -129,6 +129,12 @@ export type TawassulConfig = {
     notice?: boolean;
     noRetry?: boolean;
   };
+  fallback?: {
+    enabled?: boolean;
+    maxSwitches?: number;
+    cooldownMs?: number;
+    chains?: Record<string, string[]>;
+  };
   health?: {
     stuckTimeoutMs?: number;
     circuitBreakerThreshold?: number;

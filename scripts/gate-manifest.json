@@ -541,6 +541,14 @@
     {
       "name": "model-switch",
       "cmd": ["bun", "scripts/prove-model-switch.ts"]
+    },
+    {
+      "name": "model-failover",
+      "cmd": ["bun", "scripts/prove-model-failover.ts"]
+    },
+    {
+      "name": "repeat-guard",
+      "cmd": ["bun", "scripts/prove-repeat-guard.ts"]
     }
   ],
   "smoke": [

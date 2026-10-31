@@ -3,7 +3,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { PluginInput, TawassulHooks } from "../plugin-types.ts";
-import { getInitReady, initPlugin } from "../bootstrap/plugin-init.ts";
+import { getInitReady, initPlugin, readActiveConfig } from "../bootstrap/plugin-init.ts";
 import { detectInstallScope } from "../core/install-scope.ts";
 import { ToolBlockedError } from "../hooks/tool-execute.ts";
 import { isBlockedToolForTawa } from "../security-policy.ts";
@@ -24,12 +24,22 @@ import {
   refreshSessionInjection,
   warmWorkspace,
 } from "../services/context-pack/index.ts";
+import { parseFreeLimitSignal } from "../services/free-limit.ts";
+import {
+  commitFailover,
+  parseModelTarget,
+  planFailover,
+  recordFailoverMiss,
+  switchSessionModel as switchModelVia,
+  type SwitchModelSession,
+} from "../services/model-failover.ts";
 import type { V2Context, V2SessionEvent, V2ToolContext, V2ToolHookInput } from "./types.ts";
 
 const MAX_PROCESSED_MESSAGES = 1024;
 export const INITIAL_SCHEMA_WAIT_MS = 750;
 export const SCHEMA_RETRY_ATTEMPTS = 6;
 export const SCHEMA_RETRY_DELAY_MS = 500;
+
 
 const HOST_MESSAGE_ROLES = ["system", "user", "assistant", "tool"] as const;
 
@@ -572,9 +582,52 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
     }
 
     try {
-      const retryRegistration = await ctx.session.hook("retry", (event) => {
-        const payload = event as unknown as { error?: unknown; decision?: unknown };
+      const retryRegistration = await ctx.session.hook("retry", async (event) => {
+        const payload = event as unknown as {
+          error?: unknown;
+          decision?: unknown;
+          sessionID?: string;
+          agent?: string;
+          model?: unknown;
+          attempt?: number;
+        };
         const failure = classifyTerminalFailure(payload.error);
+        const signal = parseFreeLimitSignal(payload.error).signal;
+        const refusal =
+          failure.terminal || signal === "free-daily-limit" || signal === "quota-exhausted";
+        if (refusal) {
+          try {
+            const plan = planFailover({
+              config: readActiveConfig(input.directory)?.fallback,
+              agent: payload.agent,
+              model: parseModelTarget(payload.model),
+              sessionID: payload.sessionID,
+            });
+            if (plan.action === "switch" && payload.sessionID) {
+              const switched = await switchModelVia(
+                ctx.session as unknown as SwitchModelSession,
+                payload.sessionID,
+                plan.to,
+              );
+              if (switched) {
+                commitFailover(payload.sessionID, plan.target);
+                payload.decision = { retry: true, delay: plan.delayMs };
+                logger.warn(
+                  `[tawassul] model failover: ${payload.agent ?? "unknown"} session ${payload.sessionID} -> ${plan.target} (${failure.reason})`,
+                );
+                return;
+              }
+              recordFailoverMiss(payload.sessionID, plan.target);
+              logger.warn(
+                `[tawassul] model failover to ${plan.target} rejected by the host; falling back to the no-retry decision`,
+              );
+            } else if (plan.action === "keep") {
+              logger.debug(`[tawassul] model failover skipped: ${plan.reason}`);
+            }
+          } catch (e) {
+            logger.debug("[tawassul] model failover failed open:", e);
+          }
+        }
         if (failure.terminal) payload.decision = { retry: false };
       });
       registered.push(() => retryRegistration.dispose());

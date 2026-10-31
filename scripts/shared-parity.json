@@ -81,7 +81,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/v2/setup.ts",
-            "line": 342,
+            "line": 352,
             "marker": "host missing required domains"
           },
           "proofs": [
@@ -1069,7 +1069,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/v2/setup.ts",
-            "line": 31,
+            "line": 40,
             "marker": "SCHEMA_RETRY_ATTEMPTS"
           },
           "proofs": [
@@ -1303,7 +1303,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/hooks/tool-execute.ts",
-            "line": 67,
+            "line": 72,
             "marker": "export const TASK_TIMEOUT_MS = 420_000;"
           },
           "proofs": [

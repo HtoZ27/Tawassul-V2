@@ -84,6 +84,16 @@ export const configSchema = tool.schema.object({
       noRetry: tool.schema.boolean().optional(),
     })
     .optional(),
+  fallback: tool.schema
+    .object({
+      enabled: tool.schema.boolean().optional(),
+      maxSwitches: tool.schema.number().min(0).max(20).optional(),
+      cooldownMs: tool.schema.number().min(0).max(60000).optional(),
+      chains: tool.schema
+        .record(tool.schema.string(), tool.schema.array(tool.schema.string()))
+        .optional(),
+    })
+    .optional(),
   health: tool.schema
     .object({
       stuckTimeoutMs: tool.schema.number().min(1000).max(300000).optional(),

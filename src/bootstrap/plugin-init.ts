@@ -20,6 +20,7 @@ import {
 } from "../services/iteration-budget.ts";
 import { armDbMaintenanceTrigger } from "../services/db-maintenance-trigger.ts";
 import { TawassulContext } from "../context.ts";
+import type { TawassulConfig } from "../context/types.ts";
 import { createServices } from "./service-factory.ts";
 import { createHooks } from "./hooks-registration.ts";
 import { buildToolJsonSchema } from "../lib/tool-schema-injection.ts";
@@ -30,6 +31,7 @@ import { logger } from "../utils/logger.ts";
 import { bundleFingerprint } from "../utils/bundle-fingerprint.ts";
 import { isHomeProject, forceQuietMode, clearQuietModeForce, quietModeForceReason } from "../utils/quiet.ts";
 import { lruSet } from "../utils/bounded-map.ts";
+import { hasFailoverClaim } from "../services/model-failover.ts";
 import { runWithContext } from "../context/context-store.ts";
 import { AskChannel, type AskChannelDeps } from "../services/ask-channel.ts";
 import { formatAskPrompt, ASK_MARKER, type AskKind } from "../services/ask-channel-parse.ts";
@@ -170,6 +172,24 @@ export function matchesRateLimit(message: string, patterns?: readonly string[]):
   return matchesPatterns(message, patterns);
 }
 
+const _activeConfigs = new Map<string, TawassulConfig>();
+const MAX_ACTIVE_CONFIGS = 8;
+
+export function rememberActiveConfig(directory: string, config: TawassulConfig): void {
+  if (!directory) return;
+  _activeConfigs.delete(directory);
+  _activeConfigs.set(directory, config);
+  if (_activeConfigs.size > MAX_ACTIVE_CONFIGS) {
+    const oldest = _activeConfigs.keys().next().value;
+    if (oldest !== undefined && oldest !== directory) _activeConfigs.delete(oldest);
+  }
+}
+
+export function readActiveConfig(directory: string | undefined): TawassulConfig | undefined {
+  if (!directory) return undefined;
+  return _activeConfigs.get(directory);
+}
+
 
 
 
@@ -241,6 +261,10 @@ export async function scheduleQuotaProbe(
   errorMessage: string,
 ): Promise<boolean> {
   if (!isQuotaExhausted(errorMessage)) return false;
+  if (hasFailoverClaim(sessionId)) {
+    logger.debug(`[tawassul] quota probe skipped for session ${sessionId}: model failover owns the retry`);
+    return false;
+  }
   if (quotaProbePending.has(sessionId)) {
     logger.debug(`[tawassul] quota probe already pending for session ${sessionId}`);
     return true;
@@ -297,6 +321,10 @@ export async function handleRateLimitError(
   errorMessage: string,
 ): Promise<boolean> {
   if (!matchesRateLimit(errorMessage)) return false;
+  if (hasFailoverClaim(sessionId)) {
+    logger.debug(`[tawassul] rate-limit retry skipped for session ${sessionId}: model failover owns the retry`);
+    return false;
+  }
   if (isQuotaExhausted(errorMessage)) {
     return scheduleQuotaProbe(ctx, tawaCtx, sessionId, errorMessage);
   }
@@ -670,6 +698,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
 
       
       initTimeoutMs = tawaCtx.configManager.config.initTimeoutMs ?? 30_000;
+      rememberActiveConfig(ctx.directory, tawaCtx.configManager.config);
 
       
       if (tawaCtx.configManager.config.language) {

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "totalEstimateMs": 226791,
+  "totalEstimateMs": 226991,
   "shards": [
     {
       "name": "1",
@@ -116,7 +116,7 @@
     },
     {
       "name": "4",
-      "estimateMs": 56678,
+      "estimateMs": 56878,
       "steps": [
         "gen-merge",
         "roster-boundary",
@@ -149,7 +149,9 @@
         "e42-result-metadata",
         "e44-host-retry",
         "context-revalidate",
-        "model-switch"
+        "model-switch",
+        "model-failover",
+        "repeat-guard"
       ]
     }
   ]
