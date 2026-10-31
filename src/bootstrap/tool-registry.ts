@@ -2,6 +2,7 @@
 
 import type { TawassulContext } from "../context.ts";
 import type { ToolDefinition } from "../tool.ts";
+import { TAWASSUL_TOOL_NAMES } from "../tool-names.ts";
 import type { ServiceFactoryResult } from "./service-factory.ts";
 import { ServiceIndex } from "../services/service-index.ts";
 import { resolveRuntimeStateDir } from "../utils/path-resolver.ts";
@@ -60,6 +61,30 @@ export interface ToolRegistryResult {
   tools: Record<string, ToolDefinition>;
 }
 
+export type OptionalToolAvailability = {
+  timeline: boolean;
+  goal: boolean;
+};
+
+export function optionalToolAvailability(
+  services: ServiceFactoryResult | undefined,
+): OptionalToolAvailability {
+  return {
+    timeline: !!services?.timelineStore,
+    goal: !!services?.goalStore,
+  };
+}
+
+export function registeredToolNames(
+  services: ServiceFactoryResult | undefined,
+): ReadonlySet<string> {
+  const optional = optionalToolAvailability(services);
+  const names = new Set(TAWASSUL_TOOL_NAMES);
+  if (!optional.timeline) names.delete("timeline");
+  if (!optional.goal) names.delete("goal");
+  return names;
+}
+
 
 export function buildToolRegistry(
   tawaCtx: TawassulContext,
@@ -80,6 +105,7 @@ export function buildToolRegistry(
       : {}),
   });
   const discussionManager = tawaCtx.discussionManager;
+  const optional = optionalToolAvailability(services);
 
   const rawTools: Record<string, ToolDefinition> = {
     discussion: buildDiscussionTool(
@@ -144,8 +170,10 @@ export function buildToolRegistry(
     image_route: buildImageRouteTool(services?.imageRouter ?? getImageRouter(), () => tawaCtx.getAgents()),
     dashboard: buildDashboardTool(serviceIndex, tawaCtx),
     health: buildHealthTool(tawaCtx),
-    ...(services?.timelineStore ? { timeline: buildTimelineTool(services.timelineStore) } : {}),
-    ...(services?.goalStore ? { goal: buildGoalTool(services.goalStore) } : {}),
+    ...(optional.timeline && services?.timelineStore
+      ? { timeline: buildTimelineTool(services.timelineStore) }
+      : {}),
+    ...(optional.goal && services?.goalStore ? { goal: buildGoalTool(services.goalStore) } : {}),
     fasttrack: buildFastTrackTool((entry: HandoffEntry) => {
       const id = tawaCtx.nextHandoffId();
       entry.id = id;

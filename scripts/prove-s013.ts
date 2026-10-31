@@ -8,7 +8,7 @@ import { buildRecordTool } from "../src/tools/record.ts";
 import { buildEvaluationReportTool } from "../src/tools/evaluation-report.ts";
 import { SecurityPolicy } from "../src/security-policy.ts";
 import { TAWASSUL_TOOL_ROLES, getAllowedToolsForRole } from "../src/role-matrix.ts";
-import { SYSTEM_CONCORDANCE_TEXT } from "../src/hooks/message-updated.ts";
+import { SYSTEM_CONCORDANCE_TEXT } from "../src/services/concordance.ts";
 import { ensureMinimalProjectContract } from "../src/utils/opencode-config.ts";
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));

@@ -557,6 +557,10 @@
     {
       "name": "routing-eval",
       "cmd": ["bun", "scripts/prove-routing-eval.ts"]
+    },
+    {
+      "name": "concordance",
+      "cmd": ["bun", "scripts/prove-concordance.ts"]
     }
   ],
   "smoke": [

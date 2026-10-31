@@ -3,6 +3,8 @@ import type { TawassulContext } from "../context.ts";
 import type { DiscussionManager } from "../discussion/discussion-logic.ts";
 import type { ServiceFactoryResult } from "./service-factory.ts";
 import { createMessageUpdatedHook } from "../hooks/message-updated.ts";
+import { registeredToolNames } from "./tool-registry.ts";
+import { buildConcordance } from "../services/concordance.ts";
 import { createSessionCompactedHook } from "../hooks/session.ts";
 import { createToolExecuteBeforeHook, createToolExecuteAfterHook } from "../hooks/tool-execute.ts";
 import { createToolOutputStreamHook } from "../hooks/tool-output-stream.ts";
@@ -52,6 +54,8 @@ export function createHooks(
   serverUrl?: string,
 ): HooksResult {
   const { healthTracker, circuitBreaker, agentMatcher, parallelDispatcher, predictiveRouter } = services;
+
+  const concordanceText = buildConcordance(registeredToolNames(services));
 
   
   
@@ -169,6 +173,7 @@ export function createHooks(
       markOutcomeByAgent: tawaCtx.trainingEvaluator.markOutcomeByAgent.bind(tawaCtx.trainingEvaluator),
     } as import("../hooks/message-updated-types.ts").MessageUpdatedContext["trainingEvaluator"],
     serviceClients: messageServiceClients,
+    concordanceText,
     readAgentMd: (tag: string) => tawaCtx.readAgentMd(tag),
     getEvalConfig: () => tawaCtx.getEvalConfig(),
     getOrCreateRating: (agent: string) => tawaCtx.getOrCreateRating(agent),
@@ -262,6 +267,7 @@ export function createHooks(
     sessionId: tawaCtx.sessionManager.getSessionId(),
     seenAgents: tawaCtx.seenAgents,
     priorityIndex,
+    concordanceText,
     
     
     getGoalDigest: services?.goalStore

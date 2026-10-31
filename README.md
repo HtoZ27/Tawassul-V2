@@ -159,6 +159,23 @@ matcher now normalizes the text, matches whole words, and only fuzzy matches
 keywords of four characters or more, so a two letter keyword can no longer
 claim a sentence.
 
+## System concordance
+
+The message hook injects a short map of where live state lives. The map is
+generated from the registered tool set instead of a fixed string:
+`buildConcordance(registeredToolNames(services))` in
+`src/services/concordance.ts`.
+
+`goal` and `timeline` are optional: the registry drops them when the goal
+store or the timeline store failed to initialize. The injected map drops the
+matching lines with them, so a session is never told to call a tool it does
+not have. With both stores present the text is byte-identical to the
+previous constant, which keeps the cached prefix stable.
+
+`prove-concordance` runs the four availability combinations, rejects any
+documented parameter the tool schema does not declare, and fails if the
+injection path stops reading the per-session surface.
+
 ## Prompt payload stability
 
 Every injection runs through one bridge that touches only the last message and
@@ -176,7 +193,7 @@ bytes on every build, with a stable key order.
 ## Verify
 ```
 npm run gate:fast    # rules + shell syntax + typecheck + config + facts + contract + parity + catalog
-npm run gate:proofs  # 130 proofs, one isolated child process each (the full CI run)
+npm run gate:proofs  # 131 proofs, one isolated child process each (the full CI run)
 npm run gate:proofs:1  # shard 1 of 4, about a minute, nice 10 (2, 3, 4 for the rest)
 npm run gate:smoke   # build + release smoke (one scratch boot)
 npm run ci           # all three stages, sequentially, each in its own process
@@ -191,7 +208,7 @@ in order instead of chaining the proof commands. Use
 durations. The manifest is `scripts/gate-manifest.json`;
 `prove-proof-catalog` fails when a proof file is missing from it.
 
-The 130 proofs run in about 228s in one pass. For a fast local loop the stage
+The 131 proofs run in about 229s in one pass. For a fast local loop the stage
 is split into four balanced shards in `scripts/proof-shards.json` (56.7s of
 recorded duration each): `npm run gate:proofs:1` through `gate:proofs:4`, or
 `npm run gate:proofs -- --shard 3 --timings`. Each shard runs at niceness 10 so

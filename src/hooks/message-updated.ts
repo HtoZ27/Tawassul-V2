@@ -26,6 +26,7 @@ import {
 } from "../services/pipeline-phases.ts";
 import { logger } from "../utils/logger.ts";
 import { normalizeName } from "../utils/name-utils.ts";
+import { SYSTEM_CONCORDANCE_TEXT } from "../services/concordance.ts";
 import { translateError } from "../lib/conversational.ts";
 import { activatePack } from "../services/context-pack/index.ts";
 import { getSessionBridge } from "../v2/session-bridge.ts";
@@ -521,18 +522,6 @@ function normalizeInjectedParts(
   });
 }
 
-export const SYSTEM_CONCORDANCE_TEXT = [
-  "",
-  "## 🗺️ System Concordance — where the live data lives",
-  "The ONLY source of truth is these tools. Never search plugin files or the MCP server for a feature:",
-  "- `goal(board: true)` -> tiered goals board (goals + items + DoD) — fastest review",
-  '- `goal(list: true)` -> all active goals · `goal(get: "G-xxx")` -> one goal with its items',
-  '- `goal(create: "<title>")` -> create a goal right here — never hunt for goal storage',
-  "- `show_board` -> mission boards · `timeline()` -> activity timeline",
-  "- `record(list: true)` -> session decisions/records · `handoff(to: ..., task: ..., context: ...)` -> hand a task to an agent",
-  "Reviewed a goal? Update it right here via `goal(update|evidence|close)` — do not assume it lives anywhere else.",
-].join("\n");
-
 export function createMessageUpdatedHook(ctx: MessageUpdatedContext) {
   const svc = resolveServiceClients(ctx.serviceClients);
   const pluginRoot = resolve(ctx.directory);
@@ -754,7 +743,7 @@ export function createMessageUpdatedHook(ctx: MessageUpdatedContext) {
       ) {
         output.parts.push({
           type: "text" as const,
-          text: SYSTEM_CONCORDANCE_TEXT,
+          text: ctx.concordanceText ?? SYSTEM_CONCORDANCE_TEXT,
         });
       }
     } catch (e) {

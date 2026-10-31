@@ -266,7 +266,7 @@ sharing persistent pack state with read-only roles.
 | `src/validation.ts:91` | `.optional()` for the new fields, otherwise `safeParse` strips them silently |
 | `src/bootstrap/{tool-registry,service-factory,plugin-init}.ts` | Registration; `plugin-init` remembers the loaded config for the runtime kill switch |
 | `scripts/release-smoke.sh:124,146,177,178,193,197,199`, `scripts/prove-e27.ts:40`, `scripts/prove-independence-boot.ts:144`, `scripts/prove-global-boot.ts:224,225,267,268,292,293,313` | Tool count 42 to 43. Sixteen lines across four files, not eleven |
-| `scripts/gate-manifest.json` | 130 proofs-stage steps; 133 proof files across the three stages |
+| `scripts/gate-manifest.json` | 131 proofs-stage steps; 134 proof files across the three stages |
 | `package.json`, `ISSUES.md`, `.opencode/feature-index.json` | Scripts, issue record, index |
 
 ---

@@ -104,6 +104,8 @@ export interface MessageUpdatedContext {
   recordDecision?: (content: string, opts?: { tags?: string[]; importance?: "low" | "medium" | "high" }) => void;
   
   serviceClients?: MessageUpdatedServiceClients;
+
+  concordanceText?: string;
 }
 
 
