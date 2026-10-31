@@ -551,6 +551,10 @@
       "cmd": ["bun", "scripts/prove-model-failover.ts"]
     },
     {
+      "name": "model-failover-e2e",
+      "cmd": ["bun", "scripts/prove-model-failover-e2e.ts"]
+    },
+    {
       "name": "repeat-guard",
       "cmd": ["bun", "scripts/prove-repeat-guard.ts"]
     },

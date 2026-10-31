@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { analyzeMessage, type RoutingResult } from "../src/services/routing-algorithm.ts";
 
 function fail(message: string): never {
@@ -13,8 +10,6 @@ function assert(condition: unknown, message: string): void {
   if (!condition) fail(message);
   console.log(`ok ${message}`);
 }
-
-const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 
 type Expectation = {
   text: string;
@@ -127,18 +122,6 @@ runGroup("safety", SAFETY);
   assert(routed === 0, `no non task fixture auto-routes (found ${routed})`);
   const keywordMatches = results.filter((result) => result.confidence >= 0.65).length;
   assert(keywordMatches === 0, `no non task fixture reaches the routing threshold (found ${keywordMatches})`);
-}
-
-{
-  const fuzzySources = readFileSync(join(repo, "src", "services", "fuzzy-match.ts"), "utf-8");
-  assert(fuzzySources.includes("MIN_FUZZY_KEYWORD_LENGTH"), "the fuzzy branch declares a minimum keyword length");
-  assert(fuzzySources.includes("function normalizeText"), "the matcher normalizes the text once");
-  assert(!fuzzySources.includes("lower.includes(kw.toLowerCase())"), "the exact branch no longer matches inside a word");
-  assert(fuzzySources.includes("export function containsWholePhrase"), "the whole-word matcher is reusable");
-
-  const routingSources = readFileSync(join(repo, "src", "services", "routing-algorithm.ts"), "utf-8");
-  assert(routingSources.includes("containsWholePhrase(text, keyword)"), "size votes use the whole-word matcher");
-  assert(!routingSources.includes("lower.includes(keyword)"), "size votes never match inside a word");
 }
 
 console.log("PROOF PASS: routing evals separate tasks from chatter");

@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "totalEstimateMs": 229431,
+  "totalEstimateMs": 278043,
   "shards": [
     {
       "name": "1",
-      "estimateMs": 56707,
+      "estimateMs": 74363,
       "steps": [
         "gen-lock",
         "web-ssrf",
@@ -35,12 +35,13 @@
         "context-budget",
         "context-store",
         "context-transport",
-        "context-bridge"
+        "context-bridge",
+        "global-install"
       ]
     },
     {
       "name": "2",
-      "estimateMs": 58202,
+      "estimateMs": 70247,
       "steps": [
         "gen-guard-wal",
         "first-boot",
@@ -74,12 +75,13 @@
         "context-hook-idempotent",
         "context-kill-switch",
         "thread-tool",
-        "task-control"
+        "task-control",
+        "db-scheduler"
       ]
     },
     {
       "name": "3",
-      "estimateMs": 56704,
+      "estimateMs": 64996,
       "steps": [
         "event-trust",
         "s017",
@@ -112,12 +114,13 @@
         "context-claim",
         "context-hook-latency",
         "context-failure-pack",
-        "context-sanitize"
+        "context-sanitize",
+        "e27"
       ]
     },
     {
       "name": "4",
-      "estimateMs": 57818,
+      "estimateMs": 68437,
       "steps": [
         "gen-merge",
         "roster-boundary",
@@ -125,7 +128,6 @@
         "e12",
         "e22",
         "e23",
-        "e27",
         "e37",
         "e38",
         "e18",
@@ -139,11 +141,9 @@
         "s036",
         "seed-agents",
         "n2-cap",
-        "db-scheduler",
         "host-entry",
         "d05-doctor-census",
         "v2-compat",
-        "global-install",
         "setup-delegation",
         "c02",
         "upstream-sync",
@@ -152,6 +152,7 @@
         "context-revalidate",
         "model-switch",
         "model-failover",
+        "model-failover-e2e",
         "repeat-guard",
         "payload-cache",
         "routing-eval",

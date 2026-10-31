@@ -3,7 +3,6 @@ import type { TawassulContext } from "../context.ts";
 import type { DiscussionManager } from "../discussion/discussion-logic.ts";
 import type { ServiceFactoryResult } from "./service-factory.ts";
 import { createMessageUpdatedHook } from "../hooks/message-updated.ts";
-import { registeredToolNames } from "./tool-registry.ts";
 import { buildConcordance } from "../services/concordance.ts";
 import { createSessionCompactedHook } from "../hooks/session.ts";
 import { createToolExecuteBeforeHook, createToolExecuteAfterHook } from "../hooks/tool-execute.ts";
@@ -51,11 +50,12 @@ export function createHooks(
   directory: string,
   services: ServiceFactoryResult,
   _discussionManager: DiscussionManager,
+  registeredNames: ReadonlySet<string>,
   serverUrl?: string,
 ): HooksResult {
   const { healthTracker, circuitBreaker, agentMatcher, parallelDispatcher, predictiveRouter } = services;
 
-  const concordanceText = buildConcordance(registeredToolNames(services));
+  const concordanceText = buildConcordance(registeredNames);
 
   
   

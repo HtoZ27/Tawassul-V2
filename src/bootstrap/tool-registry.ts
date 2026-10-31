@@ -62,28 +62,51 @@ export interface ToolRegistryResult {
   tools: Record<string, ToolDefinition>;
 }
 
-export type OptionalToolAvailability = {
+export type ToolSurfaceAvailability = {
   timeline: boolean;
   goal: boolean;
+  checkpoint: boolean;
+  evidence: boolean;
 };
 
-export function optionalToolAvailability(
+export function toolSurfaceAvailability(
   services: ServiceFactoryResult | undefined,
-): OptionalToolAvailability {
+  discussionManager: { getEvidenceManager(): unknown } | undefined,
+): ToolSurfaceAvailability {
   return {
     timeline: !!services?.timelineStore,
     goal: !!services?.goalStore,
+    checkpoint: !!services?.checkpointManager,
+    evidence: !!discussionManager?.getEvidenceManager(),
   };
 }
 
 export function registeredToolNames(
   services: ServiceFactoryResult | undefined,
+  discussionManager?: { getEvidenceManager(): unknown },
 ): ReadonlySet<string> {
-  const optional = optionalToolAvailability(services);
+  const availability = toolSurfaceAvailability(services, discussionManager);
   const names = new Set(TAWASSUL_TOOL_NAMES);
-  if (!optional.timeline) names.delete("timeline");
-  if (!optional.goal) names.delete("goal");
+  if (!availability.timeline) names.delete("timeline");
+  if (!availability.goal) names.delete("goal");
+  if (!availability.checkpoint) names.delete("checkpoint");
+  if (!availability.evidence) names.delete("evidence");
   return names;
+}
+
+export function registryToolNames(tools: Record<string, ToolDefinition>): ReadonlySet<string> {
+  return new Set(Object.keys(tools));
+}
+
+export function assertToolSurface(actual: Iterable<string>, declared: ReadonlySet<string>): void {
+  const registered = new Set(actual);
+  const missing = [...declared].filter((name) => !registered.has(name)).sort();
+  const extra = [...registered].filter((name) => !declared.has(name)).sort();
+  if (missing.length > 0 || extra.length > 0) {
+    throw new Error(
+      `[tawassul] tool surface mismatch: missing=[${missing.join(",")}] extra=[${extra.join(",")}]`,
+    );
+  }
 }
 
 
@@ -106,7 +129,7 @@ export function buildToolRegistry(
       : {}),
   });
   const discussionManager = tawaCtx.discussionManager;
-  const optional = optionalToolAvailability(services);
+  const availability = toolSurfaceAvailability(services, discussionManager);
 
   const rawTools: Record<string, ToolDefinition> = {
     discussion: buildDiscussionTool(
@@ -172,10 +195,10 @@ export function buildToolRegistry(
     image_route: buildImageRouteTool(services?.imageRouter ?? getImageRouter(), () => tawaCtx.getAgents()),
     dashboard: buildDashboardTool(serviceIndex, tawaCtx),
     health: buildHealthTool(tawaCtx),
-    ...(optional.timeline && services?.timelineStore
+    ...(availability.timeline && services?.timelineStore
       ? { timeline: buildTimelineTool(services.timelineStore) }
       : {}),
-    ...(optional.goal && services?.goalStore ? { goal: buildGoalTool(services.goalStore) } : {}),
+    ...(availability.goal && services?.goalStore ? { goal: buildGoalTool(services.goalStore) } : {}),
     fasttrack: buildFastTrackTool((entry: HandoffEntry) => {
       const id = tawaCtx.nextHandoffId();
       entry.id = id;
@@ -211,11 +234,11 @@ export function buildToolRegistry(
   };
 
   
-  if (services?.checkpointManager) {
+  if (availability.checkpoint && services?.checkpointManager) {
     rawTools.checkpoint = buildCheckpointTool(services.checkpointManager);
   }
   const evidenceManager = discussionManager.getEvidenceManager();
-  if (evidenceManager) {
+  if (availability.evidence && evidenceManager) {
     rawTools.evidence = buildEvidenceTool((id) => discussionManager.getDiscussion(id), evidenceManager);
   }
 

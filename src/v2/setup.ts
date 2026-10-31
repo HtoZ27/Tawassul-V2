@@ -30,6 +30,7 @@ import {
   planFailover,
   recordFailoverMiss,
   switchSessionModel as switchModelVia,
+  type FallbackChainConfig,
   type SwitchModelSession,
 } from "../services/model-failover.ts";
 import {
@@ -95,6 +96,26 @@ function toV1MessageID(messageID: string): string {
 const syntheticMessageKeys = new WeakMap<object, string>();
 let syntheticMessageCounter = 0;
 
+const INJECTED_PART_KEY = "tawassulInjected";
+
+type TextPartLike = { type: string; text?: string; [key: string]: unknown };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isInjectedPart(part: TextPartLike): boolean {
+  if (part.type !== "text" || typeof part.text !== "string") return false;
+  const metadata = part["metadata"];
+  return isRecord(metadata) && metadata[INJECTED_PART_KEY] === true;
+}
+
+function markInjectedPart(part: TextPartLike): { type: string; text: string; metadata: Record<string, unknown> } {
+  const metadata = isRecord(part["metadata"]) ? { ...part["metadata"] } : {};
+  metadata[INJECTED_PART_KEY] = true;
+  return { type: "text", text: part.text as string, metadata };
+}
+
 function syntheticMessageKey(message: object, index: number): string {
   const cached = syntheticMessageKeys.get(message);
   if (cached) return cached;
@@ -130,6 +151,72 @@ function reportSafetyHookFailure(hook: string, detail: string, error: unknown): 
   } catch {
     void 0;
   }
+}
+
+export type RetryFailoverPayload = {
+  error?: unknown;
+  decision?: unknown;
+  sessionID?: string;
+  agent?: string;
+  model?: unknown;
+  attempt?: number;
+};
+
+export type RetryFailoverOptions = {
+  switchModel?: SwitchModelSession["switchModel"];
+  fallback?: FallbackChainConfig;
+};
+
+const failoverInFlight = new Set<string>();
+
+export async function runRetryFailover(
+  payload: RetryFailoverPayload,
+  options: RetryFailoverOptions,
+): Promise<void> {
+  const failure = classifyTerminalFailure(payload.error);
+  const signal = parseFreeLimitSignal(payload.error).signal;
+  const refusal =
+    failure.terminal || signal === "free-daily-limit" || signal === "quota-exhausted";
+  if (!refusal) return;
+  if (payload.sessionID && failoverInFlight.has(payload.sessionID)) {
+    logger.debug(`[tawassul] model failover already in flight for ${payload.sessionID}`);
+    return;
+  }
+  if (payload.sessionID) failoverInFlight.add(payload.sessionID);
+  try {
+    const plan = planFailover({
+      config: options.fallback,
+      agent: payload.agent,
+      model: parseModelTarget(payload.model),
+      sessionID: payload.sessionID,
+    });
+    if (plan.action === "switch" && payload.sessionID) {
+      const switched = await switchModelVia(
+        { switchModel: options.switchModel },
+        payload.sessionID,
+        plan.to,
+      );
+      if (switched) {
+        commitFailover(payload.sessionID, plan.target);
+        payload.decision = { retry: true, delay: plan.delayMs };
+        logger.warn(
+          `[tawassul] model failover: ${payload.agent ?? "unknown"} session ${payload.sessionID} -> ${plan.target} (${failure.reason})`,
+        );
+        return;
+      }
+      recordFailoverMiss(payload.sessionID, plan.target);
+      logger.warn(
+        `[tawassul] model failover to ${plan.target} rejected by the host; falling back to the no-retry decision`,
+      );
+    } else if (plan.action === "keep") {
+      logger.debug(`[tawassul] model failover skipped: ${plan.reason}`);
+    }
+  } catch (e) {
+    logger.debug("[tawassul] model failover failed open:", e);
+  } finally {
+    if (payload.sessionID) failoverInFlight.delete(payload.sessionID);
+  }
+  if (failure.terminal) payload.decision = { retry: false };
 }
 
 export async function runChatMessageBridge(
@@ -184,6 +271,10 @@ export async function runChatMessageBridge(
     const original = originals[index];
     if (original) seededToOriginal.set(copy, original);
   });
+  const injectedTexts = new Set<string>();
+  for (const part of originals) {
+    if (isInjectedPart(part) && typeof part.text === "string") injectedTexts.add(part.text);
+  }
 
   const v1Output = {
     message: { role: role as string, ...(contentIsString ? { text: rawContent } : {}) },
@@ -210,11 +301,8 @@ export async function runChatMessageBridge(
       messageText = message["text"];
     }
   }
-  const added: Array<{ type: string; text: string }> = [];
-  const presentTexts = new Set<string>();
-  for (const part of originals) {
-    if (part.type === "text" && typeof part.text === "string") presentTexts.add(part.text);
-  }
+  const added: Array<{ type: string; text: string; metadata: Record<string, unknown> }> = [];
+  const addedTexts = new Set<string>();
   let editedString: string | undefined;
   for (const part of v1Output.parts) {
     if (!part || typeof part !== "object") continue;
@@ -227,9 +315,9 @@ export async function runChatMessageBridge(
       continue;
     }
     if (part.type === "text" && typeof part.text === "string") {
-      if (presentTexts.has(part.text)) continue;
-      presentTexts.add(part.text);
-      added.push({ type: "text", text: part.text });
+      if (injectedTexts.has(part.text) || addedTexts.has(part.text)) continue;
+      addedTexts.add(part.text);
+      added.push(markInjectedPart(part));
     }
   }
   const finalText = contentIsString ? (messageText ?? editedString) : undefined;
@@ -628,52 +716,10 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
 
     try {
       const retryRegistration = await ctx.session.hook("retry", async (event) => {
-        const payload = event as unknown as {
-          error?: unknown;
-          decision?: unknown;
-          sessionID?: string;
-          agent?: string;
-          model?: unknown;
-          attempt?: number;
-        };
-        const failure = classifyTerminalFailure(payload.error);
-        const signal = parseFreeLimitSignal(payload.error).signal;
-        const refusal =
-          failure.terminal || signal === "free-daily-limit" || signal === "quota-exhausted";
-        if (refusal) {
-          try {
-            const plan = planFailover({
-              config: readActiveConfig(input.directory)?.fallback,
-              agent: payload.agent,
-              model: parseModelTarget(payload.model),
-              sessionID: payload.sessionID,
-            });
-            if (plan.action === "switch" && payload.sessionID) {
-              const switched = await switchModelVia(
-                ctx.session as unknown as SwitchModelSession,
-                payload.sessionID,
-                plan.to,
-              );
-              if (switched) {
-                commitFailover(payload.sessionID, plan.target);
-                payload.decision = { retry: true, delay: plan.delayMs };
-                logger.warn(
-                  `[tawassul] model failover: ${payload.agent ?? "unknown"} session ${payload.sessionID} -> ${plan.target} (${failure.reason})`,
-                );
-                return;
-              }
-              recordFailoverMiss(payload.sessionID, plan.target);
-              logger.warn(
-                `[tawassul] model failover to ${plan.target} rejected by the host; falling back to the no-retry decision`,
-              );
-            } else if (plan.action === "keep") {
-              logger.debug(`[tawassul] model failover skipped: ${plan.reason}`);
-            }
-          } catch (e) {
-            logger.debug("[tawassul] model failover failed open:", e);
-          }
-        }
-        if (failure.terminal) payload.decision = { retry: false };
+        await runRetryFailover(event as RetryFailoverPayload, {
+          switchModel: ctx.session.switchModel,
+          fallback: readActiveConfig(input.directory)?.fallback,
+        });
       });
       registered.push(() => retryRegistration.dispose());
     } catch (e) {

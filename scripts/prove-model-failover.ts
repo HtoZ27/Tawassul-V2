@@ -1,10 +1,6 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   DEFAULT_MAX_SWITCHES,
   FAILOVER_CLAIM_TTL_MS,
-  clearFailoverClaim,
   commitFailover,
   failoverSummary,
   failoverSwitchCount,
@@ -19,6 +15,11 @@ import {
   type FallbackChainConfig,
 } from "../src/services/model-failover.ts";
 import { getFallbackChain } from "../src/services/proxy-fallback-chains.ts";
+import { configSchema } from "../src/context/config-schema.ts";
+import {
+  runRetryFailover,
+  type RetryFailoverPayload,
+} from "../src/v2/setup.ts";
 
 function fail(message: string): never {
   console.error(`PROOF FAIL: ${message}`);
@@ -30,8 +31,6 @@ function assert(condition: unknown, message: string): void {
   if (!condition) fail(message);
   console.log(`ok ${message}`);
 }
-
-const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 
 async function main(): Promise<void> {
   resetFailoverState();
@@ -143,8 +142,8 @@ async function main(): Promise<void> {
   resetFailoverState();
   const calls: Array<{ sessionID: string; model: string }> = [];
   const working = {
-    switchModel: async (input: { sessionID: string; model: { providerID: string; modelID: string } }) => {
-      calls.push({ sessionID: input.sessionID, model: `${input.model.providerID}/${input.model.modelID}` });
+    switchModel: async (input: { sessionID: string; model: { id: string; providerID: string } }) => {
+      calls.push({ sessionID: input.sessionID, model: `${input.model.providerID}/${input.model.id}` });
       return undefined;
     },
   };
@@ -166,9 +165,6 @@ async function main(): Promise<void> {
     )),
     "a host rejection fails closed",
   );
-
-  clearFailoverClaim("s-2");
-  assert(!hasFailoverClaim("s-2"), "a cleared claim releases the session");
 
   resetFailoverState();
   commitFailover("s-old", primary, Date.now() - FAILOVER_CLAIM_TTL_MS - 1);
@@ -250,21 +246,111 @@ async function main(): Promise<void> {
   const staleSummary = failoverSummary();
   assert(staleSummary.switches === 2 && staleSummary.claimed === 0, "a stale claim is counted but not live");
 
-  const setup = readFileSync(join(repo, "src", "v2", "setup.ts"), "utf-8");
-  assert(setup.includes("planFailover("), "the v2 retry hook plans a failover");
-  assert(setup.includes("switchModelVia("), "the retry hook moves the session model");
-  assert(setup.includes("payload.decision = { retry: true, delay: plan.delayMs }"), "an accepted move retries the turn");
-  assert(setup.includes('signal === "free-daily-limit"'), "the free daily limit triggers a failover");
-  assert(setup.includes('signal === "quota-exhausted"'), "an exhausted quota triggers a failover");
+  resetFailoverState();
+  const retryCalls: Array<{ sessionID: string; model: string }> = [];
+  const retrySession = {
+    switchModel: async (input: {
+      sessionID: string;
+      model: { id: string; providerID: string };
+    }) => {
+      retryCalls.push({
+        sessionID: input.sessionID,
+        model: `${input.model.providerID}/${input.model.id}`,
+      });
+    },
+  };
+  const retryPayload: RetryFailoverPayload = {
+    error: { message: "Free usage limit reached" },
+    sessionID: "s-retry",
+    agent: "dev",
+    model: primary,
+  };
+  await runRetryFailover(retryPayload, {
+    switchModel: retrySession.switchModel,
+    fallback: { chains: { dev: [primary, secondary] } },
+  });
+  assert(retryCalls.length === 1, "the retry hook asks the host to switch the model");
+  assert(retryCalls[0]?.model === secondary, "the retry hook moves to the next chain entry");
+  const accepted = retryPayload.decision as { retry?: boolean; delay?: number } | undefined;
+  assert(accepted?.retry === true, "an accepted move retries the turn");
+  assert(
+    typeof accepted?.delay === "number" && accepted.delay >= 0 && accepted.delay <= 60_000,
+    "the accepted retry carries a bounded cooldown",
+  );
 
-  const init = readFileSync(join(repo, "src", "bootstrap", "plugin-init.ts"), "utf-8");
-  const claims = init.split("hasFailoverClaim(sessionId)").length - 1;
-  assert(claims === 2, "both plugin retry paths defer to the failover claim");
-  assert(init.includes("rememberActiveConfig(ctx.directory"), "the active config is registered for the retry hook");
+  resetFailoverState();
+  const disabledPayload: RetryFailoverPayload = {
+    error: { message: "Free usage limit reached" },
+    sessionID: "s-retry-disabled",
+    agent: "dev",
+    model: primary,
+  };
+  await runRetryFailover(disabledPayload, {
+    switchModel: retrySession.switchModel,
+    fallback: { enabled: false },
+  });
+  assert(retryCalls.length === 1, "a disabled fallback never calls the host switch");
+  assert(disabledPayload.decision === undefined, "a disabled fallback leaves the retry decision untouched");
 
-  const schema = readFileSync(join(repo, "src", "context", "config-schema.ts"), "utf-8");
-  assert(schema.includes("fallback: tool.schema"), "the config schema declares a fallback block");
-  assert(schema.includes("chains: tool.schema"), "the fallback block accepts per-agent chains");
+  const terminalPayload: RetryFailoverPayload = {
+    error: { message: "payment_required" },
+    sessionID: "s-retry-terminal",
+    agent: "dev",
+    model: primary,
+  };
+  await runRetryFailover(terminalPayload, {
+    switchModel: retrySession.switchModel,
+    fallback: { enabled: false },
+  });
+  assert(retryCalls.length === 1, "a terminal refusal with fallback disabled never calls the host switch");
+  assert(
+    JSON.stringify(terminalPayload.decision) === JSON.stringify({ retry: false }),
+    "a terminal refusal sets the no-retry decision",
+  );
+
+  resetFailoverState();
+  let releaseSwitch: () => void = () => undefined;
+  const switchGate = new Promise<void>((resolve) => {
+    releaseSwitch = resolve;
+  });
+  let concurrentSwitches = 0;
+  const slowSession = {
+    switchModel: async () => {
+      concurrentSwitches += 1;
+      await switchGate;
+    },
+  };
+  const firstRace: RetryFailoverPayload = {
+    error: { message: "Free usage limit reached" },
+    sessionID: "s-retry-race",
+    agent: "dev",
+    model: primary,
+  };
+  const secondRace: RetryFailoverPayload = {
+    error: { message: "Free usage limit reached" },
+    sessionID: "s-retry-race",
+    agent: "dev",
+    model: primary,
+  };
+  const firstRun = runRetryFailover(firstRace, {
+    switchModel: slowSession.switchModel,
+    fallback: { chains: { dev: [primary, secondary] } },
+  });
+  const secondRun = runRetryFailover(secondRace, {
+    switchModel: slowSession.switchModel,
+    fallback: { chains: { dev: [primary, secondary] } },
+  });
+  releaseSwitch();
+  await Promise.all([firstRun, secondRun]);
+  assert(concurrentSwitches === 1, "concurrent retries plan a single model switch");
+  assert(secondRace.decision === undefined, "the duplicate retry leaves the decision to the first");
+
+  const acceptedConfig = configSchema.safeParse({
+    fallback: { enabled: false, maxSwitches: 1, cooldownMs: 500, chains: { dev: [primary] } },
+  });
+  assert(acceptedConfig.success, "the config schema accepts a fallback block with chains");
+  assert(!configSchema.safeParse({ fallback: { maxSwitches: 999 } }).success, "the config schema bounds the switch budget");
+  assert(!configSchema.safeParse({ fallback: { cooldownMs: -1 } }).success, "the config schema bounds the cooldown");
 
   console.log("PROOF PASS: provider refusal moves the session to the next curated model");
 }

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -27,7 +27,6 @@ function assert(condition: unknown, message: string): void {
 }
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
-
 resetToolLoopState();
 
 const one = resultSignature("alpha\nbeta");
@@ -155,22 +154,28 @@ recordToolResult(S, "fail", "read", "sig", "out");
 resetToolResultRun(S, "fail", "read");
 assert(repeatResultCount(S, "fail", "read", "sig") === 0, "a failed call clears the run");
 
-const toolExecute = readFileSync(join(repo, "src", "hooks", "tool-execute.ts"), "utf-8");
-assert(toolExecute.includes("recordToolResult("), "the after hook records the result run");
-assert(toolExecute.includes("resultSignature(output.output)"), "the after hook signs the real output");
-assert(toolExecute.includes("repeatResultWarning("), "the after hook appends the warning");
-assert(
-  toolExecute.includes("isToolLoopBlocked(\n          input.sessionID,\n          normalizedAgent,"),
-  "the before hook passes the session and the call signature",
+const guardPath = join(repo, "src", "hooks", "guards", "tool-loop-guard.ts");
+const disabled = spawnSync(
+  process.execPath,
+  [
+    "-e",
+    [
+      `import { recordToolResult, isRepeatResultBlocked, REPEAT_RESULT_BLOCK_AT } from ${JSON.stringify(guardPath)};`,
+      `for (let i = 0; i < REPEAT_RESULT_BLOCK_AT; i += 1) recordToolResult("s", "dev", "read", "args", "sig");`,
+      `const blocked = isRepeatResultBlocked("s", "dev", "read", "args");`,
+      `if (blocked !== null) { console.error("GUARD_STILL_BLOCKED"); process.exit(2); }`,
+      `console.log("GUARD_BYPASSED");`,
+    ].join("\n"),
+  ],
+  {
+    encoding: "utf-8",
+    env: { ...process.env, TAWASSUL_DISABLE_TOOL_GUARD: "1" },
+  },
 );
+assert(disabled.status === 0, "the guard process exits cleanly with the kill switch enabled");
 assert(
-  toolExecute.includes("recordToolResult(\n            input.sessionID,"),
-  "the after hook scopes the run by session",
+  (disabled.stdout ?? "").includes("GUARD_BYPASSED"),
+  "the disabled guard does not block the identical read result",
 );
-
-const guard = readFileSync(join(repo, "src", "hooks", "guards", "tool-loop-guard.ts"), "utf-8");
-assert(guard.includes("REPEAT_BLOCK_TOOLS"), "the guard declares the read-only block list");
-assert(guard.includes("MAX_REPEAT_ENTRIES"), "the guard bounds its repeat table");
-assert(guard.includes("REPEAT_RESULT_WINDOW"), "the guard declares a bounded signature window");
 
 console.log("PROOF PASS: an identical tool result warns then blocks the read-only loop");

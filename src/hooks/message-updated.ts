@@ -26,7 +26,6 @@ import {
 } from "../services/pipeline-phases.ts";
 import { logger } from "../utils/logger.ts";
 import { normalizeName } from "../utils/name-utils.ts";
-import { SYSTEM_CONCORDANCE_TEXT } from "../services/concordance.ts";
 import { translateError } from "../lib/conversational.ts";
 import { activatePack } from "../services/context-pack/index.ts";
 import { getSessionBridge } from "../v2/session-bridge.ts";
@@ -741,10 +740,12 @@ export function createMessageUpdatedHook(ctx: MessageUpdatedContext) {
         Array.isArray(output?.parts) &&
         !concordanceInjected.has(input.sessionID)
       ) {
-        output.parts.push({
-          type: "text" as const,
-          text: ctx.concordanceText ?? SYSTEM_CONCORDANCE_TEXT,
-        });
+        if (ctx.concordanceText) {
+          output.parts.push({
+            type: "text" as const,
+            text: ctx.concordanceText,
+          });
+        }
       }
     } catch (e) {
       const errorMsg = translateError({ error: "unknown", lang: "en", reason: String(e) });

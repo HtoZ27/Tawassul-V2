@@ -7,8 +7,9 @@ import {
   buildConcordance,
 } from "../src/services/concordance.ts";
 import {
-  optionalToolAvailability,
+  assertToolSurface,
   registeredToolNames,
+  registryToolNames,
 } from "../src/bootstrap/tool-registry.ts";
 import { TAWASSUL_TOOL_NAMES } from "../src/tool-names.ts";
 import { buildGoalTool } from "../src/tools/goal.ts";
@@ -129,69 +130,144 @@ assert(
   `the full surface documents ${fullCalls.length} calls over ${fullParams} parameters`,
 );
 
-const withoutStores = registeredToolNames(undefined);
-assert(
-  !withoutStores.has("goal") && !withoutStores.has("timeline"),
-  "a host without the optional stores hides both optional tools",
-);
-assert(
-  TAWASSUL_TOOL_NAMES.length - 2 === withoutStores.size,
-  "only the two optional tools are removed",
-);
-
-const withStores = registeredToolNames({
+const evidenceHost = { getEvidenceManager: () => ({}) };
+const fullServices = {
   goalStore: {},
   timelineStore: {},
-} as never);
+  checkpointManager: {},
+} as never;
+
+const withoutStores = registeredToolNames(undefined, undefined);
 assert(
-  withStores.has("goal") && withStores.size === TAWASSUL_TOOL_NAMES.length,
-  "a host with both stores advertises the whole surface",
+  !withoutStores.has("goal") &&
+    !withoutStores.has("timeline") &&
+    !withoutStores.has("checkpoint") &&
+    !withoutStores.has("evidence"),
+  "a host without the optional services hides all four conditional tools",
+);
+assert(
+  TAWASSUL_TOOL_NAMES.length - 4 === withoutStores.size,
+  "only the four conditional tools are removed",
 );
 
+const withStores = registeredToolNames(fullServices, evidenceHost);
 assert(
-  JSON.stringify(optionalToolAvailability(undefined)) ===
-    JSON.stringify({ timeline: false, goal: false }),
-  "the availability predicate reports both stores as absent",
-);
-assert(
-  optionalToolAvailability({ goalStore: {}, timelineStore: {} } as never).goal === true,
-  "the availability predicate follows the goal store",
+  withStores.has("goal") &&
+    withStores.has("timeline") &&
+    withStores.has("checkpoint") &&
+    withStores.has("evidence") &&
+    withStores.size === TAWASSUL_TOOL_NAMES.length,
+  "a host with every service advertises the whole surface",
 );
 
 for (const services of [
   undefined,
-  { goalStore: {}, timelineStore: {} } as never,
+  fullServices,
   { goalStore: {} } as never,
   { timelineStore: {} } as never,
+  { checkpointManager: {} } as never,
 ]) {
-  const registered = registeredToolNames(services);
+  const registered = registeredToolNames(services, evidenceHost);
   const text = buildConcordance(registered);
   for (const call of referencedCalls(text)) {
     if (!registered.has(call.tool)) fail(`the text advertises ${call.tool} while the registry omits it`);
   }
 }
 
+assertToolSurface([...withStores], withStores);
+const mappedRegistry = Object.fromEntries(
+  [...withStores].map((name) => [name, {} as never]),
+);
+assert(
+  JSON.stringify([...registryToolNames(mappedRegistry)].sort()) ===
+    JSON.stringify([...withStores].sort()),
+  "the registry names are derived from the built tool map",
+);
+
+let rejectedExtra = false;
+try {
+  assertToolSurface([...withStores, "extra_tool"], withStores);
+} catch {
+  rejectedExtra = true;
+}
+assert(rejectedExtra, "a tool registered outside the declared surface fails the boot check");
+
+let rejectedMissing = false;
+try {
+  assertToolSurface([...withStores].filter((name) => name !== "goal"), withStores);
+} catch {
+  rejectedMissing = true;
+}
+assert(rejectedMissing, "a declared tool missing from the built map fails the boot check");
+
+const CONCORDANCE_EXEMPT: ReadonlySet<string> = new Set([
+  "addagent",
+  "astquery",
+  "batchread",
+  "check",
+  "checkpoint",
+  "codestate",
+  "dashboard",
+  "depmap",
+  "directresponse",
+  "discussion",
+  "divide",
+  "evidence",
+  "evaluationreport",
+  "fasttrack",
+  "gitdiff",
+  "health",
+  "help",
+  "image_route",
+  "imagegen",
+  "kick",
+  "moa",
+  "override",
+  "panic",
+  "pause",
+  "projectmap",
+  "propose",
+  "qualityreport",
+  "readsymbol",
+  "report",
+  "resume",
+  "review",
+  "self_heal",
+  "smartgrep",
+  "status",
+  "task_control",
+  "task_orchestrate",
+  "thread",
+  "vote",
+  "web",
+]);
+
+{
+  const documented = mentionedTools(buildConcordance(withStores));
+  for (const name of withStores) {
+    assert(
+      documented.has(name) || CONCORDANCE_EXEMPT.has(name),
+      `${name} has a discovery surface or a written exemption`,
+    );
+  }
+  for (const name of CONCORDANCE_EXEMPT) {
+    assert(withStores.has(name), `the exemption ${name} still names a registered tool`);
+    assert(!documented.has(name), `the exemption ${name} is not also advertised`);
+  }
+}
+
 const messageHook = readFileSync(join(repo, "src", "hooks", "message-updated.ts"), "utf-8");
 const sessionHook = readFileSync(join(repo, "src", "hooks", "session.ts"), "utf-8");
-const hooksRegistration = readFileSync(join(repo, "src", "bootstrap", "hooks-registration.ts"), "utf-8");
-const toolRegistry = readFileSync(join(repo, "src", "bootstrap", "tool-registry.ts"), "utf-8");
 
 assert(
-  messageHook.includes("ctx.concordanceText ?? SYSTEM_CONCORDANCE_TEXT"),
-  "the message hook injects the per-session surface",
+  messageHook.includes("ctx.concordanceText") &&
+    !messageHook.includes("SYSTEM_CONCORDANCE_TEXT"),
+  "the message hook injects only the per-session surface",
 );
 assert(
-  sessionHook.includes("ctx.concordanceText ?? SYSTEM_CONCORDANCE_TEXT"),
-  "the compaction hook injects the per-session surface",
-);
-assert(
-  hooksRegistration.includes("buildConcordance(registeredToolNames(services))"),
-  "both hooks receive the surface derived from the live registry",
-);
-assert(
-  toolRegistry.includes("...(optional.timeline && services?.timelineStore") &&
-    toolRegistry.includes("...(optional.goal && services?.goalStore"),
-  "the registry gates both optional tools on the same predicate",
+  sessionHook.includes("ctx.concordanceText") &&
+    !sessionHook.includes("SYSTEM_CONCORDANCE_TEXT"),
+  "the compaction hook injects only the per-session surface",
 );
 
 const concordanceSource = readFileSync(join(repo, "src", "services", "concordance.ts"), "utf-8");

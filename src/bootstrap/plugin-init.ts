@@ -26,7 +26,7 @@ import { createHooks } from "./hooks-registration.ts";
 import { buildToolJsonSchema } from "../lib/tool-schema-injection.ts";
 import { initAutoSweep, stopAutoSweep, resetAllState } from "../hooks/validation-pipeline.ts";
 import { resetModelCache } from "../hooks/guards/shared.ts";
-import { buildToolRegistry } from "./tool-registry.ts";
+import { assertToolSurface, buildToolRegistry, registeredToolNames, registryToolNames } from "./tool-registry.ts";
 import { logger } from "../utils/logger.ts";
 import { bundleFingerprint } from "../utils/bundle-fingerprint.ts";
 import { isHomeProject, forceQuietMode, clearQuietModeForce, quietModeForceReason } from "../utils/quiet.ts";
@@ -767,13 +767,34 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
 
       
       const discussionManager = tawaCtx.discussionManager;
+
+      if (initAbortController.signal.aborted) return;
+
+      
+      mark("tools:build:start");
+      const registry = buildToolRegistry(tawaCtx, services ?? undefined);
+      assertToolSurface(
+        Object.keys(registry.tools),
+        registeredToolNames(services ?? undefined, discussionManager),
+      );
+      tools = registry.tools;
+      mark("tools:build:end");
+      measure("tools:build:start", "tools:build:end", "buildToolRegistry()");
+
       mark("hooks:start");
       try {
         
         
         
         if (services) {
-          hooks = createHooks(tawaCtx, ctx.directory, services, discussionManager, ctx.serverUrl);
+          hooks = createHooks(
+            tawaCtx,
+            ctx.directory,
+            services,
+            discussionManager,
+            registryToolNames(tools),
+            ctx.serverUrl,
+          );
         } else {
           logger.warn("createHooks skipped: services not initialized");
         }
@@ -806,13 +827,6 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
       });
 
       if (initAbortController.signal.aborted) return;
-
-      
-      mark("tools:build:start");
-      const registry = buildToolRegistry(tawaCtx, services ?? undefined);
-      tools = registry.tools;
-      mark("tools:build:end");
-      measure("tools:build:start", "tools:build:end", "buildToolRegistry()");
 
       
       if (tawaCtx.pipelineState) initAutoSweep(tawaCtx.pipelineState);
@@ -927,12 +941,6 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
       },
     });
     wrappedTools[name] = wrapper(name);
-  }
-
-  
-  const toolCount = Object.keys(wrappedTools).length;
-  if (toolCount !== TAWASSUL_TOOL_NAMES.length) {
-    logger.warn(`[tawassul] Health check: ${toolCount} tools registered, expected ${TAWASSUL_TOOL_NAMES.length}`);
   }
 
   mark("initPlugin:return");

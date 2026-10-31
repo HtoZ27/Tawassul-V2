@@ -52,10 +52,6 @@ export function hasFailoverClaim(sessionID: string, now = Date.now()): boolean {
   return now - state.at <= FAILOVER_CLAIM_TTL_MS;
 }
 
-export function clearFailoverClaim(sessionID: string): void {
-  _sessions.delete(sessionID);
-}
-
 export type FailoverSummary = {
   sessions: number;
   switches: number;
@@ -221,7 +217,10 @@ export function recordFailoverMiss(sessionID: string, target: string, now = Date
 }
 
 export type SwitchModelSession = {
-  switchModel?: (input: { sessionID: string; model: FailoverTarget }) => Promise<unknown>;
+  switchModel?: (input: {
+    sessionID: string;
+    model: { id: string; providerID: string; variant?: string };
+  }) => Promise<unknown>;
 };
 
 export async function switchSessionModel(
@@ -231,7 +230,10 @@ export async function switchSessionModel(
 ): Promise<boolean> {
   if (!session || typeof session.switchModel !== "function") return false;
   try {
-    await session.switchModel({ sessionID, model });
+    await session.switchModel({
+      sessionID,
+      model: { id: model.modelID, providerID: model.providerID },
+    });
     return true;
   } catch (e) {
     logger.warn(

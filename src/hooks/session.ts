@@ -5,7 +5,6 @@ import { existsSync, statSync } from "node:fs";
 import { appendFile } from "node:fs/promises";
 import { severityEmoji } from "../utils/format.ts";
 import { logger } from "../utils/logger.ts";
-import { SYSTEM_CONCORDANCE_TEXT } from "../services/concordance.ts";
 import type { HandoffEntry, RecordEntry } from "../context.ts";
 import type { PriorityIndex } from "../context/priority-index.ts";
 import type { ScoredContextEntry } from "../context/priority-types.ts";
@@ -306,8 +305,8 @@ export function createSessionCompactedHook(ctx: SessionCompactedContext) {
       } catch {
 
       }
-      const concordance = ctx.concordanceText ?? SYSTEM_CONCORDANCE_TEXT;
-      if (!context.some((s) => s.includes("System Concordance"))) {
+      const concordance = ctx.concordanceText;
+      if (concordance && !context.some((s) => s.includes("System Concordance"))) {
         if (!k7IsRepeat(input.sessionID, concordance)) {
           context.push(concordance);
           k7Remember(input.sessionID, concordance);

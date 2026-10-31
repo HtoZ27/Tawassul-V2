@@ -73,6 +73,10 @@ export type V2SessionCreateInput = {
 
 export type V2Session = {
   create: (input: V2SessionCreateInput) => Promise<{ id: string; [key: string]: unknown }>;
+  switchModel: (input: {
+    sessionID: string;
+    model: { id: string; providerID: string; variant?: string };
+  }) => Promise<void>;
   prompt: (input: {
     sessionID: string;
     text: string;

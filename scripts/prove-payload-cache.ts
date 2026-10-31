@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { buildToolJsonSchema } from "../src/lib/tool-schema-injection.ts";
 import { runChatMessageBridge } from "../src/v2/setup.ts";
@@ -15,8 +12,6 @@ function assert(condition: unknown, message: string): void {
   if (!condition) fail(message);
   console.log(`ok ${message}`);
 }
-
-const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 
 type Part = { type: string; text?: string; [key: string]: unknown };
 type Message = { role: string; content?: unknown; id?: string; [key: string]: unknown };
@@ -103,6 +98,14 @@ async function main(): Promise<void> {
     const first: Message[] = [{ role: "user", content: "hello" }];
     await bridgeOnce(first, bridge);
     const carried = JSON.parse(stable(at(first, 0).content)) as Part[];
+    assert(
+      (carried[1]?.metadata as Record<string, unknown> | undefined)?.tawassulInjected === true,
+      "the appended part carries the injected marker",
+    );
+    assert(
+      carried[0]?.metadata === undefined,
+      "the original part is never rewritten with the marker",
+    );
     const fresh: Message[] = [{ role: "user", content: carried }];
     const before = stable(at(fresh, 0).content);
     await bridgeOnce(fresh, bridge);
@@ -203,15 +206,22 @@ async function main(): Promise<void> {
   }
 
   {
-    const setup = readFileSync(join(repo, "src", "v2", "setup.ts"), "utf-8");
-    assert(setup.includes("const syntheticMessageKeys = new WeakMap<object, string>()"), "the synthetic key is pinned per message object");
-    assert(setup.includes("syntheticMessageKey(last, messages.length - 1)"), "an unidentified message is keyed by its position");
-    assert(setup.includes("syntheticMessageCounter += 1"), "a process counter separates identical messages");
-    assert(!setup.includes("nextSyntheticCounter"), "the counter needs no per-session table");
-    assert(!setup.includes("JSON.stringify(content"), "message identity never depends on content");
-    assert(setup.includes("if (presentTexts.has(part.text)) continue;"), "an already present text is refused");
-    assert(setup.includes("set.size >= MAX_PROCESSED_MESSAGES"), "the processed table stays bounded");
-    assert(setup.includes("rawContent.push(...added)"), "the multipart path appends only the accepted parts");
+    const bridge: Bridge = { calls: 0, injected: ["SAME"] };
+    const messages: Message[] = [
+      { id: "msg_same", role: "user", content: [{ type: "text", text: "SAME" }] },
+    ];
+    await bridgeOnce(messages, bridge);
+    const parts = at(messages, 0).content as Part[];
+    assert(parts.length === 2, "an injection equal to an existing part is still delivered");
+    assert(parts[1]?.text === "SAME", "the equal-text injection keeps its content");
+  }
+
+  {
+    const bridge: Bridge = { calls: 0, injected: ["DUP", "DUP"] };
+    const messages: Message[] = [{ id: "msg_dup", role: "user", content: "hello" }];
+    await bridgeOnce(messages, bridge);
+    const parts = at(messages, 0).content as Part[];
+    assert(parts.length === 2, "a duplicate injection inside one hook run is collapsed");
   }
 
   console.log("PROOF PASS: repeated bridge passes never rewrite or duplicate the prompt payload");
