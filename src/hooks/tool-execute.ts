@@ -23,7 +23,7 @@ import { logger } from "../utils/logger.ts";
 import { t } from "../translations.ts";
 
 import { evaluateGates, generateReport } from "../services/quality-gate-manager.ts";
-import type { DedupSignature } from "../context/priority-types.ts";
+import { evaluateDuplicateGuard } from "./duplicate-guard.ts";
 import { scanToolOutput } from "./guards/threat_patterns.ts";
 import { ps } from "./guards/shared.ts";
 import { TASK_TOOL_NAMES } from "../security-policy.ts";
@@ -193,35 +193,19 @@ export function createToolExecuteBeforeHook(ctx: ToolExecuteBeforeContext) {
       
       const toolDedup = ctx.toolDeduplicator;
       if (toolDedup && normalizedAgent && input.sessionID) {
-        
-        
-        
         const argsJson = canonicalStringify(output.args ?? {});
-        const sig: DedupSignature = {
+        const verdict = evaluateDuplicateGuard({
           tool: input.tool,
           agent: normalizedAgent,
-          sessionId: input.sessionID,
-          callDepth: 0,
-          argsHash: argsJson,
-          timestamp: Date.now(),
-        };
-        const dedupResult = toolDedup.check(sig);
-        if (dedupResult.isDuplicate && dedupResult.strategy === "skip") {
-          blockTool(dedupResult.reason);
-        }
-        if (dedupResult.isDuplicate && dedupResult.strategy === "merge") {
-          logger.debug(`Tool dedup: ${dedupResult.reason}`);
-        }
-
-        
-        
-        const trl = ctx.toolRunLog;
-        if (trl && normalizedAgent && input.sessionID) {
-          const crossDup = trl.findCrossSessionDuplicate(input.tool, argsJson, Date.now());
-          if (crossDup) {
-            blockTool(`Cross-session duplicate of ${input.tool} (prior run ${crossDup.id})`);
-          }
-        }
+          sessionID: input.sessionID,
+          args: output.args,
+          argsJson,
+          now: Date.now(),
+          deduplicator: toolDedup,
+          runLog: ctx.toolRunLog,
+        });
+        if (verdict.merge && verdict.reason) logger.debug(`Tool dedup: ${verdict.reason}`);
+        if (verdict.blocked) blockTool(verdict.reason ?? "Blocked duplicate tool call");
       }
 
       

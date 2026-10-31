@@ -5,6 +5,9 @@ import { join, relative } from "node:path";
 import type { HandoffEntry } from "../src/context/types.ts";
 import type { TawassulContext } from "../src/context.ts";
 import { buildThreadTool } from "../src/tools/thread.ts";
+import { ToolDeduplicator } from "../src/services/tool-dedup.ts";
+import { ToolRunLog } from "../src/services/tool-run-log.ts";
+import { evaluateDuplicateGuard, isIdempotentThreadCall } from "../src/hooks/duplicate-guard.ts";
 import type { ToolContext } from "../src/tool.ts";
 import { clearSessionBridge, installSessionBridge } from "../src/v2/session-bridge.ts";
 import { activatePack, createPack } from "../src/services/context-pack/index.ts";
@@ -121,6 +124,101 @@ async function main(): Promise<void> {
   };
 
   const before = treeHash(worktree);
+
+  assert(isIdempotentThreadCall("thread", { action: "list" }), "thread list is idempotent");
+  assert(isIdempotentThreadCall("thread", { action: "read" }), "thread read is idempotent");
+  assert(isIdempotentThreadCall("thread", { action: "pack" }), "thread pack is idempotent");
+  assert(!isIdempotentThreadCall("thread", { action: "continue" }), "thread continue is state changing");
+  assert(!isIdempotentThreadCall("thread", { action: "revoke" }), "thread revoke is state changing");
+  assert(!isIdempotentThreadCall("thread", { action: "unknown" }), "an unknown thread action is not exempt");
+  assert(!isIdempotentThreadCall("thread", null), "a missing thread payload is not exempt");
+  assert(!isIdempotentThreadCall("bash", { action: "list" }), "another tool is never exempt");
+
+  const guardLog = new ToolRunLog(join(work, "guard-state"));
+  const guardDedup = new ToolDeduplicator();
+  const guardNow = Date.now();
+  for (const action of ["list", "read", "pack"]) {
+    const args = action === "read" ? { action, digest: "0".repeat(64) } : action === "pack" ? { action, handoffId: "H-100" } : { action };
+    const argsJson = JSON.stringify(args);
+    guardLog.record({
+      tool: "thread",
+      agent: "dev",
+      sessionId: "ses-prior",
+      argsHash: argsJson,
+      status: "success",
+      timestamp: guardNow - 1000,
+    });
+    const checksBefore = guardDedup.metrics.totalChecks;
+    const verdict = evaluateDuplicateGuard({
+      tool: "thread",
+      agent: "dev",
+      sessionID: "ses-source",
+      args,
+      argsJson,
+      now: guardNow,
+      deduplicator: guardDedup,
+      runLog: guardLog,
+    });
+    assert(!verdict.blocked, `thread ${action} bypasses the cross-session duplicate guard`);
+    for (let i = 1; i <= 5; i++) {
+      const repeated = evaluateDuplicateGuard({
+        tool: "thread",
+        agent: "dev",
+        sessionID: "ses-source",
+        args,
+        argsJson,
+        now: guardNow + i,
+        deduplicator: guardDedup,
+        runLog: guardLog,
+      });
+      assert(!repeated.blocked, `repeated thread ${action} calls stay unblocked`);
+    }
+    assert(guardDedup.metrics.totalChecks === checksBefore, `thread ${action} never enters the session deduplicator`);
+  }
+
+  for (const action of ["continue", "revoke"]) {
+    const args = { action, sessionID: "ses-prior", confirm: true };
+    const argsJson = JSON.stringify(args);
+    guardLog.record({
+      tool: "thread",
+      agent: "dev",
+      sessionId: "ses-prior",
+      argsHash: argsJson,
+      status: "success",
+      timestamp: guardNow - 1000,
+    });
+    const verdict = evaluateDuplicateGuard({
+      tool: "thread",
+      agent: "dev",
+      sessionID: "ses-source",
+      args,
+      argsJson,
+      now: guardNow,
+      deduplicator: guardDedup,
+      runLog: guardLog,
+    });
+    assert(verdict.blocked, `thread ${action} stays guarded across sessions`);
+    assert(verdict.reason?.includes("Cross-session duplicate") === true, `thread ${action} reports the cross-session guard`);
+  }
+
+  const bashArgs = { command: "echo proof" };
+  const bashJson = JSON.stringify(bashArgs);
+  let bashBlocked = false;
+  for (let i = 0; i < 4; i++) {
+    const verdict = evaluateDuplicateGuard({
+      tool: "bash",
+      agent: "dev",
+      sessionID: "ses-guard",
+      args: bashArgs,
+      argsJson: bashJson,
+      now: guardNow + i,
+      deduplicator: guardDedup,
+      runLog: guardLog,
+    });
+    if (verdict.blocked) bashBlocked = true;
+  }
+  assert(bashBlocked, "non-thread tools still hit the same-session skip guard");
+
 
   const empty = await run({ action: "list" });
   assert(empty.output.includes("No context packs stored"), "list reports an empty workspace");
