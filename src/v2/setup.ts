@@ -32,6 +32,12 @@ import {
   switchSessionModel as switchModelVia,
   type SwitchModelSession,
 } from "../services/model-failover.ts";
+import {
+  installBackgroundControl,
+  recordBackgroundSnapshot,
+  uninstallBackgroundControl,
+  type BackgroundItem,
+} from "../services/background-tasks.ts";
 import type { V2Context, V2SessionEvent, V2ToolContext, V2ToolHookInput } from "./types.ts";
 
 const MAX_PROCESSED_MESSAGES = 1024;
@@ -597,6 +603,28 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
     } catch (e) {
       logger.error("[tawassul] v2 session.context registration failed:", e);
     }
+
+    try {
+      const idleRegistration = await ctx.session.hook("experimental.idle", (event) => {
+        const snapshot = event as unknown as { sessionID?: unknown; background?: unknown };
+        if (typeof snapshot.sessionID !== "string") return;
+        if (!Array.isArray(snapshot.background)) return;
+        recordBackgroundSnapshot(snapshot.sessionID, snapshot.background as BackgroundItem[]);
+      });
+      registered.push(() => idleRegistration.dispose());
+    } catch (e) {
+      logger.error("[tawassul] v2 session.experimental.idle registration failed:", e);
+    }
+
+    installBackgroundControl({
+      cancelSubagent: async (childSessionID) => {
+        await ctx.session.interrupt({ sessionID: childSessionID });
+      },
+      reviveSubagent: async (childSessionID, text) => {
+        await ctx.session.prompt({ sessionID: childSessionID, text, resume: true });
+      },
+    });
+    registered.push(async () => uninstallBackgroundControl());
 
     try {
       const retryRegistration = await ctx.session.hook("retry", async (event) => {

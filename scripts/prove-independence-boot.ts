@@ -141,7 +141,7 @@ try {
   );
 
   const pluginLog = readFileSync(join(ROOT, "tawassul.log"), "utf-8");
-  assert(/v2 registered 43 tools/.test(pluginLog), "the scratch bundle registers 43 tools");
+  assert(/v2 registered 44 tools/.test(pluginLog), "the scratch bundle registers 44 tools");
   assert(/initPlugin=/.test(pluginLog), "the scratch bundle records initPlugin");
 
   for (const legacy of [".config/tawassul", ".local/share/tawassul", ".cache/tawassul", ".config/tawassyl"]) {

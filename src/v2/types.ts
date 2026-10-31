@@ -78,9 +78,10 @@ export type V2Session = {
     text: string;
     files?: V2SessionFile[];
     delivery?: "steer" | "queue";
+    resume?: boolean;
   }) => Promise<unknown>;
   synthetic?: (input: { sessionID: string; text: string; description?: string }) => Promise<unknown>;
-  interrupt: (input: { sessionID: string; continue?: boolean }) => Promise<unknown>;
+  interrupt: (input: { sessionID: string; resume?: boolean }) => Promise<unknown>;
   context: (input: { sessionID: string }) => Promise<Array<Record<string, unknown>>>;
   wait: (input: { sessionID: string }) => Promise<unknown>;
   hook: ModelHooks<SessionHooks>;

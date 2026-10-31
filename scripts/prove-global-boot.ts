@@ -221,8 +221,8 @@ try {
   assert(globalBoot.code === 0 || refusal(globalBoot), `the global bundle boots the host (rc=${globalBoot.code})`);
   const loadLine = firstSince(hostLog, new RegExp(`loading plugin.*${escapeRegExp(globalTarget)}`), beforeGlobal);
   assert(loadLine.length > 0, "the host log records loading the global plugin file");
-  const registered = firstSince(globalEnv.TAWASSUL_LOG_FILE as string, /v2 registered 43 tools/, beforeGlobal);
-  assert(registered.length > 0, "the global bundle registers 43 tools");
+  const registered = firstSince(globalEnv.TAWASSUL_LOG_FILE as string, /v2 registered 44 tools/, beforeGlobal);
+  assert(registered.length > 0, "the global bundle registers 44 tools");
   const initLine = firstSince(globalEnv.TAWASSUL_LOG_FILE as string, /initPlugin=/, beforeGlobal);
   const initMs = initLine.match(/initPlugin=([\d.]+)ms/);
   assert(initMs !== null, `the global boot records initPlugin (${initMs?.[1] ?? "?"} ms)`);
@@ -264,8 +264,8 @@ try {
   assert(delegate.length > 0, "the global copy delegates to the project copy in the coexistence boot");
   assert(delegate.includes(coexistEntry), "the delegation names the project entry path");
   assert(
-    countSince(globalEnv.TAWASSUL_LOG_FILE as string, /v2 registered 43 tools/, beforeCoexist) > 0,
-    "the coexistence boot registers 43 tools after delegation",
+    countSince(globalEnv.TAWASSUL_LOG_FILE as string, /v2 registered 44 tools/, beforeCoexist) > 0,
+    "the coexistence boot registers 44 tools after delegation",
   );
   assert(
     countSince(hostLog, /failed to load plugin/i, beforeCoexist) === 0,
@@ -289,8 +289,8 @@ try {
   );
   const projectLoad = firstSince(projectHostLog, new RegExp(`loading plugin.*${escapeRegExp(projectEntry)}`), beforeProject);
   assert(projectLoad.length > 0, "the project-only boot loads the project plugin file");
-  const projectRegistered = firstSince(projectEnv.TAWASSUL_LOG_FILE as string, /v2 registered 43 tools/, beforeProject);
-  assert(projectRegistered.length > 0, "the project bundle registers 43 tools");
+  const projectRegistered = firstSince(projectEnv.TAWASSUL_LOG_FILE as string, /v2 registered 44 tools/, beforeProject);
+  assert(projectRegistered.length > 0, "the project bundle registers 44 tools");
   const projectSpan = lineTime(projectRegistered) - lineTime(projectLoad);
   console.log(`INFO  project bundle boot: load->registered ${Math.max(projectSpan, 0)} ms`);
   assert(projectSpan >= 0, "the project load-to-registered span is measurable");
@@ -310,7 +310,7 @@ function directToolProbe(): string {
     "const mod = await import(process.env.SMOKE_ENTRY);",
     "const hooks = await mod.tawassul.server({ client: {}, directory: process.env.SMOKE_DIR, worktree: process.env.SMOKE_DIR });",
     "const names = Object.keys(hooks.tool ?? {});",
-    'if (names.length !== 43) { console.error("tools=" + names.length); process.exit(4); }',
+    'if (names.length !== 44) { console.error("tools=" + names.length); process.exit(4); }',
     "const health = await hooks.tool.health.execute({}, {});",
     'const healthOut = String(health && typeof health === "object" && "output" in health ? health.output : health);',
     'if (!healthOut.includes("Event-loop lag") || !healthOut.includes("RSS")) process.exit(4);',

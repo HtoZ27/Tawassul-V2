@@ -53,6 +53,7 @@ import {
   buildTimelineTool,
   buildGoalTool,
   buildThreadTool,
+  buildTaskControlTool,
 } from "../tools/index.ts";
 import type { HandoffEntry } from "../context/types.ts";
 import type { MemoryEntry } from "../conflict-resolver/types.ts";
@@ -162,6 +163,7 @@ export function buildToolRegistry(
       services?.taskOrchestrator ?? serviceIndex.taskOrchestrator,
       services?.strategyDispatcher ?? serviceIndex.strategyDispatcher,
     ),
+    task_control: buildTaskControlTool(),
     task_orchestrate: buildTaskOrchestrateTool(
       tawaCtx,
       services?.taskOrchestrator ?? serviceIndex.taskOrchestrator,

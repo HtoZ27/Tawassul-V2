@@ -9,6 +9,7 @@ export { buildHelpTool, buildReviewTool } from "./misc-tools.ts";
 export { buildCheckTool, buildStatusTool, buildReportTool } from "./diagnostics.ts";
 export { buildSmartGrepTool, buildGitDiffTool, buildBatchReadTool } from "./search-and-diff.ts";
 export { buildThreadTool } from "./thread.ts";
+export { buildTaskControlTool } from "./task-control.ts";
 export { buildReadSymbolTool, buildAstQueryTool } from "./ast-tools.ts";
 export { buildProjectMapTool } from "./project-map.ts";
 export { buildQualityReportTool } from "./quality-report.ts";

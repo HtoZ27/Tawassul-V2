@@ -1,7 +1,7 @@
 # Tawassul V2
 
 Tawassul is an OpenCode plugin: a per-workspace team runtime with routing,
-handoffs, a goal ledger, mission boards, checkpoints, and a 43-tool surface.
+handoffs, a goal ledger, mission boards, checkpoints, and a 44-tool surface.
 This tree is the only runnable Tawassul plugin. The v1 tree is retired and
 read-only.
 
@@ -193,7 +193,7 @@ bytes on every build, with a stable key order.
 ## Verify
 ```
 npm run gate:fast    # rules + shell syntax + typecheck + config + facts + contract + parity + catalog
-npm run gate:proofs  # 131 proofs, one isolated child process each (the full CI run)
+npm run gate:proofs  # 132 proofs, one isolated child process each (the full CI run)
 npm run gate:proofs:1  # shard 1 of 4, about a minute, nice 10 (2, 3, 4 for the rest)
 npm run gate:smoke   # build + release smoke (one scratch boot)
 npm run ci           # all three stages, sequentially, each in its own process
@@ -208,7 +208,7 @@ in order instead of chaining the proof commands. Use
 durations. The manifest is `scripts/gate-manifest.json`;
 `prove-proof-catalog` fails when a proof file is missing from it.
 
-The 131 proofs run in about 229s in one pass. For a fast local loop the stage
+The 132 proofs run in about 229s in one pass. For a fast local loop the stage
 is split into four balanced shards in `scripts/proof-shards.json` (56.7s of
 recorded duration each): `npm run gate:proofs:1` through `gate:proofs:4`, or
 `npm run gate:proofs -- --shard 3 --timings`. Each shard runs at niceness 10 so
@@ -342,7 +342,7 @@ Exit `0` is allowed, `2` is a generation refusal, and `3` is a probe failure
 (fail-closed). `CUTOVER.md` records the full dual-generation matrix and the
 rollback procedure.
 
-## 43-tool surface
+## 44-tool surface
 
 Every tool is callable directly; `help` lists the catalog and each tool carries
 its own description. Common entry points:
@@ -355,6 +355,7 @@ its own description. Common entry points:
 - `thread` — portable context packs: list, read, pack, continue, revoke (available to every agent)
 - `checkpoint` / `codestate` — code snapshots and undo
 - `pause` / `resume` / `panic` — workflow control
+- `task_control` — background work from the host idle snapshot: status, cancel, revive (subagent only)
 
 ## Host process model
 

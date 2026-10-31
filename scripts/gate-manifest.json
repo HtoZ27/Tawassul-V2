@@ -539,6 +539,10 @@
       "cmd": ["bun", "scripts/prove-thread-tool.ts"]
     },
     {
+      "name": "task-control",
+      "cmd": ["bun", "scripts/prove-task-control.ts"]
+    },
+    {
       "name": "model-switch",
       "cmd": ["bun", "scripts/prove-model-switch.ts"]
     },

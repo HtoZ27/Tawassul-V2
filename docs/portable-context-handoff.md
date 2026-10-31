@@ -253,7 +253,7 @@ sharing persistent pack state with read-only roles.
 | `src/services/context-pack/{types,accounting,select,render,store,claim,hook,outbound,lock,index}.ts` | Ten new modules |
 | `src/tools/thread.ts` and `src/tools/index.ts` | `list`, `read`, `continue`, `pack`, `revoke`; `continue` runs the transfer through the bridge |
 | `src/v2/session-bridge.ts` | One active bridge over `ctx.session` and `ctx.model.list`; installed at setup, cleared at cleanup |
-| `src/tool-names.ts` | 43rd tool |
+| `src/tool-names.ts` | 44th tool (`task_control`) |
 | `src/utils/permission-rules.ts:44` and `src/scripts/gen-opencode-config.ts:358` | The permission key is derived automatically from `TAWASSUL_TOOL_NAMES`; no separate literal |
 | `src/tools/handoff.ts:750` | Build the pack and preview 2KB in `entry.context`; `attachPackToHandoff` writes through `createPack`, which takes the pack lock |
 | `src/hooks/message-updated.ts:340` | Pack activation and checkpoint-bullet suppression; no message write |
@@ -266,7 +266,7 @@ sharing persistent pack state with read-only roles.
 | `src/validation.ts:91` | `.optional()` for the new fields, otherwise `safeParse` strips them silently |
 | `src/bootstrap/{tool-registry,service-factory,plugin-init}.ts` | Registration; `plugin-init` remembers the loaded config for the runtime kill switch |
 | `scripts/release-smoke.sh:124,146,177,178,193,197,199`, `scripts/prove-e27.ts:40`, `scripts/prove-independence-boot.ts:144`, `scripts/prove-global-boot.ts:224,225,267,268,292,293,313` | Tool count 42 to 43. Sixteen lines across four files, not eleven |
-| `scripts/gate-manifest.json` | 131 proofs-stage steps; 134 proof files across the three stages |
+| `scripts/gate-manifest.json` | 132 proofs-stage steps; 135 proof files across the three stages |
 | `package.json`, `ISSUES.md`, `.opencode/feature-index.json` | Scripts, issue record, index |
 
 ---

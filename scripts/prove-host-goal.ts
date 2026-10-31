@@ -272,7 +272,7 @@ async function proveMissingRpc(): Promise<void> {
   console.log("missing-rpc ok");
 }
 
-async function proveSetupDoesNotOwnIdle(): Promise<void> {
+async function proveSetupOwnsIdleSnapshots(): Promise<void> {
   const hooked: string[] = [];
   const directory = mkdtempSync(join(tmpdir(), "tawassul-host-goal-setup-"));
   const ctx = {
@@ -295,7 +295,11 @@ async function proveSetupDoesNotOwnIdle(): Promise<void> {
     event: { subscribe: () => (async function* () {})() },
   } as unknown as V2Context;
   const cleanup = await createV2Setup({ init: () => ({}) })(ctx);
-  assert(!hooked.includes("experimental.idle"), "setup never registers experimental.idle");
+  assert(hooked.includes("experimental.idle"), "setup registers the idle snapshot hook");
+  assert(
+    hooked.filter((name) => name === "experimental.idle").length === 1,
+    "the idle snapshot hook is registered exactly once",
+  );
   await cleanup();
   rmSync(directory, { recursive: true, force: true });
   console.log("setup-idle ok");
@@ -319,6 +323,6 @@ await proveFormat();
 await proveToolSurface();
 await proveBridge();
 await proveMissingRpc();
-await proveSetupDoesNotOwnIdle();
+await proveSetupOwnsIdleSnapshots();
 proveHostContract();
 console.log("PROOF PASS: host goal mirror");

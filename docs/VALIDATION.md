@@ -18,16 +18,16 @@ Tawassul V2 validates through isolated proof processes, not through a
 `scripts/gate-manifest.json` fails the catalog, and a proof wired twice fails
 as well.
 
-The current totals are 134 proof files: 131 in `gate:proofs`, the catalog in
+The current totals are 135 proof files: 132 in `gate:proofs`, the catalog in
 `gate:fast`, and two boot proofs in `gate:smoke`.
 
-The 131 proof steps take about 229s in one pass. `scripts/proof-shards.json`
+The 132 proof steps take about 229s in one pass. `scripts/proof-shards.json`
 splits them into four balanced shards from recorded step durations (56.7s each)
 so a developer can run one shard at a time: `npm run gate:proofs:1` through
 `gate:proofs:4`, or `npm run gate:proofs -- --shard 3 --nice 10 --timings`.
 A shard writes `.opencode/state/gate-proofs-<shard>.json`, and the catalog fails
 when a shard misses a step, assigns a step twice, or its npm script is missing.
-`gate:proofs` stays the full 131-step run, which is what CI and a release use.
+`gate:proofs` stays the full 132-step run, which is what CI and a release use.
 
 For a local run that must not occupy the session, `npm run gate:proofs:bg`
 starts `scripts/gate-proofs-bg.sh` detached; it runs the four shards one at a

@@ -38,6 +38,7 @@ export const TAWASSUL_TOOL_NAMES: readonly string[] = [
   "checkpoint",
   "self_heal",
   "moa",
+  "task_control",
   "task_orchestrate",
   
   "image_route",

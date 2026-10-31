@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "totalEstimateMs": 227931,
+  "totalEstimateMs": 229431,
   "shards": [
     {
       "name": "1",
@@ -40,7 +40,7 @@
     },
     {
       "name": "2",
-      "estimateMs": 56702,
+      "estimateMs": 58202,
       "steps": [
         "gen-guard-wal",
         "first-boot",
@@ -73,7 +73,8 @@
         "context-inject",
         "context-hook-idempotent",
         "context-kill-switch",
-        "thread-tool"
+        "thread-tool",
+        "task-control"
       ]
     },
     {
