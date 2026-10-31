@@ -18,8 +18,16 @@ Tawassul V2 validates through isolated proof processes, not through a
 `scripts/gate-manifest.json` fails the catalog, and a proof wired twice fails
 as well.
 
-The current totals are 113 proof files: 110 in `gate:proofs`, the catalog in
+The current totals are 129 proof files: 126 in `gate:proofs`, the catalog in
 `gate:fast`, and two boot proofs in `gate:smoke`.
+
+The 126 proof steps take about 227s in one pass. `scripts/proof-shards.json`
+splits them into four balanced shards from recorded step durations (56.7s each)
+so a developer can run one shard at a time: `npm run gate:proofs:1` through
+`gate:proofs:4`, or `npm run gate:proofs -- --shard 3 --nice 10 --timings`.
+A shard writes `.opencode/state/gate-proofs-<shard>.json`, and the catalog fails
+when a shard misses a step, assigns a step twice, or its npm script is missing.
+`gate:proofs` stays the full 126-step run, which is what CI and a release use.
 
 ## Why there is no separate unit runner
 
@@ -59,7 +67,9 @@ multi-part loss from `E-16`; it now asserts part preservation.
 2. Add one entry to the `proofs` stage in `scripts/gate-manifest.json`.
 3. Add the file to `PINNED_PROOF_FILES` in
    `scripts/prove-proof-catalog.ts` and advance `PINNED_PROOF_STEPS`.
-4. Run `npm run verify` and `npm run gate:proofs`.
+4. Add the step to one shard in `scripts/proof-shards.json`; the catalog
+   requires the shards to cover every step exactly once.
+5. Run `npm run verify` and `npm run gate:proofs`.
 5. Update the proof totals in `AGENTS.md`, `README.md`, and
    `REMAINING-WORK.md` in the same commit.
 

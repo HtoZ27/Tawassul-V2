@@ -21,6 +21,18 @@ type GateStep = {
 
 type GateManifest = Record<string, GateStep[]>;
 
+type ShardDefinition = {
+  name: string;
+  estimateMs: number;
+  steps: string[];
+};
+
+type ShardFile = {
+  version: number;
+  totalEstimateMs: number;
+  shards: ShardDefinition[];
+};
+
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(readFileSync(join(repo, "package.json"), "utf-8")) as {
   scripts?: Record<string, string>;
@@ -227,6 +239,37 @@ for (const required of ["source-rules", "shell-syntax", "typecheck", "config", "
   assert(fastNames.includes(required), `fast stage includes ${required}`);
 }
 assert(proofs.length === PINNED_PROOF_STEPS, `proofs stage matches the pinned step count (found ${proofs.length}, pinned ${PINNED_PROOF_STEPS})`);
+
+const shardFile = JSON.parse(
+  readFileSync(join(repo, "scripts", "proof-shards.json"), "utf-8"),
+) as ShardFile;
+assert(shardFile.version === 1, "proof shard file uses schema version 1");
+assert(Array.isArray(shardFile.shards) && shardFile.shards.length >= 2, "proof shards split the stage into at least two groups");
+const shardNames = shardFile.shards.map((entry) => entry.name);
+assert(new Set(shardNames).size === shardNames.length, "proof shard names are unique");
+const proofNames = proofs.map((step) => step.name);
+const assigned = shardFile.shards.flatMap((entry) => entry.steps);
+assert(assigned.length === new Set(assigned).size, "no proof step is assigned to two shards");
+assert(
+  JSON.stringify([...assigned].sort()) === JSON.stringify([...proofNames].sort()),
+  `proof shards cover every proofs step exactly once (${assigned.length}/${proofNames.length})`,
+);
+assert(shardFile.shards.every((entry) => entry.steps.length > 0), "no proof shard is empty");
+assert(shardFile.shards.every((entry) => entry.estimateMs > 0), "every proof shard has a positive estimate");
+const estimateSum = shardFile.shards.reduce((sum, entry) => sum + entry.estimateMs, 0);
+assert(estimateSum === shardFile.totalEstimateMs, "proof shard estimates add up to the recorded total");
+const meanEstimate = estimateSum / shardFile.shards.length;
+const maxEstimate = Math.max(...shardFile.shards.map((entry) => entry.estimateMs));
+assert(
+  maxEstimate <= meanEstimate * 1.1,
+  `proof shards stay within 10% of the mean (max ${maxEstimate}ms, mean ${Math.round(meanEstimate)}ms)`,
+);
+for (const entry of shardFile.shards) {
+  assert(
+    scripts[`gate:proofs:${entry.name}`] === `bun scripts/gate.ts proofs --shard ${entry.name} --nice 10`,
+    `gate:proofs:${entry.name} runs shard ${entry.name} at low priority`,
+  );
+}
 const smokeNames = smoke.map((step) => step.name);
 assert(smokeNames.includes("build"), "smoke stage builds the bundle");
 assert(smokeNames.includes("release-smoke"), "smoke stage runs the release smoke");

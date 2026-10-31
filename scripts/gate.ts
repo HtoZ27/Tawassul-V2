@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { setPriority } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,6 +11,18 @@ type GateStep = {
 };
 
 type GateManifest = Record<string, GateStep[]>;
+
+type ShardDefinition = {
+  name: string;
+  estimateMs: number;
+  steps: string[];
+};
+
+type ShardFile = {
+  version: number;
+  totalEstimateMs: number;
+  shards: ShardDefinition[];
+};
 
 type StepResult = {
   name: string;
@@ -28,6 +41,7 @@ type StageRecord = {
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const manifestPath = join(repo, "scripts", "gate-manifest.json");
+const shardsPath = join(repo, "scripts", "proof-shards.json");
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as GateManifest;
 const args = process.argv.slice(2);
 const STATE_DIR = join(repo, ".opencode", "state");
@@ -41,6 +55,8 @@ function fail(message: string): never {
 let stage = "fast";
 let timings = false;
 let positionalSeen = false;
+let shard: string | null = null;
+let niceLevel: number | null = null;
 const only: string[] = [];
 
 for (let i = 0; i < args.length; i++) {
@@ -56,6 +72,24 @@ for (let i = 0; i < args.length; i++) {
     i++;
     continue;
   }
+  if (arg === "--shard") {
+    const value = args[i + 1];
+    if (!value || value.startsWith("--")) fail("--shard requires a shard name");
+    if (shard !== null) fail("--shard may be given once");
+    shard = value;
+    i++;
+    continue;
+  }
+  if (arg === "--nice") {
+    const value = args[i + 1];
+    if (!value || value.startsWith("--")) fail("--nice requires a level");
+    if (niceLevel !== null) fail("--nice may be given once");
+    const level = Number(value);
+    if (!Number.isInteger(level) || level < 0 || level > 19) fail("--nice requires an integer from 0 to 19");
+    niceLevel = level;
+    i++;
+    continue;
+  }
   if (arg.startsWith("--")) fail(`unknown flag ${arg}`);
   if (positionalSeen) fail(`unexpected argument ${arg}`);
   positionalSeen = true;
@@ -66,6 +100,18 @@ const stageNames = Object.keys(manifest);
 if (stage === "all" && only.length > 0) fail("--only requires a single stage");
 if (stage !== "all" && !stageNames.includes(stage)) {
   fail(`unknown stage ${stage} (expected ${stageNames.join(", ")} or all)`);
+}
+if (shard !== null) {
+  if (stage !== "proofs") fail("--shard is only supported for the proofs stage");
+  if (only.length > 0) fail("--shard cannot be combined with --only");
+}
+if (niceLevel !== null) {
+  try {
+    setPriority(0, niceLevel);
+  } catch (error) {
+    fail(`--nice ${niceLevel} failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  console.log(`GATE nice: ${niceLevel}`);
 }
 
 function runStep(step: GateStep): StepResult {
@@ -113,6 +159,15 @@ function readStageRecord(name: string): StageRecord | undefined {
   }
 }
 
+function readShards(): ShardFile {
+  if (!existsSync(shardsPath)) fail("proof shard file is missing");
+  try {
+    return JSON.parse(readFileSync(shardsPath, "utf-8")) as ShardFile;
+  } catch {
+    fail("proof shard file is not valid JSON");
+  }
+}
+
 function writeTranscript(order: string[], ran: Map<string, boolean>): void {
   const lines: string[] = [
     "# CI Transcript",
@@ -149,12 +204,36 @@ function writeTranscript(order: string[], ran: Map<string, boolean>): void {
 }
 
 function runStage(name: string): boolean {
-  const steps = manifest[name] ?? [];
+  const stageSteps = manifest[name] ?? [];
+  let steps = stageSteps;
+  let label = name;
+  let recordName = name;
+  let estimateMs: number | null = null;
+  if (shard !== null) {
+    const shardFile = readShards();
+    const definition = shardFile.shards.find((entry) => entry.name === shard);
+    if (!definition) {
+      fail(`unknown shard ${shard} (expected ${shardFile.shards.map((entry) => entry.name).join(", ")})`);
+    }
+    const shardSteps = definition.steps;
+    const byName = new Map(stageSteps.map((step) => [step.name, step]));
+    const unknown = shardSteps.filter((stepName) => !byName.has(stepName));
+    if (unknown.length > 0) fail(`shard ${shard} names unknown step(s): ${unknown.join(", ")}`);
+    steps = shardSteps.map((stepName) => {
+      const step = byName.get(stepName);
+      if (!step) fail(`shard ${shard} lost step ${stepName}`);
+      return step;
+    });
+    label = `${name}[${shard}]`;
+    recordName = `${name}-${shard}`;
+    estimateMs = definition.estimateMs;
+  }
   const missing = only.filter((stepName) => !steps.some((step) => step.name === stepName));
-  if (missing.length > 0) fail(`unknown step(s) for ${name}: ${missing.join(", ")}`);
+  if (missing.length > 0) fail(`unknown step(s) for ${label}: ${missing.join(", ")}`);
   const selected = only.length === 0 ? steps : steps.filter((step) => only.includes(step.name));
-  if (selected.length === 0) fail(`stage ${name} has no steps`);
-  console.log(`GATE ${name}: ${selected.length} step(s)`);
+  if (selected.length === 0) fail(`stage ${label} has no steps`);
+  const estimate = estimateMs === null ? "" : `, est ${estimateMs}ms`;
+  console.log(`GATE ${label}: ${selected.length} step(s)${estimate}`);
   const started = Date.now();
   const startedAt = new Date().toISOString();
   const results: StepResult[] = [];
@@ -162,13 +241,13 @@ function runStage(name: string): boolean {
     const result = runStep(step);
     results.push(result);
     if (result.status !== "pass") {
-      writeStageRecord(name, startedAt, Date.now() - started, false, results);
+      writeStageRecord(recordName, startedAt, Date.now() - started, false, results);
       return false;
     }
   }
   const elapsed = Date.now() - started;
-  writeStageRecord(name, startedAt, elapsed, true, results);
-  console.log(`GATE PASS: ${name} (${selected.length} step(s), ${elapsed}ms)`);
+  writeStageRecord(recordName, startedAt, elapsed, true, results);
+  console.log(`GATE PASS: ${label} (${selected.length} step(s), ${elapsed}ms)`);
   return true;
 }
 

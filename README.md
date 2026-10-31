@@ -115,7 +115,8 @@ replaces an unmarked file and keeps the previous copy as
 
 ```
 npm run gate:fast    # rules + shell syntax + typecheck + config + facts + contract + parity + catalog
-npm run gate:proofs  # 110 proofs, one isolated child process each
+npm run gate:proofs  # 126 proofs, one isolated child process each (the full CI run)
+npm run gate:proofs:1  # shard 1 of 4, about a minute, nice 10 (2, 3, 4 for the rest)
 npm run gate:smoke   # build + release smoke (one scratch boot)
 npm run ci           # all three stages, sequentially, each in its own process
 npm run verify       # gate:fast + build
@@ -128,6 +129,25 @@ in order instead of chaining the proof commands. Use
 `npm run gate:proofs -- --only s028 --timings` for one proof and per-step
 durations. The manifest is `scripts/gate-manifest.json`;
 `prove-proof-catalog` fails when a proof file is missing from it.
+
+The 126 proofs run in about 227s in one pass. For a fast local loop the stage
+is split into four balanced shards in `scripts/proof-shards.json` (56.7s of
+recorded duration each): `npm run gate:proofs:1` through `gate:proofs:4`, or
+`npm run gate:proofs -- --shard 3 --timings`. Each shard runs at niceness 10 so
+a side session stays responsive, writes `.opencode/state/gate-proofs-<n>.json`,
+and the catalog fails when a shard misses or duplicates a step. Keep
+`gate:proofs` as the full run before a release or in CI.
+
+Run every shard detached so this session stays usable while the work happens:
+
+```
+npm run gate:proofs:1 > /tmp/opencode/shard-1.log 2>&1 &
+npm run gate:proofs:2 > /tmp/opencode/shard-2.log 2>&1 &
+npm run gate:proofs:3 > /tmp/opencode/shard-3.log 2>&1 &
+npm run gate:proofs:4 > /tmp/opencode/shard-4.log 2>&1 &
+
+tail -f /tmp/opencode/shard-1.log
+```
 
 The smoke stage builds once, then boots a scratch workspace with an isolated
 `OPENCODE_DB` and checks `initPlugin`, 42 registered tools, a model reply, and
