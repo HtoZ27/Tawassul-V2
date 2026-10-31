@@ -138,16 +138,22 @@ a side session stays responsive, writes `.opencode/state/gate-proofs-<n>.json`,
 and the catalog fails when a shard misses or duplicates a step. Keep
 `gate:proofs` as the full run before a release or in CI.
 
-Run every shard detached so this session stays usable while the work happens:
+Run all four shards sequentially in one detached worker so this session stays
+usable while the work happens:
 
 ```
-npm run gate:proofs:1 > /tmp/opencode/shard-1.log 2>&1 &
-npm run gate:proofs:2 > /tmp/opencode/shard-2.log 2>&1 &
-npm run gate:proofs:3 > /tmp/opencode/shard-3.log 2>&1 &
-npm run gate:proofs:4 > /tmp/opencode/shard-4.log 2>&1 &
-
-tail -f /tmp/opencode/shard-1.log
+npm run gate:proofs:bg          # start and return immediately
+npm run gate:proofs:bg:status   # progress and the last shard results
+npm run gate:proofs:bg:wait     # block until the worker finishes (CI)
+npm run gate:proofs:bg:stop     # stop the worker and its current proof
 ```
+
+The worker keeps one shard running at a time; launching the four shards in
+parallel would recreate the CPU spike this split removes. Logs go to
+`/tmp/opencode/gate-proofs/run-*/shard-<n>.log`, `summary.tsv` records each
+result and duration, and the last five runs are kept. A second `start` is
+refused while the worker is alive, and a stale lock is reclaimed only after its
+pid is gone.
 
 The smoke stage builds once, then boots a scratch workspace with an isolated
 `OPENCODE_DB` and checks `initPlugin`, 42 registered tools, a model reply, and

@@ -74,7 +74,8 @@ re-open the v1 transfer channel.
 - `npm run prove:independence` — no v1 tree reference; one host entry
 - `npm run gate:fast` — rules, shell syntax, typecheck, config, facts, contract, shared parity, catalog
 - `npm run gate:proofs` — 126 proofs, one isolated child process each (the full CI run)
-- `npm run gate:proofs:1` … `gate:proofs:4` — the four balanced shards of the proof stage, about one minute each, detachable
+- `npm run gate:proofs:1` … `gate:proofs:4` — the four balanced shards of the proof stage, about one minute each
+- `npm run gate:proofs:bg` — the four shards sequentially in a detached worker (`:status`, `:wait`, `:stop`)
 - `npm run gate:smoke` — build + release smoke
 - `npm run ci` — all three stages sequentially, each in its own process
 - `npm run verify` — `gate:fast` plus the build

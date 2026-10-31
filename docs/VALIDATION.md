@@ -29,6 +29,14 @@ A shard writes `.opencode/state/gate-proofs-<shard>.json`, and the catalog fails
 when a shard misses a step, assigns a step twice, or its npm script is missing.
 `gate:proofs` stays the full 126-step run, which is what CI and a release use.
 
+For a local run that must not occupy the session, `npm run gate:proofs:bg`
+starts `scripts/gate-proofs-bg.sh` detached; it runs the four shards one at a
+time, refuses a second start while the worker is alive, reclaims a stale lock
+only after its pid is gone, and records `summary.tsv` plus one log per shard.
+`gate:proofs:bg:status`, `gate:proofs:bg:wait`, and `gate:proofs:bg:stop`
+manage that worker. Do not launch the four shard scripts in parallel: that
+recreates the CPU spike the split removes.
+
 ## Why there is no separate unit runner
 
 Every proof is an assertion-level program:

@@ -270,6 +270,16 @@ for (const entry of shardFile.shards) {
     `gate:proofs:${entry.name} runs shard ${entry.name} at low priority`,
   );
 }
+const bgRunner = "scripts/gate-proofs-bg.sh";
+assert(existsSync(join(repo, bgRunner)), "proof background runner exists");
+for (const [name, action] of [
+  ["gate:proofs:bg", "start"],
+  ["gate:proofs:bg:status", "status"],
+  ["gate:proofs:bg:wait", "wait"],
+  ["gate:proofs:bg:stop", "stop"],
+] as const) {
+  assert(scripts[name] === `bash ${bgRunner} ${action}`, `${name} calls the background runner`);
+}
 const smokeNames = smoke.map((step) => step.name);
 assert(smokeNames.includes("build"), "smoke stage builds the bundle");
 assert(smokeNames.includes("release-smoke"), "smoke stage runs the release smoke");
