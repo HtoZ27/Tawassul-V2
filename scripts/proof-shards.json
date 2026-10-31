@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "totalEstimateMs": 226991,
+  "totalEstimateMs": 227291,
   "shards": [
     {
       "name": "1",
@@ -116,7 +116,7 @@
     },
     {
       "name": "4",
-      "estimateMs": 56878,
+      "estimateMs": 57178,
       "steps": [
         "gen-merge",
         "roster-boundary",
@@ -151,7 +151,8 @@
         "context-revalidate",
         "model-switch",
         "model-failover",
-        "repeat-guard"
+        "repeat-guard",
+        "payload-cache"
       ]
     }
   ]

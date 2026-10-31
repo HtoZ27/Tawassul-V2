@@ -549,6 +549,10 @@
     {
       "name": "repeat-guard",
       "cmd": ["bun", "scripts/prove-repeat-guard.ts"]
+    },
+    {
+      "name": "payload-cache",
+      "cmd": ["bun", "scripts/prove-payload-cache.ts"]
     }
   ],
   "smoke": [

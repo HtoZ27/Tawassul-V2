@@ -142,10 +142,24 @@ ends the turn. The plugin's own rate-limit retry and quota probe stand down for
 five minutes while a failover claim owns the session, so a turn is never resumed
 twice; after that window the normal recovery paths apply again.
 
+## Prompt payload stability
+
+Every injection runs through one bridge that touches only the last message and
+runs at most once per message. A message that arrives without an id gets a
+synthetic key pinned on the message object, so a second context pass cannot
+derive a new key from the already-injected text, and a text that is already
+present is never appended again. Earlier messages are never rewritten, so the
+cached prefix stays byte-identical across turns.
+
+`prove-payload-cache` holds this as a property rather than an example: 64
+generated payloads are bridged three times each and must stay identical. The
+same proof pins the tool schema projection: one shape serializes to the same
+bytes on every build, with a stable key order.
+
 ## Verify
 ```
 npm run gate:fast    # rules + shell syntax + typecheck + config + facts + contract + parity + catalog
-npm run gate:proofs  # 128 proofs, one isolated child process each (the full CI run)
+npm run gate:proofs  # 129 proofs, one isolated child process each (the full CI run)
 npm run gate:proofs:1  # shard 1 of 4, about a minute, nice 10 (2, 3, 4 for the rest)
 npm run gate:smoke   # build + release smoke (one scratch boot)
 npm run ci           # all three stages, sequentially, each in its own process
@@ -160,7 +174,7 @@ in order instead of chaining the proof commands. Use
 durations. The manifest is `scripts/gate-manifest.json`;
 `prove-proof-catalog` fails when a proof file is missing from it.
 
-The 128 proofs run in about 227s in one pass. For a fast local loop the stage
+The 129 proofs run in about 227s in one pass. For a fast local loop the stage
 is split into four balanced shards in `scripts/proof-shards.json` (56.7s of
 recorded duration each): `npm run gate:proofs:1` through `gate:proofs:4`, or
 `npm run gate:proofs -- --shard 3 --timings`. Each shard runs at niceness 10 so

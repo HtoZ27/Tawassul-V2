@@ -26,7 +26,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-001 | The v2 entry is a module exporting a plugin object with id, server, and setup. | `src/index.ts:8` `setup: createV2Setup` | `scripts/prove-host-entry.ts` | verified |
 | S-002 | The build resolves the host plugin package through the ESM exports condition instead of a static external list. | `build-v2.mjs:18` `import.meta.resolve` | `scripts/prove-host-entry.ts` | verified |
 | S-003 | Every tool execute result is converted from the v1 shape to the v2 shape. | `src/v2/adapters.ts:80` `toV2Result` | `scripts/prove-v2-compat.ts` | verified |
-| S-004 | Setup aborts before registration when the host lacks the session or tool domain. | `src/v2/setup.ts:352` `host missing required domains` | `scripts/prove-host-entry.ts` | verified |
+| S-004 | Setup aborts before registration when the host lacks the session or tool domain. | `src/v2/setup.ts:377` `host missing required domains` | `scripts/prove-host-entry.ts` | verified |
 | S-005 | The role to tool matrix is ported without an i18n or NLP dependency. | `src/role-matrix.ts:40` `TAWASSUL_TOOL_ROLES` | `scripts/prove-s005.ts`, `scripts/prove-s013.ts` | verified |
 | S-006 | Model display names are English-only with no bilingual shape or lang parameter. | `src/core/model-registry.ts:91` `MODEL_DISPLAY_NAMES` | `scripts/prove-feature-index-english.ts` | verified |
 | S-007 | A full-tree port must never overwrite hand-fixed files. | - | - | n-a |

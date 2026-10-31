@@ -81,7 +81,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/v2/setup.ts",
-            "line": 352,
+            "line": 377,
             "marker": "host missing required domains"
           },
           "proofs": [

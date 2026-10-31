@@ -87,6 +87,25 @@ function toV1MessageID(messageID: string): string {
   return messageID.startsWith("msg") ? messageID : `msg_${messageID}`;
 }
 
+const syntheticMessageKeys = new WeakMap<object, string>();
+
+function syntheticMessageKey(
+  sessionID: string,
+  role: string,
+  message: object,
+  content: unknown,
+): string {
+  const cached = syntheticMessageKeys.get(message);
+  if (cached) return cached;
+  const digest = createHash("sha1")
+    .update(`${sessionID}:${role}:${JSON.stringify(content ?? null)}`)
+    .digest("hex")
+    .slice(0, 16);
+  const key = `synth_${digest}`;
+  syntheticMessageKeys.set(message, key);
+  return key;
+}
+
 export function isBlockError(error: unknown): boolean {
   const name = error instanceof Error ? error.name : "";
   return name === "ToolBlockedError" || name === "ConsentBlockedError";
@@ -132,7 +151,7 @@ export async function runChatMessageBridge(
   const messageID =
     typeof rawId === "string" && rawId.length > 0
       ? rawId
-      : `synth_${createHash("sha1").update(`${sessionID}:${role}:${JSON.stringify(last["content"] ?? null)}`).digest("hex").slice(0, 16)}`;
+      : syntheticMessageKey(sessionID, role as string, last, last["content"]);
 
   const dedupeKey = `${sessionID}:${messageID}:${role}`;
   if (rememberProcessed(processed, dedupeKey)) return;
@@ -194,6 +213,10 @@ export async function runChatMessageBridge(
     }
   }
   const added: Array<{ type: string; text: string }> = [];
+  const presentTexts = new Set<string>();
+  for (const part of originals) {
+    if (part.type === "text" && typeof part.text === "string") presentTexts.add(part.text);
+  }
   let editedString: string | undefined;
   for (const part of v1Output.parts) {
     if (!part || typeof part !== "object") continue;
@@ -206,6 +229,8 @@ export async function runChatMessageBridge(
       continue;
     }
     if (part.type === "text" && typeof part.text === "string") {
+      if (presentTexts.has(part.text)) continue;
+      presentTexts.add(part.text);
       added.push({ type: "text", text: part.text });
     }
   }
