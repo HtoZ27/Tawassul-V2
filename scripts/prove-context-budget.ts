@@ -60,6 +60,33 @@ function main(): void {
     200000,
     "a host limit above the pricing table is capped",
   );
+  eq(
+    resolveModelWindow({
+      providerID: "opencode",
+      modelID: "deepseek-v4.1-flash-free",
+      limitContext: 200000,
+    }),
+    200000,
+    "the DeepSeek V4.1 Flash free window is confirmed",
+  );
+  eq(
+    resolveModelWindow({
+      providerID: "opencode-go",
+      modelID: "deepseek-v4.1-flash",
+      limitContext: 1000000,
+    }),
+    1000000,
+    "the DeepSeek V4.1 Flash Go window is confirmed",
+  );
+  eq(
+    resolveModelWindow({
+      providerID: "opencode",
+      modelID: "deepseek-v4.1-flash-free",
+      limitContext: 300000,
+    }),
+    200000,
+    "a host limit above the DeepSeek V4.1 free window is capped",
+  );
   console.log("PROOF PASS: reserve and budget stay explicit at every window");
 }
 
