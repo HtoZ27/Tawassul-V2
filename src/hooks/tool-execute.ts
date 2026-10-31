@@ -216,6 +216,7 @@ export function createToolExecuteBeforeHook(ctx: ToolExecuteBeforeContext) {
       
       if (normalizedAgent && input.tool) {
         const blockReason = isToolLoopBlocked(
+          input.sessionID,
           normalizedAgent,
           input.tool,
           canonicalStringify(output.args ?? {}),
@@ -564,6 +565,7 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
         if (success) {
           recordToolSuccess(normalizedAgent, input.tool);
           const repeatCount = recordToolResult(
+            input.sessionID,
             normalizedAgent,
             input.tool,
             canonicalStringify(input.args ?? {}),
@@ -574,7 +576,7 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
           }
         } else {
           recordToolFailure(normalizedAgent, input.tool);
-          resetToolResultRun(normalizedAgent, input.tool);
+          resetToolResultRun(input.sessionID, normalizedAgent, input.tool);
           refund(normalizedAgent, input.sessionID);
           recordNoProgress(normalizedAgent);
         }

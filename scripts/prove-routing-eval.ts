@@ -65,6 +65,9 @@ const SIZE: Expectation[] = [
   { text: "complete the full system integration", size: "complex", note: "a completion across a system is complex" },
   { text: "fix the typo", size: "small", note: "a one line fix is small" },
   { text: "review all of the modules for consistency across every package", size: "complex", note: "a plural all of request is complex" },
+  { text: "address the config file", size: "small", note: "add inside address never votes" },
+  { text: "the awful output is fine", size: "small", note: "full inside awful never votes" },
+  { text: "add a config file", size: "medium", note: "the whole keyword still votes" },
 ];
 
 const SAFETY: Expectation[] = [
@@ -131,6 +134,11 @@ runGroup("safety", SAFETY);
   assert(fuzzySources.includes("MIN_FUZZY_KEYWORD_LENGTH"), "the fuzzy branch declares a minimum keyword length");
   assert(fuzzySources.includes("function normalizeText"), "the matcher normalizes the text once");
   assert(!fuzzySources.includes("lower.includes(kw.toLowerCase())"), "the exact branch no longer matches inside a word");
+  assert(fuzzySources.includes("export function containsWholePhrase"), "the whole-word matcher is reusable");
+
+  const routingSources = readFileSync(join(repo, "src", "services", "routing-algorithm.ts"), "utf-8");
+  assert(routingSources.includes("containsWholePhrase(text, keyword)"), "size votes use the whole-word matcher");
+  assert(!routingSources.includes("lower.includes(keyword)"), "size votes never match inside a word");
 }
 
 console.log("PROOF PASS: routing evals separate tasks from chatter");

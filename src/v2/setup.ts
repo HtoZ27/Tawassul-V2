@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -88,20 +87,13 @@ function toV1MessageID(messageID: string): string {
 }
 
 const syntheticMessageKeys = new WeakMap<object, string>();
+let syntheticMessageCounter = 0;
 
-function syntheticMessageKey(
-  sessionID: string,
-  role: string,
-  message: object,
-  content: unknown,
-): string {
+function syntheticMessageKey(message: object, index: number): string {
   const cached = syntheticMessageKeys.get(message);
   if (cached) return cached;
-  const digest = createHash("sha1")
-    .update(`${sessionID}:${role}:${JSON.stringify(content ?? null)}`)
-    .digest("hex")
-    .slice(0, 16);
-  const key = `synth_${digest}`;
+  syntheticMessageCounter += 1;
+  const key = `synth_${index}_${syntheticMessageCounter}`;
   syntheticMessageKeys.set(message, key);
   return key;
 }
@@ -151,7 +143,7 @@ export async function runChatMessageBridge(
   const messageID =
     typeof rawId === "string" && rawId.length > 0
       ? rawId
-      : syntheticMessageKey(sessionID, role as string, last, last["content"]);
+      : syntheticMessageKey(last, messages.length - 1);
 
   const dedupeKey = `${sessionID}:${messageID}:${role}`;
   if (rememberProcessed(processed, dedupeKey)) return;

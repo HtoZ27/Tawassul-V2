@@ -11,12 +11,14 @@ export const SAME_TOOL_FAILURE_HALT_AFTER = 5;
 export const NO_PROGRESS_BLOCK_AFTER = 5;
 export const REPEAT_RESULT_WARN_AT = 3;
 export const REPEAT_RESULT_BLOCK_AT = 4;
+export const REPEAT_RESULT_WINDOW = 8;
 
 export const REPEAT_BLOCK_TOOLS: readonly string[] = ["read", "grep", "glob"];
 
 const _failureCounts = new Map<string, Map<string, number>>();
 const _noProgressCounts = new Map<string, number>();
-const _repeatResults = new Map<string, { signature: string; result: string; count: number }>();
+type RepeatEntry = { signature: string; result: string };
+const _repeatResults = new Map<string, RepeatEntry[]>();
 
 
 const _killSwitched = new Map<string, number>();
@@ -130,63 +132,90 @@ export function resultSignature(output: unknown): string {
   return `${output.length}:${output.slice(0, 2048)}:${output.slice(-2048)}`;
 }
 
+function repeatKey(sessionID: string, agent: string, tool: string): string {
+  return `${sessionID}\u0000${normalizeAgent(agent)}\u0000${tool}`;
+}
+
 export function recordToolResult(
+  sessionID: string,
   agent: string,
   tool: string,
   signature: string,
   result: string,
 ): number {
   if (BYPASS_ALL) return 0;
-  const key = `${normalizeAgent(agent)}\u0000${tool}`;
-  const previous = _repeatResults.get(key);
-  if (!previous || previous.signature !== signature || previous.result !== result) {
-    _repeatResults.delete(key);
-    _repeatResults.set(key, { signature, result, count: 1 });
+  const key = repeatKey(sessionID, agent, tool);
+  let ring = _repeatResults.get(key);
+  if (!ring) {
+    ring = [];
+    _repeatResults.set(key, ring);
     if (_repeatResults.size > MAX_REPEAT_ENTRIES) {
       const oldest = _repeatResults.keys().next().value;
-      if (oldest !== undefined) _repeatResults.delete(oldest);
+      if (oldest !== undefined && oldest !== key) _repeatResults.delete(oldest);
     }
-    return 1;
+  } else {
+    _repeatResults.delete(key);
+    _repeatResults.set(key, ring);
   }
-  previous.count += 1;
-  _repeatResults.set(key, previous);
-  return previous.count;
+  ring.push({ signature, result });
+  if (ring.length > REPEAT_RESULT_WINDOW) {
+    ring.splice(0, ring.length - REPEAT_RESULT_WINDOW);
+  }
+  return ring.filter((entry) => entry.signature === signature && entry.result === result).length;
 }
 
-export function repeatResultCount(agent: string, tool: string, signature: string): number {
-  const previous = _repeatResults.get(`${normalizeAgent(agent)}\u0000${tool}`);
-  if (!previous || previous.signature !== signature) return 0;
-  return previous.count;
+export function repeatResultCount(
+  sessionID: string,
+  agent: string,
+  tool: string,
+  signature: string,
+): number {
+  const ring = _repeatResults.get(repeatKey(sessionID, agent, tool));
+  if (!ring) return 0;
+  const matching = ring.filter((entry) => entry.signature === signature);
+  if (matching.length === 0) return 0;
+  const latest = matching[matching.length - 1]?.result;
+  return matching.filter((entry) => entry.result === latest).length;
 }
 
-export function resetToolResultRun(agent: string, tool: string): void {
-  _repeatResults.delete(`${normalizeAgent(agent)}\u0000${tool}`);
+export function resetToolResultRun(sessionID: string, agent: string, tool: string): void {
+  _repeatResults.delete(repeatKey(sessionID, agent, tool));
 }
 
 export function repeatResultWarning(tool: string, count: number): string {
   return (
-    `\n\n[tawassul] loop guard: "${tool}" returned an identical result ${count} consecutive times. ` +
+    `\n\n[tawassul] loop guard: "${tool}" returned an identical result ${count} times in the recent window. ` +
     "Stop repeating this call and change approach: read a different region, refine the query, " +
     "or report the block instead of retrying the same input."
   );
 }
 
-export function isRepeatResultBlocked(agent: string, tool: string, signature: string): string | null {
+export function isRepeatResultBlocked(
+  sessionID: string,
+  agent: string,
+  tool: string,
+  signature: string,
+): string | null {
   if (BYPASS_ALL) return null;
   if (!REPEAT_BLOCK_TOOLS.includes(tool)) return null;
-  const count = repeatResultCount(agent, tool, signature);
+  const count = repeatResultCount(sessionID, agent, tool, signature);
   if (count < REPEAT_RESULT_BLOCK_AT) return null;
   return (
-    `🚫 Tool "${tool}" returned an identical result ${count} consecutive times for "${agent}" — ` +
+    `🚫 Tool "${tool}" returned an identical result ${count} times in the recent window for "${agent}" — ` +
     `refusing the same input again (limit ${REPEAT_RESULT_BLOCK_AT})`
   );
 }
 
-export function isToolLoopBlocked(agent: string, tool: string, signature?: string): string | null {
+export function isToolLoopBlocked(
+  sessionID: string,
+  agent: string,
+  tool: string,
+  signature?: string,
+): string | null {
   if (BYPASS_ALL) return null;
   const key = normalizeAgent(agent);
   if (signature !== undefined) {
-    const repeat = isRepeatResultBlocked(agent, tool, signature);
+    const repeat = isRepeatResultBlocked(sessionID, agent, tool, signature);
     if (repeat) return repeat;
   }
   

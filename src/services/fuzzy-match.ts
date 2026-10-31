@@ -43,6 +43,14 @@ function containsWord(padded: string, phrase: string): boolean {
   return padded.includes(` ${phrase} `);
 }
 
+export function containsWholePhrase(input: string, phrase: string): boolean {
+  const normalized = normalizeText(input);
+  if (!normalized) return false;
+  const target = normalizeText(phrase);
+  if (!target) return false;
+  return containsWord(` ${normalized} `, target);
+}
+
 export function fuzzyMatch(input: string, keywords: string[], maxDistance: number = 1): FuzzyMatchResult | null {
   const normalized = normalizeText(input);
   if (!normalized) return null;

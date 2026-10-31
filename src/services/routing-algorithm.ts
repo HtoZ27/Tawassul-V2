@@ -1,5 +1,5 @@
 import { matchRole, ALL_KEYWORDS, ROLE_FROM_KEYWORD } from "./stem.ts";
-import { fuzzyMatch } from "./fuzzy-match.ts";
+import { containsWholePhrase, fuzzyMatch } from "./fuzzy-match.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 import {
   SIZE_KEYWORDS,
@@ -76,7 +76,7 @@ export function analyzeMessage(text: string): RoutingResult {
   if (!size) {
     const votes: Record<string, number> = { small: 0, medium: 0, complex: 0 };
     for (const [keyword, s] of Object.entries(SIZE_KEYWORDS)) {
-      if (lower.includes(keyword)) votes[s] = (votes[s] ?? 0) + 1;
+      if (containsWholePhrase(text, keyword)) votes[s] = (votes[s] ?? 0) + 1;
     }
     const best = (Object.entries(votes).sort((a, b) => b[1] - a[1])[0] ?? []) as [string, number];
     if (best[1] > 0) size = best[0] as "small" | "medium" | "complex";

@@ -438,8 +438,9 @@ or suggest a model. Choosing the model belongs to the owner.
 - Tool-count sites: 16 lines across four files, not eleven.
 - `instructions.entry` cap is 262144 bytes; 64KB is internal policy.
 - `atomicWriteFile` does a directory fsync at `src/infra/disk-utils.ts:58`.
-- `export`, `import`, `fork`, `switchModel` and `switchAgent` are not on
-  `ctx.session`; do not widen `V2Session` with them.
+- `export`, `import`, and `fork` are not on `ctx.session`; `switchModel` and
+  `switchAgent` are (`SessionDomain` picks both). Do not widen `V2Session` with
+  the absent methods.
 - `wait` takes `{ sessionID }`, not a bare id (`Expected object` otherwise).
 
 ### Implementation anchors (final, 2026-10-30)

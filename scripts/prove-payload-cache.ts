@@ -169,6 +169,19 @@ async function main(): Promise<void> {
   }
 
   {
+    const bridge: Bridge = { calls: 0, injected: ["\n\nMODE"] };
+    const processed = new Set<string>();
+    const first: Message[] = [{ role: "user", content: "continue" }];
+    await bridgeOnce(first, bridge, processed, "ses_identical");
+    const second: Message[] = [{ role: "user", content: "continue" }];
+    await bridgeOnce(second, bridge, processed, "ses_identical");
+    assert(bridge.calls === 2, "two distinct id-less messages with identical text are both bridged");
+    assert((at(second, 0).content as Part[]).length === 2, "the second identical message receives its own injection");
+    await bridgeOnce(second, bridge, processed, "ses_identical");
+    assert(bridge.calls === 2, "the second identical message is not bridged twice");
+  }
+
+  {
     const shape = {
       query: z.string(),
       limit: z.number().int().optional(),
@@ -192,7 +205,10 @@ async function main(): Promise<void> {
   {
     const setup = readFileSync(join(repo, "src", "v2", "setup.ts"), "utf-8");
     assert(setup.includes("const syntheticMessageKeys = new WeakMap<object, string>()"), "the synthetic key is pinned per message object");
-    assert(setup.includes("syntheticMessageKey(sessionID, role as string, last, last[\"content\"])"), "an unidentified message derives its key once");
+    assert(setup.includes("syntheticMessageKey(last, messages.length - 1)"), "an unidentified message is keyed by its position");
+    assert(setup.includes("syntheticMessageCounter += 1"), "a process counter separates identical messages");
+    assert(!setup.includes("nextSyntheticCounter"), "the counter needs no per-session table");
+    assert(!setup.includes("JSON.stringify(content"), "message identity never depends on content");
     assert(setup.includes("if (presentTexts.has(part.text)) continue;"), "an already present text is refused");
     assert(setup.includes("set.size >= MAX_PROCESSED_MESSAGES"), "the processed table stays bounded");
     assert(setup.includes("rawContent.push(...added)"), "the multipart path appends only the accepted parts");

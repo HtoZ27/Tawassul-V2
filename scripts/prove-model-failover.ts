@@ -175,6 +175,62 @@ async function main(): Promise<void> {
   assert(!hasFailoverClaim("s-old"), "a stale claim stops suppressing the plugin retry");
 
   resetFailoverState();
+  const missBase = Date.now();
+  commitFailover("s-miss", primary, missBase);
+  recordFailoverMiss("s-miss", secondary, missBase + 1_000);
+  assert(
+    hasFailoverClaim("s-miss", missBase + FAILOVER_CLAIM_TTL_MS),
+    "a miss before the deadline keeps the committed claim live",
+  );
+  assert(
+    !hasFailoverClaim("s-miss", missBase + FAILOVER_CLAIM_TTL_MS + 1),
+    "a miss does not renew the five-minute claim",
+  );
+
+  resetFailoverState();
+  const tinyMiss = { chains: { dev: ["a/one", "b/two"] }, maxSwitches: 5 };
+  const missNow = Date.now();
+  const planned = planFailover({
+    config: tinyMiss,
+    agent: "dev",
+    sessionID: "s-miss-expire",
+    model: parseModelTarget("a/one"),
+  });
+  assert(planned.action === "switch", "the tiny chain plans the first switch");
+  recordFailoverMiss("s-miss-expire", "b/two", missNow);
+  const stillSkipped = planFailover({
+    config: tinyMiss,
+    agent: "dev",
+    sessionID: "s-miss-expire",
+    model: parseModelTarget("a/one"),
+    now: missNow + FAILOVER_CLAIM_TTL_MS,
+  });
+  assert(stillSkipped.action === "keep", "a rejected target stays skipped inside the window");
+  const retried = planFailover({
+    config: tinyMiss,
+    agent: "dev",
+    sessionID: "s-miss-expire",
+    model: parseModelTarget("a/one"),
+    now: missNow + FAILOVER_CLAIM_TTL_MS + 1,
+  });
+  assert(retried.action === "switch", "an expired miss is retried instead of barring the session");
+  if (retried.action === "switch") assert(retried.target === "b/two", "the expired miss target is retried");
+
+  resetFailoverState();
+  const episodeBase = Date.now();
+  commitFailover("s-episode", primary, episodeBase);
+  commitFailover("s-episode", secondary, episodeBase);
+  assert(failoverSwitchCount("s-episode") === 2, "two switches fill the default episode budget");
+  const afterEpisode = planFailover({
+    agent: "dev",
+    sessionID: "s-episode",
+    model: parseModelTarget(primary),
+    now: episodeBase + FAILOVER_CLAIM_TTL_MS + 1,
+  });
+  assert(afterEpisode.action === "switch", "an expired episode restores the switch budget");
+  assert(failoverSwitchCount("s-episode") === 0, "the expired episode starts at zero switches");
+
+  resetFailoverState();
   const defaultCap = planFailover({
     config: { maxSwitches: DEFAULT_MAX_SWITCHES + 100 },
     agent: "dev",

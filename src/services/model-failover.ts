@@ -33,7 +33,7 @@ const MAX_TRACKED_SESSIONS = 500;
 type SessionState = {
   count: number;
   at: number;
-  tried: Set<string>;
+  tried: Map<string, number>;
 };
 
 const _sessions = new Map<string, SessionState>();
@@ -48,7 +48,7 @@ export function failoverSwitchCount(sessionID: string): number {
 
 export function hasFailoverClaim(sessionID: string, now = Date.now()): boolean {
   const state = _sessions.get(sessionID);
-  if (!state || state.count === 0) return false;
+  if (!state || state.count === 0 || state.at === 0) return false;
   return now - state.at <= FAILOVER_CLAIM_TTL_MS;
 }
 
@@ -72,14 +72,27 @@ export function failoverSummary(now = Date.now()): FailoverSummary {
   return { sessions: _sessions.size, switches, claimed };
 }
 
+function isStaleClaim(state: SessionState, now: number): boolean {
+  return state.at !== 0 && now - state.at > FAILOVER_CLAIM_TTL_MS;
+}
+
 function stateFor(sessionID: string, now: number): SessionState {
   const existing = _sessions.get(sessionID);
   if (existing) {
+    if (isStaleClaim(existing, now)) {
+      existing.count = 0;
+      existing.at = 0;
+      existing.tried.clear();
+    } else {
+      for (const [target, at] of existing.tried) {
+        if (now - at > FAILOVER_CLAIM_TTL_MS) existing.tried.delete(target);
+      }
+    }
     _sessions.delete(sessionID);
     _sessions.set(sessionID, existing);
     return existing;
   }
-  const created: SessionState = { count: 0, at: now, tried: new Set() };
+  const created: SessionState = { count: 0, at: 0, tried: new Map() };
   _sessions.set(sessionID, created);
   if (_sessions.size > MAX_TRACKED_SESSIONS) {
     const oldest = _sessions.keys().next().value;
@@ -199,13 +212,12 @@ export function commitFailover(sessionID: string, target: string, now = Date.now
   const state = stateFor(sessionID, now);
   state.count += 1;
   state.at = now;
-  state.tried.add(target);
+  state.tried.set(target, now);
 }
 
 export function recordFailoverMiss(sessionID: string, target: string, now = Date.now()): void {
   const state = stateFor(sessionID, now);
-  state.at = now;
-  state.tried.add(target);
+  state.tried.set(target, now);
 }
 
 export type SwitchModelSession = {

@@ -71,7 +71,7 @@ async function main(): Promise<void> {
     "every repeated v2 error is recorded as an error",
   );
   assert(
-    isToolLoopBlocked(normalizeName("@dev"), "read") !== null,
+    isToolLoopBlocked("sess-e14", normalizeName("@dev"), "read") !== null,
     "three consecutive v2 errors trip the tool-loop guard",
   );
 
@@ -84,7 +84,7 @@ async function main(): Promise<void> {
   });
   assert(recovered.length === 1 && recovered[0]!.status === "success", "a completed result with empty text is a success");
   assert(
-    isToolLoopBlocked(normalizeName("@dev"), "read") === null,
+    isToolLoopBlocked("sess-e14", normalizeName("@dev"), "read") === null,
     "a recorded success clears the tool-loop failure count",
   );
 
