@@ -11,10 +11,11 @@ import {
   renameSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   claimCoexistence,
@@ -27,7 +28,15 @@ import {
   installLane,
   usesPosixDatabaseLane,
   windowsKeyAclArgv,
+  windowsKeyDirectory,
 } from "../src/core/install-lane.ts";
+import { hostProbeCommand } from "../src/core/install-host.ts";
+import {
+  durableWriteFile,
+  fsyncDirectory,
+  fsyncFileDescriptor,
+  realWriteOps,
+} from "../src/core/install-write.ts";
 
 function fail(msg: string): never {
   console.error(`PROOF FAIL: ${msg}`);
@@ -172,12 +181,89 @@ try {
   assert(dependencyProbeCommand("linux") === "which", "POSIX probes dependencies with which");
   assert(!usesPosixDatabaseLane("windows"), "the windows lane stages no POSIX database payload");
   assert(usesPosixDatabaseLane("linux"), "the linux lane stages the database payload");
-  const acl = windowsKeyAclArgv("C:\\Users\\tawassul\\.config\\tawassul-v2", "*S-1-5-21-1");
+  const acl = windowsKeyAclArgv("C:\\Users\\tawassul\\.config\\tawassul", "*S-1-5-21-1");
   assert(acl[0] === "icacls", "the windows key ACL starts with icacls");
   assert(acl.includes("/inheritance:r"), "the windows key ACL removes inherited entries");
   assert(acl.includes("*S-1-5-21-1:(OI)(CI)F"), "the windows key ACL grants the current user");
   assert(acl.includes("*S-1-5-18:(OI)(CI)F"), "the windows key ACL keeps SYSTEM access");
   assert(acl.includes("*S-1-5-32-544:(OI)(CI)F"), "the windows key ACL keeps Administrators access");
+  const keyDefault = windowsKeyDirectory({}, "/home/tester");
+  assert(
+    keyDefault.dir === resolve("/home/tester", ".config", "tawassul"),
+    "the default key directory mirrors the runtime ~/.config/tawassul path",
+  );
+  assert(keyDefault.managed === true, "the default key directory is installer-managed");
+  const keyXdg = windowsKeyDirectory({ XDG_CONFIG_HOME: "/xdg" }, "/home/tester");
+  assert(keyXdg.dir === resolve("/xdg", "tawassul"), "XDG_CONFIG_HOME moves the key directory");
+  const keyGlobal = windowsKeyDirectory({ TAWASSUL_GLOBAL_DIR: "/opt/opencode" }, "/home/tester");
+  assert(keyGlobal.dir === resolve("/opt", "tawassul"), "TAWASSUL_GLOBAL_DIR keeps the key beside the config root");
+  const keyExplicit = windowsKeyDirectory({ TAWASSUL_HMAC_KEY_DIR: "/keys" }, "/home/tester");
+  assert(
+    keyExplicit.dir === resolve("/keys") && keyExplicit.managed === false,
+    "an explicit key directory is operator-managed and left untouched",
+  );
+  const plainProbe = hostProbeCommand("/usr/bin/opencode", "linux");
+  assert(
+    plainProbe.command === "/usr/bin/opencode" && plainProbe.shell === false,
+    "a POSIX host is probed directly",
+  );
+  const cmdProbe = hostProbeCommand("C:\\bin\\opencode.cmd", "win32", {});
+  assert(cmdProbe.shell === true, "a Windows command shim is probed through the interpreter");
+  const psProbe = hostProbeCommand("C:\\bin\\opencode.ps1", "win32", { SystemRoot: "D:\\Windows" });
+  assert(
+    psProbe.command === "D:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "a Windows PowerShell shim is probed with the system PowerShell",
+  );
+  assert(
+    psProbe.args.includes("-File") && psProbe.args.includes("C:\\bin\\opencode.ps1"),
+    "the PowerShell probe passes the script and the version flag",
+  );
+  const durableDir = join(ROOT, "durable");
+  const durableFile = join(durableDir, "marker.json");
+  mkdirSync(durableDir, { recursive: true });
+  durableWriteFile(durableFile, "one\n", 0o600);
+  assert(readFileSync(durableFile, "utf8") === "one\n", "the durable write lands the bytes");
+  assert((statSync(durableFile).mode & 0o777) === 0o600, "the durable write keeps the requested mode");
+  durableWriteFile(durableFile, "two\n", 0o640);
+  assert(readFileSync(durableFile, "utf8") === "two\n", "the durable write replaces an existing file");
+  assert((statSync(durableFile).mode & 0o777) === 0o640, "a replaced file takes the requested mode");
+  const durableLink = join(durableDir, "link.json");
+  symlinkSync(durableFile, durableLink);
+  let refusedLink = false;
+  try {
+    durableWriteFile(durableLink, "three\n");
+  } catch {
+    refusedLink = true;
+  }
+  assert(refusedLink, "the durable write refuses a symlink target");
+  assert(readFileSync(durableFile, "utf8") === "two\n", "a refused symlink leaves the target untouched");
+  let win32DirSync = false;
+  try {
+    fsyncDirectory(join(durableDir, "absent"), realWriteOps, "win32");
+  } catch {
+    win32DirSync = true;
+  }
+  assert(!win32DirSync, "the windows lane skips the directory fsync");
+  let posixDirSync = false;
+  try {
+    fsyncDirectory(join(durableDir, "absent"), realWriteOps, "linux");
+  } catch {
+    posixDirSync = true;
+  }
+  assert(posixDirSync, "the posix lane opens the directory it fsyncs");
+  let fsyncAttempts = 0;
+  fsyncFileDescriptor(1, {
+    ...realWriteOps,
+    fsyncSync: () => {
+      fsyncAttempts += 1;
+      if (fsyncAttempts < 2) {
+        const error = new Error("interrupted") as NodeJS.ErrnoException;
+        error.code = "EINTR";
+        throw error;
+      }
+    },
+  });
+  assert(fsyncAttempts === 2, "an interrupted fsync is retried");
   const build = spawnSync("npm", ["run", "build"], { cwd: REPO, encoding: "utf-8", timeout: 300_000 });
   assert(build.status === 0, "the bundle builds before the install trials");
   const help = run(["--help"]);

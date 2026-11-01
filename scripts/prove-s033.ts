@@ -11,6 +11,7 @@ import { StateManager } from "../src/context/managers/StateManager.ts";
 import {
   clearQuietModeForce,
   forceQuietMode,
+  isFilesystemRoot,
   isHomeProject,
   quietModeEnabled,
   quietModeForceReason,
@@ -77,6 +78,8 @@ try {
   assert(quietModeForceReason() === null, "clearing the force drops the reason");
   assert(isHomeProject(homedir()) === true, "the home directory is detected as a home project");
   assert(isHomeProject(join(work, "project")) === false, "a nested directory is not a home project");
+  assert(isFilesystemRoot("/") === true, "the filesystem root is detected as a root project");
+  assert(isFilesystemRoot(work) === false, "a temporary work directory is not a filesystem root");
   assert(quietValue("quiet", "normal") === "normal", "quietValue picks the normal value when quiet is off");
   forceQuietMode("proof");
   assert(quietValue("quiet", "normal") === "quiet", "quietValue picks the quiet value when quiet is on");
@@ -226,7 +229,11 @@ try {
   assert(hostCandidates().includes(join(pathDir, "opencode")), "the installer discovers a host on PATH");
   const installerSource = readFileSync(join(repo, "scripts", "install-global.ts"), "utf8");
   assert(installerSource.includes("export function hostCandidates"), "the host installer owns candidate discovery");
-  assert(installerSource.includes('spawnSync(bin, ["--version"]'), "the host installer probes the host version");
+  assert(
+    installerSource.includes("hostProbeCommand(bin, process.platform") &&
+      installerSource.includes("shell: probe.shell"),
+    "the host installer probes the host version through the platform probe",
+  );
   assert(installerSource.includes("systemd") && installerSource.includes("cron"), "the host installer owns scheduling units");
   const pluginFiles = readdirSync(join(repo, "src"), { recursive: true })
     .map((entry) => String(entry))

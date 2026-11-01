@@ -1,12 +1,12 @@
 {
   "date": "2026-11-01",
   "entry": "src/index.ts",
-  "totalFiles": 359,
+  "totalFiles": 361,
   "reachableFiles": 342,
-  "totalLoc": 60266,
-  "reachableLoc": 58707,
-  "shareFiles": 0.9526,
-  "shareLoc": 0.9741,
+  "totalLoc": 60423,
+  "reachableLoc": 58718,
+  "shareFiles": 0.9474,
+  "shareLoc": 0.9718,
   "dynamicEdges": 116,
   "byArea": {
     "agent-templates.ts": 1,

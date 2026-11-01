@@ -22,6 +22,7 @@ const SILENT_CATCH_INVENTORY: Record<string, number> = {
   "context/model-utils.ts": 1,
   "context/session-manager.ts": 1,
   "core/install-scope.ts": 1,
+  "core/install-write.ts": 1,
   "hooks/PipelineState.ts": 1,
   "hooks/guards/shared/factories.ts": 2,
   "hooks/session.ts": 4,

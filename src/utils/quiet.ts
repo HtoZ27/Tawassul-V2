@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { resolve } from "node:path";
+import { parse, resolve } from "node:path";
 
 let forcedBy: string | null = null;
 
@@ -18,6 +18,15 @@ export function clearQuietModeForce(): void {
 export function isHomeProject(directory: string): boolean {
   try {
     return resolve(directory) === resolve(homedir());
+  } catch {
+    return false;
+  }
+}
+
+export function isFilesystemRoot(directory: string): boolean {
+  try {
+    const resolved = resolve(directory);
+    return resolved === parse(resolved).root;
   } catch {
     return false;
   }

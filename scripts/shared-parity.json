@@ -752,7 +752,7 @@
           "status": "verified",
           "anchor": {
             "file": "scripts/install-global.ts",
-            "line": 213,
+            "line": 220,
             "marker": "hostCandidates"
           },
           "proofs": [

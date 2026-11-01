@@ -8,7 +8,6 @@ import {
   renameSync,
   rmSync,
   statSync,
-  writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, delimiter, isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -19,7 +18,10 @@ import {
   installLane,
   usesPosixDatabaseLane,
   windowsKeyAclArgv,
+  windowsKeyDirectory,
 } from "../src/core/install-lane.ts";
+import { hostProbeCommand } from "../src/core/install-host.ts";
+import { durableWriteFile } from "../src/core/install-write.ts";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 const GLOBAL_BUNDLE = join(REPO, "dist", "global.js");
@@ -204,7 +206,12 @@ function hostWarning(version: string): string | undefined {
 
 function readHost(bin: string): Host | undefined {
   if (!existsSync(bin)) return undefined;
-  const result = spawnSync(bin, ["--version"], { encoding: "utf-8", timeout: 10_000 });
+  const probe = hostProbeCommand(bin, process.platform, process.env);
+  const result = spawnSync(probe.command, probe.args, {
+    encoding: "utf-8",
+    timeout: 10_000,
+    shell: probe.shell,
+  });
   if (result.status !== 0) return undefined;
   const version = parseVersion(`${result.stdout ?? ""}${result.stderr ?? ""}`);
   return version ? { bin, version } : undefined;
@@ -500,9 +507,7 @@ function assetRecords(assets: ResolvedAsset[]): Record<string, AssetRecord> {
 }
 
 function writeAtomic(file: string, data: string | Buffer, mode = 0o600): void {
-  const tmp = `${file}.tmp-${process.pid}`;
-  writeFileSync(tmp, data, { mode });
-  renameSync(tmp, file);
+  durableWriteFile(file, data, mode);
 }
 
 function dbRecords(): Record<string, AssetRecord> {
@@ -892,7 +897,12 @@ function currentUserIdentity(): string | undefined {
 }
 
 function secureWindowsKeyDir(): void {
-  const dir = join(configBase(), "tawassul-v2");
+  const key = windowsKeyDirectory(process.env, homedir());
+  const dir = key.dir;
+  if (!key.managed) {
+    console.log(`install-global: TAWASSUL_HMAC_KEY_DIR selects ${dir}; the key directory is operator-managed and left untouched`);
+    return;
+  }
   const identity = currentUserIdentity();
   if (!identity) {
     console.warn("install-global: could not resolve the current user SID — apply the key directory ACL with icacls manually");

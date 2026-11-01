@@ -29,7 +29,7 @@ import { resetModelCache } from "../hooks/guards/shared.ts";
 import { assertToolSurface, buildToolRegistry, registeredToolNames, registryToolNames } from "./tool-registry.ts";
 import { logger } from "../utils/logger.ts";
 import { bundleFingerprint } from "../utils/bundle-fingerprint.ts";
-import { isHomeProject, forceQuietMode, clearQuietModeForce, quietModeForceReason } from "../utils/quiet.ts";
+import { isFilesystemRoot, isHomeProject, forceQuietMode, clearQuietModeForce, quietModeForceReason } from "../utils/quiet.ts";
 import { lruSet } from "../utils/bounded-map.ts";
 import { hasFailoverClaim } from "../services/model-failover.ts";
 import { runWithContext } from "../context/context-store.ts";
@@ -465,12 +465,15 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   void armDbMaintenanceTrigger(ctx.directory);
 
   clearQuietModeForce();
-  if (!_homeProjectWarned && isHomeProject(ctx.directory)) {
-    _homeProjectWarned = true;
-    forceQuietMode("home-as-project");
-    logger.warn(
-      `[tawassul] home-as-project detected: the project directory is $HOME itself — quiet mode forced (${quietModeForceReason()}; warn-once; run continues, no refusal).`,
-    );
+  if (!_homeProjectWarned) {
+    const root = isFilesystemRoot(ctx.directory);
+    if (root || isHomeProject(ctx.directory)) {
+      _homeProjectWarned = true;
+      forceQuietMode(root ? "filesystem-root-as-project" : "home-as-project");
+      logger.warn(
+        `[tawassul] ${root ? "filesystem-root" : "home"}-as-project detected: the project directory is ${ctx.directory} — quiet mode forced (${quietModeForceReason()}; warn-once; run continues, no refusal).`,
+      );
+    }
   }
 
   
