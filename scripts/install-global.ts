@@ -22,6 +22,7 @@ import {
 } from "../src/core/install-lane.ts";
 import { hostProbeCommand } from "../src/core/install-host.ts";
 import { durableWriteFile } from "../src/core/install-write.ts";
+import { v2DataRoot } from "../src/utils/state-paths.ts";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 const GLOBAL_BUNDLE = join(REPO, "dist", "global.js");
@@ -1086,8 +1087,10 @@ function pruneStaleWasm(current: Record<string, AssetRecord>): number {
 }
 
 function purgePaths(): string[] {
+  const data = v2DataRoot();
   return [
     join(configBase(), "tawassul-v2"),
+    ...(data ? [data] : []),
     join(GLOBAL_DIR, "tawassul-v2-state"),
     join(GLOBAL_DIR, "tawassul.jsonc"),
     join(GLOBAL_DIR, "tawassul.json"),
@@ -1174,7 +1177,10 @@ function uninstall(): void {
   }
   releaseOwnership();
   if (flags.has("--purge")) purge();
-  else console.log("install-global: kept global roster and state; pass --purge with --yes to archive them");
+  else
+    console.log(
+      "install-global: kept the global roster with the state and data namespaces; pass --purge with --yes to archive them",
+    );
 }
 
 async function verify(): Promise<void> {
@@ -1293,7 +1299,7 @@ function usage(): void {
   console.log(`  owner:   ${OWNER_FILE}`);
   console.log("  --takeover treats a live owner record from another tree as transferable");
   console.log("  --force keeps a previous unmarked target as tawassul.js.pre-force-<timestamp>");
-  console.log("  --purge --yes archives Tawassul state beside its old paths");
+  console.log("  --purge --yes archives the state namespace, the data namespace and the roster beside their old paths");
   console.log("  the purge keeps the global agent roster (~/.config/opencode/agent)");
   console.log("  the installer never edits the global opencode.json(c)");
 }

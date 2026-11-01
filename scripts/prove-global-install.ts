@@ -606,10 +606,14 @@ try {
 
   const stateRoot = join(CONFIG, "tawassul-v2", "state");
   const runtimeRoot = join(GLOBAL, "tawassul-v2-state");
+  const dataRoot = join(HOME, ".local", "share", "tawassul-v2");
+  const dataProject = join(dataRoot, "projects", "abc", ".opencode");
   mkdirSync(stateRoot, { recursive: true });
   mkdirSync(runtimeRoot, { recursive: true });
+  mkdirSync(dataProject, { recursive: true });
   writeFileSync(join(stateRoot, "state.json"), "{}\n");
   writeFileSync(join(runtimeRoot, "metrics.json"), "{}\n");
+  writeFileSync(join(dataProject, "tawassul-state.json"), "{}\n");
   writeFileSync(join(GLOBAL, "tawassul.jsonc"), "{}\n");
   mkdirSync(join(GLOBAL, "agent"), { recursive: true });
   writeFileSync(join(GLOBAL, "agent", "keeper.md"), "# keeper\n");
@@ -648,8 +652,11 @@ try {
   const purged = run(["--uninstall", "--purge"]);
   assert(purged.code !== 0 && purged.out.includes("--yes"), "purge without --yes refuses and moves nothing");
   assert(
-    existsSync(TARGET) && existsSync(join(stateRoot, "state.json")) && existsSync(join(GLOBAL, "tawassul.jsonc")),
-    "the purge refusal leaves the install and state intact",
+    existsSync(TARGET) &&
+      existsSync(join(stateRoot, "state.json")) &&
+      existsSync(join(dataProject, "tawassul-state.json")) &&
+      existsSync(join(GLOBAL, "tawassul.jsonc")),
+    "the purge refusal leaves the install, the state and the data intact",
   );
   const purgedYes = run(["--uninstall", "--purge", "--yes"]);
   assert(purgedYes.code === 0, "uninstall --purge --yes exits 0");
@@ -663,6 +670,14 @@ try {
   assert(
     existsSync(join(CONFIG, archives[0] as string, "state", "state.json")),
     "the archived state keeps the original payload",
+  );
+  assert(!existsSync(dataRoot), "purge moves the data namespace off its name");
+  const dataShare = join(HOME, ".local", "share");
+  const dataArchives = readdirSync(dataShare).filter((name) => name.startsWith("tawassul-v2.purged-"));
+  assert(dataArchives.length === 1, "purge leaves exactly one archived data directory");
+  assert(
+    existsSync(join(dataShare, dataArchives[0] as string, "projects", "abc", ".opencode", "tawassul-state.json")),
+    "the archived data keeps the original payload",
   );
   assert(existsSync(join(GLOBAL, "agent", "keeper.md")), "purge keeps the global agent roster");
   assert(purgedYes.out.includes("kept 1 agent file"), "purge reports the kept agent roster");

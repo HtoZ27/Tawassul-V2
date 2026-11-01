@@ -110,7 +110,7 @@ export class ConfigManager {
     
     const safeFp = resolveSafePathSync(fp, this.stateDir);
     if (!safeFp) {
-      logger.warn(`⛔ Config path rejected (symlink traversal):`, fp);
+      if (this.scope !== "global") logger.warn(`⛔ Config path rejected (symlink traversal):`, fp);
       return this.config;
     }
 

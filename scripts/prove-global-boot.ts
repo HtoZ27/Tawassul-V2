@@ -241,6 +241,10 @@ try {
     tools.code === 0 && tools.out.includes("tools-ok"),
     `the installed global bundle executes direct tools (${tools.out.slice(0, 400)})`,
   );
+  assert(
+    !tools.out.includes("Config path rejected"),
+    "a global-scope boot reports no false config-path rejection",
+  );
 
   const coexistWorkspace = join(ROOT, "global", "ws-both");
   mkdirSync(join(coexistWorkspace, ".opencode", "plugin"), { recursive: true });

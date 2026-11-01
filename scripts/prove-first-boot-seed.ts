@@ -1,8 +1,9 @@
-import { mkdtempSync, readFileSync, rmSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, existsSync, mkdirSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureMinimalProjectContract, ensureGlobalRosterSeed } from "../src/utils/opencode-config.ts";
 import { defaultAgentModelForRole } from "../src/services/proxy-fallback-chains.ts";
+import { StaleDetector } from "../src/services/stale-detector/index.ts";
 
 function fail(msg: string): never {
   console.error(`PROOF FAIL: ${msg}`);
@@ -128,10 +129,32 @@ async function proveMcpBundleIgnored(): Promise<void> {
   }
 }
 
+async function proveStaleSignal(): Promise<void> {
+  const dir = mkdtempSync(join(tmpdir(), "tawassul-stale-"));
+  const previous = process.cwd();
+  const detector = new StaleDetector({ trackedFiles: ["AGENTS.md", "codemap.md"] });
+  try {
+    process.chdir(dir);
+    if (detector.findStaleFiles().length !== 0) fail("an empty project must report no stale documents");
+    if (detector.getSummary().missing !== 2) fail("missing documents stay visible in the summary");
+    writeFileSync(join(dir, "AGENTS.md"), "# notes\n", "utf-8");
+    const aged = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    utimesSync(join(dir, "AGENTS.md"), aged, aged);
+    const stale = detector.findStaleFiles();
+    if (stale.length !== 1 || stale[0]?.path !== "AGENTS.md") fail("an aged document is reported as stale");
+    if (stale[0]?.freshness !== "stale") fail("the aged document carries the stale freshness");
+    console.log("stale-signal ok");
+  } finally {
+    process.chdir(previous);
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 await proveMinimalContract();
 await proveOptOut();
 await proveGlobalSeed();
 await proveGlobalSeedPreservesManualRoster();
 await proveGlobalSeedOptOut();
 await proveMcpBundleIgnored();
+await proveStaleSignal();
 console.log("PROOF PASS: first-boot seeding");

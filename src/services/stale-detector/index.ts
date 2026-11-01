@@ -108,7 +108,7 @@ export class StaleDetector {
   }
 
   findStaleFiles(): FileCheckResult[] {
-    return this.checkAllFiles().filter(f => f.needsUpdate);
+    return this.checkAllFiles().filter(f => f.needsUpdate && f.exists);
   }
 
   getSummary(): {
