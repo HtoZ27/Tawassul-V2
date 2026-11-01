@@ -37,11 +37,18 @@ The fix keeps one descriptor for the whole write: `openSync(temp, "wx", mode)`, 
 
 Five runtime files is the Windows count: the marker plus four wasm assets. The POSIX lane removes ten because it also stages five database scripts.
 
+## Additional probes
+
+- **Space in the kit path.** The whole cycle was repeated from `Z:\tmp\opencode\kit e2e space` and again exited 0: install, verify (`76533e573d03`, 4 wasm assets), host roster, uninstall.
+- **Overwrite inside the Windows lane.** A direct `durableWriteFile` probe wrote `one\n`, then `two\n` over the same file; the read-back was `two\n`. `rename` replaced the existing target, so the upgrade path does not need the unlink fallback that `atomicWriteFile` carries.
+- **Space in the destination directory.** The same probe wrote `space\n`, then `space-two\n` at mode `0640` under `C:\users\htoz\dw dir with space\probe.json`; both read-backs were correct.
+- **Profile path with a space stays untested.** Wine rebuilds `USERPROFILE` from its own registry, so the override to `C:\users\htoz\Profile Space` never reached the Windows process and the install still landed under `C:\users\htoz`. A real `C:\Users\First Last` profile is exactly what a native receipt must cover.
+
 ## Not proven
 
 - `where`, `icacls`, `powershell`, `reg`, and `certutil` are absent from the Wine prefix, so no ACL argument was exercised. The installer printed `could not resolve the current user SID — apply the key directory ACL with icacls manually` and continued; the native run must show the resolved SID path instead.
 - Real NTFS ACLs, Defender or SmartScreen handling, long paths, case sensitivity, and file locking stay untested.
-- In-place upgrade and `--purge --yes` on Windows stay untested; only a clean install, verify, and uninstall ran.
+- In-place upgrade through the installer and `--purge --yes` on Windows stay untested; only a clean install, verify, and uninstall ran. The raw `durableWriteFile` overwrite path did pass in the probe above.
 - The native service and its SQLite database are not part of this lane and were not exercised.
 
 None of this closes acceptance item 20, which asks for a receipt from a real Windows machine.
