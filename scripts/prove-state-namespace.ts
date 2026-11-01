@@ -13,6 +13,7 @@ import {
   wrapWithHmac,
 } from "../src/utils/crypto.ts";
 import { legacyStateDir, legacyStatePath, scopedStatePath, STATE_DIR_NAME, stateDir, statePath, stateReadPath, v2DataRoot, v2NamespaceRoot } from "../src/utils/state-paths.ts";
+import { safeHomedir } from "../src/utils/path-resolver.ts";
 import { n2AutoLogPath } from "../src/hooks/n2-auto.ts";
 
 function fail(msg: string): never {
@@ -66,6 +67,25 @@ try {
   assert(n2AutoLogPath() === join(root, "custom-n2.jsonl"), "N2 log override wins");
   delete process.env.TAWASSUL_N2_LOG;
   delete process.env.XDG_DATA_HOME;
+
+  const savedHome = process.env.HOME;
+  const osHome = safeHomedir();
+  delete process.env.HOME;
+  assert(
+    v2DataRoot() === join(osHome, ".local", "share", STATE_DIR_NAME),
+    "data root falls back to the OS home when HOME is unset",
+  );
+  assert(
+    n2AutoLogPath() === join(osHome, ".local", "share", STATE_DIR_NAME, "n2-auto.jsonl"),
+    "N2 log follows the OS home fallback",
+  );
+  process.env.HOME = "/";
+  assert(
+    v2DataRoot() === join(osHome, ".local", "share", STATE_DIR_NAME),
+    "a root-only HOME falls back to the OS home",
+  );
+  if (savedHome === undefined) delete process.env.HOME;
+  else process.env.HOME = savedHome;
 
   mkdirSync(legacyStateDir(), { recursive: true });
   writeFileSync(legacyStatePath("seed.json"), "legacy-seed", "utf-8");

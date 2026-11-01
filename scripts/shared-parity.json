@@ -1430,7 +1430,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/utils/state-paths.ts",
-            "line": 104,
+            "line": 110,
             "marker": "legacyFallbackFor"
           },
           "proofs": [

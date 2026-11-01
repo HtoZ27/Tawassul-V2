@@ -26,8 +26,14 @@ export function stateDir(): string {
 export function v2DataRoot(): string {
   const xdg = process.env.XDG_DATA_HOME?.trim();
   if (xdg && isAbsolute(xdg)) return v2NamespaceRoot(xdg);
-  const home = process.env.HOME?.trim();
-  if (!home || home === "/") return "";
+  let home = process.env.HOME?.trim();
+  if (!home || home === "/") {
+    try {
+      home = safeHomedir();
+    } catch {
+      return "";
+    }
+  }
   return v2NamespaceRoot(resolve(home, ".local", "share"));
 }
 
