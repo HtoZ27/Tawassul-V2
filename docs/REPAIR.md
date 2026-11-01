@@ -23,8 +23,8 @@ were wrong in earlier planning are recorded with their correction.
 | Registered skills | 3, 285 description bytes in total | `skills/manifest.json`, `scripts/prove-skills-manifest.ts` |
 | Shipped commands | 1 (`tawassul-goals`) | `scripts/prove-pilot-eval.ts` |
 | i18n table | 42,754 bytes, bundle weight only | never injected into the model context |
-| Proof scripts | 154 files, 151 manifest steps | `scripts/generate-proof-count.ts --check` |
-| Full proof stage | 290,795 ms in one process; four balanced shards at about 80 s each | `scripts/proof-shards.json` |
+| Proof scripts | 156 files, 153 manifest steps | `scripts/generate-proof-count.ts --check` |
+| Full proof stage | 301,221 ms in one process; four balanced shards at about 83 s each | `scripts/proof-shards.json` |
 | Hot-tool retries | top-8 at the frozen zero | `scripts/prove-context-diet.ts` |
 | State root | `v2DataRoot()/projects/<key>/`, 14 `state:` keys migrated | `scripts/prove-state-root-rollback.ts`, 74 assertions |
 | Installer ledger | 12 files, bundle plus 4 wasm plus 5 db plus marker | `scripts/prove-global-install.ts`, 188 assertions |
@@ -41,7 +41,7 @@ refusal.
 | 0 — measurement floor | tool-run ranking, context baseline, read-time record dedupe, dispatch provider/model, generated name-set hash, generated proof count | `prove-tool-run-ranking`, `prove-context-baseline`, `prove-tool-name-hash`, `prove-record-digest-dedupe`, `prove-dispatch-model` | dated baselines under `docs/experiments/baselines/` |
 | 1a — pilot content | three skills and one command registered in-process, manifest, markdown gate, light eval | `prove-skills-manifest`, `prove-skill-registration`, `prove-md-gate`, `prove-pilot-eval` | `2026-10-31-e1.md`, `evals.json` |
 | 2 — gated context diet | 4,120 description bytes cut against a frozen 16,213-byte target, minimum-inline contract, hot-tool retry closure, live reload probe | `prove-context-diet`, `prove-constraint-retention`, `prove-reload-live` | `2026-11-01-wave2-context-diet.md`, `2026-11-01-wave2-retries.json` |
-| 3 — structural guards | host-identity state root, boot-time sync with backup, journal and conflict archive, rollback, worktree guard | `prove-state-root-survival` (44), `prove-state-root-rollback` (74) | `2026-11-01-wave3-state-root.md`, `docs/STATE-ROOT-DESIGN.md` |
+| 3 — structural guards | host-identity state root, boot-time sync with backup, journal and conflict archive, rollback, worktree guard, auto-capture opt-in, reachability audit | `prove-state-root-survival` (44), `prove-state-root-rollback` (74), `prove-snapshot-boundary` (8), `prove-reachability-audit` (13) | `2026-11-01-wave3-state-root.md`, `2026-11-01-wave3-closeout.md`, `docs/STATE-ROOT-DESIGN.md` |
 | 4 — behavioral gate | `gate:evals` with the D5 budget, dispatch payload join key, review-independence retro-probe, skill load-rate and discovery probes | `prove-review-independence-retro` (19), `prove-skill-load-rate` (27), `prove-skill-discovery` (32), `prove-gate-budget` (9); the eval stage is pinned by `prove-proof-catalog` | `2026-11-01-wave4-behavioral-gate.md`, `2026-11-01-e5-eval-budget.md` |
 
 ## 3. State-root decision and migration window

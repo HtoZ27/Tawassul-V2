@@ -1134,6 +1134,20 @@
         "bun",
         "scripts/prove-gate-budget.ts"
       ]
+    },
+    {
+      "name": "reachability-audit",
+      "cmd": [
+        "bun",
+        "scripts/prove-reachability-audit.ts"
+      ]
+    },
+    {
+      "name": "snapshot-boundary",
+      "cmd": [
+        "bun",
+        "scripts/prove-snapshot-boundary.ts"
+      ]
     }
   ],
   "smoke": [

@@ -158,7 +158,9 @@
     "prove:skill-load-rate": "bun scripts/prove-skill-load-rate.ts",
     "prove:skill-discovery": "bun scripts/prove-skill-discovery.ts",
     "gate:evals": "bun scripts/gate.ts evals",
-    "prove:gate-budget": "bun scripts/prove-gate-budget.ts"
+    "prove:gate-budget": "bun scripts/prove-gate-budget.ts",
+    "prove:reachability-audit": "bun scripts/prove-reachability-audit.ts",
+    "prove:snapshot-boundary": "bun scripts/prove-snapshot-boundary.ts"
   },
   "devDependencies": {
     "@opencode/plugin": "^2.2.1",
