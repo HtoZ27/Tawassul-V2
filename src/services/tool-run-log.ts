@@ -66,6 +66,10 @@ export class ToolRunLog {
   private readonly redactor: PrivacyGuard;
   private turnSeq = new Map<string, number>();
 
+  currentTurn(sessionId: string): number {
+    return this.turnSeq.get(sessionId) ?? 0;
+  }
+
   constructor(stateDir: string) {
     this.stateDir = stateDir;
     
@@ -152,6 +156,9 @@ export class ToolRunLog {
       input.input !== undefined ? this.redactor.redact(JSON.stringify(input.input)).redacted : undefined;
     const redactedError = input.error !== undefined ? this.redactor.redact(String(input.error)).redacted : undefined;
     const turn = input.turn || this.nextTurn(input.sessionId);
+    if (input.turn) {
+      this.turnSeq.set(input.sessionId, Math.max(this.turnSeq.get(input.sessionId) ?? 0, input.turn));
+    }
     const entry: ToolRunEntry = {
       id: `tr-${input.tool}-${input.argsHash}-${(input.timestamp ?? Date.now()).toString(36)}`,
       timestamp: input.timestamp ?? Date.now(),

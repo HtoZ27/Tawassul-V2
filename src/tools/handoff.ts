@@ -676,6 +676,7 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
       const agentModelMap = ctx.modelManager.agentModelMap;
       const implementer = resolveAgentModelRef(cctx.agent, agentModelMap);
       const reviewer = resolveAgentModelRef(args.to as string, agentModelMap);
+      const dispatchTurn = ctx.toolRunLog ? ctx.toolRunLog.currentTurn(cctx.sessionID) : undefined;
       const entry = {
         id: ctx.nextHandoffId(),
         from: normalizeName(cctx.agent),
@@ -690,6 +691,8 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
         decision: ruleDecision,
         implementer,
         reviewer,
+        sessionId: cctx.sessionID,
+        ...(dispatchTurn !== undefined ? { turn: dispatchTurn } : {}),
         ...(reroutedModel ? { reroutedModel } : {}),
       };
 
@@ -808,6 +811,8 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
             sourceRecordId: entry.id,
             implementer,
             reviewer: resolveAgentModelRef(agent, agentModelMap),
+            sessionId: cctx.sessionID,
+            ...(dispatchTurn !== undefined ? { turn: dispatchTurn } : {}),
           };
           ctx.handoffs.set(copy.id, copy as HandoffEntry);
         }

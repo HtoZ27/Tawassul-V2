@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "totalEstimateMs": 319143,
+  "totalEstimateMs": 321141,
   "shards": [
     {
       "name": "1",
-      "estimateMs": 77863,
+      "estimateMs": 78529,
       "steps": [
         "gen-lock",
         "web-ssrf",
@@ -38,12 +38,13 @@
         "context-bridge",
         "global-install",
         "record-digest-dedupe",
-        "skills-manifest"
+        "skills-manifest",
+        "review-independence-retro"
       ]
     },
     {
       "name": "2",
-      "estimateMs": 75747,
+      "estimateMs": 76413,
       "steps": [
         "gen-guard-wal",
         "first-boot",
@@ -81,12 +82,13 @@
         "db-scheduler",
         "dispatch-model",
         "skill-registration",
-        "reload-live"
+        "reload-live",
+        "skill-load-rate"
       ]
     },
     {
       "name": "3",
-      "estimateMs": 79396,
+      "estimateMs": 80062,
       "steps": [
         "event-trust",
         "s017",
@@ -125,7 +127,8 @@
         "tool-run-ranking",
         "md-gate",
         "context-diet",
-        "state-root-survival"
+        "state-root-survival",
+        "skill-discovery"
       ]
     },
     {

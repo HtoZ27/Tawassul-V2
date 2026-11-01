@@ -153,7 +153,10 @@
     "prove:model-switch": "bun scripts/prove-model-switch.ts",
     "prove:context-diet": "bun scripts/prove-context-diet.ts",
     "prove:constraint-retention": "bun scripts/prove-constraint-retention.ts",
-    "prove:reload-live": "bun scripts/prove-reload-live.ts"
+    "prove:reload-live": "bun scripts/prove-reload-live.ts",
+    "prove:review-independence-retro": "bun scripts/prove-review-independence-retro.ts",
+    "prove:skill-load-rate": "bun scripts/prove-skill-load-rate.ts",
+    "prove:skill-discovery": "bun scripts/prove-skill-discovery.ts"
   },
   "devDependencies": {
     "@opencode/plugin": "^2.2.1",

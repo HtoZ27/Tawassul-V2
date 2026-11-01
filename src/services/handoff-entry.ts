@@ -16,6 +16,8 @@ export interface CreateHandoffEntryParams {
   sourceDiscussionId?: string;
   implementer?: AgentModelRef;
   reviewer?: AgentModelRef;
+  sessionId?: string;
+  turn?: number;
 }
 
 export function createHandoffEntry(params: CreateHandoffEntryParams): HandoffEntry {
@@ -32,5 +34,7 @@ export function createHandoffEntry(params: CreateHandoffEntryParams): HandoffEnt
     ...(params.sourceDiscussionId !== undefined ? { sourceDiscussionId: params.sourceDiscussionId } : {}),
     ...(params.implementer !== undefined ? { implementer: params.implementer } : {}),
     ...(params.reviewer !== undefined ? { reviewer: params.reviewer } : {}),
+    ...(params.sessionId !== undefined ? { sessionId: params.sessionId } : {}),
+    ...(params.turn !== undefined ? { turn: params.turn } : {}),
   };
 }

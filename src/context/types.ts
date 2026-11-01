@@ -58,6 +58,8 @@ export type HandoffEntry = {
   credentialScope?: "inherit" | "isolated";
   implementer?: AgentModelRef;
   reviewer?: AgentModelRef;
+  sessionId?: string;
+  turn?: number;
   
   acceptanceCriteria?: string[];
   acknowledgedBy?: string;

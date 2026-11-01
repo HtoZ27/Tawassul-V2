@@ -1106,6 +1106,27 @@
         "bun",
         "scripts/prove-state-root-rollback.ts"
       ]
+    },
+    {
+      "name": "review-independence-retro",
+      "cmd": [
+        "bun",
+        "scripts/prove-review-independence-retro.ts"
+      ]
+    },
+    {
+      "name": "skill-load-rate",
+      "cmd": [
+        "bun",
+        "scripts/prove-skill-load-rate.ts"
+      ]
+    },
+    {
+      "name": "skill-discovery",
+      "cmd": [
+        "bun",
+        "scripts/prove-skill-discovery.ts"
+      ]
     }
   ],
   "smoke": [
