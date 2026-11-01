@@ -87,6 +87,8 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
       const legacyRouterFile = statePath("predictive-router.json");
       const flushes = pendingFlushes();
       const failover = failoverSummary();
+      const maintenance =
+        process.platform === "win32" ? "unavailable" : process.platform === "darwin" ? "manual" : "automatic";
       return {
         title: "Health",
         output: [
@@ -94,6 +96,8 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
           `- Event-loop lag: ${lagMs}ms`,
           `- RSS: ${rss} MiB`,
           `- Active timers: ${activeTimers}`,
+          `- Platform: ${process.platform}`,
+          `- Maintenance: ${maintenance}`,
           `- Model failover: ${failover.switches} switch(es), ${failover.claimed} live claim(s), ${failover.sessions} tracked session(s)`,
           `- DB path (${dbSource}): ${dbPath}`,
           `- DB lane: ${dbLane}`,

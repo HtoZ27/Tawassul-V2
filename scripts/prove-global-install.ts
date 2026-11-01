@@ -22,6 +22,12 @@ import {
   isCoexistenceOwner,
   releaseCoexistence,
 } from "../src/core/install-scope.ts";
+import {
+  dependencyProbeCommand,
+  installLane,
+  usesPosixDatabaseLane,
+  windowsKeyAclArgv,
+} from "../src/core/install-lane.ts";
 
 function fail(msg: string): never {
   console.error(`PROOF FAIL: ${msg}`);
@@ -159,6 +165,19 @@ function runInstalledMaintenance(args: string[]): { code: number; out: string } 
 }
 
 try {
+  assert(installLane("win32") === "windows", "win32 resolves to the windows lane");
+  assert(installLane("darwin") === "macos", "darwin resolves to the macos lane");
+  assert(installLane("linux") === "linux", "linux resolves to the linux lane");
+  assert(dependencyProbeCommand("win32") === "where", "Windows probes dependencies with where");
+  assert(dependencyProbeCommand("linux") === "which", "POSIX probes dependencies with which");
+  assert(!usesPosixDatabaseLane("windows"), "the windows lane stages no POSIX database payload");
+  assert(usesPosixDatabaseLane("linux"), "the linux lane stages the database payload");
+  const acl = windowsKeyAclArgv("C:\\Users\\tawassul\\.config\\tawassul-v2", "*S-1-5-21-1");
+  assert(acl[0] === "icacls", "the windows key ACL starts with icacls");
+  assert(acl.includes("/inheritance:r"), "the windows key ACL removes inherited entries");
+  assert(acl.includes("*S-1-5-21-1:(OI)(CI)F"), "the windows key ACL grants the current user");
+  assert(acl.includes("*S-1-5-18:(OI)(CI)F"), "the windows key ACL keeps SYSTEM access");
+  assert(acl.includes("*S-1-5-32-544:(OI)(CI)F"), "the windows key ACL keeps Administrators access");
   const build = spawnSync("npm", ["run", "build"], { cwd: REPO, encoding: "utf-8", timeout: 300_000 });
   assert(build.status === 0, "the bundle builds before the install trials");
   const help = run(["--help"]);

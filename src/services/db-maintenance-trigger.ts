@@ -144,6 +144,10 @@ function attemptRun(projectDir: string, why: string): void {
 }
 
 export function armDbMaintenanceTrigger(projectDir: string): void {
+  if (process.platform === "win32") {
+    logger.debug("[tawassul] db maintenance is unavailable on Windows");
+    return;
+  }
   try {
     attemptRun(projectDir, "boot");
     const timer = setInterval(() => attemptRun(projectDir, "interval"), RUN_INTERVAL_MS);

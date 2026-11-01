@@ -14,6 +14,12 @@ import { homedir } from "node:os";
 import { dirname, delimiter, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { sourceDigest } from "./source-digest.ts";
+import {
+  dependencyProbeCommand,
+  installLane,
+  usesPosixDatabaseLane,
+  windowsKeyAclArgv,
+} from "../src/core/install-lane.ts";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 const GLOBAL_BUNDLE = join(REPO, "dist", "global.js");
@@ -501,6 +507,7 @@ function writeAtomic(file: string, data: string | Buffer, mode = 0o600): void {
 
 function dbRecords(): Record<string, AssetRecord> {
   const records: Record<string, AssetRecord> = {};
+  if (!usesPosixDatabaseLane(installLane(process.platform))) return records;
   for (const item of DB_SHIP) {
     const bytes = readFileSync(dbShipSource(item));
     records[item.id] = {
@@ -514,7 +521,7 @@ function dbRecords(): Record<string, AssetRecord> {
 
 function depPresent(bin: string): boolean {
   try {
-    execFileSync("which", [bin], { stdio: "pipe" });
+    execFileSync(dependencyProbeCommand(process.platform), [bin], { stdio: "pipe" });
     return true;
   } catch {
     return false;
@@ -537,9 +544,14 @@ function preflightMarks(): Record<string, string> {
 }
 
 function preflightLaptop(): void {
+  const lane = installLane(process.platform);
+  if (lane === "windows") {
+    console.log("install-global: Windows preflight — native lane, database maintenance and triggers unavailable");
+    console.log("install-global: the key directory ACL is restricted with icacls; no POSIX mode is claimed");
+    return;
+  }
   const marks = preflightMarks();
-  const platform = process.platform;
-  if (platform === "darwin") {
+  if (lane === "macos") {
     console.log("install-global: macOS preflight — manual lane, no automation claim (P4 pending)");
     for (const [bin, state] of Object.entries(marks)) {
       console.log(`  ${bin}: ${state}`);
@@ -828,7 +840,7 @@ function writeMarker(
     },
     wasm,
     db,
-    preflight: preflightMarks(),
+    preflight: usesPosixDatabaseLane(installLane(process.platform)) ? preflightMarks() : {},
     trigger,
     installedAt: new Date().toISOString(),
   };
@@ -858,10 +870,9 @@ function upToDate(
     const installed = fromMarker(record.path);
     if (!existsSync(installed) || hash(readFileSync(installed)) !== record.sha256) return false;
   }
-  for (const item of DB_SHIP) {
-    const record = marker.db?.[item.id];
-    const want = db[item.id];
-    if (!record || !want || record.sha256 !== want.sha256 || record.path !== want.path) return false;
+  for (const [id, want] of Object.entries(db)) {
+    const record = marker.db?.[id];
+    if (!record || record.sha256 !== want.sha256 || record.path !== want.path) return false;
     const installed = fromMarker(record.path);
     if (!existsSync(installed) || hash(readFileSync(installed)) !== record.sha256) return false;
     if (!(statSync(installed).mode & 0o100)) return false;
@@ -869,7 +880,44 @@ function upToDate(
   return true;
 }
 
+function currentUserIdentity(): string | undefined {
+  try {
+    const result = spawnSync("whoami", ["/user", "/fo", "csv", "/nh"], { encoding: "utf-8", timeout: 15_000 });
+    if (result.status !== 0) return undefined;
+    const match = result.stdout.match(/"([^"]+)","(S-1-[0-9-]+)"/);
+    return match?.[2] ? `*${match[2]}` : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function secureWindowsKeyDir(): void {
+  const dir = join(configBase(), "tawassul-v2");
+  const identity = currentUserIdentity();
+  if (!identity) {
+    console.warn("install-global: could not resolve the current user SID — apply the key directory ACL with icacls manually");
+    return;
+  }
+  try {
+    mkdirSync(dir, { recursive: true });
+  } catch (e) {
+    console.warn(`install-global: cannot create the key directory ${dir}: ${(e as Error)?.message ?? e}`);
+    return;
+  }
+  const argv = windowsKeyAclArgv(dir, identity);
+  const cmd = argv[0] ?? "icacls";
+  const result = spawnSync(cmd, argv.slice(1), { encoding: "utf-8", timeout: 30_000 });
+  if (result.status !== 0) {
+    const detail = (result.stderr ?? "").trim() || `exit ${result.status ?? "unknown"}`;
+    console.warn(`install-global: icacls failed for ${dir}: ${detail}`);
+    return;
+  }
+  console.log(`install-global: restricted the key directory ACL to the current user (${dir})`);
+}
+
 function install(): void {
+  const lane = installLane(process.platform);
+  const posixDb = usesPosixDatabaseLane(lane);
   const host = checkHosts();
   const artifacts = v1Artifacts();
   if (artifacts.length > 0) {
@@ -897,7 +945,11 @@ function install(): void {
       `install-global: dry run — would write ${TARGET} (${bundle.bytes.length} bytes, ${bundle.sha.slice(0, 12)})`,
     );
     console.log(`install-global: dry run — would write ${assets.length} wasm assets under ${WASM_DIR}`);
-    console.log(`install-global: dry run — would write ${DB_SHIP.length} db scripts under ${DB_DIR}`);
+    if (posixDb) {
+      console.log(`install-global: dry run — would write ${DB_SHIP.length} db scripts under ${DB_DIR}`);
+    } else {
+      console.log("install-global: dry run — Windows lane stages no db scripts");
+    }
     if (staleWasm.length > 0) {
       console.log(`install-global: dry run — would remove ${staleWasm.length} stale wasm file(s) under ${WASM_DIR}`);
     }
@@ -918,7 +970,7 @@ function install(): void {
   try {
     mkdirSync(PLUGIN_DIR, { recursive: true, mode: 0o700 });
     mkdirSync(RUNTIME, { recursive: true, mode: 0o700 });
-    mkdirSync(DB_DIR, { recursive: true, mode: 0o700 });
+    if (posixDb) mkdirSync(DB_DIR, { recursive: true, mode: 0o700 });
   } catch (e) {
     const code = (e as NodeJS.ErrnoException)?.code ?? "unknown";
     fail(
@@ -937,14 +989,21 @@ function install(): void {
     mkdirSync(dirname(asset.dest), { recursive: true, mode: 0o700 });
     writeAtomic(asset.dest, readFileSync(asset.source));
   }
-  for (const item of DB_SHIP) {
-    writeAtomic(join(DB_DIR, item.file), readFileSync(dbShipSource(item)), 0o700);
+  if (posixDb) {
+    for (const item of DB_SHIP) {
+      writeAtomic(join(DB_DIR, item.file), readFileSync(dbShipSource(item)), 0o700);
+    }
   }
   preflightLaptop();
-  const dbPath = resolveDbPath();
-  const trigger = registerTriggers(dbPath);
-  writeMarker(bundle.sha, wasm, db, bundle.sourceSha, bundle.contentSha, host.version, trigger);
-  dbSmoke(dbPath);
+  if (posixDb) {
+    const dbPath = resolveDbPath();
+    const trigger = registerTriggers(dbPath);
+    writeMarker(bundle.sha, wasm, db, bundle.sourceSha, bundle.contentSha, host.version, trigger);
+    dbSmoke(dbPath);
+  } else {
+    secureWindowsKeyDir();
+    writeMarker(bundle.sha, wasm, db, bundle.sourceSha, bundle.contentSha, host.version, "none");
+  }
   console.log(
     `install-global: installed ${TARGET} (v${REPO_PACKAGE.version ?? "0.0.0"}, ${bundle.sha.slice(0, 12)})`,
   );
@@ -1177,23 +1236,25 @@ async function verify(): Promise<void> {
       fail(`wasm hash mismatch for ${asset.id}: run npm run install:global`);
     }
   }
-  if (!marker.db || Object.keys(marker.db).length !== DB_SHIP.length) {
-    fail(`marker has no db payload — reinstall (npm run install:global) to stage tawassul-runtime/db`);
-  }
-  for (const item of DB_SHIP) {
-    const record = marker.db?.[item.id];
-    if (!record) fail(`marker has no db record for ${item.id}`);
-    const file = fromMarker(record.path);
-    if (!existsSync(file)) fail(`missing db script: ${file}`);
-    const bytes = readFileSync(file);
-    if (bytes.length !== record.bytes) {
-      fail(`db size mismatch for ${item.id}: ${bytes.length} vs ${record.bytes}`);
+  if (usesPosixDatabaseLane(installLane(process.platform))) {
+    if (!marker.db || Object.keys(marker.db).length !== DB_SHIP.length) {
+      fail(`marker has no db payload — reinstall (npm run install:global) to stage tawassul-runtime/db`);
     }
-    if (hash(bytes) !== record.sha256) {
-      fail(`db hash mismatch for ${item.id}: run npm run install:global`);
-    }
-    if (!(statSync(file).mode & 0o100)) {
-      fail(`db script lost its exec bit: ${file} — run npm run install:global`);
+    for (const item of DB_SHIP) {
+      const record = marker.db?.[item.id];
+      if (!record) fail(`marker has no db record for ${item.id}`);
+      const file = fromMarker(record.path);
+      if (!existsSync(file)) fail(`missing db script: ${file}`);
+      const bytes = readFileSync(file);
+      if (bytes.length !== record.bytes) {
+        fail(`db size mismatch for ${item.id}: ${bytes.length} vs ${record.bytes}`);
+      }
+      if (hash(bytes) !== record.sha256) {
+        fail(`db hash mismatch for ${item.id}: run npm run install:global`);
+      }
+      if (!(statSync(file).mode & 0o100)) {
+        fail(`db script lost its exec bit: ${file} — run npm run install:global`);
+      }
     }
   }
   refuseLegacyPackage();
