@@ -35,7 +35,7 @@ import {
   speculativeDispatchGuard,
   cognitiveBlockerGuard,
 } from "./guards/resource-guards.ts";
-import { skillGateGuard, setSkillGateEnabled } from "./guards/skill-gate-guard.ts";
+
 import { consentGateGuard, setConsentGateEnabled } from "./guards/consent-gate-guard.ts";
 import { requiresConsent } from "./guards/shared/limits.ts";
 import { cacheSafeGuard } from "./guards/cache-safe-guard.ts";
@@ -157,7 +157,7 @@ export {
   getTaskAgents,
   proxyAgentRoutingStage,
 };
-export { setSkillGateEnabled, setConsentGateEnabled };
+export { setConsentGateEnabled };
 
 let _memoryLogCounter = 0;
 export const incrementMemoryLogCounter = () => ++_memoryLogCounter;
@@ -189,7 +189,6 @@ const ESSENTIAL_STAGES = [
   combinedStage("enforcement-checks", [securityPolicyGuard, tawaRoutingEnforcementGuard, speculativeDispatchGuard, rosterBoundaryDeleteGuard]),
   combinedStage("agent-guards", [deletedAgentGuard, circuitBreakerGuard]),
   consentGateGuard,
-  skillGateGuard,
   combinedStage("rate-checks", [budgetGuard, rateLimitGuard]),
 ];
 

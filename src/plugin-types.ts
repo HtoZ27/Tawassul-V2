@@ -1,4 +1,5 @@
 import type { ToolDefinition } from "./tool.ts";
+import type { ProjectIdentity } from "./utils/project-identity.ts";
 
 export const INIT_READY = Symbol.for("tawassul.v2.initReady");
 
@@ -12,6 +13,9 @@ export type PluginInput = {
   worktree: string;
   serverUrl?: string;
   hostVersion?: string;
+  persistDir?: string;
+  projectRoot?: string;
+  projectIdentity?: ProjectIdentity;
 };
 
 export interface DynamicAgentModel {

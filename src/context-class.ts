@@ -116,6 +116,8 @@ export class TawassulContext implements TawaOrchestratorContext {
     return `H-${String(this.hoffSeq).padStart(3, "0")}`;
   }
   stateDir: string;
+  persistDir: string;
+  projectRoot?: string;
   
   scope: import("./utils/path-resolver.ts").InstallScope;
   sessionManager: SessionManager;
@@ -412,21 +414,23 @@ export class TawassulContext implements TawaOrchestratorContext {
     return this.lifecycleManager.saveTimeout;
   }
 
-  constructor(directory: string) {
+  constructor(directory: string, persistDir?: string, projectRoot?: string) {
     mark("context:ctor:start");
     this.state = new TawassulState();
     this.stateDir = directory;
+    this.persistDir = persistDir?.trim() || directory;
+    this.projectRoot = projectRoot?.trim() || undefined;
     this.scope = detectInstallScope(import.meta.url);
     this.metricsCollector = new MetricsCollector(
-      resolve(resolveRuntimeStateDir(directory, this.scope), "metrics.json"),
+      resolve(resolveRuntimeStateDir(this.persistDir, this.scope), "metrics.json"),
     );
-    this.sessionManager = new SessionManager(directory);
+    this.sessionManager = new SessionManager(this.persistDir);
     logger.debug(`Session started: ${this.sessionManager.getSessionId()}`);
     this.configManager = new ConfigManager(directory, (n, f) => this.safeConfigPath(n, f), this.scope);
     this.eventHub = new EventHub(this.timerManager, this.metricsCollector); 
     this._agentManager = new AgentManager(this.stateDir, this.timerManager, this.scope);
     this._modelManager = new ModelManager(this.stateDir, (n, f) => this.safeConfigPath(n, f), this.timerManager);
-    this._stateManager = new StateManager(this.stateDir, () => this.statePath());
+    this._stateManager = new StateManager(this.persistDir, () => this.statePath());
     this._lifecycleManager = new LifecycleManager(this);
     this._commandRouter = new CommandRouter(this);
     this.registerEventHubListener("CRITICAL_ERROR", (d) => logger.error("[Tawassul] Critical:", d));
@@ -517,6 +521,9 @@ export class TawassulContext implements TawaOrchestratorContext {
 
   statePath(): string {
     return StateFacade.statePath(this);
+  }
+  stateSafeConfigPath(name: string | undefined, fallback: string): string {
+    return ConfigFacade.configStateSafePath(this, name, fallback);
   }
   strictness(): Strictness {
     return AgentFacade.agentStrictness(this);

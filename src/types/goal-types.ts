@@ -41,6 +41,7 @@ export interface Goal {
   title: string;
   detail: string;
   status: GoalStatus;
+  closedAs?: GoalStatus;
   
   progressPct: number;
   owner: string;

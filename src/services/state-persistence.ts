@@ -656,7 +656,7 @@ export class StatePersistence {
 
   async saveState(): Promise<void> {
     if (this.disposing) return;
-    if (!this.ctx.stateDir) return;
+    if (!this.ctx.persistDir) return;
     this.markDirty();
     await this.persistThrough(this.dirtyGeneration);
   }
@@ -805,7 +805,7 @@ export class StatePersistence {
   
   async doSave(type?: string): Promise<void> {
     if (this.disposing) return;
-    if (!this.ctx.stateDir) return;
+    if (!this.ctx.persistDir) return;
     
     
     
@@ -814,7 +814,7 @@ export class StatePersistence {
     
     
     const verdict = await getSaveIsolationVerdict(
-      this.ctx.stateDir,
+      this.ctx.persistDir,
       typeof this.ctx.statePath === "function" ? () => this.ctx.statePath() : undefined,
     );
     if (verdict !== null) {
@@ -856,7 +856,7 @@ export class StatePersistence {
         this._saveCompletionResolve = resolve;
       });
       this.ctx.eventHub.emit({ type: "STATE_SAVING", payload: { type } });
-      if (!this.ctx.stateDir) return;
+      if (!this.ctx.persistDir) return;
 
       try {
         this.ctx.sharedMemory.compact();
@@ -930,7 +930,7 @@ export class StatePersistence {
             }
           }
           this.rebaseRollback = undefined; 
-          await saveFeatureIndex(this.ctx.stateDir, this.ctx.featureIndex.toJSON());
+          await saveFeatureIndex(this.ctx.persistDir, this.ctx.featureIndex.toJSON());
           
           if (this.ctx.toolRunLog) {
             try {
@@ -959,7 +959,7 @@ export class StatePersistence {
               
               const purged = this.ctx.vectorRetrieval.syncFromLive(docs);
               if (purged > 0) logger.debug(`[vector] ALG-037 purged ${purged} stale/redacted index entries`);
-              await this.ctx.vectorRetrieval.save?.(this.ctx.stateDir);
+              await this.ctx.vectorRetrieval.save?.(this.ctx.persistDir);
             } catch (e) {
               logger.warn("vector-index save failed:", e);
             }
@@ -967,7 +967,7 @@ export class StatePersistence {
           
           if (this.ctx.backgroundNotifier) {
             try {
-              await this.ctx.backgroundNotifier.save(this.ctx.stateDir);
+              await this.ctx.backgroundNotifier.save(this.ctx.persistDir);
             } catch (e) {
               logger.warn("activity-metrics save failed:", e);
             }

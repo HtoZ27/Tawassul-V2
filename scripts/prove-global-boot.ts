@@ -13,6 +13,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { TOOL_COUNT, TOOL_NAME_SET_HASH } from "../src/generated/tool-tripwire.ts";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 const PROJECT_ENTRY = join(REPO, ".opencode", "plugin", "tawassul.js");
@@ -20,6 +21,8 @@ const INSTALLER = join(REPO, "scripts", "install-global.ts");
 const MODEL = process.env.TAWASSUL_SMOKE_MODEL ?? "opencode/big-pickle";
 const BOOT_TIMEOUT = Number(process.env.TAWASSUL_SMOKE_TIMEOUT ?? 90);
 const PROVIDER_REFUSAL = /provider\.[a-z-]+|FreeUsageLimitError|"status": *429|Free usage limit/i;
+const BOOT_MARKER = `v2 registered ${TOOL_COUNT} tools name-set ${TOOL_NAME_SET_HASH}`;
+const BOOT_MARKER_RE = new RegExp(BOOT_MARKER);
 
 let passed = 0;
 let HOST_BIN = "";
@@ -221,8 +224,8 @@ try {
   assert(globalBoot.code === 0 || refusal(globalBoot), `the global bundle boots the host (rc=${globalBoot.code})`);
   const loadLine = firstSince(hostLog, new RegExp(`loading plugin.*${escapeRegExp(globalTarget)}`), beforeGlobal);
   assert(loadLine.length > 0, "the host log records loading the global plugin file");
-  const registered = firstSince(globalEnv.TAWASSUL_LOG_FILE as string, /v2 registered 44 tools/, beforeGlobal);
-  assert(registered.length > 0, "the global bundle registers 44 tools");
+  const registered = firstSince(globalEnv.TAWASSUL_LOG_FILE as string, BOOT_MARKER_RE, beforeGlobal);
+  assert(registered.length > 0, `the global bundle registers ${TOOL_COUNT} tools`);
   const initLine = firstSince(globalEnv.TAWASSUL_LOG_FILE as string, /initPlugin=/, beforeGlobal);
   const initMs = initLine.match(/initPlugin=([\d.]+)ms/);
   assert(initMs !== null, `the global boot records initPlugin (${initMs?.[1] ?? "?"} ms)`);
@@ -264,8 +267,8 @@ try {
   assert(delegate.length > 0, "the global copy delegates to the project copy in the coexistence boot");
   assert(delegate.includes(coexistEntry), "the delegation names the project entry path");
   assert(
-    countSince(globalEnv.TAWASSUL_LOG_FILE as string, /v2 registered 44 tools/, beforeCoexist) > 0,
-    "the coexistence boot registers 44 tools after delegation",
+    countSince(globalEnv.TAWASSUL_LOG_FILE as string, BOOT_MARKER_RE, beforeCoexist) > 0,
+    `the coexistence boot registers ${TOOL_COUNT} tools after delegation`,
   );
   assert(
     countSince(hostLog, /failed to load plugin/i, beforeCoexist) === 0,
@@ -289,8 +292,8 @@ try {
   );
   const projectLoad = firstSince(projectHostLog, new RegExp(`loading plugin.*${escapeRegExp(projectEntry)}`), beforeProject);
   assert(projectLoad.length > 0, "the project-only boot loads the project plugin file");
-  const projectRegistered = firstSince(projectEnv.TAWASSUL_LOG_FILE as string, /v2 registered 44 tools/, beforeProject);
-  assert(projectRegistered.length > 0, "the project bundle registers 44 tools");
+  const projectRegistered = firstSince(projectEnv.TAWASSUL_LOG_FILE as string, BOOT_MARKER_RE, beforeProject);
+  assert(projectRegistered.length > 0, `the project bundle registers ${TOOL_COUNT} tools`);
   const projectSpan = lineTime(projectRegistered) - lineTime(projectLoad);
   console.log(`INFO  project bundle boot: load->registered ${Math.max(projectSpan, 0)} ms`);
   assert(projectSpan >= 0, "the project load-to-registered span is measurable");
@@ -310,7 +313,9 @@ function directToolProbe(): string {
     "const mod = await import(process.env.SMOKE_ENTRY);",
     "const hooks = await mod.tawassul.server({ client: {}, directory: process.env.SMOKE_DIR, worktree: process.env.SMOKE_DIR });",
     "const names = Object.keys(hooks.tool ?? {});",
-    'if (names.length !== 44) { console.error("tools=" + names.length); process.exit(4); }',
+    'const { createHash } = await import("node:crypto");',
+    'const actualHash = createHash("sha256").update([...names].sort().join("\\n")).digest("hex");',
+    `if (names.length !== ${TOOL_COUNT} || actualHash !== "${TOOL_NAME_SET_HASH}") { console.error("tools=" + names.length + " hash=" + actualHash); process.exit(4); }`,
     "const health = await hooks.tool.health.execute({}, {});",
     'const healthOut = String(health && typeof health === "object" && "output" in health ? health.output : health);',
     'if (!healthOut.includes("Event-loop lag") || !healthOut.includes("RSS")) process.exit(4);',

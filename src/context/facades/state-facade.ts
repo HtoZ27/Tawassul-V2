@@ -36,5 +36,5 @@ export async function stateDestroy(ctx: TawassulContext): Promise<void> {
 }
 
 export function statePath(ctx: TawassulContext): string {
-  return ctx.safeConfigPath(ctx.configManager.config.stateFile, STATE_FILE_DEFAULT);
+  return ctx.stateSafeConfigPath(ctx.configManager.config.stateFile, STATE_FILE_DEFAULT);
 }

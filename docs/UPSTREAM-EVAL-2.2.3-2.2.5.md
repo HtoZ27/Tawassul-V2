@@ -10,7 +10,7 @@ audited host `2.2.1`, last live E2E host `2.2.2`.
 ## Verdict
 
 No blocking incompatibility was found. The 2.2.5 host boots the plugin,
-registers all 43 tools, answers a model turn, and executes direct tools in an
+registers all 43 tools (the pre-task_control count; the current set is pinned by the generated tripwire), answers a model turn, and executes direct tools in an
 isolated workspace. The SDK `promise/tool.d.ts` surface is unchanged between
 2.2.1 and 2.2.5; the other Promise type changes are additive.
 
@@ -23,7 +23,8 @@ open and are listed below.
 
 - Isolated smoke on 2.2.5:
   `SMOKE PASS: host v2.2.5, scratch boot, 43 tools, model reply, health + help`.
-  The same script uses a scratch HOME, scratch XDG roots, a scratch database,
+  The 43-tool count is the pre-task_control value; the current set is pinned by
+  the generated tripwire. The same script uses a scratch HOME, scratch XDG roots, a scratch database,
   and the built bundle; the live host and global install were untouched.
 - SDK 2.2.1 vs 2.2.5 Promise declarations:
   `promise/tool.d.ts` and `promise/registration.d.ts` are byte-identical.

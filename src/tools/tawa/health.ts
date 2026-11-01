@@ -83,7 +83,7 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
       const mainBytes = existsSync(dbPath) ? statSync(dbPath).size : null;
       const walBytes = existsSync(`${dbPath}-wal`) ? statSync(`${dbPath}-wal`).size : null;
       const sizeText = mainBytes === null ? "absent" : `main ${mainBytes} / WAL ${walBytes ?? 0}`;
-      const routerFile = scopedStatePath(ctx.stateDir, ctx.scope, "predictive-router.json");
+      const routerFile = scopedStatePath(ctx.persistDir, ctx.scope, "predictive-router.json");
       const legacyRouterFile = statePath("predictive-router.json");
       const flushes = pendingFlushes();
       const failover = failoverSummary();
@@ -100,7 +100,8 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
           `- DB isolated: ${dbIsolated ? "yes" : "no"}`,
           `- DB size: ${sizeText}`,
           `- Scope: ${ctx.scope}`,
-          `- State dir: ${ctx.stateDir}`,
+          `- State dir: ${ctx.persistDir}`,
+          `- Workspace: ${ctx.stateDir}`,
           `- State file: ${ctx.statePath()}`,
           `- Router file: ${routerFile} (${existsSync(routerFile) ? "exists" : "missing"})`,
           `- Router legacy: ${legacyRouterFile} (${existsSync(legacyRouterFile) ? "exists" : "missing"})`,

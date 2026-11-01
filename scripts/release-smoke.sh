@@ -23,6 +23,10 @@ while [ $# -gt 0 ]; do
 done
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
+TRIPWIRE_FILE="$REPO/scripts/tool-tripwire.json"
+[ -f "$TRIPWIRE_FILE" ] || { echo "release-smoke: tripwire file missing at $TRIPWIRE_FILE (run bun scripts/generate-tool-tripwire.ts)." >&2; exit 3; }
+read -r TOOL_COUNT TOOL_HASH TOOL_FLOOR <<< "$(TRIPWIRE_FILE="$TRIPWIRE_FILE" bun -e 'const t = require(process.env.TRIPWIRE_FILE); console.log(`${t.count} ${t.hash} ${t.floor}`)')"
+[ -n "$TOOL_COUNT" ] && [ -n "$TOOL_HASH" ] && [ -n "$TOOL_FLOOR" ] || { echo "release-smoke: cannot read $TRIPWIRE_FILE." >&2; exit 3; }
 PIN="${TAWASSUL_OPENCODE_VERSION:-}"
 MIN_VERSION="2.2.0"
 AUDITED_VERSION="2.2.1"
@@ -121,7 +125,7 @@ BOOT_RC=$?
 PLUGIN_BOOT=0
 MODEL_REPLY=0
 DEGRADED=""
-if grep -q 'initPlugin=' "$WORK/tawassul.log" 2>/dev/null && grep -q 'v2 registered 44 tools' "$WORK/tawassul.log" 2>/dev/null; then
+if grep -q 'initPlugin=' "$WORK/tawassul.log" 2>/dev/null && grep -qF "v2 registered ${TOOL_COUNT} tools name-set ${TOOL_HASH}" "$WORK/tawassul.log" 2>/dev/null; then
   PLUGIN_BOOT=1
 fi
 if [ "$BOOT_RC" -ne 0 ]; then
@@ -143,7 +147,7 @@ if [ "$BOOT_RC" -ne 0 ]; then
   fi
 fi
 if [ "$PLUGIN_BOOT" != "1" ]; then
-  echo "release-smoke: plugin boot markers missing (initPlugin or 44 tools)." >&2
+  echo "release-smoke: plugin boot markers missing (initPlugin or ${TOOL_COUNT} tools with name-set ${TOOL_HASH:0:12})." >&2
   KEEP=1
   exit 3
 fi
@@ -168,14 +172,20 @@ if [ -f "$WORK/run.err" ] && grep -qE "$TAW_WARN_RE" "$WORK/run.err"; then
   exit 3
 fi
 
-SMOKE_ENTRY="$WORK/.opencode/plugin/tawassul.js" SMOKE_DIR="$WORK" bun -e '
+SMOKE_ENTRY="$WORK/.opencode/plugin/tawassul.js" SMOKE_DIR="$WORK" SMOKE_COUNT="$TOOL_COUNT" SMOKE_HASH="$TOOL_HASH" SMOKE_FLOOR="$TOOL_FLOOR" bun -e '
 const entry = process.env.SMOKE_ENTRY;
 const dir = process.env.SMOKE_DIR;
 const mod = await import(entry);
 const hooks = await mod.tawassul.server({ client: {}, directory: dir, worktree: dir });
 const names = Object.keys(hooks.tool ?? {});
-if (names.length !== 44) {
-  console.error(`release-smoke: expected 44 tools, found ${names.length}`);
+const { createHash } = await import("node:crypto");
+const actualHash = createHash("sha256").update([...names].sort().join("\n")).digest("hex");
+if (names.length !== Number(process.env.SMOKE_COUNT) || actualHash !== process.env.SMOKE_HASH) {
+  console.error(`release-smoke: expected ${process.env.SMOKE_COUNT} tools with name-set ${process.env.SMOKE_HASH}, found ${names.length} with ${actualHash}`);
+  process.exit(4);
+}
+if (names.length < Number(process.env.SMOKE_FLOOR)) {
+  console.error(`release-smoke: tool surface ${names.length} is below the floor ${process.env.SMOKE_FLOOR}`);
   process.exit(4);
 }
 const health = await hooks.tool.health.execute({}, {});
@@ -190,11 +200,11 @@ if (!helpOut.includes("Available tools")) {
   console.error("release-smoke: help tool output is not the expected catalog");
   process.exit(4);
 }
-console.log("release-smoke: direct tools OK (44 registered, health + help executed)");
+console.log(`release-smoke: direct tools OK (${process.env.SMOKE_COUNT} registered, health + help executed)`);
 ' || { KEEP=1; exit 4; }
 
 if [ "$MODEL_REPLY" = "1" ]; then
-  echo "SMOKE PASS: host v$ACTUAL, scratch boot, 44 tools, model reply, health + help"
+  echo "SMOKE PASS: host v$ACTUAL, scratch boot, ${TOOL_COUNT} tools, model reply, health + help"
 else
-  echo "SMOKE PASS (no model reply — $DEGRADED): host v$ACTUAL, scratch boot, 44 tools, health + help"
+  echo "SMOKE PASS (no model reply — $DEGRADED): host v$ACTUAL, scratch boot, ${TOOL_COUNT} tools, health + help"
 fi

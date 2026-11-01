@@ -1,5 +1,6 @@
 import type { PluginInput } from "../plugin-types.ts";
 import { logger } from "../utils/logger.ts";
+import { resolveProjectIdentity, resolveProjectRoot } from "../utils/project-identity.ts";
 import type { V2Context } from "./types.ts";
 
 export function resolveV2Directory(ctx: Pick<V2Context, "location">): string {
@@ -84,6 +85,8 @@ export function resolveV2ServerUrl(
 
 export function buildPluginInput(ctx: V2Context): PluginInput {
   const directory = resolveV2Directory(ctx);
+  const identity = resolveProjectIdentity(ctx.location, directory);
+  const persistDir = resolveProjectRoot(ctx.location, directory);
   const client: Record<string, unknown> = {
     session: buildSessionClient(ctx),
   };
@@ -93,5 +96,16 @@ export function buildPluginInput(ctx: V2Context): PluginInput {
     worktree: directory,
     serverUrl: resolveV2ServerUrl(),
     hostVersion: ctx.app?.version,
+    persistDir,
+    projectRoot: persistDir,
+    projectIdentity: persistDir
+      ? {
+          key: identity.key,
+          source: identity.source,
+          projectID: identity.projectID,
+          directory: identity.directory,
+          canonical: identity.canonical,
+        }
+      : undefined,
   };
 }

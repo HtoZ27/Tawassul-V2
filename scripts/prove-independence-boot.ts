@@ -13,12 +13,14 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { TOOL_COUNT, TOOL_NAME_SET_HASH } from "../src/generated/tool-tripwire.ts";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 const PROJECT_ENTRY = join(REPO, ".opencode", "plugin", "tawassul.js");
 const MODEL = process.env.TAWASSUL_SMOKE_MODEL ?? "opencode/big-pickle";
 const BOOT_TIMEOUT = Number(process.env.TAWASSUL_SMOKE_TIMEOUT ?? 90);
 const PROVIDER_REFUSAL = /provider\.[a-z-]+|FreeUsageLimitError|"status": *429|Free usage limit/i;
+const BOOT_MARKER_RE = new RegExp(`v2 registered ${TOOL_COUNT} tools name-set ${TOOL_NAME_SET_HASH}`);
 
 let passed = 0;
 
@@ -141,7 +143,7 @@ try {
   );
 
   const pluginLog = readFileSync(join(ROOT, "tawassul.log"), "utf-8");
-  assert(/v2 registered 44 tools/.test(pluginLog), "the scratch bundle registers 44 tools");
+  assert(BOOT_MARKER_RE.test(pluginLog), `the scratch bundle registers ${TOOL_COUNT} tools`);
   assert(/initPlugin=/.test(pluginLog), "the scratch bundle records initPlugin");
 
   for (const legacy of [".config/tawassul", ".local/share/tawassul", ".cache/tawassul", ".config/tawassyl"]) {

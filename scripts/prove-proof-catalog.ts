@@ -86,10 +86,13 @@ const PINNED_PROOF_FILES = [
   "prove-catch-discipline.ts",
   "prove-closure-artifacts.ts",
   "prove-concordance.ts",
+  "prove-constraint-retention.ts",
   "prove-context-accounting.ts",
+  "prove-context-baseline.ts",
   "prove-context-bridge.ts",
   "prove-context-budget.ts",
   "prove-context-claim.ts",
+  "prove-context-diet.ts",
   "prove-context-failure-pack.ts",
   "prove-context-hook-idempotent.ts",
   "prove-context-hook-latency.ts",
@@ -106,6 +109,7 @@ const PINNED_PROOF_FILES = [
   "prove-db-scheduler.ts",
   "prove-desktop-scan.ts",
   "prove-disclosure.ts",
+  "prove-dispatch-model.ts",
   "prove-e02.ts",
   "prove-e11.ts",
   "prove-e12.ts",
@@ -165,6 +169,7 @@ const PINNED_PROOF_FILES = [
   "prove-host-goal.ts",
   "prove-host-refresh.ts",
   "prove-independence-boot.ts",
+  "prove-md-gate.ts",
   "prove-model-failover-e2e.ts",
   "prove-model-failover.ts",
   "prove-model-switch.ts",
@@ -173,9 +178,12 @@ const PINNED_PROOF_FILES = [
   "prove-p09.ts",
   "prove-partial-install.ts",
   "prove-payload-cache.ts",
+  "prove-pilot-eval.ts",
   "prove-pipeline-early-exit.ts",
   "prove-portability.ts",
   "prove-proof-catalog.ts",
+  "prove-record-digest-dedupe.ts",
+  "prove-reload-live.ts",
   "prove-repeat-guard.ts",
   "prove-roster-boundary.ts",
   "prove-routing-eval.ts",
@@ -195,10 +203,16 @@ const PINNED_PROOF_FILES = [
   "prove-seed-agents.ts",
   "prove-setup-delegation.ts",
   "prove-shell-alias.ts",
+  "prove-skill-registration.ts",
+  "prove-skills-manifest.ts",
   "prove-state-namespace.ts",
+  "prove-state-root-rollback.ts",
+  "prove-state-root-survival.ts",
   "prove-store-priming.ts",
   "prove-task-control.ts",
   "prove-thread-tool.ts",
+  "prove-tool-name-hash.ts",
+  "prove-tool-run-ranking.ts",
   "prove-upstream-sync.ts",
   "prove-v2-ask-bridge.ts",
   "prove-v2-compat.ts",
@@ -206,7 +220,7 @@ const PINNED_PROOF_FILES = [
   "prove-web-ssrf.ts",
 ];
 
-const PINNED_PROOF_STEPS = 133;
+const PINNED_PROOF_STEPS = 147;
 const SMOKE_PROOFS = new Set(["prove-global-boot.ts", "prove-independence-boot.ts"]);
 
 const proofFiles = readdirSync(join(repo, "scripts"))

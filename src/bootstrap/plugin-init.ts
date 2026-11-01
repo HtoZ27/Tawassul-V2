@@ -35,9 +35,10 @@ import { hasFailoverClaim } from "../services/model-failover.ts";
 import { runWithContext } from "../context/context-store.ts";
 import { AskChannel, type AskChannelDeps } from "../services/ask-channel.ts";
 import { formatAskPrompt, ASK_MARKER, type AskKind } from "../services/ask-channel-parse.ts";
-import { readAskRenderEnv, resolveAskRenderer } from "../services/ask-render.ts";
-import { defaultAgentModelForRole, DYNAMIC_MODEL_SENTINEL, sweepRetiredModelPins } from "../services/proxy-fallback-chains.ts";
+import { readAskRenderEnv, resolveAskRenderer } from "../services/ask-render.ts";import { defaultAgentModelForRole, DYNAMIC_MODEL_SENTINEL, sweepRetiredModelPins } from "../services/proxy-fallback-chains.ts";
 import { resolveRole } from "../utils/agent.ts";
+import { resolveProjectIdentity } from "../utils/project-identity.ts";
+import { prepareProjectState } from "../utils/project-state-migration.ts";
 import {
   acquireOpencodeConfigLock,
   ensureGlobalRosterSeed,
@@ -47,6 +48,7 @@ import {
 } from "../utils/opencode-config.ts";
 import { releaseFSLock } from "../infra/file-lock.ts";
 import { createHandoffEntry } from "../services/handoff-entry.ts";
+import { resolveAgentModelRef } from "../services/model-refs.ts";
 import { setContextHandoffConfig } from "../services/context-pack/index.ts";
 import { requiresConsent } from "../hooks/guards/shared/limits.ts";
 import {
@@ -520,10 +522,26 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   mark("context:constructor:start");
   try {
     const ContextClass = deps?.TawassulContext ?? TawassulContext;
-    
-    
-    const stateDir = process?.env?.TAWASSUL_STATE_DIR?.trim() || ctx.directory;
-    tawaCtx = new ContextClass(stateDir);
+    const workspaceDir = ctx.directory;
+    const stateOverride = process?.env?.TAWASSUL_STATE_DIR?.trim();
+    const projectRoot = stateOverride ? undefined : ctx.projectRoot?.trim();
+    const persistDir = stateOverride || projectRoot || workspaceDir;
+    if (projectRoot && projectRoot !== workspaceDir) {
+      try {
+        const identity = ctx.projectIdentity ?? resolveProjectIdentity(undefined, workspaceDir);
+        const report = prepareProjectState({ workspaceDir, root: projectRoot, identity });
+        if (report.migrated.length > 0 || report.refreshed.length > 0 || report.conflicts.length > 0) {
+          logger.info(
+            `[tawassul] project state root ${projectRoot}: migrated=${report.migrated.length} refreshed=${report.refreshed.length} conflicts=${report.conflicts.length}`,
+          );
+        }
+      } catch (e) {
+        logger.warn(
+          `[tawassul] project state migration skipped: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+    tawaCtx = new ContextClass(stateOverride || workspaceDir, persistDir, projectRoot);
   } catch (e) {
     logger.error("Failed to create context:", e);
     logger.warn("Returning empty hooks — no tools or hooks registered");
@@ -821,6 +839,8 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
           context: params.context,
           files: params.files,
           sourceDiscussionId: params.sourceDiscussionId,
+          implementer: resolveAgentModelRef(params.from, tawaCtx.modelManager.agentModelMap),
+          reviewer: resolveAgentModelRef(params.to, tawaCtx.modelManager.agentModelMap),
         });
         tawaCtx.handoffs.set(id, entry);
         return id;

@@ -65,6 +65,7 @@ const SILENT_CATCH_INVENTORY: Record<string, number> = {
   "utils/opencode-config.ts": 5,
   "utils/path-resolver.ts": 1,
   "utils/path.ts": 4,
+  "utils/project-state-migration.ts": 1,
   "utils/state-paths.ts": 1,
   "utils/validation.ts": 1,
 };

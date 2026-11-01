@@ -1,7 +1,9 @@
 import type { Context as HostContext } from "@opencode/plugin/promise/plugin";
+import type { CommandDomain } from "@opencode/plugin/promise/command";
 import type { PermissionDomain } from "@opencode/plugin/promise/permission";
 import type { ModelHooks, Registration } from "@opencode/plugin/promise/registration";
 import type { SessionHooks, SessionIdle } from "@opencode/plugin/promise/session";
+import type { SkillDomain } from "@opencode/plugin/promise/skill";
 import type { ToolContext as HostToolContext, ToolDomain } from "@opencode/plugin/promise/tool";
 
 export type V2Registration = Registration;
@@ -132,11 +134,17 @@ export type V2RpcDomain = <D extends {
 
 export type V2Context = {
   app: Pick<HostContext["app"], "version">;
-  location: Pick<HostContext["location"], "directory">;
+  location: {
+    directory: string;
+    workspaceID?: string;
+    project?: { id?: string; directory?: string; canonical?: string };
+  };
   session: V2Session;
   model: V2Model;
   tool: V2Tool;
   event: V2Event;
   rpc: V2RpcDomain;
   permission: V2Permission;
+  skill?: Pick<SkillDomain, "transform">;
+  command?: Pick<CommandDomain, "transform">;
 };

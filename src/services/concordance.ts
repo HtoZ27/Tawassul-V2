@@ -17,6 +17,8 @@ const TIMELINE = "`timeline()` -> activity timeline";
 const RECORD = "`record(list: true)` -> session decisions/records";
 const HANDOFF =
   "`handoff(to: ..., task: ..., context: ...)` -> hand a task to an agent";
+const USER_CONTRACT =
+  "- User skills and commands are unconditional: the plugin never reads, gates, prefixes or overrides them · shipped ids use the `tawassul-` prefix";
 
 function renderLine(parts: readonly string[]): string | null {
   return parts.length === 0 ? null : `- ${parts.join(" · ")}`;
@@ -36,6 +38,7 @@ export function buildConcordance(available: ReadonlySet<string>): string {
     ...(available.has("handoff") ? [HANDOFF] : []),
   ]);
   if (ledger) lines.push(ledger);
+  lines.push(USER_CONTRACT);
   if (hasGoal) lines.push(FOOTER);
   return lines.join("\n");
 }

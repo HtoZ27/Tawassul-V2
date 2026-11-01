@@ -36,25 +36,15 @@ export function sanitizeReportTextForConsumption(text: string): string {
 export function buildEvaluationReportTool(ctx: TawassulContext) {
   return tool({
     description: [
-      "Evaluation Report — Record a structured evaluation of a feature.",
+      "Evaluation Report — structured evaluation of a feature.",
       "",
       "WRITE — Required: featureId, at least one issue with description and recommendation.",
+      'READ-BACK: evaluationreport(get: true, featureId: "my-feature") → all stored rounds for that feature',
       "",
-      "READ-BACK (write-only gap fix):",
-      '  evaluationreport(get: true, featureId: "my-feature") → all stored rounds for that feature',
-      "",
-      "Each issue requires:",
-      "  - severity: critical|major|minor|info",
-      "  - category: security|correctness|performance|usability|maintainability|completeness",
-      "  - description: what the problem is",
-      "  - recommendation: how to fix it",
-      "",
+      "Each issue requires: severity critical|major|minor|info; category security|correctness|performance|usability|maintainability|completeness; description (the problem); recommendation (the fix).",
       "Optional per issue: file, line, relatedRecordIds (array of record/handoff IDs).",
-      "",
       "Top-level optional: recommendations (general), uncoveredAreas, coverageMap, summary.",
-      "",
       "You MUST report ALL issues you find — not just the biggest ones.",
-      "Use relatedRecordIds to link issues to existing records or handoffs.",
     ].join("\n"),
     args: {
       featureId: tool.schema.string().describe("ID of the feature being evaluated"),

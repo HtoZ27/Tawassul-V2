@@ -9,10 +9,10 @@ export interface ModelCatalogEntry {
 
 export const MODEL_CATALOG: ModelCatalogEntry[] = [
   {
-    id: "nvidia-nim/deepseek-ai/deepseek-v4-flash",
+    id: "nvidia/deepseek-ai/deepseek-v4.1-flash",
     suffix: "deep",
     aliases: ["deep"],
-    display: "DeepSeek V4 Flash (NVIDIA)",
+    display: "DeepSeek V4.1 Flash (NVIDIA)",
   },
   {
     id: "opencode/mimo-v2.6-flash-free",
@@ -33,15 +33,15 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     display: "Gemini (Google)",
   },
   {
-    id: "nvidia-nim/minimaxai/minimax-m3",
+    id: "nvidia/minimaxai/minimax-m3.1-flash",
     suffix: "minimax",
     aliases: ["minimax"],
-    display: "MiniMax M3 (NVIDIA)",
+    display: "MiniMax M3.1 Flash (NVIDIA)",
   },
   {
-    id: "nvidia-nim/nvidia/nemotron-3-ultra-550b-a55b",
+    id: "nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b",
     aliases: ["nemotron"],
-    display: "Nemotron 3 Ultra (NVIDIA)",
+    display: "Nemotron 3.5 Super VL (NVIDIA)",
   },
   {
     id: "opencode/muse-spark-1.2-contributor-free",

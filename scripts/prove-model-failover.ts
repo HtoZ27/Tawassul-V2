@@ -14,7 +14,11 @@ import {
   switchSessionModel,
   type FallbackChainConfig,
 } from "../src/services/model-failover.ts";
-import { getFallbackChain } from "../src/services/proxy-fallback-chains.ts";
+import {
+  FALLBACK_CHAINS,
+  FREE_FALLBACK_MODEL,
+  getFallbackChain,
+} from "../src/services/proxy-fallback-chains.ts";
 import { configSchema } from "../src/context/config-schema.ts";
 import {
   runRetryFailover,
@@ -37,8 +41,8 @@ async function main(): Promise<void> {
 
   assert(parseModelTarget("opencode/big-pickle")?.modelID === "big-pickle", "a slash reference parses");
   assert(
-    parseModelTarget("nvidia-nim/deepseek-ai/deepseek-v4-flash")?.modelID ===
-      "deepseek-ai/deepseek-v4-flash",
+    parseModelTarget("nvidia/deepseek-ai/deepseek-v4.1-flash")?.modelID ===
+      "deepseek-ai/deepseek-v4.1-flash",
     "a model id with slashes keeps the full tail",
   );
   assert(
@@ -50,10 +54,32 @@ async function main(): Promise<void> {
   assert(parseModelTarget("provider/") === undefined, "a reference without a model is rejected");
   assert(parseModelTarget(undefined) === undefined, "a missing reference is rejected");
 
+  assert(
+    FREE_FALLBACK_MODEL === "google/gemini-flash-lite-latest",
+    "the free fallback is gemini flash-lite latest",
+  );
+  for (const [role, chain] of Object.entries(FALLBACK_CHAINS)) {
+    const free = chain.indexOf(FREE_FALLBACK_MODEL);
+    assert(free === 0 || free === 1, `the ${role} chain switches to the free fallback first`);
+    assert(
+      !chain.some((model) => model.startsWith("nvidia-nim/")),
+      `the ${role} chain drops the retired nvidia-nim provider`,
+    );
+    assert(
+      chain.filter((model) => model.startsWith("nvidia/")).every((model) => !model.startsWith("nvidia/nvidia-nim")),
+      `the ${role} chain uses the nvidia provider`,
+    );
+  }
   const roleChain = getFallbackChain("dev");
   const resolved = resolveChain({ agent: "dev" });
   assert(resolved.length === roleChain.length, "the role chain is the default source");
   assert(resolved[0]?.target === roleChain[0], "the role chain keeps its primary first");
+  assert(resolved[1]?.target === FREE_FALLBACK_MODEL, "a failed primary switches to the free fallback");
+  const unknownRoleChain = getFallbackChain("no-such-role");
+  assert(
+    unknownRoleChain.indexOf(FREE_FALLBACK_MODEL) === 1,
+    "an unknown role still switches to the free fallback",
+  );
 
   const override: FallbackChainConfig = {
     chains: { dev: ["alpha/one", "beta/two"], "*": ["fallback/star"] },

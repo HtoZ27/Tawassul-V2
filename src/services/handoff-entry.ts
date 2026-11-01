@@ -1,7 +1,7 @@
 
 
 
-import type { HandoffEntry } from "../context/types.ts";
+import type { AgentModelRef, HandoffEntry } from "../context/types.ts";
 
 export interface CreateHandoffEntryParams {
   id: string;
@@ -14,6 +14,8 @@ export interface CreateHandoffEntryParams {
   status?: HandoffEntry["status"];
   parallelId?: string;
   sourceDiscussionId?: string;
+  implementer?: AgentModelRef;
+  reviewer?: AgentModelRef;
 }
 
 export function createHandoffEntry(params: CreateHandoffEntryParams): HandoffEntry {
@@ -28,5 +30,7 @@ export function createHandoffEntry(params: CreateHandoffEntryParams): HandoffEnt
     status: params.status ?? "pending",
     ...(params.parallelId !== undefined ? { parallelId: params.parallelId } : {}),
     ...(params.sourceDiscussionId !== undefined ? { sourceDiscussionId: params.sourceDiscussionId } : {}),
+    ...(params.implementer !== undefined ? { implementer: params.implementer } : {}),
+    ...(params.reviewer !== undefined ? { reviewer: params.reviewer } : {}),
   };
 }

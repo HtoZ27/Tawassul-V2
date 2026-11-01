@@ -86,7 +86,9 @@ try {
   assert(closeStore.get(closeId) === undefined, "close() keeps the live lookup empty");
   const closeTomb = closeStore.getAny(closeId);
   assert(closeTomb?.status === "dropped", "close() keeps the tombstone readable by id");
-  assert(closeStore.list("dropped").some((g) => g.id === closeId), "list(dropped) shows the tombstone");
+  assert(closeTomb?.closedAs === "completed", "close() records the terminal status on the tombstone");
+  assert(!closeStore.list("dropped").some((g) => g.id === closeId), "list(dropped) hides a completed tombstone");
+  assert(closeStore.list("completed").some((g) => g.id === closeId), "list(completed) shows a completed tombstone");
   assert(closeStore.list("all").some((g) => g.id === closeId), "list(all) shows the tombstone");
   assert(metaLiveCount(dirClose) === 0, "close() persists a zero live count");
   const closeLine = countsLine(closeStore);
@@ -117,6 +119,8 @@ try {
   const verifyLine = countsLine(verifyCloseStore);
   assert(verifyLine.includes("1 verified"), "close(verify) counts one verified goal");
   assert(verifyLine.includes("0 completed"), "close(verify) leaves completed empty");
+  assert(verifyCloseStore.getAny(verifyCloseId)?.closedAs === "verified", "close(verify) records the verified terminal status");
+  assert(verifyCloseStore.list("verified").some((g) => g.id === verifyCloseId), "list(verified) shows a verified tombstone");
 
   const dirVerifyUpdate = tempDir("verify-update");
   const verifyUpdateStore = makeStore(dirVerifyUpdate);
@@ -130,7 +134,9 @@ try {
   await healedClose.ensureLoaded();
   assert(countsLine(healedClose) === closeLine, "missing meta replays the completed count");
   assert(healedClose.getAny(closeId)?.status === "dropped", "missing meta keeps the tombstone readable");
-  assert(healedClose.list("dropped").some((g) => g.id === closeId), "missing meta keeps list(dropped) populated");
+  assert(healedClose.getAny(closeId)?.closedAs === "completed", "missing meta keeps the terminal status");
+  assert(!healedClose.list("dropped").some((g) => g.id === closeId), "missing meta hides a completed tombstone from dropped");
+  assert(healedClose.list("completed").some((g) => g.id === closeId), "missing meta keeps list(completed) populated");
   assert(existsSync(join(dirClose, "goals", "goals-meta.json")), "replay rewrites the meta file");
 
   unlinkSync(join(dirVerifyUntilClose, "goals", "goals-meta.json"));
@@ -155,6 +161,7 @@ try {
   assert(legacyReloaded.list("completed").length === 1, "legacy live completed goal stays visible after load");
   assert(countsLine(legacyReloaded).includes("1 completed"), "live completed goal is visible in the digest");
   assert((await legacyReloaded.deleteGoal(legacyGoal.id)).ok, "deleteGoal drops a legacy live completed goal");
+  assert(legacyReloaded.getAny(legacyGoal.id)?.closedAs === "dropped", "deleteGoal marks the terminal status dropped");
   const legacyLine = countsLine(legacyReloaded);
   assert(legacyLine.includes("1 completed"), "deleteGoal keeps exactly one completed count");
   assert(!legacyLine.includes("2 completed"), "deleteGoal never double counts the completed goal");
@@ -173,6 +180,7 @@ try {
   const dropLine = countsLine(dropStore);
   assert(dropLine.includes("1 dropped"), "dropping an active goal counts one dropped goal");
   assert(dropLine.includes("0 completed"), "dropping an active goal adds no completed count");
+  assert(dropStore.list("dropped").some((g) => g.id === dropCreated.goal.id), "list(dropped) shows a dropped goal");
   unlinkSync(join(dirDrop, "goals", "goals-meta.json"));
   const dropHealed = makeStore(dirDrop);
   await dropHealed.ensureLoaded();

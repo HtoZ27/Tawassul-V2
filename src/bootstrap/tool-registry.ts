@@ -115,7 +115,7 @@ export function buildToolRegistry(
   services: ServiceFactoryResult | undefined,
 ): ToolRegistryResult {
   const serviceIndex = new ServiceIndex(tawaCtx.eventHub, {
-    storageDir: resolveRuntimeStateDir(tawaCtx.stateDir, tawaCtx.scope),
+    storageDir: resolveRuntimeStateDir(tawaCtx.persistDir, tawaCtx.scope),
     ...(services
       ? {
           taskOrchestrator: services.taskOrchestrator,
@@ -153,7 +153,7 @@ export function buildToolRegistry(
       const result = tawaCtx.clearAllState();
       tawaCtx.rateLimiter.resetRateLimiters();
       return result;
-    }, tawaCtx.stateDir),
+    }, tawaCtx.persistDir),
     override: buildOverrideTool(tawaCtx, services?.handoffService),
     handoff: buildHandoffTool(tawaCtx),
     record: buildRecordTool(tawaCtx),

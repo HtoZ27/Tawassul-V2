@@ -62,6 +62,7 @@ process.env.TAWASSUL_HMAC_KEY_DIR = keyDir;
 const stateDir = join(homedir(), "Desktop", "Tawassul V2");
 const ctx = {
   stateDir,
+  persistDir: stateDir,
   scope: "project",
   timerManager: { activeCount: 3 },
   statePath: () => join(stateDir, ".opencode", "tawassul-state.json"),

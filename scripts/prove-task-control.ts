@@ -13,6 +13,7 @@ import {
 } from "../src/services/background-tasks.ts";
 import { buildTaskControlTool } from "../src/tools/task-control.ts";
 import { registeredToolNames } from "../src/bootstrap/tool-registry.ts";
+import { TOOL_COUNT } from "../src/generated/tool-tripwire.ts";
 import { TAWASSUL_TOOL_NAMES } from "../src/tool-names.ts";
 import type { ToolContext, ToolResult } from "../src/tool.ts";
 import type { V2Session } from "../src/v2/types.ts";
@@ -77,7 +78,7 @@ const args = tool.args as Record<string, unknown>;
 const actionSchema = args.action as unknown as { options?: readonly string[] };
 
 assert(TAWASSUL_TOOL_NAMES.includes("task_control"), "tool-names advertises task_control");
-assert(TAWASSUL_TOOL_NAMES.length === 44, "the advertised surface is 44 tools");
+assert(TAWASSUL_TOOL_NAMES.length === TOOL_COUNT, `the advertised surface is ${TOOL_COUNT} tools`);
 assert(!TAWASSUL_TOOL_NAMES.includes("task"), "the v1 task name is not reused");
 assert(
   registeredToolNames(undefined).has("task_control"),

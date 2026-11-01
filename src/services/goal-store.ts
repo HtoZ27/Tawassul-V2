@@ -128,6 +128,10 @@ function deriveProgress(goal: Pick<Goal, "items" | "completedItems" | "status">)
   return Math.round((done / total) * 100);
 }
 
+function effectiveStatus(goal: Pick<Goal, "status" | "closedAs">): GoalStatus {
+  return goal.closedAs ?? goal.status;
+}
+
 export function checkCloseInvariant(goal: Pick<Goal, "items" | "completedItems" | "acceptance">): GoalInvariantCheck {
   const missing: string[] = [];
   if (goal.items.length === 0 && goal.completedItems.length === 0 && goal.acceptance.length === 0) {
@@ -295,6 +299,9 @@ export class GoalStore {
           if (prior === "completed") replayed.completed += 1;
           else if (prior === "verified") replayed.verified += 1;
           else replayed.dropped += 1;
+          if (goal.closedAs === undefined) {
+            goal.closedAs = prior === "completed" ? "completed" : prior === "verified" ? "verified" : "dropped";
+          }
           lastLive.delete(goal.id);
         } else {
           lastLive.set(goal.id, goal.status);
@@ -350,6 +357,7 @@ export class GoalStore {
 
   
   private async commit(next: Goal, opts: { remove?: boolean } = {}): Promise<void> {
+    if (opts.remove && next.closedAs === undefined) next.closedAs = next.status;
     await this.writeEvent(next);
     if (opts.remove) {
       this.goals.delete(next.id);
@@ -761,6 +769,7 @@ export class GoalStore {
     else this.lifecycleCounts.completed += 1;
     const tomb = structuredClone(closed);
     tomb.status = "dropped";
+    tomb.closedAs = target;
     tomb.updatedAt = new Date().toISOString();
     await this.commit(tomb, { remove: true });
     return { ok: true, goal: closed };
@@ -827,12 +836,12 @@ export class GoalStore {
   }
 
   list(filter: GoalListFilter = "active"): Goal[] {
-    if (filter === "dropped") return [...this.tombstones.values()].sort((a, b) => a.seq - b.seq);
-    const base = filter === "all" ? [...this.goals.values(), ...this.tombstones.values()] : [...this.goals.values()];
-    const all = base.sort((a, b) => a.seq - b.seq);
+    const all = [...this.goals.values(), ...this.tombstones.values()].sort((a, b) => a.seq - b.seq);
     if (filter === "all") return all;
-    if (filter === "active") return all.filter((g) => (ACTIVE_STATUSES as readonly string[]).includes(g.status));
-    return all.filter((g) => g.status === filter);
+    if (filter === "active") {
+      return all.filter((g) => (ACTIVE_STATUSES as readonly string[]).includes(effectiveStatus(g)));
+    }
+    return all.filter((g) => effectiveStatus(g) === filter);
   }
 
   

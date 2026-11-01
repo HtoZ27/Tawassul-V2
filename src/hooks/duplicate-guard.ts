@@ -13,6 +13,17 @@ export function isIdempotentThreadCall(toolName: unknown, args: unknown): boolea
   return typeof action === "string" && IDEMPOTENT_THREAD_ACTIONS.has(action);
 }
 
+export const GOAL_TOOL_NAME = "goal";
+
+export function isIdempotentGoalCall(toolName: unknown, args: unknown): boolean {
+  if (typeof toolName !== "string" || normalizeToolName(toolName) !== GOAL_TOOL_NAME) return false;
+  if (!args || typeof args !== "object" || Array.isArray(args)) return false;
+  const payload = args as Record<string, unknown>;
+  if (payload.board === true) return true;
+  if (payload.list === true) return true;
+  return typeof payload.get === "string" && payload.get.trim().length > 0;
+}
+
 export interface DuplicateGuardInput {
   tool: string;
   agent: string;
@@ -32,6 +43,7 @@ export interface DuplicateGuardVerdict {
 
 export function evaluateDuplicateGuard(input: DuplicateGuardInput): DuplicateGuardVerdict {
   if (isIdempotentThreadCall(input.tool, input.args)) return { blocked: false };
+  if (isIdempotentGoalCall(input.tool, input.args)) return { blocked: false };
   const deduplicator = input.deduplicator;
   if (deduplicator) {
     const signature: DedupSignature = {

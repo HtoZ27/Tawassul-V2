@@ -26,7 +26,7 @@ export const OPCODE_BUILTIN_AGENTS: ReadonlySet<string> = new Set([
 ]);
 
 export function examplesText(): string {
-  return [t("addagentExample1"), t("addagentExample2"), t("addagentExample3"), t("addagentExample4")].join("\n");
+  return [t("addagentExample1"), t("addagentExample2")].join("\n");
 }
 
 export function stripLeadingVerb(s: string): string {

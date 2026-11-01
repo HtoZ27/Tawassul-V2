@@ -55,6 +55,25 @@ export function measureSchemaPayload(schemas: Map<string, Record<string, unknown
   }
   return { bytes, estimatedTokens: Math.ceil(bytes / 4) };
 }
+
+export type DescriptionTextMeasurement = {
+  bytes: number;
+  estimatedTokens: number;
+  lines: Array<{ name: string; bytes: number; estimatedTokens: number }>;
+};
+
+export function measureDescriptionText(
+  tools: Record<string, { description?: string }>,
+): DescriptionTextMeasurement {
+  const lines = Object.keys(tools)
+    .sort()
+    .map((name) => {
+      const bytes = Buffer.byteLength(tools[name]?.description ?? "", "utf8");
+      return { name, bytes, estimatedTokens: Math.ceil(bytes / 4) };
+    });
+  const bytes = lines.reduce((sum, line) => sum + line.bytes, 0);
+  return { bytes, estimatedTokens: Math.ceil(bytes / 4), lines };
+}
 function buildV1ToolContext(
   ctx: V2Context,
   context: V2ToolContext,

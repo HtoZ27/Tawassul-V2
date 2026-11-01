@@ -54,6 +54,63 @@ function isAllowedComment(text) {
   return ALLOWED_COMMENT_PATTERNS.some((re) => re.test(stripped));
 }
 
+function stripFences(source) {
+  const out = [];
+  let fenced = false;
+  for (const line of source.split("\n")) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      fenced = !fenced;
+      out.push("");
+      continue;
+    }
+    out.push(fenced ? "" : line);
+  }
+  return out.join("\n");
+}
+
+export function checkMarkdown(relPath, source) {
+  const errors = [];
+  const arabic = ARABIC_RE.exec(source);
+  if (arabic) {
+    const line = source.slice(0, arabic.index).split("\n").length;
+    errors.push(`${relPath}:${line}: non-English literal in shipped markdown`);
+  }
+  const unfenced = stripFences(source);
+  const commentRe = /<!--[\s\S]*?-->/g;
+  for (const match of unfenced.matchAll(commentRe)) {
+    const line = unfenced.slice(0, match.index).split("\n").length;
+    errors.push(`${relPath}:${line}: comment present but comments are forbidden in shipped markdown`);
+  }
+  return errors;
+}
+
+function listMarkdown(dir) {
+  const out = [];
+  if (!existsSync(dir)) return out;
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      out.push(...listMarkdown(full));
+    } else if (entry.endsWith(".md")) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
+export function checkShippedMarkdown() {
+  const root = process.env.TAWASSUL_RULES_ROOT
+    ? resolve(process.env.TAWASSUL_RULES_ROOT, "skills")
+    : join(ROOT, "skills");
+  const files = listMarkdown(root);
+  const errors = [];
+  for (const file of files) {
+    const relPath = `skills/${relative(root, file).split("\\").join("/")}`;
+    errors.push(...checkMarkdown(relPath, readFileSync(file, "utf8")));
+  }
+  return { files: files.length, errors };
+}
+
 function checkFile(file) {
   const relPath = relative(ROOT, file).split("\\").join("/");
   return checkSource(relPath, readFileSync(file, "utf8"));
@@ -145,7 +202,9 @@ export function checkAll() {
   for (const file of files) {
     allErrors.push(...checkFile(file));
   }
-  return { files: files.length, errors: allErrors };
+  const markdown = checkShippedMarkdown();
+  allErrors.push(...markdown.errors);
+  return { files: files.length + markdown.files, errors: allErrors };
 }
 
 const invokedDirectly =

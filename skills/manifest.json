@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "skills": [
+    {
+      "id": "tawassul-goal-review",
+      "name": "Goal review",
+      "directory": "skills/tawassul-goal-review",
+      "description": "Review open goals, attach evidence, and close the goals whose items and criteria are complete.",
+      "scope": "goal lifecycle review across the board, items and definition of done",
+      "tools": ["goal", "show_board", "record"],
+      "evalId": "goal-review-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-handoff-triage",
+      "name": "Handoff triage",
+      "directory": "skills/tawassul-handoff-triage",
+      "description": "Triage the handoff ledger: complete delivered work, revert accepted work, and reassign stalled work.",
+      "scope": "handoff lifecycle triage across the board, timeline and ledger",
+      "tools": ["show_board", "timeline", "record", "handoff"],
+      "evalId": "handoff-triage-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-context-continue",
+      "name": "Context continue",
+      "directory": "skills/tawassul-context-continue",
+      "description": "Pack the current session, read the pack back, and continue the work in a successor session.",
+      "scope": "portable context handoff across pack, read and continue",
+      "tools": ["thread", "record"],
+      "evalId": "context-continue-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    }
+  ],
+  "commands": [
+    {
+      "name": "tawassul-goals",
+      "skillId": "tawassul-goal-review",
+      "description": "Run the shipped goal review procedure."
+    }
+  ]
+}

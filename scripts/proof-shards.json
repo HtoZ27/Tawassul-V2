@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "totalEstimateMs": 278043,
+  "totalEstimateMs": 319143,
   "shards": [
     {
       "name": "1",
-      "estimateMs": 74363,
+      "estimateMs": 77863,
       "steps": [
         "gen-lock",
         "web-ssrf",
@@ -36,12 +36,14 @@
         "context-store",
         "context-transport",
         "context-bridge",
-        "global-install"
+        "global-install",
+        "record-digest-dedupe",
+        "skills-manifest"
       ]
     },
     {
       "name": "2",
-      "estimateMs": 70247,
+      "estimateMs": 75747,
       "steps": [
         "gen-guard-wal",
         "first-boot",
@@ -76,12 +78,15 @@
         "context-kill-switch",
         "thread-tool",
         "task-control",
-        "db-scheduler"
+        "db-scheduler",
+        "dispatch-model",
+        "skill-registration",
+        "reload-live"
       ]
     },
     {
       "name": "3",
-      "estimateMs": 64996,
+      "estimateMs": 79396,
       "steps": [
         "event-trust",
         "s017",
@@ -115,12 +120,17 @@
         "context-hook-latency",
         "context-failure-pack",
         "context-sanitize",
-        "e27"
+        "e27",
+        "tool-name-hash",
+        "tool-run-ranking",
+        "md-gate",
+        "context-diet",
+        "state-root-survival"
       ]
     },
     {
       "name": "4",
-      "estimateMs": 68437,
+      "estimateMs": 86137,
       "steps": [
         "gen-merge",
         "roster-boundary",
@@ -156,7 +166,11 @@
         "repeat-guard",
         "payload-cache",
         "routing-eval",
-        "concordance"
+        "concordance",
+        "context-baseline",
+        "pilot-eval",
+        "constraint-retention",
+        "state-root-rollback"
       ]
     }
   ]

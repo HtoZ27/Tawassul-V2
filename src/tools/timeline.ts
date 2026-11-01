@@ -31,16 +31,7 @@ export function buildTimelineTool(store: TimelineStore): ToolDefinition {
       "View the activity timeline — tasks, handoffs, discussions, checkpoints by time/date.",
       toolScopeOnlyHint("The timeline lives ONLY behind this tool", "it"),
       "",
-      "VIEWS:",
-      "  timeline()                          — last 20 events",
-      '  timeline(view: "day")               — today\'s summary',
-      '  timeline(view: "agent", agent: "@dev")  — one agent\'s activity',
-      '  timeline(view: "range", from: "...", to: "...")  — date range',
-      '  timeline(view: "achievements")      — milestones per agent',
-      "",
-      "EXAMPLES:",
-      '  timeline(view: "agent", agent: "@dev", limit: 10)',
-      '  timeline(view: "day")',
+      'VIEWS: timeline() last 20 events; timeline(view: "day") today; timeline(view: "agent", agent: "@dev") one agent; timeline(view: "range", from: "...", to: "...") a date range; timeline(view: "achievements") milestones per agent. All accept limit.',
     ].join("\n"),
     args: {
       view: tool.schema

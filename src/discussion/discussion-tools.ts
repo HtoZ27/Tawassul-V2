@@ -34,25 +34,8 @@ export function buildDiscussionTool(
   return tool({
     description: [
       "Open a discussion window for agents to debate and solve problems collaboratively.",
-      "",
-      "═══ PHASES ═══",
-      "  Phase 1: Collect errors from files/reports",
-      "  Phase 2: Agents propose solutions",
-      "  Phase 3: Agents vote on best solution",
-      "  Phase 4: Divide tasks among agents",
-      "",
-      "═══ USAGE ═══",
-      "  Create a new discussion with errors to solve:",
-      '    discussion(action: "create", errors: [...], participants: ["@dev", "@architect"])',
-      "",
-      "  View discussion status:",
-      '    discussion(action: "status", discussionId: "D-001")',
-      "",
-      "  Get all proposals for a discussion:",
-      '    discussion(action: "proposals", discussionId: "D-001")',
-      "",
-      "  Close a discussion:",
-      '    discussion(action: "close", discussionId: "D-001")',
+      "Phases: 1 collect errors from files/reports → 2 agents propose solutions → 3 agents vote on the best solution → 4 divide tasks among agents.",
+      'Usage: discussion(action: "create", errors: [...], participants: ["@dev", "@architect"]); discussion(action: "status|proposals|close", discussionId: "D-001").',
     ].join("\n"),
     args: {
       action: tool.schema.enum(["create", "status", "proposals", "close"]).describe("Discussion action"),
@@ -566,18 +549,8 @@ export function buildEvidenceTool(
   return tool({
     description: [
       "Submit and manage evidence for a discussion.",
-      "",
-      "Phases: gathering (submit receipts + claims) → verifying (verify claims) → challenging (skeptic challenges) → completed",
-      "",
-      "═══ ACTIONS ═══",
-      "  start:     Start evidence phase (transitions discussion from proposing)",
-      "  receipt:   Submit tool output as evidence",
-      "  claim:     Make an evidence-backed claim (requires receiptIds)",
-      "  verify:    Verify a claim (supported/contradicted/inconclusive)",
-      "  challenge: Skeptic challenges a claim",
-      "  advance:   Move to next evidence phase",
-      "  status:    View evidence state",
-      "  abort:     Cancel evidence phase (returns discussion to proposing)",
+      "Phases: gathering (submit receipts + claims) → verifying (verify claims) → challenging (skeptic challenges) → completed.",
+      "ACTIONS: start (begins the phase, transitions from proposing); receipt (submit tool output); claim (needs receiptIds); verify (supported/contradicted/inconclusive); challenge (skeptic challenges a claim); advance (next phase); status (view state); abort (cancel, returns to proposing).",
     ].join("\n"),
     args: {
       action: tool.schema

@@ -25,38 +25,32 @@ const STATUS_EMOJI: Record<string, string> = {
   stale: "⏳",
 };
 
-function fmtGoalLine(g: { id: string; status: string; progressPct: number; title: string }): string {
-  return `${STATUS_EMOJI[g.status] ?? "•"} **${g.id}** ${g.status} ${g.progressPct}% · ${g.title}`;
+function fmtGoalLine(g: { id: string; status: string; closedAs?: string; progressPct: number; title: string }): string {
+  const status = g.closedAs ?? g.status;
+  return `${STATUS_EMOJI[status] ?? "•"} **${g.id}** ${status} ${g.progressPct}% · ${g.title}`;
 }
 
 export function buildGoalTool(store: GoalStore): ToolDefinition {
   return tool({
     description: [
-      "Goal Ledger — the caller-agnostic source of truth for objectives.",
-      "Survives long sessions, compaction, and restarts (disk-backed).",
+      "Goal Ledger — the caller-agnostic source of truth for objectives; disk-backed, survives compaction and restarts.",
+      "⚠️ THIS IS THE ONLY interface to goals/items/DoD — never search data files, plugin files or the MCP server: read with goal(list/board), write here.",
       "",
-      "⚠️ THIS IS THE ONLY interface to goals/items/DoD — a missing goal or item is",
-      "never a data-file or MCP search job: call goal(list/board) to read, then write",
-      "here. Do not grep plugin files for goal storage.",
+      "create: goal(create: <title>) [+ detail, items, acceptance, linkedRecords, linkedHandoffs, parentId]",
+      "update: goal(update: <G-xxx>) [+ title, detail, state, itemId+itemState, itemId+itemTitle, itemEvidence, acceptId+acceptState, itemsAdd, acceptanceAdd, pinned]",
+      "evidence: goal(evidence: <G-xxx>, evidenceText: <text>)",
+      "DoD: goal(update: <G-xxx>, acceptId: <criterion>, acceptState: met|not_met[, acceptEvidence: <note>]) — met requires evidence (≥8 chars)",
+      "close: goal(close: <G-xxx>) [+ verify: true] — completed/verified ONLY if every DoD is met and no items are unfinished (mechanical gate, never prompt-based)",
+      "delete: goal(delete: <G-xxx>) → dropped (owner or @analyst only)",
       "",
-      "WRITE — create: goal(create: <title>) [+ detail, items, acceptance, linkedRecords, linkedHandoffs, parentId]",
-      "WRITE — update: goal(update: <G-xxx>) [+ title, detail, state, itemId+itemState, itemId+itemTitle, itemEvidence, acceptId+acceptState, itemsAdd, acceptanceAdd, pinned]",
-      "WRITE — evidence: goal(evidence: <G-xxx>, evidenceText: <text>)",
-      "WRITE — DoD: goal(update: <G-xxx>, acceptId: <criterion>, acceptState: met|not_met[, acceptEvidence: <note>]) — met requires evidence (≥8 chars)",
-      "WRITE — close: goal(close: <G-xxx>) [+ verify: true] — completed/verified ONLY if every DoD is met and no items are unfinished (mechanical gate, never prompt-based)",
-      "WRITE — delete: goal(delete: <G-xxx>) → dropped (owner or @analyst only)",
+      "READ (never gated):",
+      '  goal(get: "G-001") → one goal + items + DoD',
+      "  goal(list: true) → active goals (+ filter: all|open|partial|blocked|completed|verified|dropped|stale)",
+      "  goal(board: true) → tiered digest: attention + roster + counts",
       "",
-      "READ (never gated, works for the bare main-session model too):",
-      '  goal(get: "G-001")            → one goal with items + DoD',
-      "  goal(list: true)              → active goals (+ filter: all|open|partial|blocked|completed|verified|dropped|stale)",
-      "  goal(board: true)             → tiered digest: attention + compact roster (dozens fit) + counts",
+      'HOST (read-only): goal(host: true) / goal(get: "host") reads the host /goal for this session; goal(board: true) appends it. Never sets, pauses, resumes or clears it — use /goal pause|resume|clear in the host.',
       "",
-      'HOST (read-only): goal(host: true) or goal(get: "host") reads the host /goal for this',
-      "session; goal(board: true) appends it when one is set. This tool never sets, pauses,",
-      "resumes, or clears the host goal — use /goal pause|resume|clear in the host for that.",
-      "",
-      "RULES: evidence needs ≥8 chars, no duplicates, ≤100/goal. A goal with no items and no",
-      "acceptance criteria can never close (anti-theater). progressPct is always derived from items.",
+      "RULES: evidence ≥8 chars, no duplicates, ≤100/goal. A goal with no items and no acceptance criteria can never close. progressPct is derived from items.",
     ].join("\n"),
     args: {
       create: tool.schema.string().optional().describe("Goal title to create"),
@@ -151,14 +145,17 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
         const goal = store.getAny(str(args.get));
         if (!goal) return { output: t("goalNotFound", { id: str(args.get) }) };
         const items = goal.items.map((i) => `  - [${i.state}] ${i.id} · ${i.title}`).join("\n");
+        const completed = goal.completedItems.map((i) => `  - [done] ${i.id} · ${i.title}`).join("\n");
         const dod = goal.acceptance.map((d) => `  - [${d.status}] ${d.criterion}`).join("\n");
+        const status = goal.closedAs ?? goal.status;
         return {
-          title: `${STATUS_EMOJI[goal.status] ?? "•"} ${goal.id}: ${goal.title}`,
+          title: `${STATUS_EMOJI[status] ?? "•"} ${goal.id}: ${goal.title}`,
           output: [
             fmtGoalLine(goal),
             goal.detail,
             `owner: ${goal.owner} · updated: ${goal.updatedAt}`,
             goal.items.length > 0 ? `items:\n${items}` : "",
+            goal.completedItems.length > 0 ? `completed:\n${completed}` : "",
             goal.acceptance.length > 0 ? `acceptance:\n${dod}` : "",
             goal.evidence.length > 0 ? `evidence: ${goal.evidence.length}` : "",
           ]

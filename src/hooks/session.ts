@@ -184,6 +184,28 @@ function sliceRange(ids: string[]): string {
   return first === last ? first : `${first}…${last}`;
 }
 
+function uniqueById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const item of items) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    out.push(item);
+  }
+  return out;
+}
+
+function countTitles(records: readonly { title: string }[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const record of records) counts.set(record.title, (counts.get(record.title) ?? 0) + 1);
+  return counts;
+}
+
+function titleLabel(title: string, counts: Map<string, number>): string {
+  const count = counts.get(title) ?? 0;
+  return count > 1 ? `${title} ×${count}` : title;
+}
+
 
 
 export interface SessionCompactedContext {
@@ -329,9 +351,10 @@ export function createSessionCompactedHook(ctx: SessionCompactedContext) {
 
       const recordsMap = new Map(ctx.records.map((r) => [r.id, r]));
       const handoffsMap = new Map(ctx.handoffs.map((h) => [h.id, h]));
+      const recordTitleCounts = countTitles(ctx.records);
 
       if (decayed.length > 0) {
-        const recordsSection = decayed.filter((e) => e.type === "record");
+        const recordsSection = uniqueById(decayed.filter((e) => e.type === "record"));
         const detailRecords = recordsSection.slice(0, K8_DETAIL_CAP);
         if (detailRecords.length > 0) {
           context.push(`### 📋 Session Records (${detailRecords.length} detail)`);
@@ -339,12 +362,12 @@ export function createSessionCompactedHook(ctx: SessionCompactedContext) {
             const record = recordsMap.get(e.id);
             if (record) {
               context.push(
-                `${severityEmoji(record.severity)} ${record.id} [${record.type}] ${record.title} (${record.agent})`,
+                `${severityEmoji(record.severity)} ${record.id} [${record.type}] ${titleLabel(record.title, recordTitleCounts)} (${record.agent})`,
               );
             }
           }
           if (recordsSection.length > detailRecords.length) {
-            const hidden = recordsSection.slice(K8_DETAIL_CAP).map((e) => e.id);
+            const hidden = uniqueById(recordsSection.slice(K8_DETAIL_CAP)).map((e) => e.id);
             context.push(
               `  • +${hidden.length} more records (see record list) · ids ${sliceRange(hidden)}; fetch via \`record(list: true)\``,
             );
@@ -405,8 +428,8 @@ export function createSessionCompactedHook(ctx: SessionCompactedContext) {
         
         
         
-        const sortedRecords = newestFirst(ctx.records);
-        const sortedHandoffs = newestFirst(ctx.handoffs);
+        const sortedRecords = uniqueById(newestFirst(ctx.records));
+        const sortedHandoffs = uniqueById(newestFirst(ctx.handoffs));
         const buildIndex = (pageSize: number): string => {
           if (sortedRecords.length === 0 && sortedHandoffs.length === 0) return "";
           const recInline = sortedRecords.slice(0, pageSize);
@@ -414,7 +437,7 @@ export function createSessionCompactedHook(ctx: SessionCompactedContext) {
           const lines: string[] = [];
           lines.push("### 🗂️ Session Index (permanent · newest first · paginated)");
           lines.push(`Records: ${sortedRecords.length} · Handoffs: ${sortedHandoffs.length} · ${pageSize}-per-page`);
-          for (const r of recInline) lines.push(`- 📄 ${r.id}: ${r.title}`);
+          for (const r of recInline) lines.push(`- 📄 ${r.id}: ${titleLabel(r.title, recordTitleCounts)}`);
           const recHidden = sortedRecords.length - recInline.length;
           if (recHidden > 0) {
             const hiddenIds = sortedRecords.slice(pageSize).map((r) => r.id);

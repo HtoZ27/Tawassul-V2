@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "method": "offline replay of authored fixture transcripts against the shipped procedure text; the live host load rate was measured at E1 in docs/experiments/receipts/2026-10-31-e1.md",
+  "evals": [
+    {
+      "id": "goal-review-basic",
+      "skillId": "tawassul-goal-review",
+      "fixture": "docs/experiments/fixtures/goal-review-basic.json",
+      "receipt": "docs/experiments/receipts/2026-10-31-pilot-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "handoff-triage-basic",
+      "skillId": "tawassul-handoff-triage",
+      "fixture": "docs/experiments/fixtures/handoff-triage-basic.json",
+      "receipt": "docs/experiments/receipts/2026-10-31-pilot-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "context-continue-basic",
+      "skillId": "tawassul-context-continue",
+      "fixture": "docs/experiments/fixtures/context-continue-basic.json",
+      "receipt": "docs/experiments/receipts/2026-10-31-pilot-eval.json",
+      "verdict": "pass"
+    }
+  ]
+}

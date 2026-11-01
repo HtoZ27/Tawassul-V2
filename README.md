@@ -130,7 +130,7 @@ decision. Override the chain per agent (or `*` for every agent) in
     "maxSwitches": 2,
     "cooldownMs": 750,
     "chains": {
-      "dev": ["nvidia-nim/deepseek-ai/deepseek-v4-flash", "google/gemini-flash-lite-latest"],
+      "dev": ["nvidia/deepseek-ai/deepseek-v4.1-flash", "google/gemini-flash-lite-latest"],
       "*": ["opencode/big-pickle"]
     }
   }
@@ -176,6 +176,33 @@ previous constant, which keeps the cached prefix stable.
 documented parameter the tool schema does not declare, and fails if the
 injection path stops reading the per-session surface.
 
+## Skills
+
+Shipped skills are multi-step procedures that sequence existing tools. They
+never replace a tool description and carry no binding constraint: every
+binding constraint or prohibition stays verbatim in the tool description or in
+the always-injected concordance, and a pointer to a skill is not accepted as
+retention.
+
+The three pilot skills register in-process through `ctx.skill.transform` and
+the `tawassul-goals` command through `ctx.command.transform`. Nothing is copied
+into `.opencode/skills/` or any user skills directory, and a rejected skill is
+logged and skipped while the plugin and every tool keep working.
+
+<!-- generated:skills-table -->| Skill | Scope | Tools | Eval | Load threshold |
+| --- | --- | --- | --- | --- |
+| `tawassul-goal-review` | goal lifecycle review across the board, items and definition of done | `goal`, `show_board`, `record` | `goal-review-basic` | 0.5 |
+| `tawassul-handoff-triage` | handoff lifecycle triage across the board, timeline and ledger | `show_board`, `timeline`, `record`, `handoff` | `handoff-triage-basic` | 0.5 |
+| `tawassul-context-continue` | portable context handoff across pack, read and continue | `thread`, `record` | `context-continue-basic` | 0.5 |
+<!-- /generated -->
+
+### User skills are unconditional
+
+The plugin never reads, gates, prefixes or overrides a user-authored skill or
+command. Shipped ids use the `tawassul-` prefix, so a user command cannot
+collide with a shipped one. A conflict between a user skill and a shipped
+invariant is resolved by the user, not by the plugin.
+
 ## Prompt payload stability
 
 Every injection runs through one bridge that touches only the last message and
@@ -192,8 +219,8 @@ bytes on every build, with a stable key order.
 
 ## Verify
 ```
-npm run gate:fast    # rules + shell syntax + typecheck + config + facts + contract + parity + catalog
-npm run gate:proofs  # 132 proofs, one isolated child process each (the full CI run)
+npm run gate:fast    # rules + shell syntax + typecheck + config + facts + contract + parity + catalog + proof count
+npm run gate:proofs  # <!-- generated:proof-steps -->147<!-- /generated --> proofs, one isolated child process each (the full CI run)
 npm run gate:proofs:1  # shard 1 of 4, about a minute, nice 10 (2, 3, 4 for the rest)
 npm run gate:smoke   # build + release smoke (one scratch boot)
 npm run ci           # all three stages, sequentially, each in its own process
@@ -208,8 +235,8 @@ in order instead of chaining the proof commands. Use
 durations. The manifest is `scripts/gate-manifest.json`;
 `prove-proof-catalog` fails when a proof file is missing from it.
 
-The 132 proofs run in about 229s in one pass. For a fast local loop the stage
-is split into four balanced shards in `scripts/proof-shards.json` (56.7s of
+The <!-- generated:proof-steps -->147<!-- /generated --> proofs run in about <!-- generated:proof-seconds -->319<!-- /generated -->s in one pass (the shard estimates total). For a fast local loop the stage
+is split into four balanced shards in `scripts/proof-shards.json` (<!-- generated:shard-seconds -->79.8<!-- /generated -->s of
 recorded duration each): `npm run gate:proofs:1` through `gate:proofs:4`, or
 `npm run gate:proofs -- --shard 3 --timings`. Each shard runs at niceness 10 so
 a side session stays responsive, writes `.opencode/state/gate-proofs-<n>.json`,

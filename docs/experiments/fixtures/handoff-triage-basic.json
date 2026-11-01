@@ -1,0 +1,21 @@
+{
+  "id": "handoff-triage-basic",
+  "skillId": "tawassul-handoff-triage",
+  "sessions": [
+    {
+      "name": "triage-stalled-work",
+      "request": "Triage the pending handoffs and unblock the stalled one.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        { "tool": "show_board", "args": {} },
+        { "tool": "timeline", "args": { "view": "recent" } },
+        { "tool": "record", "args": { "list": true } },
+        { "tool": "handoff", "args": { "completeHandoff": "H-001", "result": "the delivered result" } },
+        { "tool": "handoff", "args": { "undo": "H-002" } },
+        { "tool": "handoff", "args": { "rescue": "H-003", "to": "@tester", "context": "continue from the checkpoint" } },
+        { "tool": "record", "args": { "type": "note", "title": "handoff triage", "detail": "H-001 completed, H-003 reassigned" } }
+      ]
+    }
+  ]
+}

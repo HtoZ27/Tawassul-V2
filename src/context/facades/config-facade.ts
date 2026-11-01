@@ -34,6 +34,23 @@ export function configResolveSafePath(ctx: TawassulContext, subPath: string): st
   return base;
 }
 
+export function configStateSafePath(ctx: TawassulContext, name: string | undefined, fallback: string): string {
+  if (ctx.scope === "global" || ctx.persistDir === ctx.stateDir) {
+    return configSafeConfigPath(ctx, name, fallback);
+  }
+  const base = resolve(ctx.persistDir, ".opencode");
+  const target = name ?? fallback;
+  const sanitized = sanitizeFilePath(target);
+  if (!sanitized.safe) {
+    logger.warn(t("configInvalidPath", { name: target }));
+    return base;
+  }
+  const resolved = resolveSafePathSync(sanitized.decoded, base);
+  if (resolved) return resolved;
+  logger.warn(`⛔ Path rejected (symlink traversal): ${target} — falling back to ${base}`);
+  return base;
+}
+
 export function configLoadConfig(ctx: TawassulContext): void {
   ctx.configManager.loadConfig();
   ctx._configLoaded = true;

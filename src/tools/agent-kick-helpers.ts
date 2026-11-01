@@ -6,7 +6,7 @@ import { expandAllSuffixToken, stripLeadingVerb, deriveVariantSpec } from "./age
 import type { TawassulContext } from "../context.ts";
 import { t } from "../translations.ts";
 
-export const KICK_EXAMPLE_KEYS = ["kickExample1", "kickExample2", "kickExample3", "kickExample4"] as const;
+export const KICK_EXAMPLE_KEYS = ["kickExample1", "kickExample2"] as const;
 export function kickExamplesText(): string {
   return KICK_EXAMPLE_KEYS.map((k) => t(k)).join("\n");
 }

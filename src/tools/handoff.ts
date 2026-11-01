@@ -16,6 +16,7 @@ import { logger } from "../utils/logger.ts";
 import { resolveRole } from "../utils/agent.ts";
 import { MAX_PARALLEL_COPIES } from "../context/constants.ts";
 import { attachPackToHandoff } from "../services/context-pack/index.ts";
+import { resolveAgentModelRef } from "../services/model-refs.ts";
 
 function buildAccumulatedContext(
   ctx: TawassulContext,
@@ -198,64 +199,20 @@ export function resolveRerouteModel(callerRole: string, currentModel?: string): 
 export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
   return tool({
     description: [
-      "Handoff — Pass tasks between agents, complete handoffs, undo, or rescue stalled ones.",
+      "Handoff — pass tasks between agents, complete, undo, or rescue stalled ones.",
       toolScopeOnlyHint("Handoffs live ONLY behind this tool", "them"),
       "",
-      "═══ 5 SEPARATE ACTIONS (use exactly ONE pattern per call) ═══",
+      "Exactly ONE action per call:",
+      "• create — Required: to, task, context. Optional: files[], checkpoint, parallelCopies.",
+      "  parallelCopies creates N copies to N different agents with the same task; each completes independently, results shown side by side.",
+      "• completeHandoff — Required: completeHandoff (the handoff ID). Optional: result (summary of what was accomplished).",
+      "• undo — Required: undo (the handoff ID); reverts an accepted handoff back to pending.",
+      "• rescue — Required: rescue (handoff ID), to (new agent), context (reason); @analyst only.",
+      "• helpRequest — Required: to, task, context, helpRequest: true.",
       "",
-      "ACTION 1 — CREATE (pass task to another agent)",
-      "  Required: to, task, context",
-      "  Optional: files[], checkpoint, parallelCopies",
-      "  Example:",
-      '    handoff(to: "@dev", task: "Fix the leak in batcher",',
-      '            context: "batcher.rs:88 — clear() does not free memory, cause: no free()",',
-      '            files: ["src/batcher.rs"])',
+      "checkpoint (create only, when your context runs low): completed[], remaining[], filesChanged[], decisions[{title, detail}].",
       "",
-      "  PARALLEL COPIES — create N copies of this handoff to different agents:",
-      '    handoff(to: "@analyst", parallelCopies: 3, task: "...", context: "...")',
-      "    → Creates 3 handoffs to 3 different agents, all with the same task",
-      "    → Each agent completes independently with their own result",
-      "    → When all complete, results are shown side by side",
-      "",
-      "ACTION 2 — COMPLETE (mark a handoff as done)",
-      "  Required: completeHandoff (the handoff ID)",
-      "  Optional: result (summary of what was accomplished)",
-      "  Example:",
-      '    handoff(completeHandoff: "H-001", result: "Fixed the leak in batcher.rs — there was a malloc without free")',
-      "ACTION 3 — UNDO (revert accepted handoff back to pending)",
-      "  Required: undo (the handoff ID)",
-      "  Example:",
-      '    handoff(undo: "H-001")',
-      "",
-      "ACTION 4 — RESCUE (reassign a stalled handoff, @analyst only)",
-      "  Required: rescue (handoff ID), to (new agent), context (reason)",
-      "  Example:",
-      '    handoff(rescue: "H-003", to: "@reviewer",',
-      '            context: "@dev failed — continue from checkpoint")',
-      "",
-      "ACTION 5 — HELP REQUEST (ask another agent to run a tool for you)",
-      "  Required: to, task, context, helpRequest: true",
-      "  Example:",
-      '    handoff(to: "@dev", helpRequest: true,',
-      '            task: "Log a record on my behalf",',
-      '            context: "type: decision, title: we chose SQLite, detail: ...")',
-      "",
-      "═══ CHECKPOINT (for context continuation) ═══",
-      "  Add checkpoint to CREATE action when your context runs low:",
-      '  handoff(to: "@dev", task: "Continue cleanup",',
-      '          context: "my context is running low",',
-      "          checkpoint: {",
-      '            completed: ["Fixed null pointer in main.rs:42"],',
-      '            remaining: ["Clean cache in batcher.rs"],',
-      '            filesChanged: ["src/main.rs"],',
-      '            decisions: [{title: "cursor init", detail: "initializes null then checks"}]',
-      "          })",
-      "",
-      "═══ RULES ═══",
-      "  • context ≥ 5 words (required), ≥ 10 words (recommended)",
-      "  • task ≥ 3 words (required), ≥ 5 words (recommended)",
-      "  • files optional but recommended",
-      "  • DO NOT mix actions in one call — exactly ONE of: create / completeHandoff / undo / rescue",
+      "RULES: context ≥ 5 words (required), ≥ 10 words (recommended). task ≥ 3 words (required), ≥ 5 words (recommended). files optional but recommended. DO NOT mix actions in one call.",
     ].join("\n"),
     args: {
       to: tool.schema.string().optional().describe("Target agent (@name)"),
@@ -425,6 +382,7 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
           ctx.updateLastActive(cctx.agent);
         }
 
+        const agentModelMap = ctx.modelManager.agentModelMap;
         const rescueEntry = {
           id: ctx.nextHandoffId(),
           from: `🚑 ${cctx.agent} (rescue ${rescueId})`,
@@ -452,6 +410,8 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
           timestamp: new Date().toISOString(),
           status: "pending",
           rescue: true,
+          implementer: resolveAgentModelRef(cctx.agent, agentModelMap),
+          reviewer: resolveAgentModelRef(args.to as string, agentModelMap),
         };
         ctx.handoffs.set(rescueEntry.id, rescueEntry as HandoffEntry);
         ctx.recordHandoffInitiated(cctx.agent, rescueEntry.context, rescueEntry.task, !!rescueEntry.checkpoint, false);
@@ -713,6 +673,9 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
           : buildAccumulatedContext(ctx, args.to as string, args.context as string, asCheckpoint(args.checkpoint))
         : (args.context as string);
 
+      const agentModelMap = ctx.modelManager.agentModelMap;
+      const implementer = resolveAgentModelRef(cctx.agent, agentModelMap);
+      const reviewer = resolveAgentModelRef(args.to as string, agentModelMap);
       const entry = {
         id: ctx.nextHandoffId(),
         from: normalizeName(cctx.agent),
@@ -725,6 +688,8 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
         status: "pending",
         decisionRuleId: ruleDecision.metadata?.ruleId as string | undefined,
         decision: ruleDecision,
+        implementer,
+        reviewer,
         ...(reroutedModel ? { reroutedModel } : {}),
       };
 
@@ -841,6 +806,8 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
             status: "pending",
             parallelId: entry.id,
             sourceRecordId: entry.id,
+            implementer,
+            reviewer: resolveAgentModelRef(agent, agentModelMap),
           };
           ctx.handoffs.set(copy.id, copy as HandoffEntry);
         }

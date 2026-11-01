@@ -41,6 +41,7 @@ const LEGACY_TEXT = [
   '- `goal(create: "<title>")` -> create a goal right here — never hunt for goal storage',
   "- `show_board` -> mission boards · `timeline()` -> activity timeline",
   "- `record(list: true)` -> session decisions/records · `handoff(to: ..., task: ..., context: ...)` -> hand a task to an agent",
+  "- User skills and commands are unconditional: the plugin never reads, gates, prefixes or overrides them · shipped ids use the `tawassul-` prefix",
   "Reviewed a goal? Update it right here via `goal(update|evidence|close)` — do not assume it lives anywhere else.",
 ].join("\n");
 

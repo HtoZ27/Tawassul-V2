@@ -331,7 +331,7 @@ export class HandoffService {
     },
     private circuitBreaker?: CircuitBreaker,
   ) {
-    this._sagaCoordinator = new SagaCoordinator<{ handoff: HandoffEntry; ctx: TawaOrchestratorContext }>(ctx.stateDir);
+    this._sagaCoordinator = new SagaCoordinator<{ handoff: HandoffEntry; ctx: TawaOrchestratorContext }>(ctx.persistDir);
   }
 
   private async _withLock<T>(

@@ -32,7 +32,7 @@
   "addagentErrors": "❌ Failed to add: {list}",
   "addagentExample1": "📋 Example 1: doc analyst with model big-pickle from opencode",
   "addagentExample2": "📋 Example 2: dev with model gemini from google",
-  "addagentExample3": "📋 Example 3: dev with model minimax from nvidia-nim",
+  "addagentExample3": "📋 Example 3: dev with model minimax from nvidia",
   "addagentExample4": "📋 Example 4: all-gemini with model gemini from google (creates dev-gemini … doc-gemini at once)",
   "addagentLimitReached": "⚠️ Maximum of {limit} agents reached. Cannot add more.",
   "addagentModelDidYouMean": "❌ Model \"{model}\" is unknown. Did you mean \"{suggestion}\"?\nOr use provider/model (e.g. openai/gpt-4o)",

@@ -48,6 +48,7 @@ export interface SaveHealth {
 
 export interface StateContext {
   stateDir: string;
+  persistDir: string;
   saveState(): Promise<void>;
   getSaveHealth(): SaveHealth;
   flushSaves(): Promise<void>;

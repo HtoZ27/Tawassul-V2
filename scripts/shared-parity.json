@@ -58,7 +58,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/v2/adapters.ts",
-            "line": 80,
+            "line": 99,
             "marker": "toV2Result"
           },
           "proofs": [
@@ -81,7 +81,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/v2/setup.ts",
-            "line": 463,
+            "line": 465,
             "marker": "host missing required domains"
           },
           "proofs": [
@@ -367,7 +367,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/proxy-fallback-chains.ts",
-            "line": 67,
+            "line": 73,
             "marker": "sweepRetiredModelPins"
           },
           "proofs": [
@@ -467,7 +467,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/goal-store.ts",
-            "line": 444,
+            "line": 452,
             "marker": "mutate"
           },
           "proofs": [
@@ -1069,7 +1069,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/v2/setup.ts",
-            "line": 46,
+            "line": 48,
             "marker": "SCHEMA_RETRY_ATTEMPTS"
           },
           "proofs": [
@@ -1218,7 +1218,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/goal-store.ts",
-            "line": 705,
+            "line": 713,
             "marker": "finishLocked"
           },
           "proofs": [

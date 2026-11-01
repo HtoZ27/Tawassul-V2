@@ -11,7 +11,7 @@ import { walReplay, loadFeatureIndex } from "./state-loader.ts";
 
 
 export async function loadAllState(ctx: TawaOrchestratorContext): Promise<void> {
-  if (!ctx.stateDir) return;
+  if (!ctx.persistDir) return;
 
   const result = await ctx.stateManager.loadFromFile(
     {
@@ -27,7 +27,7 @@ export async function loadAllState(ctx: TawaOrchestratorContext): Promise<void> 
     ctx.sessionManager.getSessionId(),
   );
 
-  await walReplay(ctx.stateDir, result);
+  await walReplay(ctx.persistDir, result);
 
   
   ctx.handoffs.clear();
@@ -103,7 +103,7 @@ export async function loadAllState(ctx: TawaOrchestratorContext): Promise<void> 
   );
 
   
-  const loadedFi = await loadFeatureIndex(ctx.stateDir);
+  const loadedFi = await loadFeatureIndex(ctx.persistDir);
   if (loadedFi) ctx.featureIndex = loadedFi;
 }
 

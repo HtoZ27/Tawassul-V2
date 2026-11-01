@@ -7,7 +7,7 @@ import type { TawassulContext } from "../src/context.ts";
 import { buildThreadTool } from "../src/tools/thread.ts";
 import { ToolDeduplicator } from "../src/services/tool-dedup.ts";
 import { ToolRunLog } from "../src/services/tool-run-log.ts";
-import { evaluateDuplicateGuard, isIdempotentThreadCall } from "../src/hooks/duplicate-guard.ts";
+import { evaluateDuplicateGuard, isIdempotentGoalCall, isIdempotentThreadCall } from "../src/hooks/duplicate-guard.ts";
 import type { ToolContext } from "../src/tool.ts";
 import { clearSessionBridge, installSessionBridge } from "../src/v2/session-bridge.ts";
 import { activatePack, createPack } from "../src/services/context-pack/index.ts";
@@ -174,6 +174,53 @@ async function main(): Promise<void> {
       assert(!repeated.blocked, `repeated thread ${action} calls stay unblocked`);
     }
     assert(guardDedup.metrics.totalChecks === checksBefore, `thread ${action} never enters the session deduplicator`);
+  }
+
+  assert(isIdempotentGoalCall("goal", { board: true }), "goal board is idempotent");
+  assert(isIdempotentGoalCall("goal", { get: "G-001" }), "goal get is idempotent");
+  assert(isIdempotentGoalCall("goal", { list: true, filter: "completed" }), "goal list is idempotent");
+  assert(!isIdempotentGoalCall("goal", { close: "G-001" }), "goal close is state changing");
+  assert(!isIdempotentGoalCall("goal", { update: "G-001", state: "completed" }), "goal update is state changing");
+  assert(!isIdempotentGoalCall("goal", { board: false }), "a false board flag is not a read");
+  assert(!isIdempotentGoalCall("goal", null), "a missing goal payload is not exempt");
+  assert(!isIdempotentGoalCall("bash", { board: true }), "another tool is never exempt by a goal-shaped payload");
+
+  for (const args of [{ board: true }, { get: "G-001" }, { list: true, filter: "completed" }]) {
+    const argsJson = JSON.stringify(args);
+    guardLog.record({
+      tool: "goal",
+      agent: "dev",
+      sessionId: "ses-prior",
+      argsHash: argsJson,
+      status: "success",
+      timestamp: guardNow - 1000,
+    });
+    const checksBefore = guardDedup.metrics.totalChecks;
+    const verdict = evaluateDuplicateGuard({
+      tool: "goal",
+      agent: "dev",
+      sessionID: "ses-source",
+      args,
+      argsJson,
+      now: guardNow,
+      deduplicator: guardDedup,
+      runLog: guardLog,
+    });
+    assert(!verdict.blocked, `goal ${argsJson} bypasses the cross-session duplicate guard`);
+    for (let i = 1; i <= 5; i++) {
+      const repeated = evaluateDuplicateGuard({
+        tool: "goal",
+        agent: "dev",
+        sessionID: "ses-source",
+        args,
+        argsJson,
+        now: guardNow + i,
+        deduplicator: guardDedup,
+        runLog: guardLog,
+      });
+      assert(!repeated.blocked, `repeated goal ${argsJson} calls stay unblocked`);
+    }
+    assert(guardDedup.metrics.totalChecks === checksBefore, `goal ${argsJson} never enters the session deduplicator`);
   }
 
   for (const action of ["continue", "revoke"]) {

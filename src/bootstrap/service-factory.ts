@@ -38,7 +38,7 @@ import { BackgroundNotifier } from "../services/background-notifier.ts";
 import { InMemoryVectorIndex } from "../services/vector-retrieval.ts";
 import { CONTEXT_COMPRESSION_NEEDED } from "../services/context-compression-escalation.ts";
 import { PRIVACY_REDACTED } from "../services/privacy-guard.ts";
-import { setSkillGateEnabled, setConsentGateEnabled } from "../hooks/validation-pipeline.ts";
+import { setConsentGateEnabled } from "../hooks/validation-pipeline.ts";
 
 import { ImageRouter, getImageRouter } from "../services/image-router/index.ts";
 import { StaleDetector, getStaleDetector } from "../services/stale-detector/index.ts";
@@ -66,6 +66,7 @@ import { cacheClear } from "../tools/web.ts";
 import type { TawaOrchestratorContext } from "../core/service-context.ts";
 import type { TawassulEvent } from "../services/event-hub.ts";
 import { createHandoffEntry } from "../services/handoff-entry.ts";
+import { resolveAgentModelRef } from "../services/model-refs.ts";
 import { logger } from "../utils/logger.ts";
 import { t } from "../translations.ts";
 import { resolveRuntimeStateDir } from "../utils/path-resolver.ts";
@@ -81,6 +82,7 @@ import { legacyReadsEnabled, scopedStatePath, stateReadPath } from "../utils/sta
 
 type ServicesContext = TawaOrchestratorContext & {
   scope: import("../utils/path-resolver.ts").InstallScope;
+  projectRoot?: string;
   lifecycleManager: import("../services/lifecycle-manager.ts").LifecycleManager;
   registerEventHubListener: (event: string, handler: (event: TawassulEvent) => void) => void;
   handoffService?: HandoffService;
@@ -192,7 +194,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   
   
-  const runtimeStateDir = resolveRuntimeStateDir(tawaCtx.stateDir, tawaCtx.scope);
+  const runtimeStateDir = resolveRuntimeStateDir(tawaCtx.persistDir, tawaCtx.scope);
   const projectStateDir = tawaCtx.scope === "global" ? runtimeStateDir : resolve(runtimeStateDir, ".opencode");
   const stateFile = (fileName: string): string => join(projectStateDir, fileName);
   const healthCfg = tawaCtx.config.health ?? {};
@@ -227,7 +229,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   tawaCtx.handoffService = handoffService;
 
   
-  const handoffLedger = new HandoffLedger(tawaCtx.stateDir, tawaCtx.timerManager);
+  const handoffLedger = new HandoffLedger(tawaCtx.persistDir, tawaCtx.timerManager);
   const queueDrainer = new QueueDrainer(handoffService);
   
   tawaCtx.queueDrainer = queueDrainer;
@@ -305,7 +307,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
 
   
   
-  const pk = projectDirectory ?? tawaCtx.stateDir;
+  const pk = tawaCtx.persistDir;
   const memFile = pk
     ? `collective-memory-${crypto.createHash("sha1").update(pk).digest("hex").slice(0, 8)}.json`
     : "collective-memory.json";
@@ -335,17 +337,13 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
     storagePath: stateFile("spec-driven.json"),
   });
 
-  
-  setSkillGateEnabled(isInnovationOn("skillGate"));
-
-  
   setConsentGateEnabled(isInnovationOn("consentGate"));
 
   
   const imageRouter = getImageRouter();
   const staleDetector = getStaleDetector({
     enabled: true,
-    trackedFiles: [join(tawaCtx.stateDir, "..", "AGENTS.md"), join(tawaCtx.stateDir, "..", "codemap.md")],
+    trackedFiles: [join(projectDirectory ?? tawaCtx.stateDir, "AGENTS.md"), join(projectDirectory ?? tawaCtx.stateDir, "codemap.md")],
   });
 
   
@@ -403,7 +401,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
     tawaCtx.eventHub.on(PRIVACY_REDACTED, (e) => onEvent("privacy-redacted", e));
     tawaCtx.backgroundNotifier = notifier;
     
-    loadPromises.push(notifier.load(tawaCtx.stateDir).catch((e) => logger.warn("activity-metrics load failed:", e)));
+    loadPromises.push(notifier.load(tawaCtx.persistDir).catch((e) => logger.warn("activity-metrics load failed:", e)));
   }
   
   
@@ -415,7 +413,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
     
     loadPromises.push(
       index
-        .load(tawaCtx.stateDir)
+        .load(tawaCtx.persistDir)
         .then(() => {
           const docs = [
             ...tawaCtx.records.map((r) => ({ id: r.id, kind: "record" as const, text: `${r.title}\n${r.detail}` })),
@@ -430,7 +428,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   
   
-  const worktreeBlocked = getWorktreeBlockReason(tawaCtx.stateDir) === "worktree";
+  const worktreeBlocked = getWorktreeBlockReason(tawaCtx.persistDir, tawaCtx.projectRoot) === "worktree";
   if (worktreeBlocked) {
     logger.warn(
       "⛔ Worktree isolation violated: stateDir escapes TAWASSUL_WORKTREE_ROOT — mutating persistence disabled (read-only fail-safe).",
@@ -439,7 +437,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   
   if (isInnovationOn("toolRunLog") && !worktreeBlocked) {
-    const toolRunLog = new ToolRunLog(tawaCtx.stateDir);
+    const toolRunLog = new ToolRunLog(tawaCtx.persistDir);
     tawaCtx.toolRunLog = toolRunLog;
     loadPromises.push(toolRunLog.load());
   }
@@ -577,7 +575,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   let timelineStore: TimelineStore | undefined;
   if (isInnovationOn("timeline")) {
-    timelineStore = new TimelineStore(tawaCtx.stateDir, {
+    timelineStore = new TimelineStore(tawaCtx.persistDir, {
       timers: tawaCtx.timerManager,
     });
     void timelineStore.ensureLoaded();
@@ -594,7 +592,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   let goalStore: GoalStore | undefined;
   try {
-    goalStore = new GoalStore(tawaCtx.stateDir, tawaCtx.scope);
+    goalStore = new GoalStore(tawaCtx.persistDir, tawaCtx.scope);
 
 
     void goalStore.ensureLoaded({ sweepStaleMs: 14 * 24 * 3600 * 1000 });
@@ -643,11 +641,11 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   let checkpointManager: CheckpointManager;
   try {
     codeState = new CodeStateService(process.cwd());
-    checkpointManager = new CheckpointManager(codeState, tawaCtx.eventHub, tawaCtx.stateDir);
+    checkpointManager = new CheckpointManager(codeState, tawaCtx.eventHub, tawaCtx.persistDir);
   } catch (e) {
     logger.warn("[service-factory] CodeStateService init failed — falling back to NullCodeStateService:", e);
     codeState = new NullCodeStateService();
-    checkpointManager = new CheckpointManager(codeState, tawaCtx.eventHub, tawaCtx.stateDir);
+    checkpointManager = new CheckpointManager(codeState, tawaCtx.eventHub, tawaCtx.persistDir);
   }
 
   
@@ -697,6 +695,8 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
       from: task.from,
       to: task.to,
       task: task.task,
+      implementer: resolveAgentModelRef(task.from, tawaCtx.modelManager.agentModelMap),
+      reviewer: resolveAgentModelRef(task.to, tawaCtx.modelManager.agentModelMap),
     });
     tawaCtx.handoffs.set(id, entry);
     healthTracker.onHandoffCreated(task.to, id);
@@ -758,6 +758,8 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
         context: params.context,
         files: params.files,
         parallelId: params.parallelId,
+        implementer: resolveAgentModelRef("@tawa", tawaCtx.modelManager.agentModelMap),
+        reviewer: resolveAgentModelRef(params.to, tawaCtx.modelManager.agentModelMap),
       });
       tawaCtx.handoffs.set(id, entry);
       healthTracker.onHandoffCreated(params.to, id);
@@ -774,7 +776,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   const taskOrchestrator = new TaskOrchestrator(tawaCtx.eventHub, parallelDispatcher, specDriven);
   const resultEngine = new ResultEngine(tawaCtx.eventHub);
-  const missionBoard = new MissionBoard(tawaCtx.eventHub, undefined, tawaCtx.stateDir, tawaCtx.scope);
+  const missionBoard = new MissionBoard(tawaCtx.eventHub, undefined, tawaCtx.persistDir, tawaCtx.scope);
   const strategyDispatcher = new StrategyDispatcher(parallelDispatcher);
   
   const costTracker = costTransparency;

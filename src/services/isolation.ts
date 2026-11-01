@@ -98,8 +98,10 @@ export function isWithinWorktreeScope(filePath: string, root: string): boolean {
 }
 
 
-export function getWorktreeBlockReason(stateDir?: string): "worktree" | null {
+export function getWorktreeBlockReason(stateDir?: string, projectRoot?: string): "worktree" | null {
   const root = getWorktreeRoot();
   if (!root || !stateDir) return null;
-  return isWithinWorktreeScope(stateDir, root) ? null : "worktree";
+  if (isWithinWorktreeScope(stateDir, root)) return null;
+  if (projectRoot && isWithinWorktreeScope(stateDir, projectRoot)) return null;
+  return "worktree";
 }

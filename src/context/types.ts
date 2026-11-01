@@ -12,6 +12,11 @@ export type FileLocation = {
   confidence?: number;
 };
 
+export type AgentModelRef = {
+  providerID: string;
+  modelID: string;
+};
+
 export type RecordEntry = {
   id: string;
   type: "decision" | "fix" | "incident" | "note";
@@ -51,6 +56,8 @@ export type HandoffEntry = {
   sourceRecordId?: string;
   sourceDiscussionId?: string;
   credentialScope?: "inherit" | "isolated";
+  implementer?: AgentModelRef;
+  reviewer?: AgentModelRef;
   
   acceptanceCriteria?: string[];
   acknowledgedBy?: string;

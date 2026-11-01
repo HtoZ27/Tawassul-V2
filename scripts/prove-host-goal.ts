@@ -206,6 +206,17 @@ async function proveToolSurface(): Promise<void> {
     const guarded = outputOf(await fake.execute({ update: "host", detail: "x" }));
     assert(guarded.includes("not a ledger goal"), "write operations reject the host id");
     assert(store.get("host") === undefined, "host guard does not touch the ledger");
+    const created = await store.create({ title: "completed item display", owner: "@dev", items: ["finished work"] });
+    if (!created.ok) fail(`display seed failed: ${created.reason}`);
+    const itemId = created.goal.items[0]?.id ?? "";
+    const done = await store.update(created.goal.id, {
+      itemEvidence: [{ itemId, text: "the finished work has a receipt" }],
+      itemStates: [{ itemId, state: "done" }],
+    });
+    if (!done.ok) fail(`display item completion failed: ${done.reason}`);
+    const shown = outputOf(await fake.execute({ get: created.goal.id }));
+    assert(shown.includes("completed:"), "goal(get) shows the completed section");
+    assert(shown.includes("finished work"), "goal(get) shows the archived item title");
     console.log("tool-surface ok");
   } finally {
     setActiveHostGoalMirror(null);

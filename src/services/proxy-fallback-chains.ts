@@ -2,34 +2,40 @@ import { RETIRED_MODEL_IDS } from "../core/model-registry.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 import { resolveRole } from "../utils/agent.ts";
 
+export const FREE_FALLBACK_MODEL = "google/gemini-flash-lite-latest";
+
 export const FALLBACK_CHAINS: Record<string, string[]> = {
-  tawa: ["opencode/big-pickle", "google/gemini-flash-lite-latest", "opencode/mimo-v2.6-flash-free"],
+  tawa: ["opencode/big-pickle", FREE_FALLBACK_MODEL, "opencode/mimo-v2.6-flash-free"],
   dev: [
-    "nvidia-nim/deepseek-ai/deepseek-v4-flash",
+    "nvidia/deepseek-ai/deepseek-v4.1-flash",
+    FREE_FALLBACK_MODEL,
     "opencode/mimo-v2.6-flash-free",
     "opencode/big-pickle",
-    "google/gemini-flash-lite-latest",
   ],
   analyst: [
-    "google/gemini-flash-lite-latest",
-    "nvidia-nim/deepseek-ai/deepseek-v4-flash",
+    FREE_FALLBACK_MODEL,
+    "nvidia/deepseek-ai/deepseek-v4.1-flash",
     "opencode/mimo-v2.6-flash-free",
     "opencode/big-pickle",
   ],
   tester: [
     "opencode/mimo-v2.6-flash-free",
-    "nvidia-nim/deepseek-ai/deepseek-v4-flash",
+    FREE_FALLBACK_MODEL,
+    "nvidia/deepseek-ai/deepseek-v4.1-flash",
     "opencode/big-pickle",
-    "google/gemini-flash-lite-latest",
   ],
-  reviewer: ["opencode/big-pickle", "nvidia-nim/deepseek-ai/deepseek-v4-flash", "google/gemini-flash-lite-latest"],
-  architect: ["opencode/big-pickle", "opencode/mimo-v2.6-flash-free", "google/gemini-flash-lite-latest"],
-  designer: ["opencode/big-pickle", "opencode/mimo-v2.6-flash-free", "google/gemini-flash-lite-latest"],
-  doc: ["opencode/big-pickle", "nvidia-nim/deepseek-ai/deepseek-v4-flash", "google/gemini-flash-lite-latest"],
+  reviewer: ["opencode/big-pickle", FREE_FALLBACK_MODEL, "nvidia/deepseek-ai/deepseek-v4.1-flash"],
+  architect: ["opencode/big-pickle", FREE_FALLBACK_MODEL, "opencode/mimo-v2.6-flash-free"],
+  designer: ["opencode/big-pickle", FREE_FALLBACK_MODEL, "opencode/mimo-v2.6-flash-free"],
+  doc: ["opencode/big-pickle", FREE_FALLBACK_MODEL, "nvidia/deepseek-ai/deepseek-v4.1-flash"],
 };
 
 export function getFallbackChain(role: string): string[] {
-  return FALLBACK_CHAINS[role] || FALLBACK_CHAINS.dev!;
+  const chain = FALLBACK_CHAINS[role] || FALLBACK_CHAINS.dev!;
+  const free = chain.indexOf(FREE_FALLBACK_MODEL);
+  if (free === 0 || free === 1) return chain;
+  const primary = chain.filter((model) => model !== FREE_FALLBACK_MODEL);
+  return [primary[0] ?? FREE_FALLBACK_MODEL, FREE_FALLBACK_MODEL, ...primary.slice(1)];
 }
 
 export function getDynamicFallbackChainForRole(

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { TOOL_COUNT, TOOL_NAME_SET_HASH } from "../src/generated/tool-tripwire.ts";
 
 let passed = 0;
 
@@ -20,6 +21,7 @@ function assert(cond: boolean, name: string): void {
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const work = mkdtempSync(join(tmpdir(), "tawassul-e27-"));
+const bootMarker = `v2 registered ${TOOL_COUNT} tools name-set ${TOOL_NAME_SET_HASH}`;
 
 type Mode = "hang" | "refusal" | "reply";
 
@@ -37,7 +39,7 @@ function stub(mode: Mode): string {
 if [ "$1" = "--version" ]; then printf '2.2.0\\n'; exit 0; fi
 if [ "$1" = "run" ]; then
   printf 'initPlugin=1\\n' >> "$TAWASSUL_LOG_FILE"
-  printf 'v2 registered 44 tools\\n' >> "$TAWASSUL_LOG_FILE"
+  printf '${bootMarker}\\n' >> "$TAWASSUL_LOG_FILE"
   ${body}fi
 exit 0
 `,

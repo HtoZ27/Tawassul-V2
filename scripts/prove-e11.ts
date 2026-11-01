@@ -3,9 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CapabilityTracker, seedCapabilitiesFromRoster } from "../src/features/capability-tracker.ts";
-import { skillGateGuard } from "../src/hooks/guards/skill-gate-guard.ts";
 import { TawassulContext } from "../src/context-class.ts";
-import { logger } from "../src/utils/logger.ts";
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -46,54 +44,6 @@ const devRecord = tracker.getAll().find((entry) => entry.agent === "dev");
 assert(devRecord !== undefined && Object.keys(devRecord.attempts).length === 0, "seeding fabricates no attempts");
 assert(tracker.getSuccessRate("dev", "implementation") === 0.5, "seeding keeps the neutral success rate");
 assert(tracker.getCapabilities("dev").length === 1, "seeding the same agent twice stays idempotent");
-
-const originalWarn = logger.warn;
-const warnings: string[] = [];
-logger.warn = ((message: string) => {
-  warnings.push(message);
-}) as typeof logger.warn;
-
-try {
-  const emptyCtx = { capabilityTracker: new CapabilityTracker() } as never;
-  const firstOutput: { args: Record<string, unknown>; error?: string } = { args: {} };
-  const firstAllowed = await skillGateGuard.check(
-    emptyCtx,
-    { tool: "edit", agent: "dev", sessionID: "s1" },
-    firstOutput,
-  );
-  assert(firstAllowed, "an empty tracker fails open for a managed agent");
-  assert(firstOutput.error === undefined, "fail-open leaves no tool error behind");
-  assert(warnings.length === 1, "fail-open logs one warning");
-  assert(warnings[0]?.includes("no capability record") === true, "the warning names the missing capability record");
-
-  await skillGateGuard.check(emptyCtx, { tool: "write", agent: "dev", sessionID: "s1" }, { args: {} });
-  assert(warnings.length === 1, "the empty-record warning is throttled per agent");
-
-  await skillGateGuard.check(emptyCtx, { tool: "bash", agent: "tester", sessionID: "s1" }, { args: {} });
-  assert(warnings.length === 2, "a second agent gets its own warning");
-
-  const seededCtx = { capabilityTracker: tracker } as never;
-  const seededOutput: { args: Record<string, unknown>; error?: string } = { args: {} };
-  const seededAllowed = await skillGateGuard.check(
-    seededCtx,
-    { tool: "edit", agent: "dev", sessionID: "s1" },
-    seededOutput,
-  );
-  assert(seededAllowed && seededOutput.error === undefined, "a seeded agent passes the gate");
-  assert(warnings.length === 2, "a seeded agent produces no warning");
-
-  assert(
-    await skillGateGuard.check(seededCtx, { tool: "read", agent: "dev", sessionID: "s1" }, { args: {} }),
-    "non-skip tools are untouched",
-  );
-  assert(
-    await skillGateGuard.check(seededCtx, { tool: "edit", agent: "tawa", sessionID: "s1" }, { args: {} }),
-    "tawa is exempt from the gate",
-  );
-  assert(warnings.length === 2, "exempt calls add no warnings");
-} finally {
-  logger.warn = originalWarn;
-}
 
 const facade = readFileSync(join(repo, "src", "context", "facades", "lifecycle-facade.ts"), "utf8");
 const initAt = facade.indexOf("await ctx.lifecycleManager.init();");
@@ -146,4 +96,4 @@ try {
   rmSync(persistDir, { recursive: true, force: true });
 }
 
-console.log(`PROOF PASS: skill gate seeds from the roster and fails open (${passed} assertions)`);
+console.log(`PROOF PASS: capabilities seed from the roster and survive a state round-trip (${passed} assertions)`);

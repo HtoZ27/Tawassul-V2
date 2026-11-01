@@ -140,8 +140,8 @@ export function getDefaultFreeModels(): Array<{ id: string; name: string; provid
   return [
     { id: "opencode/big-pickle", name: "Big Pickle", provider: "opencode" },
     { id: "opencode/mimo-v2.6-flash-free", name: "MiMo V2.6 Flash Free", provider: "opencode" },
-    { id: "nvidia-nim/deepseek-ai/deepseek-v4-flash", name: "DeepSeek V4 Flash (NVIDIA)", provider: "nvidia-nim" },
-    { id: "nvidia-nim/nvidia/nemotron-3-ultra-550b-a55b", name: "Nemotron 3 Ultra (NVIDIA)", provider: "nvidia-nim" },
+    { id: "nvidia/deepseek-ai/deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash (NVIDIA)", provider: "nvidia" },
+    { id: "nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b", name: "Nemotron 3.5 Super VL (NVIDIA)", provider: "nvidia" },
   ];
 }
 

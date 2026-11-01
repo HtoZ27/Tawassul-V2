@@ -8,7 +8,9 @@ import { ToolBlockedError } from "../hooks/tool-execute.ts";
 import { isBlockedToolForTawa } from "../security-policy.ts";
 import { logger } from "../utils/logger.ts";
 import { collectToolSchemas, makeV2Tool, schemaFingerprint, measureSchemaPayload } from "./adapters.ts";
+import { toolNameSetHash } from "../services/tool-tripwire.ts";
 import { createAskBridge, registerAskPermission } from "./ask.ts";
+import { registerPilotCommand, registerPilotSkills } from "../skills/pilot.ts";
 import { buildPluginInput } from "./client-shim.ts";
 import { isTaskTool, subagentArgsToV1, toolNameToV1, v1ArgsToSubagent } from "./delegation.ts";
 import { mapV2EventToV1 } from "./event-adapter.ts";
@@ -509,6 +511,10 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
     if (hostGoalMirror) registered.push(async () => uninstallHostGoalMirror(hostGoalMirror));
     const askRegistration = await registerAskPermission(ctx);
     if (askRegistration) registered.push(() => askRegistration.dispose());
+    const pilotRegistrations = await registerPilotSkills(ctx);
+    for (const registration of pilotRegistrations) registered.push(() => registration.dispose());
+    const pilotCommand = await registerPilotCommand(ctx);
+    if (pilotCommand) registered.push(() => pilotCommand.dispose());
     const askEnabled = askRegistration !== undefined;
     const askFactory = (context: V2ToolContext) => createAskBridge(ctx, context, askEnabled);
 
@@ -544,13 +550,14 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
     }
 
     try {
+      const nameSetHash = toolNameSetHash(Object.keys(wrapped));
       const toolRegistration = await ctx.tool.transform((editor) => {
         let count = 0;
         for (const [name, def] of Object.entries(wrapped)) {
           editor.add(makeV2Tool(ctx, name, def, schemas.get(name), askFactory));
           count += 1;
         }
-        logger.info(`[tawassul] v2 registered ${count} tools`);
+        logger.info(`[tawassul] v2 registered ${count} tools name-set ${nameSetHash}`);
       });
       registered.push(() => toolRegistration.dispose());
       registeredSchemaFingerprint = schemaFingerprint(schemas);

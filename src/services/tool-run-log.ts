@@ -24,6 +24,7 @@ export interface ToolRunEntry {
   status: ToolRunStatus;
   timestamp: number;
   turn: number;
+  model?: string;
   
   input?: unknown;
   
@@ -37,6 +38,7 @@ export interface ToolRunRecordInput {
   argsHash: string;
   status: ToolRunStatus;
   turn?: number;
+  model?: string;
   input?: unknown;
   error?: string;
   timestamp?: number;
@@ -159,6 +161,7 @@ export class ToolRunLog {
       argsHash: input.argsHash,
       status: input.status,
       turn,
+      ...(input.model ? { model: input.model } : {}),
       input: redactedInput,
       error: redactedError,
     };
@@ -227,6 +230,52 @@ export class ToolRunLog {
   }
 }
 
+export const TOOL_RANKING_SOURCE = "tool-run-log";
+
+export type ToolRankingRow = {
+  tool: string;
+  calls: number;
+  errors: number;
+  retries: number;
+  lastTurn: number;
+};
+
+export function rankToolRuns(
+  entries: readonly ToolRunEntry[],
+  source: string = TOOL_RANKING_SOURCE,
+): ToolRankingRow[] {
+  if (source !== TOOL_RANKING_SOURCE) {
+    throw new Error(`unsupported tool ranking source: ${source}`);
+  }
+  const rows = new Map<string, ToolRankingRow>();
+  for (const entry of entries) {
+    const row = rows.get(entry.tool) ?? {
+      tool: entry.tool,
+      calls: 0,
+      errors: 0,
+      retries: 0,
+      lastTurn: 0,
+    };
+    row.calls += 1;
+    if (entry.status === "error") row.errors += 1;
+    if (entry.turn > row.lastTurn) row.lastTurn = entry.turn;
+    rows.set(entry.tool, row);
+  }
+  entries.forEach((entry, index) => {
+    if (entry.status !== "error") return;
+    const retried = entries.some(
+      (other, otherIndex) =>
+        otherIndex > index && other.tool === entry.tool && other.sessionId === entry.sessionId,
+    );
+    if (!retried) return;
+    const row = rows.get(entry.tool);
+    if (row) row.retries += 1;
+  });
+  return [...rows.values()].sort(
+    (a, b) => b.calls - a.calls || b.errors - a.errors || a.tool.localeCompare(b.tool),
+  );
+}
+
 function isToolRunEntry(v: unknown): v is ToolRunEntry {
   if (typeof v !== "object" || v === null) return false;
   const e = v as Record<string, unknown>;
@@ -238,6 +287,7 @@ function isToolRunEntry(v: unknown): v is ToolRunEntry {
     typeof e.argsHash === "string" &&
     (e.status === "success" || e.status === "error") &&
     typeof e.timestamp === "number" &&
-    typeof e.turn === "number"
+    typeof e.turn === "number" &&
+    (e.model === undefined || typeof e.model === "string")
   );
 }

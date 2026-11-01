@@ -455,6 +455,7 @@ export const GoalSchema = z.object({
   title: z.string().min(1).max(500),
   detail: z.string().max(5000),
   status: GoalStatusSchema,
+  closedAs: GoalStatusSchema.optional(),
   progressPct: z.number().int().min(0).max(100),
   owner: z.string(),
   ownerKind: z.enum(["solo", "delegated"]),
