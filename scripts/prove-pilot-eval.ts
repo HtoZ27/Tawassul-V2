@@ -84,7 +84,7 @@ type Receipt = {
     rate: number;
     skillsOff: number;
   };
-  command: {
+  command?: {
     name: string;
     registered: boolean;
     expandedInRun: boolean;
@@ -192,37 +192,76 @@ for (const skill of manifest.skills) {
   assert(entry.verdict === "pass", `${label} eval verdict is pass`);
 }
 
-const receipt = JSON.parse(
-  readFileSync(join(repo, ledger.evals[0]!.receipt), "utf8"),
-) as Receipt;
-assert(receipt.replayLoadRate.relevant === totalRelevant, "the replay aggregate covers every relevant fixture session");
-assert(receipt.replayLoadRate.loaded === totalLoaded, "the replay aggregate covers every loaded fixture session");
-assert(
-  receipt.replayLoadRate.rate === totalLoaded / totalRelevant,
-  `the replay load rate matches the fixtures (${receipt.replayLoadRate.rate})`,
-);
-assert(
-  typeof receipt.method === "string" && receipt.method.includes("E1"),
-  "the receipt names the live measurement that E1 owns",
-);
-assert(
-  receipt.fixtures.length === manifest.skills.length,
-  "the receipt carries one entry per pilot skill",
-);
+const receiptPaths = [...new Set(ledger.evals.map((entry) => entry.receipt))];
+const receipts = receiptPaths.map((path) => ({
+  path,
+  receipt: JSON.parse(readFileSync(join(repo, path), "utf8")) as Receipt,
+}));
 
-const live = receipt.liveLoadRate;
-assert(live.sessions.length === live.relevant, "the live table carries one row per relevant live session");
-assert(live.sessions.every((session) => typeof session.loaded === "boolean"), "every live row records its load result");
+let replayRelevant = 0;
+let replayLoaded = 0;
+let liveRelevant = 0;
+let liveLoaded = 0;
+let liveSkillsOff = 0;
+const liveSessions: LiveSession[] = [];
+
+for (const { path, receipt } of receipts) {
+  const fixtureRelevant = receipt.fixtures.reduce((sum, entry) => sum + entry.relevant, 0);
+  const fixtureLoaded = receipt.fixtures.reduce((sum, entry) => sum + entry.loaded, 0);
+  assert(receipt.replayLoadRate.relevant === fixtureRelevant, `${path} replay relevant count matches its fixture rows`);
+  assert(receipt.replayLoadRate.loaded === fixtureLoaded, `${path} replay loaded count matches its fixture rows`);
+  assert(
+    receipt.replayLoadRate.rate === receipt.replayLoadRate.loaded / receipt.replayLoadRate.relevant,
+    `${path} replay load rate matches its rows (${receipt.replayLoadRate.rate})`,
+  );
+  assert(
+    typeof receipt.method === "string" && receipt.method.includes("E1"),
+    `${path} names the live measurement that E1 owns`,
+  );
+
+  const live = receipt.liveLoadRate;
+  assert(live.sessions.length === live.relevant, `${path} live table carries one row per relevant live session`);
+  assert(
+    live.sessions.every((session) => typeof session.loaded === "boolean"),
+    `${path} every live row records its load result`,
+  );
+  assert(
+    live.sessions.every((session) => manifest.skills.some((skill) => skill.evalId === session.evalId)),
+    `${path} live table names only manifest eval ids`,
+  );
+  const receiptLiveLoaded = live.sessions.filter((session) => session.loaded).length;
+  assert(live.loaded === receiptLiveLoaded, `${path} live aggregate counts the loaded rows`);
+  assert(
+    live.rate === receiptLiveLoaded / live.relevant,
+    `${path} live load rate matches the rows (${live.rate})`,
+  );
+
+  replayRelevant += receipt.replayLoadRate.relevant;
+  replayLoaded += receipt.replayLoadRate.loaded;
+  liveRelevant += live.relevant;
+  liveLoaded += live.loaded;
+  liveSkillsOff += live.skillsOff;
+  liveSessions.push(...live.sessions);
+}
+
 assert(
-  live.sessions.every((session) => manifest.skills.some((skill) => skill.evalId === session.evalId)),
-  "the live table names only manifest eval ids",
+  receipts.flatMap((entry) => entry.receipt.fixtures).length === manifest.skills.length,
+  "the receipts carry one entry per pilot skill",
 );
-const liveLoaded = live.sessions.filter((session) => session.loaded).length;
-assert(live.loaded === liveLoaded, "the live aggregate counts the loaded rows");
-assert(live.rate === liveLoaded / live.relevant, `the live load rate matches the rows (${live.rate})`);
-assert(live.skillsOff === 0, "the skills-off control loads zero by construction");
+assert(replayRelevant === totalRelevant, "the replay aggregate covers every relevant fixture session");
+assert(replayLoaded === totalLoaded, "the replay aggregate covers every loaded fixture session");
+assert(
+  replayLoaded / replayRelevant === totalLoaded / totalRelevant,
+  `the replay load rate matches the fixtures (${replayLoaded / replayRelevant})`,
+);
+assert(liveSessions.length === liveRelevant, "the live tables carry one row per relevant live session");
+assert(
+  liveLoaded === liveSessions.filter((session) => session.loaded).length,
+  "the live aggregate counts every loaded row",
+);
+assert(liveSkillsOff === 0, "the skills-off control loads zero by construction");
 for (const skill of manifest.skills) {
-  const rows = live.sessions.filter((session) => session.evalId === skill.evalId);
+  const rows = liveSessions.filter((session) => session.evalId === skill.evalId);
   assert(rows.length > 0, `${skill.id} has a live load measurement`);
   const rate = rows.filter((session) => session.loaded).length / rows.length;
   assert(
@@ -230,9 +269,15 @@ for (const skill of manifest.skills) {
     `${skill.id} live load rate ${rate.toFixed(2)} meets the declared threshold ${skill.loadRateThreshold}`,
   );
 }
-assert(receipt.command.name === manifest.commands[0]?.name, "the receipt names the shipped command");
-assert(receipt.command.registered, "the command was registered on the installed host");
-assert(receipt.command.skillLoaded, "the command path loaded the goal-review skill");
-assert(receipt.command.procedureExecuted, "the command path executed the goal-review procedure");
+const commandReceipt = receipts.find(
+  (entry) => entry.receipt.command?.name === manifest.commands[0]?.name,
+);
+assert(commandReceipt !== undefined, "a receipt names the shipped command");
+if (commandReceipt) {
+  const command = commandReceipt.receipt.command!;
+  assert(command.registered, "the command was registered on the installed host");
+  assert(command.skillLoaded, "the command path loaded the goal-review skill");
+  assert(command.procedureExecuted, "the command path executed the goal-review procedure");
+}
 
 console.log(`PROOF PASS: the pilot procedures replay and their load rate is recorded (${passed} assertions)`);

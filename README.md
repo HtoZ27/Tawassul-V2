@@ -194,6 +194,7 @@ logged and skipped while the plugin and every tool keep working.
 | `tawassul-goal-review` | goal lifecycle review across the board, items and definition of done | `goal`, `show_board`, `record` | `goal-review-basic` | 0.5 |
 | `tawassul-handoff-triage` | handoff lifecycle triage across the board, timeline and ledger | `show_board`, `timeline`, `record`, `handoff` | `handoff-triage-basic` | 0.5 |
 | `tawassul-context-continue` | portable context handoff across pack, read and continue | `thread`, `record` | `context-continue-basic` | 0.5 |
+| `tawassul-integration-engineer` | safe change integration across dependencies, invariants, execution paths and regression verification | `goal`, `show_board`, `timeline`, `record`, `handoff` | `integration-engineer-basic` | 0.5 |
 <!-- /generated -->
 
 ### User skills are unconditional

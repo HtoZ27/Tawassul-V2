@@ -22,6 +22,13 @@
       "fixture": "docs/experiments/fixtures/context-continue-basic.json",
       "receipt": "docs/experiments/receipts/2026-10-31-pilot-eval.json",
       "verdict": "pass"
+    },
+    {
+      "id": "integration-engineer-basic",
+      "skillId": "tawassul-integration-engineer",
+      "fixture": "docs/experiments/fixtures/integration-engineer-basic.json",
+      "receipt": "docs/experiments/receipts/2026-11-01-integration-engineer-eval.json",
+      "verdict": "pass"
     }
   ]
 }

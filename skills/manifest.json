@@ -33,6 +33,17 @@
       "evalId": "context-continue-basic",
       "loadRateThreshold": 0.5,
       "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-integration-engineer",
+      "name": "Integration engineer",
+      "directory": "skills/tawassul-integration-engineer",
+      "description": "Land a change safely: map dependencies, trace execution, verify integration and regression.",
+      "scope": "safe change integration across dependencies, invariants, execution paths and regression verification",
+      "tools": ["goal", "show_board", "timeline", "record", "handoff"],
+      "evalId": "integration-engineer-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
     }
   ],
   "commands": [

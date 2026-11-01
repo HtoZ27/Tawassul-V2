@@ -1,0 +1,35 @@
+{
+  "date": "2026-11-01",
+  "method": "offline replay of the authored fixture transcript against the shipped procedure text; the live load rate was measured on an isolated host at this date by the E1 method recorded in docs/experiments/receipts/2026-10-31-e1.md",
+  "fixtures": [
+    {
+      "evalId": "integration-engineer-basic",
+      "skillId": "tawassul-integration-engineer",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 6
+    }
+  ],
+  "replayLoadRate": {
+    "relevant": 1,
+    "loaded": 1,
+    "rate": 1
+  },
+  "liveLoadRate": {
+    "sessions": [
+      {
+        "evalId": "integration-engineer-basic",
+        "session": "integration-on",
+        "agent": "dev",
+        "loaded": true
+      }
+    ],
+    "relevant": 1,
+    "loaded": 1,
+    "rate": 1,
+    "skillsOff": 0
+  },
+  "notes": "One isolated workspace under /tmp/opencode/integration-eval with XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_STATE_HOME, XDG_CACHE_HOME, OPENCODE_DB, TAWASSUL_HMAC_KEY_DIR and TAWASSUL_STATE_DIR redirected under the same root. The host ran with --standalone --auto --format json --agent dev --model opencode/big-pickle and the prompt forced one skill call by id. The recorded tool output starts with <skill_content name=\"Integration engineer\"> and carries the full body, including the section 6 heading that the prompt asked for. The live host, the live state root and the global install were untouched."
+}

@@ -5,6 +5,7 @@ import manifest from "../../skills/manifest.json";
 import contextContinueBody from "../../skills/tawassul-context-continue/SKILL.md" with { type: "text" };
 import goalReviewBody from "../../skills/tawassul-goal-review/SKILL.md" with { type: "text" };
 import handoffTriageBody from "../../skills/tawassul-handoff-triage/SKILL.md" with { type: "text" };
+import integrationEngineerBody from "../../skills/tawassul-integration-engineer/SKILL.md" with { type: "text" };
 import { logger } from "../utils/logger.ts";
 import type { V2Context, V2Registration } from "../v2/types.ts";
 
@@ -20,6 +21,7 @@ const BODIES: Record<string, string> = {
   "tawassul-goal-review": goalReviewBody,
   "tawassul-handoff-triage": handoffTriageBody,
   "tawassul-context-continue": contextContinueBody,
+  "tawassul-integration-engineer": integrationEngineerBody,
 };
 
 export const PILOT_SKILLS: readonly PilotSkill[] = manifest.skills.flatMap((skill) => {
