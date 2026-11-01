@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PILOT_COMMAND, PILOT_SKILLS, registerPilotSkills } from "../src/skills/pilot.ts";
 import type { V2Context } from "../src/v2/types.ts";
+import { logger } from "../src/utils/logger.ts";
 
 let passed = 0;
 
@@ -39,7 +40,13 @@ const fakeCtx = {
   },
 } as unknown as V2Context;
 
-void registerPilotSkills(fakeCtx);
+const logged: string[] = [];
+const originalInfo = logger.info;
+logger.info = (...args: unknown[]) => {
+  logged.push(args.map((arg) => String(arg)).join(" "));
+};
+await registerPilotSkills(fakeCtx);
+logger.info = originalInfo;
 
 assert(PILOT_SKILLS.length === manifest.skills.length, "the registered set covers exactly the manifest skills");
 assert(added.length === manifest.skills.length, "boot registers every manifest skill");
@@ -58,6 +65,14 @@ for (const skill of manifest.skills) {
   assert(!existsSync(join(repo, ".opencode", "skills", skill.id)), `${skill.id} is absent from .opencode/skills`);
 }
 
+assert(
+  logged.some((line) => line.includes("skill-registration") && line.includes("shipped=")),
+  "boot logs the shipped skill ids under a shipped marker",
+);
+assert(
+  logged.some((line) => line.includes("tawassul-goal-review") && line.includes("tawassul-context-continue")),
+  "the shipped marker names every registered id",
+);
 assert(
   added.every((entry) => !existsSync(entry.path)),
   "no registered skill writes a file under a workspace skills directory",

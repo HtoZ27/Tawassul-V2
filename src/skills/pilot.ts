@@ -72,7 +72,10 @@ export async function registerPilotSkills(ctx: V2Context): Promise<V2Registratio
   const base = ctx.location?.directory?.trim() || process.cwd();
   try {
     const registration = await domain.transform((editor) => {
-      addPilotSkills(editor, base);
+      const result = addPilotSkills(editor, base);
+      logger.info(
+        `[tawassul] skill-registration: shipped=${result.added.join(",") || "none"} skipped=${result.skipped.join(",") || "none"}`,
+      );
     });
     return [registration];
   } catch (e) {

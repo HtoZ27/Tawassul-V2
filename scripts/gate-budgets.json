@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "stages": {
+    "evals": {
+      "wallMs": 90000,
+      "rssMb": 256
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { setPriority } from "node:os";
+import { setPriority, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,6 +24,16 @@ type ShardFile = {
   shards: ShardDefinition[];
 };
 
+type StageBudget = {
+  wallMs: number;
+  rssMb?: number;
+};
+
+type BudgetFile = {
+  version: number;
+  stages: Record<string, StageBudget>;
+};
+
 type StepResult = {
   name: string;
   status: "pass" | "fail";
@@ -42,6 +52,9 @@ type StageRecord = {
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const manifestPath = join(repo, "scripts", "gate-manifest.json");
 const shardsPath = join(repo, "scripts", "proof-shards.json");
+const budgetsPath = process.env.TAWASSUL_GATE_BUDGET_FILE
+  ? process.env.TAWASSUL_GATE_BUDGET_FILE
+  : join(repo, "scripts", "gate-budgets.json");
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as GateManifest;
 const args = process.argv.slice(2);
 const STATE_DIR = join(repo, ".opencode", "state");
@@ -53,6 +66,10 @@ function fail(message: string): never {
 }
 
 let stage = "fast";
+let activeBudget: StageBudget | null = null;
+let activeMaxRssKb = 0;
+let activeRssMeasured = false;
+let activeTimeWarned = false;
 let timings = false;
 let positionalSeen = false;
 let shard: string | null = null;
@@ -117,13 +134,35 @@ if (niceLevel !== null) {
 function runStep(step: GateStep): StepResult {
   const command = step.cmd[0];
   if (!command) fail(`step ${step.name} has no command`);
+  const timeBin = activeBudget?.rssMb !== undefined ? "/usr/bin/time" : null;
+  if (timeBin !== null && !existsSync(timeBin) && !activeTimeWarned) {
+    activeTimeWarned = true;
+    console.warn(`GATE BUDGET: ${timeBin} is unavailable; the peak RSS budget cannot be enforced`);
+  }
+  const useTime = timeBin !== null && existsSync(timeBin);
+  const rssFile = useTime
+    ? join(tmpdir(), `tawassul-gate-rss-${process.pid}-${Date.now()}-${Math.round(Math.random() * 1_000_000)}.txt`)
+    : null;
+  const argv = useTime ? [timeBin, "-f", "%M", "-o", rssFile as string, ...step.cmd] : step.cmd.slice();
   const started = Date.now();
-  const result = spawnSync(command, step.cmd.slice(1), {
+  const result = spawnSync(argv[0] as string, argv.slice(1), {
     cwd: repo,
     stdio: "inherit",
     env: { ...process.env, ...step.env },
   });
   const elapsed = Date.now() - started;
+  if (rssFile) {
+    try {
+      const measured = Number.parseInt(readFileSync(rssFile, "utf-8").trim(), 10);
+      if (Number.isFinite(measured)) {
+        activeRssMeasured = true;
+        if (measured > activeMaxRssKb) activeMaxRssKb = measured;
+      }
+    } catch {
+      console.warn(`GATE BUDGET: ${step.name} did not report a peak RSS`);
+    }
+    rmSync(rssFile, { force: true });
+  }
   const suffix = timings ? ` (${elapsed}ms)` : "";
   if (result.status === 0 && !result.error) {
     console.log(`PASS ${step.name}${suffix}`);
@@ -132,6 +171,15 @@ function runStep(step: GateStep): StepResult {
   const reason = result.error ? result.error.message : `exit ${result.status ?? result.signal ?? "unknown"}`;
   console.error(`FAIL ${step.name}${suffix}: ${reason}`);
   return { name: step.name, status: "fail", durationMs: elapsed, exit: reason };
+}
+
+function readBudgets(): BudgetFile {
+  if (!existsSync(budgetsPath)) return { version: 1, stages: {} };
+  try {
+    return JSON.parse(readFileSync(budgetsPath, "utf-8")) as BudgetFile;
+  } catch {
+    fail("gate budget file is not valid JSON");
+  }
 }
 
 function statePath(stageName: string): string {
@@ -233,19 +281,44 @@ function runStage(name: string): boolean {
   const selected = only.length === 0 ? steps : steps.filter((step) => only.includes(step.name));
   if (selected.length === 0) fail(`stage ${label} has no steps`);
   const estimate = estimateMs === null ? "" : `, est ${estimateMs}ms`;
-  console.log(`GATE ${label}: ${selected.length} step(s)${estimate}`);
+  const budget = shard === null ? readBudgets().stages[name] ?? null : null;
+  const budgetLabel = budget === null ? "" : `, budget ${budget.wallMs}ms${budget.rssMb === undefined ? "" : ` / ${budget.rssMb}MB`}`;
+  console.log(`GATE ${label}: ${selected.length} step(s)${estimate}${budgetLabel}`);
   const started = Date.now();
   const startedAt = new Date().toISOString();
   const results: StepResult[] = [];
+  activeBudget = budget;
+  activeMaxRssKb = 0;
+  activeRssMeasured = false;
   for (const step of selected) {
     const result = runStep(step);
     results.push(result);
     if (result.status !== "pass") {
+      activeBudget = null;
       writeStageRecord(recordName, startedAt, Date.now() - started, false, results);
       return false;
     }
   }
   const elapsed = Date.now() - started;
+  activeBudget = null;
+  if (budget !== null && elapsed > budget.wallMs) {
+    console.error(`FAIL ${label}: ${elapsed}ms exceeds the ${budget.wallMs}ms budget`);
+    writeStageRecord(recordName, startedAt, elapsed, false, results);
+    return false;
+  }
+  if (budget !== null && budget.rssMb !== undefined && !activeRssMeasured) {
+    console.error(`FAIL ${label}: the ${budget.rssMb}MB peak RSS budget was not measured`);
+    writeStageRecord(recordName, startedAt, elapsed, false, results);
+    return false;
+  }
+  if (budget !== null && budget.rssMb !== undefined && activeMaxRssKb > budget.rssMb * 1024) {
+    console.error(`FAIL ${label}: peak RSS ${activeMaxRssKb}KB exceeds the ${budget.rssMb}MB budget`);
+    writeStageRecord(recordName, startedAt, elapsed, false, results);
+    return false;
+  }
+  if (budget !== null && budget.rssMb !== undefined) {
+    console.log(`GATE BUDGET: ${label} peak RSS ${Math.round(activeMaxRssKb / 1024)}MB of ${budget.rssMb}MB`);
+  }
   writeStageRecord(recordName, startedAt, elapsed, true, results);
   console.log(`GATE PASS: ${label} (${selected.length} step(s), ${elapsed}ms)`);
   return true;

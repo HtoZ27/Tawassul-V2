@@ -1,6 +1,6 @@
 # REPAIR — Tawassul V2 wave record
 
-- Status: Waves 0, 1a, 2 and 3 closed; Wave 4 open
+- Status: Waves 0, 1a, 2, 3 and 4 closed; release track open
 - Last revised: 2026-11-01
 - Scope: the in-place repair of the running V2 tree. The sibling-tree alternative is
   cancelled, not deferred, and no V3 fork exists.
@@ -23,8 +23,8 @@ were wrong in earlier planning are recorded with their correction.
 | Registered skills | 3, 285 description bytes in total | `skills/manifest.json`, `scripts/prove-skills-manifest.ts` |
 | Shipped commands | 1 (`tawassul-goals`) | `scripts/prove-pilot-eval.ts` |
 | i18n table | 42,754 bytes, bundle weight only | never injected into the model context |
-| Proof scripts | 150 files, 147 manifest steps | `scripts/generate-proof-count.ts --check` |
-| Full proof stage | about 306 s across four balanced shards | `scripts/proof-shards.json` |
+| Proof scripts | 154 files, 151 manifest steps | `scripts/generate-proof-count.ts --check` |
+| Full proof stage | 290,795 ms in one process; four balanced shards at about 80 s each | `scripts/proof-shards.json` |
 | Hot-tool retries | top-8 at the frozen zero | `scripts/prove-context-diet.ts` |
 | State root | `v2DataRoot()/projects/<key>/`, 14 `state:` keys migrated | `scripts/prove-state-root-rollback.ts`, 74 assertions |
 | Installer ledger | 12 files, bundle plus 4 wasm plus 5 db plus marker | `scripts/prove-global-install.ts`, 188 assertions |
@@ -42,7 +42,7 @@ refusal.
 | 1a — pilot content | three skills and one command registered in-process, manifest, markdown gate, light eval | `prove-skills-manifest`, `prove-skill-registration`, `prove-md-gate`, `prove-pilot-eval` | `2026-10-31-e1.md`, `evals.json` |
 | 2 — gated context diet | 4,120 description bytes cut against a frozen 16,213-byte target, minimum-inline contract, hot-tool retry closure, live reload probe | `prove-context-diet`, `prove-constraint-retention`, `prove-reload-live` | `2026-11-01-wave2-context-diet.md`, `2026-11-01-wave2-retries.json` |
 | 3 — structural guards | host-identity state root, boot-time sync with backup, journal and conflict archive, rollback, worktree guard | `prove-state-root-survival` (44), `prove-state-root-rollback` (74) | `2026-11-01-wave3-state-root.md`, `docs/STATE-ROOT-DESIGN.md` |
-| 4 — behavioral gate | Wave 4 is open: `gate:evals` stage, per-skill evals, review-independence retro-probe, skill load-rate and discovery probes | pending | E5 budget and model pair decided; see section 4 |
+| 4 — behavioral gate | `gate:evals` with the D5 budget, dispatch payload join key, review-independence retro-probe, skill load-rate and discovery probes | `prove-review-independence-retro` (19), `prove-skill-load-rate` (27), `prove-skill-discovery` (32), `prove-gate-budget` (9); the eval stage is pinned by `prove-proof-catalog` | `2026-11-01-wave4-behavioral-gate.md`, `2026-11-01-e5-eval-budget.md` |
 
 ## 3. State-root decision and migration window
 
@@ -98,9 +98,6 @@ handoff ledger, a 192-event goal ledger against 188 legacy events, and an exact
 
 ## 6. Open items
 
-- Wave 4: `gate:evals` with the D5 budget, per-skill evals, `prove-review-independence-retro`,
-  `prove-skill-load-rate` and `prove-skill-discovery`; the dispatch payload gains
-  `sessionId` and `turn` so the retro-probe reads the payload directly.
 - Release track: `0.1.0-experimental` verification and distribution, including any
   real global install, which D4 defers to that track.
 - The working register `docs/FUTURE-WORK-PLAN.md` stays unversioned by owner decision.

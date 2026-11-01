@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "totalEstimateMs": 321141,
+  "totalEstimateMs": 321941,
   "shards": [
     {
       "name": "1",
@@ -133,7 +133,7 @@
     },
     {
       "name": "4",
-      "estimateMs": 86137,
+      "estimateMs": 86937,
       "steps": [
         "gen-merge",
         "roster-boundary",
@@ -173,7 +173,8 @@
         "context-baseline",
         "pilot-eval",
         "constraint-retention",
-        "state-root-rollback"
+        "state-root-rollback",
+        "gate-budget"
       ]
     }
   ]

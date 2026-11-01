@@ -43,8 +43,8 @@ const manifest = JSON.parse(
 ) as GateManifest;
 const stageNames = Object.keys(manifest).sort();
 assert(
-  JSON.stringify(stageNames) === JSON.stringify(["fast", "proofs", "smoke"]),
-  "gate manifest has fast, proofs, and smoke stages",
+  JSON.stringify(stageNames) === JSON.stringify(["evals", "fast", "proofs", "smoke"]),
+  "gate manifest has fast, proofs, smoke, and evals stages",
 );
 
 const steps = Object.entries(manifest).flatMap(([stage, list]) =>
@@ -152,6 +152,7 @@ const PINNED_PROOF_FILES = [
   "prove-g003i4.ts",
   "prove-g003i5.ts",
   "prove-g003i6.ts",
+  "prove-gate-budget.ts",
   "prove-gen-guard-wal.ts",
   "prove-gen-lock-contention.ts",
   "prove-gen-merge-guards.ts",
@@ -223,7 +224,7 @@ const PINNED_PROOF_FILES = [
   "prove-web-ssrf.ts",
 ];
 
-const PINNED_PROOF_STEPS = 150;
+const PINNED_PROOF_STEPS = 151;
 const SMOKE_PROOFS = new Set(["prove-global-boot.ts", "prove-independence-boot.ts"]);
 
 const proofFiles = readdirSync(join(repo, "scripts"))
@@ -319,6 +320,23 @@ assert(
 assert(scripts["gate:fast"] === "bun scripts/gate.ts fast", "gate:fast runs the fast stage");
 assert(scripts["gate:proofs"] === "bun scripts/gate.ts proofs", "gate:proofs runs the proof stage");
 assert(scripts["gate:smoke"] === "bun scripts/gate.ts smoke", "gate:smoke runs the smoke stage");
+assert(scripts["gate:evals"] === "bun scripts/gate.ts evals", "gate:evals runs the eval stage");
+assert(
+  JSON.stringify(manifest.evals?.map((step) => step.name)) === JSON.stringify(["eval-pilot"]),
+  "the eval stage carries the pilot fixture",
+);
+assert(
+  manifest.evals?.[0]?.cmd.join(" ") === "bun scripts/run-pilot-evals.ts",
+  "the eval stage runs the pilot fixture through one child process",
+);
+assert(existsSync(join(repo, "scripts", "run-pilot-evals.ts")), "the eval stage entry point exists");
+const budgets = JSON.parse(readFileSync(join(repo, "scripts", "gate-budgets.json"), "utf-8")) as {
+  stages: Record<string, { wallMs: number; rssMb?: number }>;
+};
+assert(budgets.stages.evals?.wallMs === 90_000, "the eval stage declares the 90 s wall budget");
+assert(budgets.stages.evals?.rssMb === 256, "the eval stage declares the 256 MB RSS budget");
+assert(!(scripts["ci"] ?? "").includes("evals"), "ci keeps the eval stage off the release-blocking path");
+assert(!(scripts["gate"] ?? "").includes("evals"), "the umbrella gate keeps the eval stage separate");
 assert(scripts["gate"] === "bun scripts/gate.ts all", "gate runs every stage");
 assert(scripts["ci"] === "bun scripts/gate.ts all", "ci runs the gate umbrella");
 assert(!(scripts["ci"] ?? "").includes("&&"), "ci has no chained commands");

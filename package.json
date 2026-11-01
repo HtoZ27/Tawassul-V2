@@ -156,7 +156,9 @@
     "prove:reload-live": "bun scripts/prove-reload-live.ts",
     "prove:review-independence-retro": "bun scripts/prove-review-independence-retro.ts",
     "prove:skill-load-rate": "bun scripts/prove-skill-load-rate.ts",
-    "prove:skill-discovery": "bun scripts/prove-skill-discovery.ts"
+    "prove:skill-discovery": "bun scripts/prove-skill-discovery.ts",
+    "gate:evals": "bun scripts/gate.ts evals",
+    "prove:gate-budget": "bun scripts/prove-gate-budget.ts"
   },
   "devDependencies": {
     "@opencode/plugin": "^2.2.1",

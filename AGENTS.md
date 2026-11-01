@@ -73,7 +73,7 @@ re-open the v1 transfer channel.
 - `npm run uninstall:global` — remove the global file and runtime (`-- --purge` for state)
 - `npm run prove:independence` — no v1 tree reference; one host entry
 - `npm run gate:fast` — rules, shell syntax, typecheck, config, facts, contract, shared parity, catalog, generated proof count
-- `npm run gate:proofs` — <!-- generated:proof-steps -->150<!-- /generated --> proofs, one isolated child process each (the full CI run)
+- `npm run gate:proofs` — <!-- generated:proof-steps -->151<!-- /generated --> proofs, one isolated child process each (the full CI run)
 - `npm run gate:proofs:1` … `gate:proofs:4` — the four balanced shards of the proof stage, about one minute each
 - `npm run gate:proofs:bg` — the four shards sequentially in a detached worker (`:status`, `:wait`, `:stop`)
 - `npm run gate:smoke` — build + release smoke

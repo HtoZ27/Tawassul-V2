@@ -1127,6 +1127,13 @@
         "bun",
         "scripts/prove-skill-discovery.ts"
       ]
+    },
+    {
+      "name": "gate-budget",
+      "cmd": [
+        "bun",
+        "scripts/prove-gate-budget.ts"
+      ]
     }
   ],
   "smoke": [
@@ -1159,6 +1166,15 @@
       "cmd": [
         "bun",
         "scripts/prove-independence-boot.ts"
+      ]
+    }
+  ],
+  "evals": [
+    {
+      "name": "eval-pilot",
+      "cmd": [
+        "bun",
+        "scripts/run-pilot-evals.ts"
       ]
     }
   ]
