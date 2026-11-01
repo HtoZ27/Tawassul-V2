@@ -408,6 +408,32 @@ try {
   assert(noPayload.code !== 0 && noPayload.out.includes("no db payload"), "verify refuses a marker without the db payload");
   assert(run([]).code === 0, "install rewrites the marker with the db payload");
 
+  const bundleBytes = readFileSync(TARGET);
+  const bundleText = bundleBytes.toString("utf-8");
+  for (const id of ["tawassul-goal-review", "tawassul-handoff-triage", "tawassul-context-continue"]) {
+    assert(bundleText.includes(id), `the installed bundle embeds the ${id} skill`);
+  }
+  assert(bundleText.includes("tawassul-goals"), "the installed bundle embeds the tawassul-goals command");
+
+  const userSkill = join(GLOBAL, "skills", "user-notes", "SKILL.md");
+  const userCommand = join(GLOBAL, "command", "user-review.md");
+  mkdirSync(dirname(userSkill), { recursive: true });
+  mkdirSync(dirname(userCommand), { recursive: true });
+  writeFileSync(userSkill, "---\nname: user-notes\ndescription: user owned\n---\nkeep\n");
+  writeFileSync(userCommand, "keep the user command\n");
+  assert(run(["--verify"]).code === 0, "verify passes with user skills and commands beside the install");
+
+  const tamperedTarget = `${TARGET}.bak`;
+  renameSync(TARGET, tamperedTarget);
+  writeFileSync(TARGET, Buffer.concat([bundleBytes, Buffer.from("tampered\n")]));
+  const bundleTamper = run(["--verify"]);
+  assert(
+    bundleTamper.code !== 0 && bundleTamper.out.includes("bundle hash mismatch"),
+    "verify fails on a tampered bundle",
+  );
+  renameSync(tamperedTarget, TARGET);
+  assert(run(["--verify"]).code === 0, "verify passes after the bundle is restored");
+
   const backupDir = join(HOME, ".local", "share", "tawassul-v2", "backups");
   mkdirSync(backupDir, { recursive: true });
   const backupFile = join(backupDir, "opencode-20260101-000000.db");
@@ -420,6 +446,8 @@ try {
   assert(removed.code === 0 && !existsSync(TARGET), "uninstall removes the flat plugin file");
   assert(!existsSync(MARKER), "uninstall removes the marker it wrote");
   assert(existsSync(userNote), "uninstall keeps a runtime file it did not write");
+  assert(existsSync(userSkill), "uninstall keeps a user skill it did not write");
+  assert(existsSync(userCommand), "uninstall keeps a user command it did not write");
   assert(removed.out.includes("did not write"), "the uninstall report names the kept user files");
   assert(!existsSync(DB_DIR), "uninstall removes the staged db scripts with the runtime");
   assert(readFileSync(USER_CONFIG, "utf-8") === BODY, "uninstall leaves the user config byte-identical");
@@ -429,6 +457,8 @@ try {
     "uninstall leaves every backup byte-identical (P3.7)",
   );
   rmSync(userNote, { force: true });
+  rmSync(join(GLOBAL, "skills"), { recursive: true, force: true });
+  rmSync(join(GLOBAL, "command"), { recursive: true, force: true });
   rmSync(RUNTIME, { recursive: true, force: true });
 
   const dry = run(["--dry-run"]);
