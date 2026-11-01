@@ -227,6 +227,31 @@ try {
   durableWriteFile(durableFile, "two\n", 0o640);
   assert(readFileSync(durableFile, "utf8") === "two\n", "the durable write replaces an existing file");
   assert((statSync(durableFile).mode & 0o777) === 0o640, "a replaced file takes the requested mode");
+  const traceOpened: Array<string | number> = [];
+  let traceFsync = 0;
+  const traceFile = join(durableDir, "trace.json");
+  durableWriteFile(
+    traceFile,
+    "trace\n",
+    0o600,
+    {
+      ...realWriteOps,
+      openSync: (path, flags, mode) => {
+        traceOpened.push(flags);
+        return realWriteOps.openSync(path, flags, mode);
+      },
+      fsyncSync: (descriptor) => {
+        traceFsync += 1;
+        return realWriteOps.fsyncSync(descriptor);
+      },
+    },
+    "win32",
+  );
+  assert(readFileSync(traceFile, "utf8") === "trace\n", "the traced durable write lands the bytes");
+  assert(
+    traceOpened.length === 1 && traceOpened[0] === "wx" && traceFsync === 1,
+    "the durable write fsyncs the writable descriptor it created",
+  );
   const durableLink = join(durableDir, "link.json");
   symlinkSync(durableFile, durableLink);
   let refusedLink = false;

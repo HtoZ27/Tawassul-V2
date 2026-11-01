@@ -93,9 +93,9 @@ export function durableWriteFile(
   assertNotSymlink(target, ops);
   const temp = `${target}.tmp-${process.pid}-${ops.randomHex(8)}`;
   try {
-    ops.writeFileSync(temp, data, { mode, flag: "wx" });
-    const descriptor = ops.openSync(temp, "r");
+    const descriptor = ops.openSync(temp, "wx", mode);
     try {
+      ops.writeFileSync(descriptor, data);
       fsyncFileDescriptor(descriptor, ops);
     } finally {
       ops.closeSync(descriptor);
