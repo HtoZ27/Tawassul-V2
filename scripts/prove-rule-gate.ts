@@ -66,6 +66,14 @@ rejects(
 rejects("src/services/ask-channel-parse.ts", `const s = "${yes}";\n`, "an Arabic literal in a formerly exempt matcher");
 rejects("src/hooks/guards/consent-gate-guard.ts", `const s = "${yes}";\n`, "an Arabic literal in a formerly exempt guard");
 rejects("src/i18n/en.json", `{"k": "${yes}"}\n`, "an Arabic literal in the locale file");
+accepts("src/i18n/ar.json", `{"greeting": "${yes}"}\n`, "an Arabic runtime translation table");
+accepts(
+  "src/i18n/pt-BR.json",
+  `{"greeting": "ola"}\n`,
+  "a regional runtime translation table",
+);
+rejects("src/i18n/nested/ar.json", `{"k": "${yes}"}\n`, "an Arabic table outside the flat i18n root");
+rejects("src/i18n/ar.ts", `const s = "${yes}";\n`, "Arabic inside a TypeScript file under i18n");
 
 const identifiersPass = checkSource("src/services/example.ts", `const ${ar(0x0633) + ar(0x0624) + ar(0x0627)} = 1;\n`);
 assert(identifiersPass.length === 0, "known limitation: non-literal identifiers are not Arabic-checked");

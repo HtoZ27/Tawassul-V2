@@ -6,10 +6,15 @@ is a retired, read-only reference.
 
 ## Mandatory rules
 
-1. **English only.** All code, strings, tool descriptions, and docs are English.
-   Arabic is forbidden. Enforced by `scripts/check-v2-rules.mjs` (`npm run check:rules`).
-   No exemption list exists; every `.ts`, `.mjs`, and `.json` file under `src/`,
-   `scripts/`, and `tests/` is scanned. A global word allow-list is forbidden.
+1. **English is canonical.** All code, strings, tool descriptions, and docs are
+   English. Arabic is forbidden in code and docs with one exemption: the runtime
+   translation tables `src/i18n/<lang>.json` for a non-English language (for
+   example `src/i18n/ar.json`). `src/i18n/en.json` stays English, and no `.ts`
+   file may carry Arabic even under `src/i18n/`. Documentation translations live
+   under `docs/i18n/` and are outside this gate. Enforced by
+   `scripts/check-v2-rules.mjs` (`npm run check:rules`); every `.ts`, `.mjs`, and
+   `.json` file under `src/`, `scripts/`, and `tests/` is scanned and this is the
+   only exemption. A global word allow-list is forbidden.
 2. **No comments in scanned code.** Comments are forbidden in `.ts`, `.mjs`,
    and `.json` under the gate paths below, including JSDoc and empty comments.
    Only these exact directive shapes are permitted: `// @ts-expect-error`,

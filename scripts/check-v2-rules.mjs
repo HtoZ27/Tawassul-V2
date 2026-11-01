@@ -7,6 +7,12 @@ const ROOT = resolve(fileURLToPath(import.meta.url), "..", "..");
 const SCAN_DIRS = ["src", "scripts", "tests"];
 const SINGLE_FILES = ["build-v2.mjs", "check-v2-rules.mjs"];
 const ARABIC_RE = /\p{Script=Arabic}/u;
+const TRANSLATION_TABLE_RE = /^src\/i18n\/([a-z]{2}(?:-[A-Za-z]{2,4})?)\.json$/;
+
+function isTranslationTable(relPath) {
+  const match = TRANSLATION_TABLE_RE.exec(relPath.split("\\").join("/"));
+  return match !== null && match[1] !== "en";
+}
 const ALLOWED_COMMENT_PATTERNS = [
   /^@ts-expect-error(?:\s|:|--|$)/,
   /^@ts-ignore(?:\s|:|--|$)/,
@@ -120,7 +126,7 @@ export function checkSource(relPath, source) {
   const file = relPath;
   const errors = [];
   if (extname(file) === ".json") {
-    if (ARABIC_RE.test(source)) {
+    if (!isTranslationTable(file) && ARABIC_RE.test(source)) {
       errors.push(`${file}:1: non-English literal in JSON`);
     }
     return errors;
