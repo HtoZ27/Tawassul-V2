@@ -1,9 +1,13 @@
 import en from "./i18n/en.json" with { type: "json" };
+import ar from "./i18n/ar.json" with { type: "json" };
 
-export type Lang = "en";
+export const LANGUAGES = ["en", "ar"] as const;
+
+export type Lang = (typeof LANGUAGES)[number];
 
 const LOCALE_MAP: Record<string, Lang> = {
   en: "en",
+  ar: "ar",
 };
 
 function detectLanguage(): Lang {
@@ -24,6 +28,7 @@ export function getLanguage(): Lang {
 
 const _localeCache: Record<string, Record<string, string>> = {
   en,
+  ar,
 };
 
 export async function loadLocale(lang: string): Promise<Record<string, string>> {
@@ -49,8 +54,8 @@ function resolveParams(val: string, params?: Record<string, string>): string {
   return result;
 }
 
-export function t(key: string, params?: Record<string, string>): string {
-  const locale = _localeCache[currentLang];
+export function t(key: string, params?: Record<string, string>, lang?: Lang): string {
+  const locale = _localeCache[lang ?? currentLang];
   const val = locale?.[key];
   if (val !== undefined) return resolveParams(val, params);
   return `[missing: ${key}]`;

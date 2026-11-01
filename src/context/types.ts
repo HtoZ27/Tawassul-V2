@@ -1,6 +1,7 @@
 
 
 import type { RuleDecision } from "../conflict-resolver/types.ts";
+import type { Lang } from "../translations.ts";
 
 export type FileLocation = {
   file: string;
@@ -110,7 +111,7 @@ export type TawassulConfig = {
   suggestedHandoffs?: Record<string, string[]>;
   stateFile?: string;
   configFile?: string;
-  language?: "en";
+  language?: Lang;
   privacyGuardParanoid?: boolean;
   consensusBroker?: boolean;
   

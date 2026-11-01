@@ -1,6 +1,7 @@
 
 
 import { tool } from "../tool.ts";
+import { LANGUAGES } from "../translations.ts";
 
 export const configSchema = tool.schema.object({
   disabled: tool.schema.boolean().optional(),
@@ -21,7 +22,7 @@ export const configSchema = tool.schema.object({
   suggestedHandoffs: tool.schema.record(tool.schema.string(), tool.schema.array(tool.schema.string())).optional(),
   stateFile: tool.schema.string().optional(),
   configFile: tool.schema.string().optional(),
-  language: tool.schema.enum(["en"]).optional(),
+  language: tool.schema.enum(LANGUAGES).optional(),
   
   
   privacyGuardParanoid: tool.schema.boolean().optional(),

@@ -30,7 +30,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-005 | The role to tool matrix is ported without an i18n or NLP dependency. | `src/role-matrix.ts:40` `TAWASSUL_TOOL_ROLES` | `scripts/prove-s005.ts`, `scripts/prove-s013.ts` | verified |
 | S-006 | Model display names are English-only with no bilingual shape or lang parameter. | `src/core/model-registry.ts:91` `MODEL_DISPLAY_NAMES` | `scripts/prove-feature-index-english.ts` | verified |
 | S-007 | A full-tree port must never overwrite hand-fixed files. | - | - | n-a |
-| S-008 | The translations stub is English-only and has no logger dependency. | `src/translations.ts:3` `Lang` | `scripts/prove-feature-index-english.ts` | verified |
+| S-008 | The translations loader is English-canonical, ships the Arabic table for runtime languages, and has no logger dependency. | `src/translations.ts:4` `LANGUAGES` | `scripts/prove-feature-index-english.ts` | verified |
 | S-009 | One object serves the v1 host through server and the v2 host through setup. | `src/index.ts:7` `server: initPlugin` | `scripts/prove-host-entry.ts` | verified |
 | S-010 | Conflict-marker debris must never reach v2 sources. | - | - | n-a |
 | S-011 | Status changes refresh the board index and carry session provenance. | `src/services/mission-board.ts:188` `scheduleIndexWrite` | `scripts/prove-board-invariants.ts` | verified |

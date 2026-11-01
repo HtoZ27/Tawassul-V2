@@ -1,44 +1,51 @@
+import { t } from "../translations.ts";
+
+const ROLE_KEY: Record<string, string> = {
+  dev: "guide.roleDev",
+  tester: "guide.roleTester",
+  reviewer: "guide.roleReviewer",
+  architect: "guide.roleArchitect",
+  analyst: "guide.roleAnalyst",
+  doc: "guide.roleDoc",
+};
+
+const SIZE_KEY: Record<string, string> = {
+  small: "guide.sizeSmall",
+  medium: "guide.sizeMedium",
+  complex: "guide.sizeComplex",
+};
+
+const MEDIUM_PLAN: Record<string, string> = {
+  dev: "guide.planMediumDev",
+  analyst: "guide.planMediumAnalyst",
+  architect: "guide.planMediumArchitect",
+  tester: "guide.planMediumTester",
+  reviewer: "guide.planMediumReviewer",
+  doc: "guide.planMediumDoc",
+};
+
+const COMPLEX_PLAN: Record<string, string> = {
+  analyst: "guide.planComplexAnalyst",
+  architect: "guide.planComplexArchitect",
+  dev: "guide.planComplexDev",
+  reviewer: "guide.planComplexReviewer",
+  tester: "guide.planComplexTester",
+  doc: "guide.planComplexDoc",
+};
+
 export function suggestAgentCombination(role: string | null, size: "small" | "medium" | "complex" | null): string {
   if (size === "small") {
-    return "Single agent. Use task() for the specified role.";
+    return t("guide.smallPlan");
   }
   if (size === "medium") {
-    return (
-      "Two agents. Suggested sequence: " +
-      (role === "dev"
-        ? "dev <- tester"
-        : role === "analyst"
-          ? "analyst <- architect"
-          : role === "architect"
-            ? "architect <- dev"
-            : role === "tester"
-              ? "tester (then escalate based on result)"
-              : role === "reviewer"
-                ? "reviewer <- dev"
-                : role === "doc"
-                  ? "doc <- reviewer"
-                  : "dev <- tester")
-    );
+    const plan = MEDIUM_PLAN[role ?? ""] ?? "guide.planMediumDev";
+    return t("guide.medium", { plan: t(plan) });
   }
   if (size === "complex") {
-    return (
-      "3-4 agents. Distribute tasks: " +
-      (role === "analyst"
-        ? "analyst (analyze) <- architect (plan) <- dev (implement) <- tester (test) <- doc (document)"
-        : role === "architect"
-          ? "analyst (analyze requirements) <- architect (design) <- dev (build) <- tester (test)"
-          : role === "dev"
-            ? "analyst (analyze) <- architect (plan) <- dev (implement) <- tester (test)"
-            : role === "reviewer"
-              ? "analyst (analyze) <- reviewer (review) <- dev (fix) <- tester (test)"
-              : role === "tester"
-                ? "analyst <- architect <- dev <- tester"
-                : role === "doc"
-                  ? "analyst <- architect <- dev <- doc"
-                  : "analyst <- architect <- dev <- tester <- reviewer <- doc")
-    );
+    const plan = COMPLEX_PLAN[role ?? ""] ?? "guide.planComplexDefault";
+    return t("guide.complex", { plan: t(plan) });
   }
-  return "Use the logical sequence: analyst -> architect -> dev -> tester -> reviewer -> doc";
+  return t("guide.planFallback");
 }
 
 export function buildGuidance(
@@ -50,39 +57,27 @@ export function buildGuidance(
   const lines: string[] = [];
 
   if (role) {
-    const roleLabel: Record<string, string> = {
-      dev: "Developer",
-      tester: "Tester",
-      reviewer: "Reviewer",
-      architect: "Architect",
-      analyst: "Analyst",
-      doc: "Documentation Writer",
-    };
-    lines.push(`**Required Role:** ${roleLabel[role] || role}`);
+    const key = ROLE_KEY[role];
+    lines.push(t("guide.requiredRole", { role: key ? t(key) : role }));
   }
 
   if (size) {
-    const sizeLabel: Record<string, string> = {
-      small: "Simple — single agent",
-      medium: "Medium — two agents",
-      complex: "Complex — 3-4 agents",
-    };
-    lines.push(`**Problem Size:** ${sizeLabel[size]}`);
-    lines.push(`**Suggested Distribution:** ${suggestAgentCombination(role, size)}`);
+    lines.push(t("guide.problemSize", { size: t(SIZE_KEY[size] ?? "guide.sizeSmall") }));
+    lines.push(t("guide.suggested", { plan: suggestAgentCombination(role, size) }));
   }
 
   if (directAgent) {
-    lines.push(`**Direct Routing:** @${directAgent}`);
+    lines.push(t("guide.directRouting", { agent: directAgent }));
     if (directAgent !== "tawa") {
-      lines.push(`> Detected @${directAgent} — direct routing, no need for tawa.`);
+      lines.push(t("guide.directNote", { agent: directAgent }));
     }
   } else {
-    lines.push("> Routing on demand — no task will be distributed automatically without an explicit command.");
+    lines.push(t("guide.onDemand"));
   }
 
   if (warnings.length > 0) {
     lines.push("");
-    lines.push("**Security Warnings:**");
+    lines.push(t("guide.securityWarnings"));
     lines.push(...warnings);
   }
 

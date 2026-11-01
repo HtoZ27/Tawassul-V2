@@ -9,6 +9,7 @@ import {
   SAFETY_PATTERNS,
 } from "./routing-sizes.ts";
 import { buildGuidance } from "./routing-guidance.ts";
+import { getLanguage } from "../translations.ts";
 import type { Lang } from "../translations.ts";
 
 export type { Lang };
@@ -27,7 +28,7 @@ export interface RoutingResult {
 }
 
 export function detectLanguage(_text: string): Lang {
-  return "en";
+  return getLanguage();
 }
 
 export function analyzeMessage(text: string): RoutingResult {
