@@ -116,7 +116,6 @@ export const BASH_READ_ONLY: Record<string, string> = {
   "curl *--output*": "deny",
   "curl *--output-dir*": "deny",
   "curl *--remote-name*": "deny",
-  "curl *-O*": "deny",
   "wget *": "deny",
   "ssh *": "deny",
   "scp *": "deny",
@@ -180,7 +179,6 @@ export const BASH_READ_ONLY: Record<string, string> = {
   "sort *-o*": "deny",
   "diff *--editor*": "deny",
   "tail *-f*": "deny",
-  "tail *-F*": "deny",
   "tail *--follow*": "deny",
   
   
@@ -189,18 +187,13 @@ export const BASH_READ_ONLY: Record<string, string> = {
   
   "tail *-?f*": "deny",
   "tail *-??f*": "deny",
-  "tail *-?F*": "deny",
-  "tail *-??F*": "deny",
   "git *--output*": "deny",
 
   
   "* | tail*-f*": "deny",
-  "* | tail*-F*": "deny",
   "* | tail*--follow*": "deny",
   "* | tail*-?f*": "deny",
   "* | tail*-??f*": "deny",
-  "* | tail*-?F*": "deny",
-  "* | tail*-??F*": "deny",
   "* | sort*-o*": "deny",
   "* | sort*--compress-program*": "deny",
   "* | diff*--editor*": "deny",
