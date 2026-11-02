@@ -104,6 +104,7 @@ level of every row, is in [docs/compatibility.md](docs/compatibility.md).
 
 | Document | Content |
 | --- | --- |
+| [docs/release-notes-0.1.0.md](docs/release-notes-0.1.0.md) | What this release contains and what it does not claim |
 | [docs/installation.md](docs/installation.md) | Project and global install, upgrade, uninstall |
 | [docs/upgrade.md](docs/upgrade.md) | Patch upgrades, downgrades, preserved state |
 | [docs/user-guide.md](docs/user-guide.md) | Goals, handoffs, reviews, long sessions |
@@ -113,11 +114,17 @@ level of every row, is in [docs/compatibility.md](docs/compatibility.md).
 | [docs/compatibility.md](docs/compatibility.md) | Host versions, platforms, feature matrix |
 | [docs/architecture.md](docs/architecture.md) | Layers, startup, persistence, failure containment |
 | [docs/database.md](docs/database.md) | Maintenance lane, pruning, generation guard |
+| [docs/dependencies.md](docs/dependencies.md) | Runtime requirements, licences, bundle inventory |
+| [docs/validation.md](docs/validation.md) | Gates, proofs, receipts, what a green run proves |
+| [docs/i18n/LANGUAGES.md](docs/i18n/LANGUAGES.md) | Canonical language, runtime tables, translation plan |
 | [docs/security-model.md](docs/security-model.md) | Assets, trust boundaries, controls, limits |
 | [docs/privacy.md](docs/privacy.md) | Stored data, outbound flows, retention, deletion |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom, cause, fix |
 | [docs/faq.md](docs/faq.md) | Short answers to common questions |
+| [examples/README.md](examples/README.md) | Five end-to-end recipes, with conventions |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Build, gates, style, pull requests |
+| [SUPPORT.md](SUPPORT.md) | Where to ask, what to include, scope |
+| [CHANGELOG.md](CHANGELOG.md) | What changed in each release |
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability |
 
 ## Development

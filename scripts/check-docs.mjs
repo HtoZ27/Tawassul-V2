@@ -10,6 +10,8 @@ const PUBLIC_FILES = [
   "NOTICE.md",
   "SECURITY.md",
   "CONTRIBUTING.md",
+  "SUPPORT.md",
+  "CHANGELOG.md",
   "CODE_OF_CONDUCT.md",
   "ACKNOWLEDGEMENTS.md",
   "docs/README.md",
@@ -26,6 +28,10 @@ const PUBLIC_FILES = [
   "docs/state.md",
   "docs/architecture.md",
   "docs/database.md",
+  "docs/dependencies.md",
+  "docs/validation.md",
+  "docs/release-notes-0.1.0.md",
+  "docs/i18n/LANGUAGES.md",
   "docs/monitoring.md",
   "docs/security-model.md",
   "docs/privacy.md",
@@ -34,6 +40,12 @@ const PUBLIC_FILES = [
   "docs/limitations.md",
   "docs/faq.md",
   "docs/glossary.md",
+  "examples/README.md",
+  "examples/goal-to-merge.md",
+  "examples/review-a-change.md",
+  "examples/long-session.md",
+  "examples/database-maintenance.md",
+  "examples/custom-roster.md",
 ];
 
 const INTERNAL_DOCS = [

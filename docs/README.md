@@ -9,6 +9,7 @@ and how it protects your work.
 | Document | Read it when |
 | --- | --- |
 | [Installation](installation.md) | You want the plugin running in a workspace or for a whole user |
+| [Release notes](release-notes-0.1.0.md) | You want to know what this release contains and what it does not claim |
 | [Upgrade](upgrade.md) | You are moving an existing install to a new build |
 | [Compatibility](compatibility.md) | You need to know which host and platform are supported |
 | [User guide](user-guide.md) | You want the working rhythm: goals, handoffs, reviews, long sessions |
@@ -21,6 +22,7 @@ and how it protects your work.
 | [State](state.md) | You need the state topology, retention, backup, or deletion |
 | [Architecture](architecture.md) | You are maintaining the plugin and need the layer boundaries |
 | [Database](database.md) | You operate the maintenance lane, pruning, or the generation guard |
+| [Dependencies](dependencies.md) | You need the runtime requirements, licences, or the bundle inventory |
 | [Monitoring](monitoring.md) | You need health, logs, and the operational thresholds |
 | [Security model](security-model.md) | You are deciding whether to run it on real work |
 | [Privacy](privacy.md) | You need to know what is stored, what leaves the machine, and how to delete it |
@@ -29,6 +31,19 @@ and how it protects your work.
 | [Limitations](limitations.md) | You need the boundaries that are by design |
 | [FAQ](faq.md) | You want a short answer to a common question |
 | [Glossary](glossary.md) | A term in these documents is unfamiliar |
+| [Validation](validation.md) | You are running the gates, a proof, or a release check |
+| [Languages](i18n/LANGUAGES.md) | You want to know what is translated and what is canonical |
+
+## Examples
+
+| Recipe | Result |
+| --- | --- |
+| [Examples index](../examples/README.md) | The conventions every recipe follows |
+| [Goal to merge](../examples/goal-to-merge.md) | A closed goal with evidence |
+| [Review a change](../examples/review-a-change.md) | A stored evaluation and a recorded decision |
+| [A long session](../examples/long-session.md) | A pack and a successor session |
+| [Database maintenance](../examples/database-maintenance.md) | A checked, backed-up, pruned database |
+| [A custom roster](../examples/custom-roster.md) | An added agent, verified and removed |
 
 ## Project documents
 
@@ -36,6 +51,8 @@ and how it protects your work.
 | --- | --- |
 | [README](../README.md) | What the plugin is and how to start in three commands |
 | [CONTRIBUTING](../CONTRIBUTING.md) | Build, gates, style, and pull-request rules |
+| [SUPPORT](../SUPPORT.md) | Where to ask, what to include, and what is in scope |
+| [CHANGELOG](../CHANGELOG.md) | What changed in each release |
 | [SECURITY](../SECURITY.md) | Reporting a vulnerability and the supported versions |
 | [NOTICE](../NOTICE.md) | Third-party components and their licences |
 | [ACKNOWLEDGEMENTS](../ACKNOWLEDGEMENTS.md) | The prior art this project learned from |

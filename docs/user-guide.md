@@ -48,12 +48,15 @@ Why this matters: a goal can only close when every item is finished and every
 criterion is met with evidence. Closing is mechanical, not a judgement call.
 
 ```
-goal(update: "G-001", itemId: "I-002", itemState: "done",
-     itemEvidence: { itemId: "I-002", text: "verify:global passes at the release commit" })
+goal(update: "G-001", itemId: "G-001-I3", itemState: "done",
+     itemEvidence: [{ itemId: "G-001-I3", text: "verify:global passes at the release commit" }])
 ```
 
 When a criterion is met, it needs its own evidence note of at least eight
 characters. That is deliberate: it stops "done" from being an opinion.
+
+Item ids are derived from the goal id: the third item of `G-001` is `G-001-I3`.
+A criterion is addressed by its exact text, not by a separate id.
 
 ## Distribute work
 
