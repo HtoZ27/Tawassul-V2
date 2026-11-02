@@ -71,6 +71,22 @@ edits `opencode.json`.
 | `designer` | Interfaces, mockups, and user experience |
 | `doc` | Technical and user documentation |
 
+## Skills
+
+Four procedures ship in-process and load only when the task matches them.
+Nothing is copied into a skills directory, and an uninstall leaves no skill
+files behind.
+
+<!-- generated:skills-table -->| Skill | Scope | Tools | Eval | Load threshold |
+| --- | --- | --- | --- | --- |
+| `tawassul-goal-review` | goal lifecycle review across the board, items and definition of done | `goal`, `show_board`, `record` | `goal-review-basic` | 0.5 |
+| `tawassul-handoff-triage` | handoff lifecycle triage across the board, timeline and ledger | `show_board`, `timeline`, `record`, `handoff` | `handoff-triage-basic` | 0.5 |
+| `tawassul-context-continue` | portable context handoff across pack, read and continue | `thread`, `record` | `context-continue-basic` | 0.5 |
+| `tawassul-integration-engineer` | safe change integration across dependencies, invariants, execution paths and regression verification | `goal`, `show_board`, `timeline`, `record`, `handoff` | `integration-engineer-basic` | 0.5 |
+<!-- /generated -->
+
+More in [docs/skills.md](docs/skills.md).
+
 ## Compatibility
 
 | Platform | Status |

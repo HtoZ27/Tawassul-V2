@@ -8,6 +8,13 @@
       ]
     },
     {
+      "name": "docs",
+      "cmd": [
+        "node",
+        "scripts/check-docs.mjs"
+      ]
+    },
+    {
       "name": "shell-syntax",
       "cmd": [
         "bash",

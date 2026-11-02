@@ -22,6 +22,7 @@
     "gate:smoke": "bun scripts/gate.ts smoke",
     "gate": "bun scripts/gate.ts all",
     "check:rules": "node scripts/check-v2-rules.mjs",
+    "check:docs": "node scripts/check-docs.mjs",
     "check:sh": "for f in scripts/*.sh; do bash -n \"$f\" || exit 1; done && echo \"sh syntax OK\"",
     "check:config": "bun src/scripts/gen-opencode-config.ts --check",
     "seed:agents": "bun scripts/seed-agents.ts --write",

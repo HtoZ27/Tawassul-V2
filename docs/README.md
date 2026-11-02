@@ -39,3 +39,6 @@ and how it protects your work.
 - **Pending** means no receipt exists yet; it is not a support claim.
 - Paths are written for a POSIX shell unless a section says otherwise.
 - Commands that write outside the workspace are marked as such.
+- This index is the public documentation set. `npm run check:docs` rejects a
+  broken link, an Arabic character, a reference to an internal document, or a
+  link that leaves this set.
