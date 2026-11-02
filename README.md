@@ -89,7 +89,11 @@ level of every row, is in [docs/compatibility.md](docs/compatibility.md).
 | Document | Content |
 | --- | --- |
 | [docs/installation.md](docs/installation.md) | Project and global install, upgrade, uninstall |
+| [docs/user-guide.md](docs/user-guide.md) | Goals, handoffs, reviews, long sessions |
+| [docs/configuration.md](docs/configuration.md) | Config file, keys, environment variables |
 | [docs/compatibility.md](docs/compatibility.md) | Host versions, platforms, feature matrix |
+| [docs/architecture.md](docs/architecture.md) | Layers, startup, persistence, failure containment |
+| [docs/database.md](docs/database.md) | Maintenance lane, pruning, generation guard |
 | [docs/security-model.md](docs/security-model.md) | Assets, trust boundaries, controls, limits |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom, cause, fix |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Build, gates, style, pull requests |

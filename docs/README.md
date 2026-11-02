@@ -10,9 +10,14 @@ and how it protects your work.
 | --- | --- |
 | [Installation](installation.md) | You want the plugin running in a workspace or for a whole user |
 | [Compatibility](compatibility.md) | You need to know which host and platform are supported |
+| [User guide](user-guide.md) | You want the working rhythm: goals, handoffs, reviews, long sessions |
+| [Configuration](configuration.md) | You need the config file, its keys, or an environment variable |
 | [Agents](agents.md) | You want to know who does what, and how routing works |
 | [Tools](tools.md) | You need the 44-tool surface, grouped by purpose |
+| [Commands](commands.md) | You want the slash command and the routes behind common requests |
 | [Skills](skills.md) | You want the shipped procedures, or to write your own |
+| [Architecture](architecture.md) | You are maintaining the plugin and need the layer boundaries |
+| [Database](database.md) | You operate the maintenance lane, pruning, or the generation guard |
 | [Security model](security-model.md) | You are deciding whether to run it on real work |
 | [Troubleshooting](troubleshooting.md) | Something refuses to start, install, or verify |
 
