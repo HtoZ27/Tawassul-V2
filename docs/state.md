@@ -101,6 +101,12 @@ empty. A file signed by an unknown key is refused rather than migrated.
 Stop the host before deleting anything under a state root. A running host may
 hold the state file and its lock.
 
+A purge is a rename, not an erase: moving `tawassul-v2.purged-<timestamp>` back to
+`tawassul-v2` restores the namespace, with any files written after the purge left
+in place. On Windows, `scripts\windows-install.cmd -Action cycle` runs against an
+isolated home under `%TEMP%`, so a test cycle never produces such an archive in
+your profile.
+
 ## Isolated mode
 
 `TAWASSUL_ISOLATED` sends state to a temporary root and marks the session
@@ -119,4 +125,7 @@ cannot read or write a real workspace's state.
 | `OPENCODE_DB` | The host database, never redirected by the plugin on its own |
 
 `TAWASSUL_HMAC_KEY_DIR` is read-only by contract: if it is set and the key file
-is absent, the plugin refuses instead of creating one at that path.
+is absent, the plugin refuses instead of creating one at that path. The global
+installer applies the same contract to `install` and `--verify`: an explicit key
+directory must already hold a 32-byte key, or the command exits 2 before writing
+anything.

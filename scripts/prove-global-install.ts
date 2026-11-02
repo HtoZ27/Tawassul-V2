@@ -24,9 +24,12 @@ import {
   releaseCoexistence,
 } from "../src/core/install-scope.ts";
 import {
+  HMAC_KEY_FILE,
   dependencyProbeCommand,
   installLane,
+  operatorKeyProblem,
   usesPosixDatabaseLane,
+  windowsAclPath,
   windowsKeyAclArgv,
   windowsKeyDirectory,
 } from "../src/core/install-lane.ts";
@@ -187,6 +190,23 @@ try {
   assert(acl.includes("*S-1-5-21-1:(OI)(CI)F"), "the windows key ACL grants the current user");
   assert(acl.includes("*S-1-5-18:(OI)(CI)F"), "the windows key ACL keeps SYSTEM access");
   assert(acl.includes("*S-1-5-32-544:(OI)(CI)F"), "the windows key ACL keeps Administrators access");
+  assert(
+    windowsAclPath("C:\\Users\\tester\\.config\\tawassul") === "C:\\Users\\tester\\.config\\tawassul",
+    "a short windows path reaches icacls unchanged",
+  );
+  const longKey = `C:\\Users\\tester\\${"segment\\\\".repeat(30)}tawassul`;
+  assert(
+    windowsAclPath(longKey).startsWith("\\\\?\\C:\\") && windowsAclPath(longKey).endsWith("\\tawassul"),
+    "a long windows path is prefixed for icacls",
+  );
+  assert(
+    windowsAclPath(`\\\\server\\share\\${"segment\\\\".repeat(30)}tawassul`).startsWith("\\\\?\\UNC\\server\\"),
+    "a long UNC path uses the UNC long-path form",
+  );
+  assert(
+    windowsAclPath("\\\\?\\C:\\already\\long") === "\\\\?\\C:\\already\\long",
+    "an already-prefixed windows path is left alone",
+  );
   const keyDefault = windowsKeyDirectory({}, "/home/tester");
   assert(
     keyDefault.dir === resolve("/home/tester", ".config", "tawassul"),
@@ -201,6 +221,20 @@ try {
   assert(
     keyExplicit.dir === resolve("/keys") && keyExplicit.managed === false,
     "an explicit key directory is operator-managed and left untouched",
+  );
+  assert(operatorKeyProblem({}, null) === undefined, "a managed key directory is never pre-checked");
+  const missingKey = operatorKeyProblem({ TAWASSUL_HMAC_KEY_DIR: "/keys" }, null);
+  assert(
+    typeof missingKey === "string" && missingKey.includes(resolve("/keys", HMAC_KEY_FILE)),
+    "an absent operator key is reported with the path the runtime will read",
+  );
+  assert(
+    typeof operatorKeyProblem({ TAWASSUL_HMAC_KEY_DIR: "/keys" }, 31) === "string",
+    "an operator key of the wrong length is rejected",
+  );
+  assert(
+    operatorKeyProblem({ TAWASSUL_HMAC_KEY_DIR: "/keys" }, 32) === undefined,
+    "a 32-byte operator key passes the pre-check",
   );
   const plainProbe = hostProbeCommand("/usr/bin/opencode", "linux");
   assert(
@@ -445,7 +479,7 @@ try {
   delete process.env.TAWASSUL_GLOBAL_DIR;
   assert(detectInstallScope(pathToFileURL(TARGET).href) === "global", "installed file resolves to global scope");
   assert(
-    detectInstallScope(pathToFileURL(join(REPO, ".opencode", "plugin", "tawassul.js")).href) ===
+    detectInstallScope(pathToFileURL(join(REPO, ".opencode", "plugins", "tawassul.js")).href) ===
       "project",
     "project bundle resolves to project scope",
   );

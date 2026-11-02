@@ -25,7 +25,7 @@ artifact.
 
 ## Method
 
-The writer boots the built `.opencode/plugin/tawassul.js` in a scratch
+The writer boots the built `.opencode/plugins/tawassul.js` in a scratch
 workspace with isolated state, XDG directories and database, then records:
 
 - `schemaPayload` — `collectToolSchemas` followed by `measureSchemaPayload` over

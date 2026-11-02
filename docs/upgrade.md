@@ -41,7 +41,7 @@ npm install
 npm run build
 ```
 
-The build writes `.opencode/plugin/tawassul.js`. Restart the host. There is no
+The build writes `.opencode/plugins/tawassul.js`. Restart the host. There is no
 installer step and no marker to update.
 
 ## Downgrading

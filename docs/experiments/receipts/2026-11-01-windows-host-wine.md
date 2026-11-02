@@ -1,7 +1,10 @@
 # Windows host under Wine — emulator receipt
 
 - Date: 2026-11-01
-- Verdict: **emulator evidence, not a native Windows receipt.** Acceptance item 20 stays open.
+- Verdict: **emulator evidence, not a native Windows receipt.** Superseded for
+  the install lane by
+  `docs/experiments/receipts/2026-11-02-windows-install-cycle-native.md`; the
+  native host load is recorded there.
 - Host artifact: `opencode-windows-x64.zip` from the v2.2.5 GitHub release, sha256 `2f3bfd6b3527c60c2a882557b20ddc9ba6bdff4b5a8fe61c853da8fcfb3076e8`, matching `SHA256SUMS`
 - Node probe: `node.exe` v22.14.0 win-x64, sha256 `33b1bc1a8aca11fd5a4f2699e51019c63c0af30cf437701d07af69be7706771b`
 - Emulator: Wine 9.0 (Ubuntu 9.0~repack-4build3) through `/usr/lib/wine/wine64`; the `wine` wrapper on `PATH` fails with `could not load kernel32.dll`

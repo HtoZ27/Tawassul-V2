@@ -691,7 +691,7 @@
           "status": "verified",
           "anchor": {
             "file": "build-v2.mjs",
-            "line": 129,
+            "line": 130,
             "marker": "tawassul.js"
           },
           "proofs": [
@@ -752,7 +752,7 @@
           "status": "verified",
           "anchor": {
             "file": "scripts/install-global.ts",
-            "line": 221,
+            "line": 224,
             "marker": "hostCandidates"
           },
           "proofs": [

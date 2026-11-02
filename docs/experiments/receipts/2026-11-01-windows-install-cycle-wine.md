@@ -1,7 +1,10 @@
 # Windows install cycle under Wine — emulator receipt
 
 - Date: 2026-11-01
-- Verdict: **emulator evidence, not a native Windows receipt.** Acceptance item 20 stays open.
+- Verdict: **emulator evidence, not a native Windows receipt.** Superseded for
+  acceptance item 20 by
+  `docs/experiments/receipts/2026-11-02-windows-install-cycle-native.md`; this
+  file stays as the Wine evidence trail.
 - Kit: `/home/htoz/tawassul-windows-kit`, unpacked to a fresh directory, `RUN-RECEIPT.cmd` driven by Wine's `cmd`
 - Bun: 1.3.14 **baseline** for win-x64; the normal build aborts with `Illegal instruction` on a host without AVX2
 - Host: `opencode.exe` v2.2.5 win-x64 from the same release the earlier host receipt used

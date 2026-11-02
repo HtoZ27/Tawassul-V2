@@ -51,7 +51,7 @@ const docs = [
   "AGENTS.md",
   "README.md",
   "TRIAGE.md",
-  join("docs", "VALIDATION.md"),
+  join("docs", "validation.md"),
   join("docs", "portable-context-handoff.md"),
 ];
 const MARKER = /<!-- generated:([a-z-]+) -->[\s\S]*?<!-- \/generated -->/g;

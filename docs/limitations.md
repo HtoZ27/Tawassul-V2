@@ -10,7 +10,8 @@ of running the plugin honestly.
 | Native Windows has no database maintenance or scheduled trigger | The plugin loads and all in-process features work; `health` reports `maintenance: unavailable` |
 | macOS has no automatic database scheduler | Run `scripts/opencode-db-scheduled.sh --run` manually, or wire it to `launchd` yourself |
 | The database lane is POSIX-only | Pruning, backup, and `VACUUM` need a POSIX shell and `sqlite3` |
-| Native Windows is pending a native receipt | Install and uninstall are exercised under an emulator; no support claim is made for NTFS ACLs, Defender, or long paths |
+| Native Windows x64 has a native receipt for install, verify, upgrade, uninstall, and purge | The receipt covers NTFS ACLs, long paths, file locking, Defender, and SmartScreen; ARM64 remains unmeasured, while Windows 11 shares the path and Defender baseline, so only version-level differences remain; the host watcher is unmeasured |
+| SmartScreen blocks a downloaded unsigned executable | Windows shows "Windows protected your PC" and waits for a person; the kit ships no executable, so the install lane never triggers it |
 
 ## State
 

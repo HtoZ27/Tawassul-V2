@@ -4,7 +4,7 @@ set -u
 ROOT="${TAWASSUL_DOCTOR_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 ROOT="$(realpath "$ROOT" 2>/dev/null || printf '%s' "$ROOT")"
 HOME_DIR="${HOME:-}"
-ENTRY="$ROOT/.opencode/plugin/tawassul.js"
+ENTRY="$ROOT/.opencode/plugins/tawassul.js"
 STATE_FILE="$ROOT/.opencode/tawassul-state.json"
 PROJECT_ROUTER="$ROOT/.opencode/predictive-router.json"
 CONFIG_BASE="${XDG_CONFIG_HOME:-$HOME_DIR/.config}"
@@ -592,17 +592,18 @@ else
 fi
 
 section "external v1 trees"
-for tree in "$HOME_DIR/Desktop/gtttt" "$HOME_DIR/Desktop/paassss"; do
+v1_trees=0
+for tree in "$HOME_DIR"/Desktop/*; do
   [ -d "$tree" ] || continue
-  if compgen -G "$tree/.opencode/plugins/*/index.ts" >/dev/null; then
-    for v1_entry in "$tree"/.opencode/plugins/*/index.ts; do
-      [ -f "$v1_entry" ] || continue
-      warn "external v1 tree still exposes $v1_entry (user refused removal) — it can fail to load on boot; not modified"
-    done
-  else
-    pass "external tree has no live v1 entry: $tree"
-  fi
+  for v1_entry in "$tree"/.opencode/plugins/*/index.ts; do
+    [ -f "$v1_entry" ] || continue
+    v1_trees=$((v1_trees + 1))
+    warn "external v1 tree still exposes $v1_entry — it can fail to load on boot; not modified"
+  done
 done
+if [ "$v1_trees" -eq 0 ]; then
+  pass "no external v1 tree exposes a live plugin entry under ~/Desktop"
+fi
 
 section "hosts"
 if [ -f "$SERVICE_DESC" ]; then

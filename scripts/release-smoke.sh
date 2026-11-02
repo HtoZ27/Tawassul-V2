@@ -87,7 +87,7 @@ fi
 if [ "${TAWASSUL_SMOKE_SKIP_BUILD:-0}" != "1" ]; then
   (cd "$REPO" && npm run build >/dev/null 2>&1) || { echo "release-smoke: build failed." >&2; exit 3; }
 fi
-ENTRY="$REPO/.opencode/plugin/tawassul.js"
+ENTRY="$REPO/.opencode/plugins/tawassul.js"
 [ -f "$ENTRY" ] || { echo "release-smoke: built entry missing at $ENTRY." >&2; exit 3; }
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/tawassul-release-smoke-XXXXXX")"
@@ -95,8 +95,8 @@ KEEP=0
 cleanup() { if [ "$KEEP" = "1" ]; then echo "release-smoke: logs kept at $WORK" >&2; else rm -rf "$WORK"; fi; }
 trap cleanup EXIT
 
-mkdir -p "$WORK/.opencode/plugin" "$WORK/dist"
-cp "$ENTRY" "$WORK/.opencode/plugin/tawassul.js"
+mkdir -p "$WORK/.opencode/plugins" "$WORK/dist"
+cp "$ENTRY" "$WORK/.opencode/plugins/tawassul.js"
 cp "$REPO/dist/index.js" "$WORK/dist/index.js"
 ln -s "$REPO/.opencode/node_modules" "$WORK/.opencode/node_modules"
 
@@ -172,7 +172,7 @@ if [ -f "$WORK/run.err" ] && grep -qE "$TAW_WARN_RE" "$WORK/run.err"; then
   exit 3
 fi
 
-SMOKE_ENTRY="$WORK/.opencode/plugin/tawassul.js" SMOKE_DIR="$WORK" SMOKE_COUNT="$TOOL_COUNT" SMOKE_HASH="$TOOL_HASH" SMOKE_FLOOR="$TOOL_FLOOR" bun -e '
+SMOKE_ENTRY="$WORK/.opencode/plugins/tawassul.js" SMOKE_DIR="$WORK" SMOKE_COUNT="$TOOL_COUNT" SMOKE_HASH="$TOOL_HASH" SMOKE_FLOOR="$TOOL_FLOOR" bun -e '
 const entry = process.env.SMOKE_ENTRY;
 const dir = process.env.SMOKE_DIR;
 const mod = await import(entry);

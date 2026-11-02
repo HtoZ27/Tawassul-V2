@@ -38,9 +38,9 @@ npm run build
 | --- | --- |
 | `dist/index.js` | The plugin bundle used by the host in this workspace |
 | `dist/global.js` | The self-contained bundle the global installer ships |
-| `.opencode/plugin/tawassul.js` | The host entry the workspace loads |
+| `.opencode/plugins/tawassul.js` | The host entry the workspace loads |
 
-The host discovers `.opencode/plugin/tawassul.js` on its own. Do not edit
+The host discovers `.opencode/plugins/tawassul.js` on its own. Do not edit
 `opencode.json` to register it.
 
 If the host uses a restricted module resolver, install the plugin API once in
@@ -93,7 +93,10 @@ and nothing else. It never edits `opencode.json` or `opencode.jsonc`.
 | `TAWASSUL_ASSET_ROOTS` | Extra search roots for the wasm grammars |
 
 `TAWASSUL_GLOBAL_DIR` also moves the HMAC key directory beside the config root.
-An explicit `TAWASSUL_HMAC_KEY_DIR` wins over that.
+An explicit `TAWASSUL_HMAC_KEY_DIR` wins over that. The installer treats an
+explicit key directory as operator-managed: it never writes a key there, and
+`install` or `--verify` exits 2 when the key file is absent or is not 32 bytes,
+because the runtime refuses to sign without it.
 
 ### Upgrading
 
@@ -159,8 +162,16 @@ a hand-made install must create it too, or the host refuses to start with
 - **Windows** — native install stages the bundle and the wasm grammars only.
   Database maintenance and scheduled triggers are unavailable on `win32`, and
   the key directory is protected with an `icacls` ACL instead of POSIX modes.
-  Native Windows is **pending a native receipt**; see
-  [compatibility](compatibility.md).
+  The native ladder (`scripts\windows-install.cmd -Action cycle`) is unattended
+  and bounded, works from any drive, and installs to
+  `%USERPROFILE%\.config\opencode` unless `TAWASSUL_GLOBAL_DIR` is set. Native
+  Windows x64 has a native receipt; see [compatibility](compatibility.md).
+  Defender and SmartScreen were measured: Defender reports no detection, and a
+  kit carrying Mark-of-the-Web completes the lane without a prompt. SmartScreen
+  only gates an unsigned downloaded executable, and the kit contains none.
+  A `-Action cycle` runs in an isolated home under `%TEMP%` and removes it
+  afterwards, so it never archives your real state; each step prints its exit
+  code and duration, and a step that exceeds its bound is killed and named.
 - **WSL2** — experimental. Keep the key on the Linux filesystem; a Windows mount
   does not carry the same permission semantics.
 
@@ -174,5 +185,7 @@ a hand-made install must create it too, or the host refuses to start with
 | `cannot create the runtime layout` | A plain file occupies the runtime path | Remove it or set `TAWASSUL_GLOBAL_DIR` |
 | Host reports `Location plugins did not finish activating` | The plugins directory is missing | Create it and restart the host |
 | `EPERM: operation not permitted, fsync` on Windows | A pre-release build fsynced a read-only handle | Upgrade; fixed in the current bundle |
+| `cannot remove … (EBUSY)` or `cannot archive … (EPERM)` on Windows | A running host still holds the plugin or a state file | Stop the host and rerun the same uninstall or purge command |
+| `TAWASSUL_HMAC_KEY_DIR points at … which is absent` | The variable must name a directory that already holds a 32-byte key | Write the key there, point the variable at an existing key directory, or unset it and let Tawassul manage `~/.config/tawassul` |
 
 More in [troubleshooting](troubleshooting.md).

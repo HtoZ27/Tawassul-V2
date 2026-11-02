@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "totalEstimateMs": 330441,
+  "totalEstimateMs": 332441,
   "shards": [
     {
       "name": "1",
@@ -90,7 +90,7 @@
     },
     {
       "name": "3",
-      "estimateMs": 80062,
+      "estimateMs": 82062,
       "steps": [
         "event-trust",
         "s017",
@@ -130,7 +130,8 @@
         "md-gate",
         "context-diet",
         "state-root-survival",
-        "skill-discovery"
+        "skill-discovery",
+        "no-git-init"
       ]
     },
     {

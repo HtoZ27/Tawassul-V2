@@ -27,7 +27,7 @@ npm install
 npm run build
 ```
 
-The host loads `.opencode/plugin/tawassul.js` for this workspace. A global
+The host loads `.opencode/plugins/tawassul.js` for this workspace. A global
 install is opt-in and is not needed for development.
 
 ## Gates

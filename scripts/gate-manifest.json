@@ -1155,6 +1155,13 @@
         "bun",
         "scripts/prove-snapshot-boundary.ts"
       ]
+    },
+    {
+      "name": "no-git-init",
+      "cmd": [
+        "bun",
+        "scripts/prove-no-git-init.ts"
+      ]
     }
   ],
   "smoke": [

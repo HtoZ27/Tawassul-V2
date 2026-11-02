@@ -44,7 +44,7 @@ npm run build
 ```
 
 Open the workspace in OpenCode. The host discovers
-`.opencode/plugin/tawassul.js` on its own; no configuration edit is needed.
+`.opencode/plugins/tawassul.js` on its own; no configuration edit is needed.
 
 Install once for every workspace of the current user:
 
@@ -93,7 +93,7 @@ More in [docs/skills.md](docs/skills.md).
 | --- | --- |
 | Linux x64 | Ready, full lane including database maintenance |
 | Linux arm64, macOS | Experimental |
-| Windows x64 | Pending a native receipt; bundle and wasm only, no database lane |
+| Windows x64 | Supported (native receipt); bundle and wasm only, no database lane |
 | WSL2 | Experimental |
 
 The host floor is `2.2.0`; the audited version is `2.2.1`. Newer majors run in

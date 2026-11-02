@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { TOOL_COUNT, TOOL_NAME_SET_HASH } from "../src/generated/tool-tripwire.ts";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
-const PROJECT_ENTRY = join(REPO, ".opencode", "plugin", "tawassul.js");
+const PROJECT_ENTRY = join(REPO, ".opencode", "plugins", "tawassul.js");
 const MODEL = process.env.TAWASSUL_SMOKE_MODEL ?? "opencode/big-pickle";
 const BOOT_TIMEOUT = Number(process.env.TAWASSUL_SMOKE_TIMEOUT ?? 90);
 const PROVIDER_REFUSAL = /provider\.[a-z-]+|FreeUsageLimitError|"status": *429|Free usage limit/i;
@@ -88,8 +88,8 @@ try {
   for (const dir of [".config", ".local/share", ".local/state", ".cache"]) {
     mkdirSync(join(HOME, dir), { recursive: true });
   }
-  mkdirSync(join(WORKSPACE, ".opencode", "plugin"), { recursive: true });
-  const entry = join(WORKSPACE, ".opencode", "plugin", "tawassul.js");
+  mkdirSync(join(WORKSPACE, ".opencode", "plugins"), { recursive: true });
+  const entry = join(WORKSPACE, ".opencode", "plugins", "tawassul.js");
   copyFileSync(PROJECT_ENTRY, entry);
   symlinkSync(join(REPO, ".opencode", "node_modules"), join(WORKSPACE, ".opencode", "node_modules"), "dir");
   writeFileSync(join(WORKSPACE, "opencode.json"), `${JSON.stringify({ $schema: "https://opencode.ai/config.json" }, null, 2)}\n`);
@@ -150,7 +150,7 @@ try {
     assert(!existsSync(join(HOME, legacy)), `the isolated HOME has no v1 state at ~/${legacy}`);
   }
   assert(
-    readdirSync(join(WORKSPACE, ".opencode", "plugin")).every((name) => name === "tawassul.js"),
+    readdirSync(join(WORKSPACE, ".opencode", "plugins")).every((name) => name === "tawassul.js"),
     "the workspace exposes exactly one plugin entry",
   );
   const config = JSON.parse(readFileSync(join(WORKSPACE, "opencode.json"), "utf-8")) as Record<string, unknown>;

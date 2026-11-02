@@ -2,6 +2,29 @@ import { resolve } from "node:path";
 
 export type InstallLane = "windows" | "macos" | "linux";
 
+export const HMAC_KEY_FILE = ".tawassul-hmac-key";
+
+export const HMAC_KEY_BYTES = 32;
+
+export function operatorKeyProblem(
+  env: Record<string, string | undefined>,
+  size: number | null,
+): string | undefined {
+  const dir = env.TAWASSUL_HMAC_KEY_DIR?.trim();
+  if (!dir) return undefined;
+  const file = resolve(dir, HMAC_KEY_FILE);
+  if (size === null) {
+    return (
+      `TAWASSUL_HMAC_KEY_DIR points at ${file}, which is absent — the runtime refuses to sign without it; ` +
+      `place a ${HMAC_KEY_BYTES}-byte key there or unset the variable`
+    );
+  }
+  if (size !== HMAC_KEY_BYTES) {
+    return `the key at ${file} is ${size} bytes; expected ${HMAC_KEY_BYTES}`;
+  }
+  return undefined;
+}
+
 export type KeyDirectory = { dir: string; managed: boolean };
 
 export function installLane(platform: NodeJS.Platform): InstallLane {
@@ -30,6 +53,13 @@ export function windowsKeyAclArgv(directory: string, identity: string): string[]
     "/grant:r",
     "*S-1-5-32-544:(OI)(CI)F",
   ];
+}
+
+export function windowsAclPath(directory: string): string {
+  if (directory.startsWith("\\\\?\\")) return directory;
+  if (directory.length < 260) return directory;
+  if (directory.startsWith("\\\\")) return `\\\\?\\UNC\\${directory.slice(2)}`;
+  return `\\\\?\\${directory}`;
 }
 
 export function windowsKeyDirectory(

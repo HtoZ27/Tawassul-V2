@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { TOOL_COUNT, TOOL_NAME_SET_HASH } from "../src/generated/tool-tripwire.ts";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
-const PROJECT_ENTRY = join(REPO, ".opencode", "plugin", "tawassul.js");
+const PROJECT_ENTRY = join(REPO, ".opencode", "plugins", "tawassul.js");
 const INSTALLER = join(REPO, "scripts", "install-global.ts");
 const MODEL = process.env.TAWASSUL_SMOKE_MODEL ?? "opencode/big-pickle";
 const BOOT_TIMEOUT = Number(process.env.TAWASSUL_SMOKE_TIMEOUT ?? 90);
@@ -247,8 +247,8 @@ try {
   );
 
   const coexistWorkspace = join(ROOT, "global", "ws-both");
-  mkdirSync(join(coexistWorkspace, ".opencode", "plugin"), { recursive: true });
-  const coexistEntry = join(coexistWorkspace, ".opencode", "plugin", "tawassul.js");
+  mkdirSync(join(coexistWorkspace, ".opencode", "plugins"), { recursive: true });
+  const coexistEntry = join(coexistWorkspace, ".opencode", "plugins", "tawassul.js");
   copyFileSync(PROJECT_ENTRY, coexistEntry);
   symlinkSync(join(REPO, ".opencode", "node_modules"), join(coexistWorkspace, ".opencode", "node_modules"), "dir");
   writeFileSync(join(coexistWorkspace, "keep.txt"), "coexist workspace\n");
@@ -281,8 +281,8 @@ try {
 
   const projectEnv = isolate(join(ROOT, "project"), join(ROOT, "project", "opencode.db"), join(ROOT, "project", "tawassul.log"));
   const projectWorkspace = join(ROOT, "project", "ws-only");
-  mkdirSync(join(projectWorkspace, ".opencode", "plugin"), { recursive: true });
-  const projectEntry = join(projectWorkspace, ".opencode", "plugin", "tawassul.js");
+  mkdirSync(join(projectWorkspace, ".opencode", "plugins"), { recursive: true });
+  const projectEntry = join(projectWorkspace, ".opencode", "plugins", "tawassul.js");
   copyFileSync(PROJECT_ENTRY, projectEntry);
   symlinkSync(join(REPO, ".opencode", "node_modules"), join(projectWorkspace, ".opencode", "node_modules"), "dir");
   const projectHostLog = join(projectEnv.XDG_DATA_HOME as string, "opencode", "log", "opencode.log");

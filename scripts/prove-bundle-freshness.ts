@@ -44,7 +44,7 @@ async function main(): Promise<void> {
   const indexDigest = readContentSha(readFileSync(indexPath, "utf8"));
   assert(indexDigest === digest, "dist/index.js carries the current content digest");
 
-  const target = join(REPO, ".opencode", "plugin", "tawassul.js");
+  const target = join(REPO, ".opencode", "plugins", "tawassul.js");
   assert(existsSync(target), "the project bundle is written");
   const projectDigest = readContentSha(readFileSync(target, "utf8"));
   assert(projectDigest === digest, "the project bundle carries the current content digest");

@@ -2,11 +2,26 @@ import type { TawassulContext } from "../context.ts";
 import type { ToolContext } from "../tool.ts";
 import { tool } from "../tool.ts";
 import { CodeStateService } from "../services/code-state.ts";
+import { logger } from "../utils/logger.ts";
 
 
 export function buildCodeStateTool(tawaCtx: TawassulContext) {
   const projectRoot = tawaCtx.stateDir;
-  const svc = new CodeStateService(projectRoot);
+  let cached: CodeStateService | null | undefined;
+
+  const service = (): CodeStateService | null => {
+    if (cached !== undefined) return cached;
+    try {
+      cached = new CodeStateService(projectRoot);
+    } catch (e) {
+      logger.warn(
+        "[codestate] code snapshots are unavailable because git is not usable:",
+        e instanceof Error ? e.message : String(e),
+      );
+      cached = null;
+    }
+    return cached;
+  };
 
   return tool({
     description:
@@ -20,6 +35,13 @@ export function buildCodeStateTool(tawaCtx: TawassulContext) {
       force: tool.schema.boolean().optional().describe("Overwrite unsaved changes (undo/redo/restore)"),
     },
     async execute(args: { action: string; label?: string; id?: string; force?: boolean }, _cctx: ToolContext) {
+      const svc = service();
+      if (!svc) {
+        return {
+          title: "❌ Code state",
+          output: "Code snapshots need git on PATH. Install git and restart the host.",
+        };
+      }
       try {
         switch (args.action) {
           case "snapshot": {

@@ -85,7 +85,8 @@ const globalResult = await build({
         pluginBuild.onLoad(
           { filter: /[\\/]zod[\\/]v4[\\/]locales[\\/]([^\\/]+)\.js$/ },
           async (args) => {
-            const base = args.path.slice(args.path.lastIndexOf("/") + 1);
+            const separator = Math.max(args.path.lastIndexOf("/"), args.path.lastIndexOf("\\"));
+            const base = args.path.slice(separator + 1);
             if (base === "en.js" || base === "index.js") return;
             return { contents: 'export { default } from "./en.js";\n', loader: "js" };
           },
@@ -124,7 +125,7 @@ if (existsSync(join(outdir, "index.js"))) appendFileSync(join(outdir, "index.js"
 console.log(`Embedded source SHA: ${sourceSha}`);
 console.log(`Embedded content SHA: ${contentSha.slice(0, 12)}`);
 
-const pluginDir = join(".opencode", "plugin");
+const pluginDir = join(".opencode", "plugins");
 mkdirSync(pluginDir, { recursive: true });
 copyFileSync(join(outdir, "index.js"), join(pluginDir, "tawassul.js"));
 const localRuntimeDir = join(".opencode", "tawassul-runtime", "db");

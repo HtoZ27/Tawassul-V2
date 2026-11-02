@@ -54,10 +54,10 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-028 | The provider model cache is the source of truth for suffix governance. | `src/core/model-registry.ts:148` `getProviderModelTokens` | `scripts/prove-s028.ts` | verified |
 | S-029 | R7 variant pins, dispatch precedence, dotted suffixes, and the log default are ported. | `src/tools/agent-management.ts:239` `computePinEntries` | `scripts/prove-s029.ts` | verified |
 | S-030 | The live roster is aligned with the generation-layer retire. | `src/scripts/gen-opencode-config.ts:287` `unionDeletedVariants` | `scripts/prove-s029.ts` | verified |
-| S-031 | The documented install path materializes the plugin entry on every build. | `build-v2.mjs:129` `tawassul.js` | `scripts/release-smoke.sh` | verified |
+| S-031 | The documented install path materializes the plugin entry on every build. | `build-v2.mjs:130` `tawassul.js` | `scripts/release-smoke.sh` | verified |
 | S-032 | A stale project-scope copy must not win registration in a shared process. | `src/core/install-scope.ts:56` `claimCoexistence` | `scripts/prove-s038.ts` | verified |
 | S-033.1 | The plugin-side cold-boot wave is ported: quiet resolution, write-behind, save debounce, jitter, logger stamp, quarantine, and save guard. | `src/utils/quiet.ts:6` `forceQuietMode` | `scripts/prove-s033.ts` | verified |
-| S-033.2 | Launcher and installer duties stay in the host install script, not in the plugin. | `scripts/install-global.ts:221` `hostCandidates` | `scripts/prove-s033.ts` | verified |
+| S-033.2 | Launcher and installer duties stay in the host install script, not in the plugin. | `scripts/install-global.ts:224` `hostCandidates` | `scripts/prove-s033.ts` | verified |
 | S-033.3 | The cold-boot launch wave passes only after a recorded cold-boot run meets N1 to N5. | - | - | n-a |
 | S-034.1 | N2 records only announced assistant text parts. | `src/hooks/n2-auto.ts:40` `assistantMessages` | `scripts/prove-v2-compat.ts` | verified |
 | S-034.2 | A v2 boot scorecard implements N1 to N5 with an explicit since gate. | `scripts/boot-scorecard-v2.sh:30` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |

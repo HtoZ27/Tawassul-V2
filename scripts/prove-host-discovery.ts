@@ -40,9 +40,17 @@ try {
   const localAppData = join(ROOT, "local-app-data");
   const winDesktop = join(localAppData, "ai.opencode.desktop", "cli", "2.2.0");
   const winHost = fakeHost(join(winDesktop, "opencode-cli.exe"), "2.2.0");
+  const winResources = join(localAppData, "Programs", "ai.opencode.desktop", "resources");
+  const winResourcesHost = fakeHost(join(winResources, "opencode-cli.exe"), "2.2.0");
+  const programFiles = join(ROOT, "program-files");
+  const programFilesHost = fakeHost(
+    join(programFiles, "ai.opencode.desktop", "resources", "opencode-cli.exe"),
+    "2.2.0",
+  );
 
   process.env.HOME = HOME;
   process.env.LOCALAPPDATA = localAppData;
+  process.env.ProgramFiles = programFiles;
   process.env.PATH = [pathA, pathB, pathA].join(delimiter);
   delete process.env.OPENCODE_BIN;
 
@@ -53,6 +61,8 @@ try {
   assert(candidates.includes(exeHost), "an opencode.exe on PATH is a candidate");
   assert(candidates.includes(macHost), "the macOS Desktop CLI location is a candidate");
   assert(candidates.includes(winHost), "the LOCALAPPDATA Desktop CLI location is a candidate");
+  assert(candidates.includes(winResourcesHost), "the Windows Desktop resources sidecar is a candidate");
+  assert(candidates.includes(programFilesHost), "a machine-wide Desktop resources sidecar is a candidate");
   assert(
     candidates.filter((candidate) => candidate === join(pathA, "opencode")).length === 1,
     "duplicate PATH entries are de-duplicated",
@@ -68,7 +78,7 @@ try {
 
   const found = mod.hosts();
   const versions = found.filter((host) => host.version === "2.2.0");
-  assert(versions.length === 5, `all five fake hosts are readable (found ${versions.length})`);
+  assert(versions.length === 7, `all seven fake hosts are readable (found ${versions.length})`);
   assert(
     !versions.some((host) => host.bin.endsWith("missing-opencode")),
     "a candidate without an executable is not a host",
