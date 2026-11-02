@@ -122,9 +122,17 @@ because they are yours. To archive them as well:
 bun scripts/install-global.ts --uninstall --purge --yes
 ```
 
-The purge moves the state and data namespaces and the roster beside their old
-paths instead of deleting them. The global agent roster
-(`~/.config/opencode/agent`) is always kept.
+The purge renames these paths with a `.purged-<timestamp>` suffix instead of
+deleting them:
+
+- `~/.config/tawassul-v2`
+- `~/.local/share/tawassul-v2`
+- `~/.config/opencode/tawassul-v2-state`
+- `tawassul.jsonc`, `tawassul.json`, and `tawassul-pins.json` in the global
+  config root
+
+The global agent roster (`~/.config/opencode/agent`) is kept. Remove those files
+by hand if you do not want them.
 
 An uninstall refuses to remove a file that carries no Tawassul marker. Use
 `--force` only when you know the file is a Tawassul bundle that lost its marker.
@@ -153,8 +161,8 @@ a hand-made install must create it too, or the host refuses to start with
   the key directory is protected with an `icacls` ACL instead of POSIX modes.
   Native Windows is **pending a native receipt**; see
   [compatibility](compatibility.md).
-- **WSL2** — experimental. Keep the key on the Linux filesystem; `doctor` warns
-  when the key directory resolves under `/mnt/`.
+- **WSL2** — experimental. Keep the key on the Linux filesystem; a Windows mount
+  does not carry the same permission semantics.
 
 ## Troubleshooting
 

@@ -105,13 +105,17 @@ level of every row, is in [docs/compatibility.md](docs/compatibility.md).
 | Document | Content |
 | --- | --- |
 | [docs/installation.md](docs/installation.md) | Project and global install, upgrade, uninstall |
+| [docs/upgrade.md](docs/upgrade.md) | Patch upgrades, downgrades, preserved state |
 | [docs/user-guide.md](docs/user-guide.md) | Goals, handoffs, reviews, long sessions |
 | [docs/configuration.md](docs/configuration.md) | Config file, keys, environment variables |
+| [docs/state.md](docs/state.md) | State topology, retention, backup, deletion |
+| [docs/permissions.md](docs/permissions.md) | Guard order, consent words, path rules |
 | [docs/compatibility.md](docs/compatibility.md) | Host versions, platforms, feature matrix |
 | [docs/architecture.md](docs/architecture.md) | Layers, startup, persistence, failure containment |
 | [docs/database.md](docs/database.md) | Maintenance lane, pruning, generation guard |
 | [docs/security-model.md](docs/security-model.md) | Assets, trust boundaries, controls, limits |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom, cause, fix |
+| [docs/faq.md](docs/faq.md) | Short answers to common questions |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Build, gates, style, pull requests |
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability |
 

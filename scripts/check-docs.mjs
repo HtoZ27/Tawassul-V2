@@ -14,6 +14,7 @@ const PUBLIC_FILES = [
   "ACKNOWLEDGEMENTS.md",
   "docs/README.md",
   "docs/installation.md",
+  "docs/upgrade.md",
   "docs/compatibility.md",
   "docs/user-guide.md",
   "docs/configuration.md",
@@ -21,10 +22,17 @@ const PUBLIC_FILES = [
   "docs/tools.md",
   "docs/commands.md",
   "docs/skills.md",
+  "docs/permissions.md",
+  "docs/state.md",
   "docs/architecture.md",
   "docs/database.md",
+  "docs/monitoring.md",
   "docs/security-model.md",
   "docs/troubleshooting.md",
+  "docs/known-issues.md",
+  "docs/limitations.md",
+  "docs/faq.md",
+  "docs/glossary.md",
 ];
 
 const INTERNAL_DOCS = [

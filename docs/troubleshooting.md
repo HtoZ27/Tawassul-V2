@@ -101,8 +101,8 @@ state directory together.
 export TAWASSUL_HMAC_KEY_DIR="$HOME/.config/tawassul"
 ```
 
-`doctor` warns about this because the Windows mount does not carry the same
-permission semantics.
+A Windows mount does not carry the same permission semantics as a Linux
+filesystem, so keeping the key there weakens it even when the write succeeds.
 
 ## `could not resolve the current user SID` on Windows
 

@@ -9,6 +9,7 @@ and how it protects your work.
 | Document | Read it when |
 | --- | --- |
 | [Installation](installation.md) | You want the plugin running in a workspace or for a whole user |
+| [Upgrade](upgrade.md) | You are moving an existing install to a new build |
 | [Compatibility](compatibility.md) | You need to know which host and platform are supported |
 | [User guide](user-guide.md) | You want the working rhythm: goals, handoffs, reviews, long sessions |
 | [Configuration](configuration.md) | You need the config file, its keys, or an environment variable |
@@ -16,10 +17,17 @@ and how it protects your work.
 | [Tools](tools.md) | You need the 44-tool surface, grouped by purpose |
 | [Commands](commands.md) | You want the slash command and the routes behind common requests |
 | [Skills](skills.md) | You want the shipped procedures, or to write your own |
+| [Permissions](permissions.md) | You need the guard, consent words, or path rules |
+| [State](state.md) | You need the state topology, retention, backup, or deletion |
 | [Architecture](architecture.md) | You are maintaining the plugin and need the layer boundaries |
 | [Database](database.md) | You operate the maintenance lane, pruning, or the generation guard |
+| [Monitoring](monitoring.md) | You need health, logs, and the operational thresholds |
 | [Security model](security-model.md) | You are deciding whether to run it on real work |
 | [Troubleshooting](troubleshooting.md) | Something refuses to start, install, or verify |
+| [Known issues](known-issues.md) | Something is not working and you want the current workaround |
+| [Limitations](limitations.md) | You need the boundaries that are by design |
+| [FAQ](faq.md) | You want a short answer to a common question |
+| [Glossary](glossary.md) | A term in these documents is unfamiliar |
 
 ## Project documents
 
