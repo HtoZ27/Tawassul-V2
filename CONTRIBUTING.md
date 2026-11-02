@@ -39,7 +39,7 @@ cheap enough to run alone.
 | --- | --- |
 | `npm run typecheck` | TypeScript strict |
 | `npm run check:rules` | English-only and no-comments |
-| `npm run check:docs` | Public-doc links, language, and allow-list |
+| `npm run check:docs` | Public-doc links, language, allow-list, and surface drift |
 | `npm run gate:fast` | Rules, config, facts, contract, parity, catalog |
 | `npm run gate:proofs` | Every proof, one isolated child process each |
 | `npm run gate:smoke` | Build and release smoke |

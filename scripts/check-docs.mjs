@@ -28,6 +28,7 @@ const PUBLIC_FILES = [
   "docs/database.md",
   "docs/monitoring.md",
   "docs/security-model.md",
+  "docs/privacy.md",
   "docs/troubleshooting.md",
   "docs/known-issues.md",
   "docs/limitations.md",
@@ -138,4 +139,32 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
-console.log(`check-docs: OK (${PUBLIC_FILES.length} public files)`);
+const toolNamesSource = readFileSync(resolve(repo, "src/tool-names.ts"), "utf8");
+const toolNames = [...toolNamesSource.matchAll(/"([a-z][a-z_]+)"/g)].map((match) => match[1]);
+const toolsDoc = readFileSync(resolve(repo, "docs/tools.md"), "utf8");
+for (const tool of new Set(toolNames)) {
+  if (!toolsDoc.includes(`\`${tool}\``)) fail("docs/tools.md", `missing the registered tool (${tool})`);
+}
+
+const agentSource = readFileSync(resolve(repo, "src/core/agent-data.ts"), "utf8");
+const agents = [...agentSource.matchAll(/^\s{4}name: "([a-z-]+)",$/gm)].map((match) => match[1]);
+const agentsDoc = readFileSync(resolve(repo, "docs/agents.md"), "utf8");
+for (const agent of agents) {
+  if (!agentsDoc.includes(`\`${agent}\``)) fail("docs/agents.md", `missing the shipped agent (${agent})`);
+}
+
+const skillsManifest = JSON.parse(readFileSync(resolve(repo, "skills/manifest.json"), "utf8"));
+const skillsDoc = readFileSync(resolve(repo, "docs/skills.md"), "utf8");
+for (const skill of skillsManifest.skills) {
+  if (!skillsDoc.includes(`\`${skill.id}\``)) fail("docs/skills.md", `missing the shipped skill (${skill.id})`);
+}
+
+if (findings.length > 0) {
+  console.error(`check-docs: ${findings.length} problem(s)`);
+  for (const finding of findings) console.error(`  - ${finding}`);
+  process.exit(1);
+}
+
+console.log(
+  `check-docs: OK (${PUBLIC_FILES.length} public files, ${new Set(toolNames).size} tools, ${agents.length} agents, ${skillsManifest.skills.length} skills)`,
+);

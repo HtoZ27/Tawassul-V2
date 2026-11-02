@@ -23,6 +23,7 @@ and how it protects your work.
 | [Database](database.md) | You operate the maintenance lane, pruning, or the generation guard |
 | [Monitoring](monitoring.md) | You need health, logs, and the operational thresholds |
 | [Security model](security-model.md) | You are deciding whether to run it on real work |
+| [Privacy](privacy.md) | You need to know what is stored, what leaves the machine, and how to delete it |
 | [Troubleshooting](troubleshooting.md) | Something refuses to start, install, or verify |
 | [Known issues](known-issues.md) | Something is not working and you want the current workaround |
 | [Limitations](limitations.md) | You need the boundaries that are by design |
@@ -48,5 +49,5 @@ and how it protects your work.
 - Paths are written for a POSIX shell unless a section says otherwise.
 - Commands that write outside the workspace are marked as such.
 - This index is the public documentation set. `npm run check:docs` rejects a
-  broken link, an Arabic character, a reference to an internal document, or a
-  link that leaves this set.
+  broken link, an Arabic character, a reference to an internal document, a link
+  that leaves this set, or a tool, agent, or skill that the docs do not cover.

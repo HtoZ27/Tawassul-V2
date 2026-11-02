@@ -114,6 +114,7 @@ level of every row, is in [docs/compatibility.md](docs/compatibility.md).
 | [docs/architecture.md](docs/architecture.md) | Layers, startup, persistence, failure containment |
 | [docs/database.md](docs/database.md) | Maintenance lane, pruning, generation guard |
 | [docs/security-model.md](docs/security-model.md) | Assets, trust boundaries, controls, limits |
+| [docs/privacy.md](docs/privacy.md) | Stored data, outbound flows, retention, deletion |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom, cause, fix |
 | [docs/faq.md](docs/faq.md) | Short answers to common questions |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Build, gates, style, pull requests |
