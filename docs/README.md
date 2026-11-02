@@ -10,6 +10,9 @@ and how it protects your work.
 | --- | --- |
 | [Installation](installation.md) | You want the plugin running in a workspace or for a whole user |
 | [Compatibility](compatibility.md) | You need to know which host and platform are supported |
+| [Agents](agents.md) | You want to know who does what, and how routing works |
+| [Tools](tools.md) | You need the 44-tool surface, grouped by purpose |
+| [Skills](skills.md) | You want the shipped procedures, or to write your own |
 | [Security model](security-model.md) | You are deciding whether to run it on real work |
 | [Troubleshooting](troubleshooting.md) | Something refuses to start, install, or verify |
 
