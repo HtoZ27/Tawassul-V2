@@ -191,8 +191,6 @@ export const BASH_READ_ONLY: Record<string, string> = {
   "tail *-??f*": "deny",
   "tail *-?F*": "deny",
   "tail *-??F*": "deny",
-  "git grep *--open-files-in-pager*": "deny",
-  "git grep *-p*": "deny",
   "git *--output*": "deny",
 
   
