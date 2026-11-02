@@ -17,15 +17,15 @@
     {
       "name": "shell-syntax",
       "cmd": [
-        "bash",
-        "-c",
-        "for f in scripts/*.sh; do bash -n \"$f\" || exit 1; done"
+        "node",
+        "scripts/check-shell-syntax.mjs"
       ]
     },
     {
       "name": "typecheck",
       "cmd": [
-        "./node_modules/.bin/tsc",
+        "node",
+        "node_modules/typescript/bin/tsc",
         "--noEmit"
       ]
     },
