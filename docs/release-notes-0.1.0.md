@@ -132,7 +132,7 @@ ACLs, Defender, long paths, and file locking.
 | Proofs | 152 steps, one child process each |
 | Smoke | 6 steps, including the release artifacts, global boot, and independence boot |
 | Proof files | 155, all catalogued across the stages |
-| Public docs | 42 files, 44 tools, 8 agents, 4 skills |
+| Public docs | 45 files, 44 tools, 8 agents, 4 skills |
 | Native Windows | Native receipts for the bundle and wasm lane; database lane unavailable |
 
 The counts are generated from `scripts/gate-manifest.json`. See

@@ -10,7 +10,7 @@ English source; it never becomes a second source of truth.
 | --- | --- | --- |
 | Runtime strings (`src/i18n/*.json`) | `en`, `ar` | Both tables present, 606 keys each |
 | Tool and agent descriptions | `en` | English only |
-| Public documentation | `en` | 42 documents, enforced by `check:docs` |
+| Public documentation | `en` | 45 documents, enforced by `check:docs` |
 | Documentation translations | - | Planned; none published yet |
 
 The Arabic runtime table is a real translation of the interface strings, not a
