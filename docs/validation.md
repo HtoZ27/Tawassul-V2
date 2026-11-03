@@ -9,7 +9,7 @@ without weakening it.
 
 | Stage | Command | Steps | Purpose |
 | --- | --- | --- | --- |
-| Fast | `npm run gate:fast` | 11 | Rules, docs, types, config, facts, pins, parity, catalog, counts |
+| Fast | `npm run gate:fast` | 12 | Rules, docs, SBOM, types, config, facts, pins, parity, catalog, counts |
 | Proofs | `npm run gate:proofs` | 153 | One isolated proof per invariant |
 | Smoke | `npm run gate:smoke` | 4 | Build, release smoke, global boot, independence boot |
 | Evals | `npm run gate:evals` | 1 | Pilot evaluation of agent behaviour |
@@ -24,12 +24,13 @@ after an edit; `npm run ci` is the check before a tag.
 
 ## Fast stage
 
-The eleven steps, in order:
+The twelve steps, in order:
 
 | Step | What it rejects |
 | --- | --- |
 | `source-rules` | Non-English text or a comment in scanned code |
 | `docs` | A broken public link, a missing tool/agent/skill, a foreign project name |
+| `sbom` | A missing licence, a copyleft dependency, or an unreadable lockfile |
 | `shell-syntax` | A shell script that does not parse |
 | `typecheck` | A strict TypeScript error |
 | `config` | A generated host configuration that drifted |

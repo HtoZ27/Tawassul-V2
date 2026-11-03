@@ -26,7 +26,7 @@ platform or host row without a receipt is not a support claim.
   maintenance ladder, verified backups, pruning, and a generation guard.
 - A full public documentation set, enforced by `npm run check:docs` for links,
   language, allow-list, and tool/agent/skill coverage.
-- A validation suite: an 11-step fast gate, 153 isolated proofs, and a 4-step
+- A validation suite: a 12-step fast gate, 153 isolated proofs, and a 4-step
   smoke stage, with the counts generated from one manifest.
 
 ### Changed

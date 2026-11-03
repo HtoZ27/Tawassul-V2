@@ -97,6 +97,26 @@ npm ls --all
 `verify:global` covers the shipped artifact, not the dependency tree: it checks
 the bundle hash, the marker, the host pin, and the wasm inventory.
 
+## SBOM
+
+`npm run sbom` writes a CycloneDX 1.5 document to `dist/sbom.cdx.json`:
+
+```bash
+npm run build
+npm run sbom
+```
+
+It records every installed package with its version, purl, SPDX licence, and
+lockfile integrity hash, plus the bundle hash and the four wasm hashes. The
+serial number is derived from the component list, so the same lockfile produces
+the same document. `SOURCE_DATE_EPOCH` fixes the timestamp for a reproducible
+release.
+
+`npm run gate:fast` runs the same generator with `--check`: a missing licence, a
+copyleft licence, or an unreadable lockfile fails the gate. The SBOM is a release
+asset; it is not committed, because a committed copy would drift from the
+lockfile it describes.
+
 ## Supply-chain rules
 
 - The installer never runs a package manager.

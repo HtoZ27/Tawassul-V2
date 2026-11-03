@@ -112,7 +112,7 @@ Defender, or long paths. The emulator receipt is published and labelled.
 
 | Check | Result at this release |
 | --- | --- |
-| Fast gate | 11 steps |
+| Fast gate | 12 steps |
 | Proofs | 153 steps, one child process each |
 | Smoke | 4 steps, including global boot and independence boot |
 | Proof files | 156, all catalogued across the stages |
