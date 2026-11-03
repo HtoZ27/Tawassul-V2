@@ -230,21 +230,32 @@ async function main(): Promise<void> {
 
   const { initPlugin, getInitReady } = await import("../src/bootstrap/plugin-init.ts");
   const { buildPluginInput } = await import("../src/v2/client-shim.ts");
-  const lifecycleManager = (
-    plugin as unknown as { tawaCtx: { lifecycleManager: { destroy: () => Promise<void> } } }
-  ).tawaCtx.lifecycleManager;
-  const originalDestroy = lifecycleManager.destroy.bind(lifecycleManager);
-  let retired = 0;
-  lifecycleManager.destroy = async () => {
-    retired += 1;
-    return originalDestroy();
+  type InternalPlugin = BootedPlugin & {
+    tawaCtx: { lifecycleManager: { destroy: () => Promise<void> } };
+    dispose?: () => Promise<void>;
   };
-  const second = initPlugin(buildPluginInput(hostCtx)) as unknown as BootedPlugin;
+  let retired = 0;
+  const patchDestroy = (target: InternalPlugin): void => {
+    const manager = target.tawaCtx.lifecycleManager;
+    const original = manager.destroy.bind(manager);
+    manager.destroy = async () => {
+      retired += 1;
+      return original();
+    };
+  };
+  patchDestroy(plugin as unknown as InternalPlugin);
+  const second = initPlugin(buildPluginInput(hostCtx)) as unknown as InternalPlugin;
   const secondProbe = getInitReady(second as never);
   if (secondProbe) await secondProbe();
   assert(retired === 1, "a second init retires the previous instance for the same directory");
-  const secondDispose = (second as unknown as { dispose?: () => Promise<void> }).dispose;
-  if (secondDispose) await secondDispose();
+  patchDestroy(second);
+  const reloadedUrl = new URL("../src/bootstrap/plugin-init.ts?reload=1", import.meta.url).href;
+  const reloadedModule = (await import(reloadedUrl)) as typeof import("../src/bootstrap/plugin-init.ts");
+  const third = reloadedModule.initPlugin(buildPluginInput(hostCtx)) as unknown as InternalPlugin;
+  const thirdProbe = reloadedModule.getInitReady(third as never);
+  if (thirdProbe) await thirdProbe();
+  assert(retired === 2, "a re-imported plugin module still retires the previous instance");
+  if (third.dispose) await third.dispose();
 
   await new Promise((resolve) => setTimeout(resolve, 100));
   rmSync(work, { recursive: true, force: true });

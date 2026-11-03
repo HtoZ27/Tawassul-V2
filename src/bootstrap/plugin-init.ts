@@ -401,7 +401,13 @@ let _homeProjectWarned = false;
 let unhandledRejectionHandler: ((reason: unknown) => void) | undefined = undefined;
 
 type ActivePluginDispose = (options?: { releaseClaim?: boolean }) => Promise<void>;
-const activePluginInstances = new Map<string, ActivePluginDispose>();
+const ACTIVE_PLUGIN_INSTANCES = Symbol.for("tawassul.v2.activePluginInstances");
+const pluginRegistryHost = globalThis as typeof globalThis & {
+  [ACTIVE_PLUGIN_INSTANCES]?: Map<string, ActivePluginDispose>;
+};
+const activePluginInstances =
+  pluginRegistryHost[ACTIVE_PLUGIN_INSTANCES] ?? new Map<string, ActivePluginDispose>();
+pluginRegistryHost[ACTIVE_PLUGIN_INSTANCES] = activePluginInstances;
 
 function disposeGlobalErrorHandlers(): void {
   errorHandlerRefCount = Math.max(0, errorHandlerRefCount - 1);
