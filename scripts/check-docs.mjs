@@ -15,6 +15,7 @@ const PUBLIC_FILES = [
   "CODE_OF_CONDUCT.md",
   "ACKNOWLEDGEMENTS.md",
   "docs/README.md",
+  "docs/features.md",
   "docs/installation.md",
   "docs/upgrade.md",
   "docs/compatibility.md",

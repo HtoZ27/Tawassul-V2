@@ -105,6 +105,7 @@ level of every row, is in [docs/compatibility.md](docs/compatibility.md).
 | Document | Content |
 | --- | --- |
 | [docs/release-notes-0.1.0.md](docs/release-notes-0.1.0.md) | What this release contains and what it does not claim |
+| [docs/features.md](docs/features.md) | Capability catalogue and the status of each claim |
 | [docs/installation.md](docs/installation.md) | Project and global install, upgrade, uninstall |
 | [docs/upgrade.md](docs/upgrade.md) | Patch upgrades, downgrades, preserved state |
 | [docs/user-guide.md](docs/user-guide.md) | Goals, handoffs, reviews, long sessions |
