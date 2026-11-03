@@ -110,8 +110,10 @@ if (runtimeDependency) {
 console.log(`Global build complete: ${join(outdir, "global.js")}`);
 
 const sourceSha = (() => {
+  const root = dirname(fileURLToPath(import.meta.url));
+  if (!existsSync(join(root, ".git"))) return "unknown";
   try {
-    return execSync("git rev-parse HEAD", { cwd: dirname(fileURLToPath(import.meta.url)), encoding: "utf8" }).trim();
+    return execSync("git rev-parse HEAD", { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {
     return "unknown";
   }
