@@ -67,6 +67,7 @@ async function liveBoot(): Promise<{
   plugin: BootedPlugin;
   transcript: TranscriptCall[];
   hostAsks: { count: number };
+  hostCtx: never;
 }> {
   const work = mkdtempSync(join(tmpdir(), "tawassul-c03-"));
   const keyDir = join(work, "hmac");
@@ -146,7 +147,7 @@ async function liveBoot(): Promise<{
   if (probe) await probe();
   const logPath = join(work, "tawassul.log");
   if (!existsSync(logPath)) fail(`isolated boot wrote no log at ${logPath}`);
-  return { work, bootLog: readFileSync(logPath, "utf-8"), plugin, transcript, hostAsks };
+  return { work, bootLog: readFileSync(logPath, "utf-8"), plugin, transcript, hostAsks, hostCtx: ctx as never };
 }
 
 async function userSays(plugin: BootedPlugin, content: string, messageID: string): Promise<void> {
@@ -180,7 +181,7 @@ function questionsFor(transcript: TranscriptCall[], command: string): Transcript
 }
 
 async function main(): Promise<void> {
-  const { work, bootLog, plugin, transcript, hostAsks } = await liveBoot();
+  const { work, bootLog, plugin, transcript, hostAsks, hostCtx } = await liveBoot();
   const { resetConsentApprovals, ConsentBlockedError } = await import(
     "../src/hooks/guards/consent-gate-guard.ts"
   );
@@ -226,6 +227,35 @@ async function main(): Promise<void> {
   assert(known instanceof ConsentBlockedError, "the managed-agent consent path is unchanged");
   await flush();
   assert(questionsFor(transcript, KNOWN_CMD).length === 1, "the managed-agent control parks its own question");
+
+  const { initPlugin, getInitReady } = await import("../src/bootstrap/plugin-init.ts");
+  const { buildPluginInput } = await import("../src/v2/client-shim.ts");
+  type InternalPlugin = BootedPlugin & {
+    tawaCtx: { lifecycleManager: { destroy: () => Promise<void> } };
+    dispose?: () => Promise<void>;
+  };
+  let retired = 0;
+  const patchDestroy = (target: InternalPlugin): void => {
+    const manager = target.tawaCtx.lifecycleManager;
+    const original = manager.destroy.bind(manager);
+    manager.destroy = async () => {
+      retired += 1;
+      return original();
+    };
+  };
+  patchDestroy(plugin as unknown as InternalPlugin);
+  const second = initPlugin(buildPluginInput(hostCtx)) as unknown as InternalPlugin;
+  const secondProbe = getInitReady(second as never);
+  if (secondProbe) await secondProbe();
+  assert(retired === 1, "a second init retires the previous instance for the same directory");
+  patchDestroy(second);
+  const reloadedUrl = new URL("../src/bootstrap/plugin-init.ts?reload=1", import.meta.url).href;
+  const reloadedModule = (await import(reloadedUrl)) as typeof import("../src/bootstrap/plugin-init.ts");
+  const third = reloadedModule.initPlugin(buildPluginInput(hostCtx)) as unknown as InternalPlugin;
+  const thirdProbe = reloadedModule.getInitReady(third as never);
+  if (thirdProbe) await thirdProbe();
+  assert(retired === 2, "a re-imported plugin module still retires the previous instance");
+  if (third.dispose) await third.dispose();
 
   await new Promise((resolve) => setTimeout(resolve, 100));
   rmSync(work, { recursive: true, force: true });

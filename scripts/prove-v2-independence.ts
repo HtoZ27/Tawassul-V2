@@ -61,7 +61,7 @@ assert(
 );
 
 const build = text(join(repo, "build-v2.mjs"));
-assert(build.includes('join(".opencode", "plugin")'), "build targets the local host plugin directory");
+assert(build.includes('join(".opencode", "plugins")'), "build targets the local host plugin directory");
 assert(build.includes('"tawassul.js"'), "build emits the host plugin entry");
 assert(!retired.test(build), "build has no v1 reference");
 
@@ -77,7 +77,7 @@ assert(
   `shipped scripts have no v1 tree reference (found ${scriptHits.map(rel).join(", ") || "none"})`,
 );
 
-for (const bundle of ["dist/index.js", ".opencode/plugin/tawassul.js"]) {
+for (const bundle of ["dist/index.js", ".opencode/plugins/tawassul.js"]) {
   const bundlePath = join(repo, bundle);
   if (!existsSync(bundlePath)) continue;
   assert(!foreignRef.test(text(bundlePath)), `${bundle} has no v1 tree reference`);
@@ -110,7 +110,7 @@ function walkAll(dir: string): void {
 }
 walkAll(repo);
 assert(
-  bundles.length === 1 && bundles[0] === ".opencode/plugin/tawassul.js",
+  bundles.length === 1 && bundles[0] === ".opencode/plugins/tawassul.js",
   `exactly one host plugin entry exists (found ${bundles.join(", ") || "none"})`,
 );
 

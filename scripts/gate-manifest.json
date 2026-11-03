@@ -32,9 +32,8 @@
     {
       "name": "shell-syntax",
       "cmd": [
-        "bash",
-        "-c",
-        "for f in scripts/*.sh scripts/release/*.sh install.sh; do bash -n \"$f\" || exit 1; done"
+        "node",
+        "scripts/check-shell-syntax.mjs"
       ]
     },
     {
@@ -1162,6 +1161,13 @@
       "cmd": [
         "bun",
         "scripts/prove-snapshot-boundary.ts"
+      ]
+    },
+    {
+      "name": "no-git-init",
+      "cmd": [
+        "bun",
+        "scripts/prove-no-git-init.ts"
       ]
     }
   ],

@@ -1,7 +1,7 @@
 import { build } from "bun";
 import { execSync } from "node:child_process";
 import { rmSync, existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, appendFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sourceDigest } from "./scripts/source-digest.ts";
 
@@ -85,7 +85,8 @@ const globalResult = await build({
         pluginBuild.onLoad(
           { filter: /[\\/]zod[\\/]v4[\\/]locales[\\/]([^\\/]+)\.js$/ },
           async (args) => {
-            const base = args.path.slice(args.path.lastIndexOf("/") + 1);
+            const separator = Math.max(args.path.lastIndexOf("/"), args.path.lastIndexOf("\\"));
+            const base = args.path.slice(separator + 1);
             if (base === "en.js" || base === "index.js") return;
             return { contents: 'export { default } from "./en.js";\n', loader: "js" };
           },
@@ -124,7 +125,7 @@ if (existsSync(join(outdir, "index.js"))) appendFileSync(join(outdir, "index.js"
 console.log(`Embedded source SHA: ${sourceSha}`);
 console.log(`Embedded content SHA: ${contentSha.slice(0, 12)}`);
 
-const pluginDir = join(".opencode", "plugin");
+const pluginDir = join(".opencode", "plugins");
 mkdirSync(pluginDir, { recursive: true });
 copyFileSync(join(outdir, "index.js"), join(pluginDir, "tawassul.js"));
 const localRuntimeDir = join(".opencode", "tawassul-runtime", "db");
@@ -139,4 +140,31 @@ for (const file of [
   copyFileSync(join("scripts", file), join(localRuntimeDir, file));
 }
 console.log(`Local runtime ready: ${localRuntimeDir}`);
+const localWasmDir = join(".opencode", "tawassul-runtime", "wasm");
+const assetOverride = process.env.TAWASSUL_ASSET_ROOTS?.trim();
+const assetRoots = assetOverride
+  ? assetOverride
+      .split(delimiter)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => resolve(entry))
+  : [join("node_modules"), join(".opencode", "node_modules")];
+for (const relative of [
+  join("web-tree-sitter", "web-tree-sitter.wasm"),
+  join("tree-sitter-javascript", "tree-sitter-javascript.wasm"),
+  join("tree-sitter-typescript", "tree-sitter-typescript.wasm"),
+  join("tree-sitter-typescript", "tree-sitter-tsx.wasm"),
+]) {
+  const source = assetRoots
+    .map((root) => join(root, relative))
+    .find((candidate) => existsSync(candidate));
+  if (!source) {
+    console.error(`Build failed: missing wasm asset ${relative}; run npm install`);
+    process.exit(1);
+  }
+  const dest = join(localWasmDir, relative);
+  mkdirSync(dirname(dest), { recursive: true });
+  copyFileSync(source, dest);
+}
+console.log(`Local wasm ready: ${localWasmDir}`);
 console.log(`Plugin entry ready: ${join(pluginDir, "tawassul.js")} (run bun install --cwd .opencode once)`);

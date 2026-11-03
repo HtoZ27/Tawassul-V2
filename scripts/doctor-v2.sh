@@ -4,7 +4,7 @@ set -u
 ROOT="${TAWASSUL_DOCTOR_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 ROOT="$(realpath "$ROOT" 2>/dev/null || printf '%s' "$ROOT")"
 HOME_DIR="${HOME:-}"
-ENTRY="$ROOT/.opencode/plugin/tawassul.js"
+ENTRY="$ROOT/.opencode/plugins/tawassul.js"
 STATE_FILE="$ROOT/.opencode/tawassul-state.json"
 PROJECT_ROUTER="$ROOT/.opencode/predictive-router.json"
 CONFIG_BASE="${XDG_CONFIG_HOME:-$HOME_DIR/.config}"

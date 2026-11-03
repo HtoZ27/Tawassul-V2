@@ -57,6 +57,8 @@ export const BASH_READ_ONLY: Record<string, string> = {
   "git rev-parse*": "allow",
   "git ls-files*": "allow",
   "git grep*": "allow",
+  "git grep*-O*": "deny",
+  "git grep*--open-files-in-pager*": "deny",
 
   
   "npm run lint": "allow",
@@ -116,7 +118,6 @@ export const BASH_READ_ONLY: Record<string, string> = {
   "curl *--output*": "deny",
   "curl *--output-dir*": "deny",
   "curl *--remote-name*": "deny",
-  "curl *-O*": "deny",
   "wget *": "deny",
   "ssh *": "deny",
   "scp *": "deny",
@@ -180,29 +181,22 @@ export const BASH_READ_ONLY: Record<string, string> = {
   "sort *-o*": "deny",
   "diff *--editor*": "deny",
   "tail *-f*": "deny",
-  "tail *-F*": "deny",
   "tail *--follow*": "deny",
-  
-  
-  
-  
-  
-  "tail *-?f*": "deny",
-  "tail *-??f*": "deny",
+  "tail *-F*": "deny",
   "tail *-?F*": "deny",
   "tail *-??F*": "deny",
-  "git grep *--open-files-in-pager*": "deny",
-  "git grep *-p*": "deny",
+  "tail *-?f*": "deny",
+  "tail *-??f*": "deny",
   "git *--output*": "deny",
 
   
   "* | tail*-f*": "deny",
-  "* | tail*-F*": "deny",
   "* | tail*--follow*": "deny",
-  "* | tail*-?f*": "deny",
-  "* | tail*-??f*": "deny",
+  "* | tail*-F*": "deny",
   "* | tail*-?F*": "deny",
   "* | tail*-??F*": "deny",
+  "* | tail*-?f*": "deny",
+  "* | tail*-??f*": "deny",
   "* | sort*-o*": "deny",
   "* | sort*--compress-program*": "deny",
   "* | diff*--editor*": "deny",

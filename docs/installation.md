@@ -16,7 +16,7 @@ Global scope is an explicit, reversible operation with its own verification pass
 | OpenCode host | `>=2.2.0` | Audited against `2.2.1`; newer majors run untested and are probed at init |
 | Node.js | `26.13.0` | Pinned in `.nvmrc`; used for development and for the build |
 | Bun | `1.3.x` | Runs the build and the installer scripts |
-| Disk | under 10 MB | Bundle, wasm grammars, and the runtime directory |
+| Disk | under 10 MB | Bundle, wasm files, and the runtime directory |
 | Platform | see [compatibility](compatibility.md) | Database maintenance is POSIX-only |
 
 The published bundle is plain JavaScript. It has no native addon and needs no
@@ -38,9 +38,11 @@ npm run build
 | --- | --- |
 | `dist/index.js` | The plugin bundle used by the host in this workspace |
 | `dist/global.js` | The self-contained bundle the global installer ships |
-| `.opencode/plugin/tawassul.js` | The host entry the workspace loads |
+| `.opencode/plugins/tawassul.js` | The host entry the workspace loads |
+| `.opencode/tawassul-runtime/wasm/` | Four wasm files (one runtime, three grammars) for the AST tools |
+| `.opencode/tawassul-runtime/db/` | Database scripts (POSIX only) |
 
-The host discovers `.opencode/plugin/tawassul.js` on its own. Do not edit
+The host discovers `.opencode/plugins/tawassul.js` on its own. Do not edit
 `opencode.json` to register it.
 
 If the host uses a restricted module resolver, install the plugin API once in
@@ -119,7 +121,7 @@ installer did not write. Neither installer edits `opencode.json` or
 | Path | Content | Removed on uninstall |
 | --- | --- | --- |
 | `~/.config/opencode/plugins/tawassul.js` | The plugin bundle | Yes |
-| `~/.config/opencode/tawassul-runtime/wasm/` | Four wasm grammars | Yes |
+| `~/.config/opencode/tawassul-runtime/wasm/` | Four wasm files (one runtime, three grammars) | Yes |
 | `~/.config/opencode/tawassul-runtime/db/` | Database scripts (POSIX only) | Yes |
 | `~/.config/opencode/tawassul-runtime/VERSION` | Marker: version, hashes, owner, host | Yes |
 
@@ -136,7 +138,10 @@ and nothing else. It never edits `opencode.json` or `opencode.jsonc`.
 | `TAWASSUL_ASSET_ROOTS` | Extra search roots for the wasm grammars |
 
 `TAWASSUL_GLOBAL_DIR` also moves the HMAC key directory beside the config root.
-An explicit `TAWASSUL_HMAC_KEY_DIR` wins over that.
+An explicit `TAWASSUL_HMAC_KEY_DIR` wins over that. The installer treats an
+explicit key directory as operator-managed: it never writes a key there, and
+`install` or `--verify` exits 2 when the key file is absent or is not 32 bytes,
+because the runtime refuses to sign without it.
 
 ### Upgrading
 
@@ -199,11 +204,22 @@ a hand-made install must create it too, or the host refuses to start with
 
 - **Linux and macOS** — full lane, including database maintenance and scheduled
   triggers.
-- **Windows** — native install stages the bundle and the wasm grammars only.
+- **Windows** — native install stages the bundle and the wasm files only.
   Database maintenance and scheduled triggers are unavailable on `win32`, and
   the key directory is protected with an `icacls` ACL instead of POSIX modes.
-  Native Windows is **pending a native receipt**; see
-  [compatibility](compatibility.md).
+  Native Windows x64 has a native receipt; see [compatibility](compatibility.md).
+  The zero-dependency path is a hand copy: rename `dist\global.js` to
+  `%USERPROFILE%\.config\opencode\plugins\tawassul.js` and copy the four wasm
+  files, keeping their folders, under
+  `%USERPROFILE%\.config\opencode\tawassul-runtime\wasm\`. That needs nothing
+  beyond Explorer, but a hand copy has no install marker, no key-directory ACL,
+  and no `--verify` coverage; use it only when Bun and Node are both
+  unavailable. `bun scripts\install-global.ts` stages the same layout plus the
+  install marker, supports `--verify` and `--uninstall`, and needs Bun 1.3 or
+  newer (Node 24 or newer runs the same script; verified on Node 26.13.0). Set `TAWASSUL_GLOBAL_DIR` to
+  install somewhere other than `%USERPROFILE%\.config\opencode`. Defender
+  reports no detection for the bundle, and SmartScreen gates only an unsigned
+  downloaded executable, which the release does not contain.
 - **WSL2** — experimental. Keep the key on the Linux filesystem; a Windows mount
   does not carry the same permission semantics.
 
@@ -217,5 +233,7 @@ a hand-made install must create it too, or the host refuses to start with
 | `cannot create the runtime layout` | A plain file occupies the runtime path | Remove it or set `TAWASSUL_GLOBAL_DIR` |
 | Host reports `Location plugins did not finish activating` | The plugins directory is missing | Create it and restart the host |
 | `EPERM: operation not permitted, fsync` on Windows | A pre-release build fsynced a read-only handle | Upgrade; fixed in the current bundle |
+| `cannot remove … (EBUSY)` or `cannot archive … (EPERM)` on Windows | A running host still holds the plugin or a state file | Stop the host and rerun the same uninstall or purge command |
+| `TAWASSUL_HMAC_KEY_DIR points at … which is absent` | The variable must name a directory that already holds a 32-byte key | Write the key there, point the variable at an existing key directory, or unset it and let Tawassul manage `~/.config/tawassul` |
 
 More in [troubleshooting](troubleshooting.md).

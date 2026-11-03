@@ -690,7 +690,7 @@
           "status": "verified",
           "anchor": {
             "file": "build-v2.mjs",
-            "line": 129,
+            "line": 130,
             "marker": "tawassul.js"
           },
           "proofs": [
@@ -751,7 +751,7 @@
           "status": "verified",
           "anchor": {
             "file": "scripts/install-global.ts",
-            "line": 221,
+            "line": 224,
             "marker": "hostCandidates"
           },
           "proofs": [
@@ -1349,7 +1349,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/utils/crypto.ts",
-            "line": 20,
+            "line": 21,
             "marker": "export const HMAC_PREFIX = \"TAWASSUL_V2_HMAC_V1:\";"
           },
           "proofs": [

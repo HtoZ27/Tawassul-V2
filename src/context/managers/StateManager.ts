@@ -13,7 +13,7 @@ import {
 } from "../../validation.ts";
 import { migrateStateData, isFreeOfPrototypePollution, replaceLegacyEncryptedFields } from "../migration.ts";
 import { MAX_DYNAMIC_AGENTS_DEFAULT, STATE_VERSION } from "../constants.ts";
-import { wrapWithHmac, unwrapWithHmac } from "../../utils/crypto.ts";
+import { wrapWithHmac, unwrapWithHmac, hmacKeyCreatedAtMs } from "../../utils/crypto.ts";
 import { isIsolationActiveSync } from "../../services/isolation.ts";
 import { acquireFSLock, releaseFSLock, removeFSLockDir } from "../../infra/file-lock.ts";
 import { atomicWriteFile, checkDiskSpace } from "../../infra/disk-utils.ts";
@@ -92,6 +92,7 @@ export class StateManager {
 
   static MAX_BACKUPS = 1;
   static BACKUP_SIZE_WARN_BYTES = 5 * 1024 * 1024;
+  static MAX_QUARANTINE_COPIES = 5;
 
   
   private incrementalCounter = 0;
@@ -594,9 +595,58 @@ export class StateManager {
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       const dest = `${fp}.quarantine-${stamp}`;
       await copyFile(fp, dest);
+      await this.pruneQuarantineCopies(fp, StateManager.MAX_QUARANTINE_COPIES);
       logger.warn(`[tawassul] Quarantine copy preserved: ${dest}`);
     } catch (e) {
       logger.warn(`[tawassul] Quarantine copy failed for ${fp} (healing continues):`, e);
+    }
+  }
+
+  private async pruneQuarantineCopies(fp: string, keep: number): Promise<void> {
+    try {
+      const dir = dirname(fp);
+      const prefix = basename(fp) + ".quarantine-";
+      const entries = (await readdir(dir)).filter((name) => name.startsWith(prefix)).sort();
+      const excess = entries.slice(0, Math.max(0, entries.length - keep));
+      for (const stale of excess) {
+        try {
+          await unlink(join(dir, stale));
+        } catch {
+
+        }
+      }
+    } catch {
+
+    }
+  }
+
+  private async signedBeforeKey(fp: string): Promise<boolean> {
+    try {
+      const created = hmacKeyCreatedAtMs();
+      if (created === null) return false;
+      const st = await stat(fp);
+      return st.mtimeMs < created - 1000;
+    } catch {
+      return false;
+    }
+  }
+
+  private async quarantineMove(fp: string): Promise<boolean> {
+    if (isIsolationActiveSync()) return false;
+    try {
+      await stat(fp);
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const dest = `${fp}.quarantine-${stamp}`;
+      await copyFile(fp, dest);
+      await unlink(fp);
+      await this.pruneQuarantineCopies(fp, StateManager.MAX_QUARANTINE_COPIES);
+      logger.warn(
+        `[tawassul] Quarantine move preserved: ${dest} (the rejected file was moved aside so writes resume with the current key)`,
+      );
+      return true;
+    } catch (e) {
+      logger.warn(`[tawassul] Quarantine move failed for ${fp}:`, e);
+      return false;
     }
   }
 
@@ -729,10 +779,26 @@ export class StateManager {
     data = await this.tryLoadFile(fp);
     const primaryRejection = this.rejectedStateFiles.get(fp);
     if (primaryRejection) {
-      await this.quarantineCopy(fp);
-      logger.error(
-        `[tawassul] The canonical state file ${fp} exists but was rejected (${primaryRejection}); recovering from the newest readable backup. The rejected file is quarantined and is never rotated over .bak.0.`,
-      );
+      const rotation = primaryRejection === "hmac" && (await this.signedBeforeKey(fp));
+      if (rotation) {
+        const moved = await this.quarantineMove(fp);
+        if (moved) {
+          this.rejectedStateFiles.delete(fp);
+          logger.warn(
+            `[tawassul] The canonical state file ${fp} predates the current HMAC key (key rotation); the rejected file was moved to quarantine so the session resumes writes with the current key.`,
+          );
+        } else {
+          await this.quarantineCopy(fp);
+          logger.error(
+            `[tawassul] The canonical state file ${fp} predates the current HMAC key but could not be moved to quarantine; the session stays read-only.`,
+          );
+        }
+      } else {
+        await this.quarantineCopy(fp);
+        logger.error(
+          `[tawassul] The canonical state file ${fp} exists but was rejected (${primaryRejection}); recovering from the newest readable backup. The rejected file is quarantined and is never rotated over .bak.0.`,
+        );
+      }
     }
 
     

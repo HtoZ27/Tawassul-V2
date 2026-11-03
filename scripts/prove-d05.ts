@@ -38,8 +38,8 @@ const shared = join(data, "opencode/opencode.db");
 const launcher = join(data, "tawassul-v2/opencode-v2.db");
 const hmac = join(data, "opencode-projects/c9f1bc47443da701/opencode.db");
 
-mkdirSync(join(project, ".opencode/plugin"), { recursive: true });
-writeFileSync(join(project, ".opencode/plugin/tawassul.js"), "export default {};\n", "utf8");
+mkdirSync(join(project, ".opencode/plugins"), { recursive: true });
+writeFileSync(join(project, ".opencode/plugins/tawassul.js"), "export default {};\n", "utf8");
 
 function sql(dbPath: string, script: string): string {
   mkdirSync(dirname(dbPath), { recursive: true });

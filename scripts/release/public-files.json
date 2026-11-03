@@ -83,12 +83,10 @@
     "VERIFICATION-20261026.md",
     "docs/CI-TRANSCRIPT.md",
     "docs/E2E-THREAD-2026-10-31.md",
-    "docs/FUTURE-WORK-PLAN.md",
     "docs/REPAIR.md",
     "docs/SHARED-PARITY.md",
     "docs/STATE-ROOT-DESIGN.md",
     "docs/UPSTREAM-EVAL-2.2.3-2.2.5.md",
-    "docs/VALIDATION.md",
     "docs/historical-plan-first-install-db-repair.md",
     "docs/portable-context-handoff.md"
   ]

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { AutoSaveManager } from "../src/services/auto-save-manager.ts";
@@ -225,7 +225,7 @@ try {
   const pathDir = join(work, "bin");
   mkdirSync(pathDir, { recursive: true });
   writeFileSync(join(pathDir, "opencode"), "", "utf8");
-  process.env.PATH = `${pathDir}:${previousPath ?? ""}`;
+  process.env.PATH = `${pathDir}${delimiter}${previousPath ?? ""}`;
   assert(hostCandidates().includes(join(pathDir, "opencode")), "the installer discovers a host on PATH");
   const installerSource = readFileSync(join(repo, "scripts", "install-global.ts"), "utf8");
   assert(installerSource.includes("export function hostCandidates"), "the host installer owns candidate discovery");

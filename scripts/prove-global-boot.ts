@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import {
   copyFileSync,
   existsSync,
@@ -16,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { TOOL_COUNT, TOOL_NAME_SET_HASH } from "../src/generated/tool-tripwire.ts";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
-const PROJECT_ENTRY = join(REPO, ".opencode", "plugin", "tawassul.js");
+const PROJECT_ENTRY = join(REPO, ".opencode", "plugins", "tawassul.js");
 const INSTALLER = join(REPO, "scripts", "install-global.ts");
 const MODEL = process.env.TAWASSUL_SMOKE_MODEL ?? "opencode/big-pickle";
 const BOOT_TIMEOUT = Number(process.env.TAWASSUL_SMOKE_TIMEOUT ?? 90);
@@ -86,17 +87,20 @@ type EnvMap = Record<string, string>;
 
 function isolate(work: string, db: string, log: string): EnvMap {
   const home = join(work, "home");
+  const keyDir = join(work, "hmac");
   mkdirSync(join(home, ".config"), { recursive: true });
   mkdirSync(join(home, ".local", "share"), { recursive: true });
   mkdirSync(join(home, ".local", "state"), { recursive: true });
   mkdirSync(join(home, ".cache"), { recursive: true });
+  mkdirSync(keyDir, { recursive: true });
+  writeFileSync(join(keyDir, ".tawassul-hmac-key"), randomBytes(32), { mode: 0o600 });
   return {
     HOME: home,
     XDG_CONFIG_HOME: join(home, ".config"),
     XDG_DATA_HOME: join(home, ".local", "share"),
     XDG_STATE_HOME: join(home, ".local", "state"),
     XDG_CACHE_HOME: join(home, ".cache"),
-    TAWASSUL_HMAC_KEY_DIR: join(work, "hmac"),
+    TAWASSUL_HMAC_KEY_DIR: keyDir,
     TAWASSUL_V2_STATE_DIR: join(work, "state"),
     TAWASSUL_LOG_FILE: log,
     TAWASSUL_N2_LOG: join(work, "n2.jsonl"),
@@ -247,8 +251,8 @@ try {
   );
 
   const coexistWorkspace = join(ROOT, "global", "ws-both");
-  mkdirSync(join(coexistWorkspace, ".opencode", "plugin"), { recursive: true });
-  const coexistEntry = join(coexistWorkspace, ".opencode", "plugin", "tawassul.js");
+  mkdirSync(join(coexistWorkspace, ".opencode", "plugins"), { recursive: true });
+  const coexistEntry = join(coexistWorkspace, ".opencode", "plugins", "tawassul.js");
   copyFileSync(PROJECT_ENTRY, coexistEntry);
   symlinkSync(join(REPO, ".opencode", "node_modules"), join(coexistWorkspace, ".opencode", "node_modules"), "dir");
   writeFileSync(join(coexistWorkspace, "keep.txt"), "coexist workspace\n");
@@ -281,8 +285,8 @@ try {
 
   const projectEnv = isolate(join(ROOT, "project"), join(ROOT, "project", "opencode.db"), join(ROOT, "project", "tawassul.log"));
   const projectWorkspace = join(ROOT, "project", "ws-only");
-  mkdirSync(join(projectWorkspace, ".opencode", "plugin"), { recursive: true });
-  const projectEntry = join(projectWorkspace, ".opencode", "plugin", "tawassul.js");
+  mkdirSync(join(projectWorkspace, ".opencode", "plugins"), { recursive: true });
+  const projectEntry = join(projectWorkspace, ".opencode", "plugins", "tawassul.js");
   copyFileSync(PROJECT_ENTRY, projectEntry);
   symlinkSync(join(REPO, ".opencode", "node_modules"), join(projectWorkspace, ".opencode", "node_modules"), "dir");
   const projectHostLog = join(projectEnv.XDG_DATA_HOME as string, "opencode", "log", "opencode.log");

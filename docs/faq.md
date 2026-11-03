@@ -3,7 +3,7 @@
 ## What is Tawassul?
 
 An OpenCode plugin that adds a small team runtime to a workspace: eight
-specialist agents, 44 tools, handoffs, a goal ledger, mission boards,
+agents, 44 tools, handoffs, a goal ledger, mission boards,
 checkpoints, memory records, discussions, and context packs.
 
 ## Is it free?
@@ -42,8 +42,12 @@ behind a capability probe at init. See [compatibility](compatibility.md).
 ## Does it work on Windows?
 
 The plugin loads and all in-process features work. Database maintenance and
-scheduled triggers do not. Native Windows is **pending a native receipt**; the
-emulator evidence is published and labelled. See [compatibility](compatibility.md).
+scheduled triggers do not. Native Windows x64 has a native receipt for the
+bundle and wasm lane: install, verify, upgrade, uninstall, and purge, plus the
+`icacls` key ACL, long paths, a non-system drive, and file locking. Defender and
+SmartScreen were measured on this machine. ARM64 remains unmeasured; Windows 11
+shares the path format and the Defender update channel with Windows 10, so only
+version-level differences remain. See [compatibility](compatibility.md).
 
 ## Does it work with other plugins?
 
@@ -76,7 +80,7 @@ state.
 
 ## How do I uninstall it?
 
-Project scope: delete `.opencode/plugin/tawassul.js` and restart. Global scope:
+Project scope: delete `.opencode/plugins/tawassul.js` and restart. Global scope:
 `bun scripts/install-global.ts --uninstall`. Add `--purge --yes` to archive state
 and configuration as well. See [installation](installation.md#uninstalling).
 

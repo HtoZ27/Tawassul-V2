@@ -1,6 +1,6 @@
 # Tawassul
 
-**A team runtime for OpenCode: eight specialist agents, 44 tools, and a ledger
+**A team runtime for OpenCode: eight agents, 44 tools, and a ledger
 that remembers what was decided.**
 
 Tawassul is an OpenCode plugin. It adds routing, handoffs, a goal ledger,
@@ -8,9 +8,10 @@ mission boards, checkpoints, memory records, and a disciplined tool surface to a
 single workspace or to every workspace of a user. It is local-first: state lives
 on your disk, in your configuration directory, and nowhere else.
 
-**Status:** `0.1.0-experimental`. The Linux lane is the supported one. Windows
-native is pending a native receipt; emulator evidence is published and clearly
-labelled.
+**Status:** `0.1.0-experimental`. The Linux lane carries the full feature set.
+Native Windows x64 is supported for the bundle and wasm lane (native receipt
+2026-11-02, re-run on 2026-11-03); database maintenance and scheduled triggers
+need the Linux lane. Emulator evidence is published and clearly labelled.
 
 ## Why it exists
 
@@ -59,7 +60,7 @@ npm run build
 ```
 
 Open the workspace in OpenCode. The host discovers
-`.opencode/plugin/tawassul.js` on its own; no configuration edit is needed.
+`.opencode/plugins/tawassul.js` on its own; no configuration edit is needed.
 
 The repository installer adds the host probe, the database scripts, and the
 scheduled maintenance trigger:
@@ -105,7 +106,7 @@ More in [docs/skills.md](docs/skills.md).
 | --- | --- |
 | Linux x64 | Ready, full lane including database maintenance |
 | Linux arm64, macOS | Experimental |
-| Windows x64 | Pending a native receipt; bundle and wasm only, no database lane |
+| Windows x64 | Supported (native receipt); bundle and wasm only, no database lane |
 | WSL2 | Experimental |
 
 The host floor is `2.2.0`; the audited version is `2.2.1`. Newer majors run in

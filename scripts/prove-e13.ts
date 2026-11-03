@@ -1,10 +1,12 @@
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TawassulContext } from "../src/context-class.ts";
 import { buildRecordTool } from "../src/tools/record.ts";
 import { logger } from "../src/utils/logger.ts";
+import { resetHmacKeyCache } from "../src/utils/crypto.ts";
 import type { RecordEntry } from "../src/context/types.ts";
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -234,6 +236,51 @@ async function main(): Promise<void> {
   await finalReader.lifecycleManager.loadStateAsync();
   assert(finalReader.records.length === 4, "the canonical file keeps every generation");
   assert(existsSync(statePath), "the canonical state file exists");
+
+  const rotatedDir = makeProject("rotated");
+  const rotatedWriter = new TawassulContext(rotatedDir);
+  rotatedWriter.ensureConfig();
+  addRecord(rotatedWriter, "before rotation");
+  await rotatedWriter.saveState();
+  const rotatedPath = rotatedWriter.statePath();
+  const oldGeneration = readFileSync(rotatedPath);
+  assert(oldGeneration.includes(Buffer.from("before rotation")), "the pre-rotation generation is signed and readable");
+
+  const backdated = new Date(Date.now() - 86_400_000);
+  utimesSync(rotatedPath, backdated, backdated);
+  const keyFile = join(fakeHome, ".config", "tawassul", ".tawassul-hmac-key");
+  rmSync(keyFile, { force: true });
+  writeFileSync(keyFile, randomBytes(32), { mode: 0o600 });
+  resetHmacKeyCache();
+
+  const rotatedReader = new TawassulContext(rotatedDir);
+  await rotatedReader.lifecycleManager.loadStateAsync();
+  assert(rotatedReader.records.length === 0, "the pre-rotation generation is never adopted under a new key");
+  assert(!existsSync(rotatedPath), "the pre-rotation canonical file is moved aside");
+  const rotationQuarantine = readdirSync(dirname(rotatedPath)).filter((name) => name.includes(".quarantine-"));
+  assert(rotationQuarantine.length === 1, "the pre-rotation generation is preserved exactly once");
+  assert(
+    readFileSync(join(dirname(rotatedPath), rotationQuarantine[0] as string)).equals(oldGeneration),
+    "the quarantine copy holds the full pre-rotation bytes",
+  );
+  assert(
+    rotatedReader.stateManager.getRejectedStateFiles().length === 0,
+    "the rotation path clears the rejected mark once the file is preserved",
+  );
+
+  addRecord(rotatedReader, "after rotation");
+  await rotatedReader.saveState();
+  assert(existsSync(rotatedPath), "a fresh canonical file is written with the current key");
+  assert(
+    readFileSync(rotatedPath, "utf8").includes("after rotation"),
+    "the post-rotation record reaches the canonical file",
+  );
+
+  const afterRotation = new TawassulContext(rotatedDir);
+  await afterRotation.lifecycleManager.loadStateAsync();
+  assert(afterRotation.records.length === 1, "the post-rotation generation is the only ledger");
+  assert(afterRotation.records[0]?.title === "after rotation", "the post-rotation ledger survives a reload");
+  assert(!afterRotation.records.some((entry) => entry.title === "before rotation"), "the old ledger never returns");
 }
 
 try {

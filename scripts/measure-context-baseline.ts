@@ -41,7 +41,7 @@ process.env.XDG_STATE_HOME = join(work, "state-home");
 process.env.XDG_CACHE_HOME = join(work, "cache");
 
 try {
-  const entry = join(repo, ".opencode", "plugin", "tawassul.js");
+  const entry = join(repo, ".opencode", "plugins", "tawassul.js");
   if (!existsSync(entry)) {
     throw new Error(`built entry missing at ${entry}; run npm run build`);
   }

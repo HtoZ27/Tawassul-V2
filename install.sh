@@ -84,7 +84,7 @@ esac
 
 if [ "$SCOPE" = "project" ]; then
   ROOT="$PROJECT"
-  ENTRY="$PROJECT/.opencode/plugin/tawassul.js"
+  ENTRY="$PROJECT/.opencode/plugins/tawassul.js"
   RUNTIME="$PROJECT/.opencode/tawassul-runtime"
   CONFIG_ROOT="$PROJECT/.opencode"
 else
@@ -135,6 +135,10 @@ fetch() {
 
 if [ -e "$(dirname "$ENTRY")/tawassul" ] && [ -f "$(dirname "$ENTRY")/tawassul/index.js" ]; then
   fail "a directory-layout install already occupies $(dirname "$ENTRY")/tawassul; remove it first"
+fi
+
+if [ "$SCOPE" = "project" ] && [ "$UNINSTALL" != "1" ] && [ -f "$PROJECT/.opencode/plugin/tawassul.js" ]; then
+  fail "a legacy flat entry exists at $PROJECT/.opencode/plugin/tawassul.js; remove it before installing the plural entry"
 fi
 
 if [ "$UNINSTALL" = "1" ]; then

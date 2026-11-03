@@ -20,6 +20,11 @@ const STAGE_BATCH = 1000;
 let _gitBin: string | undefined;
 function getGitBin(): string {
   if (_gitBin === undefined) {
+    const override = process.env.TAWASSUL_GIT_BIN?.trim();
+    if (override) {
+      _gitBin = override;
+      return _gitBin;
+    }
     const isWindows = process.platform === "win32";
     try {
       const out = execFileSync(isWindows ? "where" : "which", ["git"], {

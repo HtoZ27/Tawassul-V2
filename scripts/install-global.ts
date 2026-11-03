@@ -14,9 +14,12 @@ import { dirname, delimiter, isAbsolute, join, relative, resolve, sep } from "no
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { sourceDigest } from "./source-digest.ts";
 import {
+  HMAC_KEY_FILE,
   dependencyProbeCommand,
   installLane,
+  operatorKeyProblem,
   usesPosixDatabaseLane,
+  windowsAclPath,
   windowsKeyAclArgv,
   windowsKeyDirectory,
 } from "../src/core/install-lane.ts";
@@ -26,7 +29,7 @@ import { v2DataRoot } from "../src/utils/state-paths.ts";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 const GLOBAL_BUNDLE = join(REPO, "dist", "global.js");
-const PROJECT_BUNDLE = join(REPO, ".opencode", "plugin", "tawassul.js");
+const PROJECT_BUNDLE = join(REPO, ".opencode", "plugins", "tawassul.js");
 const HOME = process.env.HOME?.trim() || homedir();
 const HOST_MIN = "2.2.0";
 const HOST_AUDITED = "2.2.1";
@@ -210,7 +213,7 @@ function readHost(bin: string): Host | undefined {
   const probe = hostProbeCommand(bin, process.platform, process.env);
   const result = spawnSync(probe.command, probe.args, {
     encoding: "utf-8",
-    timeout: 10_000,
+    timeout: 5_000,
     shell: probe.shell,
   });
   if (result.status !== 0) return undefined;
@@ -235,6 +238,17 @@ export function hostCandidates(): string[] {
       out.push(join(desktop, entry, "opencode-cli.exe"));
     }
   }
+  const desktopResources: string[] = [];
+  if (localAppData) {
+    desktopResources.push(
+      join(localAppData, "Programs", "ai.opencode.desktop", "resources", "opencode-cli.exe"),
+    );
+  }
+  const programFiles = process.env.ProgramFiles?.trim();
+  if (programFiles) {
+    desktopResources.push(join(programFiles, "ai.opencode.desktop", "resources", "opencode-cli.exe"));
+  }
+  for (const candidate of desktopResources) out.push(candidate);
   const names = ["opencode", "opencode.cmd", "opencode.exe"];
   for (const dir of (process.env.PATH ?? "").split(delimiter)) {
     if (!dir) continue;
@@ -308,7 +322,7 @@ function projectDuplicatePaths(): string[] {
     resolve(process.cwd(), ".opencode", "plugin"),
     resolve(process.cwd(), ".opencode", "plugins"),
   ];
-  const ownEntry = resolve(REPO, ".opencode", "plugin", "tawassul.js");
+  const ownEntry = resolve(REPO, ".opencode", "plugins", "tawassul.js");
   const fromRepoRoot = resolve(process.cwd()) === resolve(REPO);
   const found: string[] = [];
   for (const dir of dirs) {
@@ -348,11 +362,11 @@ function refuseProjectDuplicate(): void {
 }
 
 function noteRepoOwnEntry(): void {
-  const ownEntry = resolve(REPO, ".opencode", "plugin", "tawassul.js");
+  const ownEntry = resolve(REPO, ".opencode", "plugins", "tawassul.js");
   const fromRepoRoot = resolve(process.cwd()) === resolve(REPO);
   if (!fromRepoRoot || !existsSync(ownEntry)) return;
   console.log(
-    "install-global: this tree keeps its own project entry at .opencode/plugin/tawassul.js; " +
+    "install-global: this tree keeps its own project entry at .opencode/plugins/tawassul.js; " +
       "the project copy supersedes the global copy when this repository is opened",
   );
 }
@@ -527,7 +541,7 @@ function dbRecords(): Record<string, AssetRecord> {
 
 function depPresent(bin: string): boolean {
   try {
-    execFileSync(dependencyProbeCommand(process.platform), [bin], { stdio: "pipe" });
+    execFileSync(dependencyProbeCommand(process.platform), [bin], { stdio: "pipe", timeout: 10_000 });
     return true;
   } catch {
     return false;
@@ -915,7 +929,7 @@ function secureWindowsKeyDir(): void {
     console.warn(`install-global: cannot create the key directory ${dir}: ${(e as Error)?.message ?? e}`);
     return;
   }
-  const argv = windowsKeyAclArgv(dir, identity);
+  const argv = windowsKeyAclArgv(windowsAclPath(dir), identity);
   const cmd = argv[0] ?? "icacls";
   const result = spawnSync(cmd, argv.slice(1), { encoding: "utf-8", timeout: 30_000 });
   if (result.status !== 0) {
@@ -926,7 +940,17 @@ function secureWindowsKeyDir(): void {
   console.log(`install-global: restricted the key directory ACL to the current user (${dir})`);
 }
 
+function assertKeyDirectoryUsable(): void {
+  const dir = process.env.TAWASSUL_HMAC_KEY_DIR?.trim();
+  if (!dir) return;
+  const keyFile = resolve(dir, HMAC_KEY_FILE);
+  const size = existsSync(keyFile) ? readFileSync(keyFile).length : null;
+  const problem = operatorKeyProblem(process.env, size);
+  if (problem) fail(problem);
+}
+
 function install(): void {
+  assertKeyDirectoryUsable();
   const lane = installLane(process.platform);
   const posixDb = usesPosixDatabaseLane(lane);
   const host = checkHosts();
@@ -1117,7 +1141,7 @@ function purge(): void {
       continue;
     }
     const archive = `${path}.purged-${stamp}`;
-    renameSync(path, archive);
+    archiveFile(path, archive);
     console.log(`install-global: archived ${path} to ${archive}`);
   }
   const backups = existsSync(PLUGIN_DIR)
@@ -1140,12 +1164,37 @@ function purge(): void {
   }
 }
 
+function removeFile(file: string): void {
+  try {
+    rmSync(file, { force: true });
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException)?.code ?? "unknown";
+    fail(
+      `cannot remove ${file} (${code}) — a running OpenCode host may still hold it; stop the host and retry`,
+    );
+  }
+}
+
+function archiveFile(path: string, archive: string): void {
+  try {
+    renameSync(path, archive);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException)?.code ?? "unknown";
+    fail(
+      `cannot archive ${path} (${code}) — a running OpenCode host may still hold it; stop the host and retry`,
+    );
+  }
+}
+
 function uninstall(): void {
   if (flags.has("--purge")) requirePurgeConsent();
   const targetExists = existsSync(TARGET);
   const runtimeExists = existsSync(RUNTIME);
   if (!targetExists && !runtimeExists) {
     console.log(`install-global: nothing installed at ${TARGET}`);
+    releaseOwnership();
+    if (flags.has("--purge")) purge();
+    else console.log("install-global: no plugin files were present; state paths were left untouched");
     return;
   }
   const marker = readMarker();
@@ -1158,13 +1207,13 @@ function uninstall(): void {
     return;
   }
   uninstallTriggers();
-  if (targetExists) rmSync(TARGET, { force: true });
+  if (targetExists) removeFile(TARGET);
   const owned = marker?.package === PLUGIN_ID ? ownedRuntimeFiles(marker) : [];
   const files = [...new Set([...owned, ...fallbackRuntimeFiles()])];
   let removed = 0;
   for (const file of files) {
     if (!existsSync(file)) continue;
-    rmSync(file, { force: true });
+    removeFile(file);
     removed += 1;
   }
   removeEmptyTree(RUNTIME);
@@ -1186,6 +1235,7 @@ function uninstall(): void {
 async function verify(): Promise<void> {
   const overrideError = overrideRangeError();
   if (overrideError) fail(overrideError);
+  assertKeyDirectoryUsable();
   if (!existsSync(TARGET)) fail(`not installed: ${TARGET}`);
   const owner = readOwner();
   if (owner !== undefined && owner !== REPO) {

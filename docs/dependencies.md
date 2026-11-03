@@ -37,18 +37,23 @@ test and proof scripts stay in `devDependencies`.
 
 ## The wasm files
 
-Four grammars are staged beside the bundle by the global installer:
+Four wasm files are staged under the sibling `tawassul-runtime/wasm` directory
+by the global installer: one runtime and three grammars. The local build stages
+the same four files under `.opencode/tawassul-runtime/wasm`.
 
-| File | Grammar |
+| File | Role |
 | --- | --- |
-| `tree-sitter.wasm` | The runtime |
-| `tree-sitter-javascript.wasm` | JavaScript |
-| `tree-sitter-typescript.wasm` | TypeScript |
-| `tree-sitter-tsx.wasm` | TSX |
+| `web-tree-sitter/web-tree-sitter.wasm` | The runtime |
+| `tree-sitter-javascript/tree-sitter-javascript.wasm` | JavaScript |
+| `tree-sitter-typescript/tree-sitter-typescript.wasm` | TypeScript |
+| `tree-sitter-typescript/tree-sitter-tsx.wasm` | TSX |
 
 The installer records each file in its marker, and `verify:global` checks the
-inventory and hash. When the files are missing, the four AST tools degrade with
-a warning and the rest of the plugin keeps working. See
+inventory and hash. Without the wasm files the plugin logs one `AST degraded`
+warning and keeps running: `astquery` returns a misleading `not supported` or
+`not found` message, `readsymbol` silently falls back to a regex read, and
+`depmap` with `ast: true` returns no imports (`ast: false`, the default, uses
+the regex fallback). See
 [known issues](known-issues.md#ast-tools-warn-ast-degraded).
 
 ## Licence policy

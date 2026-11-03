@@ -10,6 +10,10 @@ cost-transparency.json
 cost-transparency.json.bak.*
 dist/
 node_modules/
+.tools/
 extracted_files/
 handoff-ledger.jsonl
 sagas/
+docs/FUTURE-WORK-PLAN.md
+docs/RELEASE-0.1.0-PLAN.md
+docs/continuity-brief-v1.md

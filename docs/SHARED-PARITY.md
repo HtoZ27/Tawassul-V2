@@ -54,10 +54,10 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-028 | The provider model cache is the source of truth for suffix governance. | `src/core/model-registry.ts:148` `getProviderModelTokens` | `scripts/prove-s028.ts` | verified |
 | S-029 | R7 variant pins, dispatch precedence, dotted suffixes, and the log default are ported. | `src/tools/agent-management.ts:239` `computePinEntries` | `scripts/prove-s029.ts` | verified |
 | S-030 | The live roster is aligned with the generation-layer retire. | `src/scripts/gen-opencode-config.ts:287` `unionDeletedVariants` | `scripts/prove-s029.ts` | verified |
-| S-031 | The documented install path materializes the plugin entry on every build. | `build-v2.mjs:129` `tawassul.js` | `scripts/release-smoke.sh` | verified |
+| S-031 | The documented install path materializes the plugin entry on every build. | `build-v2.mjs:130` `tawassul.js` | `scripts/release-smoke.sh` | verified |
 | S-032 | A stale project-scope copy must not win registration in a shared process. | `src/core/install-scope.ts:56` `claimCoexistence` | `scripts/prove-s038.ts` | verified |
 | S-033.1 | The plugin-side cold-boot wave is ported: quiet resolution, write-behind, save debounce, jitter, logger stamp, quarantine, and save guard. | `src/utils/quiet.ts:6` `forceQuietMode` | `scripts/prove-s033.ts` | verified |
-| S-033.2 | Launcher and installer duties stay in the host install script, not in the plugin. | `scripts/install-global.ts:221` `hostCandidates` | `scripts/prove-s033.ts` | verified |
+| S-033.2 | Launcher and installer duties stay in the host install script, not in the plugin. | `scripts/install-global.ts:224` `hostCandidates` | `scripts/prove-s033.ts` | verified |
 | S-033.3 | The cold-boot launch wave passes only after a recorded cold-boot run meets N1 to N5. | - | - | n-a |
 | S-034.1 | N2 records only announced assistant text parts. | `src/hooks/n2-auto.ts:40` `assistantMessages` | `scripts/prove-v2-compat.ts` | verified |
 | S-034.2 | A v2 boot scorecard implements N1 to N5 with an explicit since gate. | `scripts/boot-scorecard-v2.sh:30` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
@@ -89,7 +89,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-053.6 | An image-generation 401 refreshes the token once and fails closed on a second 401. | `src/tools/image-gen.ts:190` `const refreshed = await refreshAndUpdateToken();` | `scripts/prove-s053.ts` | verified |
 | S-053.7 | Confidentiality at rest for plugin state is a host and OS responsibility, not a plugin feature. | - | - | n-a |
 | S-053.8 | User-level rate limiting is not a single-user local plugin surface. | - | - | n-a |
-| S-053.9 | Shared state is signed with HMAC-SHA256 before it is written and verified on read. | `src/utils/crypto.ts:20` `export const HMAC_PREFIX = "TAWASSUL_V2_HMAC_V1:";` | `scripts/prove-s017.ts` | verified |
+| S-053.9 | Shared state is signed with HMAC-SHA256 before it is written and verified on read. | `src/utils/crypto.ts:21` `export const HMAC_PREFIX = "TAWASSUL_V2_HMAC_V1:";` | `scripts/prove-s017.ts` | verified |
 | S-053.10 | Deleted-agent names persist in the user-owned deletion list and survive a seed. | `src/scripts/gen-opencode-config.ts:58` `deletedPath: resolve(root, ".opencode", "deleted-agents.json"),` | `scripts/prove-seed-agents.ts`, `scripts/prove-first-boot-seed.ts` | verified |
 | S-054 | The frozen boot-scorecard fixes are ported. | `scripts/boot-scorecard-v2.sh:30` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
 | S-055 | The v1 docs and atomic backlog is triaged before retirement. | - | - | doc-only |

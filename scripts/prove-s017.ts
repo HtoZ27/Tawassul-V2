@@ -195,7 +195,6 @@ const referenced = [
   "scripts/prove-event-trust-p1.ts",
   "scripts/prove-web-ssrf.ts",
   "scripts/prove-s028.ts",
-  "scripts/prove-state-namespace.ts",
 ];
 for (const file of referenced) {
   const path = join(repo, file);

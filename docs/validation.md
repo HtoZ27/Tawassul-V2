@@ -10,7 +10,7 @@ without weakening it.
 | Stage | Command | Steps | Purpose |
 | --- | --- | --- | --- |
 | Fast | `npm run gate:fast` | 14 | Rules, docs, public tree, SBOM, types, config, facts, pins, parity, release, catalog, counts |
-| Proofs | `npm run gate:proofs` | 151 | One isolated proof per invariant |
+| Proofs | `npm run gate:proofs` | 152 | One isolated proof per invariant |
 | Smoke | `npm run gate:smoke` | 6 | Build, release artifacts, release smoke, global boot, independence boot |
 | Evals | `npm run gate:evals` | 1 | Pilot evaluation of agent behaviour |
 
@@ -55,10 +55,9 @@ Examples: a state file cannot escape its namespace, the web tool refuses a
 private address, a torn ledger tail is skipped, an uninstall removes exactly the
 files in its marker.
 
-At this release the tree holds 154 proof files and the proofs stage runs 151 of
-them. The other three run where they belong: `prove-proof-catalog.ts` in the
-fast stage, and `prove-global-boot.ts` and `prove-independence-boot.ts` in the
-smoke stage. A file that runs nowhere fails the catalog check.
+At this release the tree holds <!-- generated:proof-files -->155<!-- /generated --> proof files and the proofs stage runs <!-- generated:proof-steps -->152<!-- /generated --> of
+them. The remaining proofs run where they belong: <!-- generated:fast-proof-steps -->1<!-- /generated --> in the fast stage
+and <!-- generated:smoke-proof-steps -->2<!-- /generated --> in the smoke stage. A file that runs nowhere fails the catalog check.
 
 Each step runs in its own child process. A crash, a hang, or a process that
 mutates its environment cannot silently pass the next step. Heavy stages run
@@ -83,8 +82,9 @@ npm run gate:proofs:3
 npm run gate:proofs:4
 ```
 
-The four shards are balanced and take about a minute each. They are the same
-proofs, split; a shard is a convenience, not a weaker gate. The detached runner
+The four shards are balanced and take about <!-- generated:shard-seconds -->83.1<!-- /generated --> seconds each. They are the same
+proofs, split; a shard is a convenience, not a weaker gate. The full stage takes
+about <!-- generated:proof-seconds -->332<!-- /generated --> seconds. The detached runner
 is `npm run gate:proofs:bg` with `:status`, `:wait`, and `:stop`.
 
 ## Smoke

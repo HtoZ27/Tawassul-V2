@@ -13,9 +13,7 @@ documentation practice, and packaging conventions.
 | [superpowers](https://github.com/obra/superpowers) | MIT | Skills kept in a versioned source tree, and failure-isolated registration so one rejected skill cannot disable the plugin |
 | [opencode-power-pack](https://github.com/waybarrios/opencode-power-pack) | MIT AND Apache-2.0 | The shape of a security policy, a compatibility document, and a licence inventory that separates bundled from referenced work |
 | [opencode-agent-orchestration-kit](https://github.com/jcarlosrodicio/opencode-agent-orchestration-kit) | Apache-2.0 | Installation lifecycle writing: dry runs, ownership records, collision handling, and documentation that states its own scope limits |
-| [opencode-senses](https://github.com/itsmeadarsh2008/opencode-senses) | MIT | Project hygiene around a small plugin: contribution guides, code of conduct, and a security policy that fits a single maintainer |
 | [opencode-mem](https://github.com/tickernelz/opencode-mem) | MIT | Presenting persistent memory as an explicit contract rather than hidden behaviour |
-| [opencode-cursor](https://github.com/Nomadcxx/opencode-cursor) | ISC | Provider bridging without pretending to be the upstream provider |
 | [opencode-morph-fast-apply](https://github.com/JRedeker/opencode-morph-fast-apply) | MIT | Keeping a narrow tool surface sharp, and documenting a single capability thoroughly |
 
 ## Host and libraries

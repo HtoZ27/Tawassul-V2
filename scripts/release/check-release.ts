@@ -65,7 +65,8 @@ const validation = text("docs/validation.md");
 const validationMatch = /^\| Proofs \| `npm run gate:proofs` \| (\d+) \|/m.exec(validation);
 check(validationMatch !== null, "docs/validation.md has no proofs row");
 check(Number(validationMatch?.[1] ?? -1) === steps.length, `docs/validation.md records ${validationMatch?.[1]} proofs; the manifest has ${steps.length}`);
-const fileMatch = /tree holds (\d+) proof files and the proofs stage runs (\d+) of/.exec(validation);
+const validationPlain = validation.replace(/<!--[\s\S]*?-->/g, "");
+const fileMatch = /tree holds (\d+) proof files and the proofs stage runs (\d+) of/.exec(validationPlain);
 const proofFiles = readdirSync(join(REPO, "scripts")).filter((file) => file.startsWith("prove-") && file.endsWith(".ts"));
 check(fileMatch !== null, "docs/validation.md has no proof-file sentence");
 check(Number(fileMatch?.[1] ?? -1) === proofFiles.length, `docs/validation.md records ${fileMatch?.[1]} proof files; the tree has ${proofFiles.length}`);
@@ -93,12 +94,23 @@ check(
   "proof shard estimates do not add up to the recorded total",
 );
 
-const workflow = text(".github/workflows/ci.yml");
-const uses = [...workflow.matchAll(/^\s*uses:\s*(\S+)/gm)].map((match) => match[1] ?? "");
-check(uses.length > 0, "CI workflow has no actions");
-for (const action of uses) {
-  if (action.startsWith("./") || action.startsWith("docker://")) continue;
-  check(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+@[a-f0-9]{40}$/.test(action), `CI action is not pinned to a full SHA: ${action}`);
+const workflowDir = join(REPO, ".github", "workflows");
+const workflowNames = readdirSync(workflowDir)
+  .filter((name) => name.endsWith(".yml") || name.endsWith(".yaml"))
+  .sort();
+let actionCount = 0;
+for (const name of workflowNames) {
+  const workflow = text(join(".github", "workflows", name));
+  const uses = [...workflow.matchAll(/^\s*uses:\s*(\S+)/gm)].map((match) => match[1] ?? "");
+  check(uses.length > 0, `${name} has no actions`);
+  for (const action of uses) {
+    if (action.startsWith("./") || action.startsWith("docker://")) continue;
+    check(
+      /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+@[a-f0-9]{40}$/.test(action),
+      `${name} action is not pinned to a full SHA: ${action}`,
+    );
+  }
+  actionCount += uses.length;
 }
 
 const indexPath = resolve(REPO, "src", "index.ts");
@@ -120,5 +132,5 @@ if (failures.length > 0) {
 
 console.log(
   `check-release: OK (${version}; changelog, notes, installer, ${steps.length} proofs, ${proofFiles.length} files, ` +
-    `${uses.length} pinned actions${tag ? `, tag ${tag}` : ""})`,
+    `${actionCount} pinned actions${tag ? `, tag ${tag}` : ""})`,
 );

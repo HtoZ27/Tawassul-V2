@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
-const PROJECT_ENTRY = join(REPO, ".opencode", "plugin", "tawassul.js");
+const PROJECT_ENTRY = join(REPO, ".opencode", "plugins", "tawassul.js");
 const HOST_TIMEOUT = Number(process.env.TAWASSUL_E2E_TIMEOUT ?? 150);
 const PRIMARY = "openai/mock-a";
 const SECONDARY = "openai/mock-b";
@@ -196,8 +196,8 @@ function startMock(): Promise<MockProvider> {
 }
 
 function writeWorkspace(directory: string, port: number, fallback: Record<string, unknown>): void {
-  mkdirSync(join(directory, ".opencode", "plugin"), { recursive: true });
-  copyFileSync(PROJECT_ENTRY, join(directory, ".opencode", "plugin", "tawassul.js"));
+  mkdirSync(join(directory, ".opencode", "plugins"), { recursive: true });
+  copyFileSync(PROJECT_ENTRY, join(directory, ".opencode", "plugins", "tawassul.js"));
   symlinkSync(join(REPO, ".opencode", "node_modules"), join(directory, ".opencode", "node_modules"), "dir");
   writeFileSync(
     join(directory, "opencode.json"),

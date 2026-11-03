@@ -25,15 +25,30 @@ host below `2.2.0` and warns when the host is newer than the audited `2.2.1`.
 | Linux arm64 | Experimental | Same lane; less runtime evidence |
 | macOS arm64 | Experimental | POSIX lane; key directory follows `~/.config` |
 | macOS x64 | Experimental | Same as above |
-| Windows x64 (native) | **Pending native receipt** | Bundle and wasm install only; no database maintenance, no triggers; `icacls` key ACL |
+| Windows x64 (native) | **Supported, native receipt** | Bundle and wasm install only; no database maintenance, no triggers; `icacls` key ACL; install, verify, upgrade, uninstall, and purge verified on Windows 10 x64 |
 | WSL2 | Experimental | Linux lane; keep the key off `/mnt/` |
 
-Native Windows is deliberately not called supported. The install, verify, and
-uninstall cycle has been exercised under an emulator, which proves that the
-Windows code path runs, but it says nothing about NTFS ACLs, Defender or
-SmartScreen, long paths, case sensitivity, or file locking. The emulator receipt
-is `docs/experiments/receipts/2026-11-01-windows-install-cycle-wine.md`; a real
-Windows host receipt is still required before the public claim changes.
+Native Windows x64 now has a native receipt for the bundle and wasm lane:
+install, verify, in-place upgrade, uninstall, and purge on `C:`, `D:`, and `F:`;
+a real `icacls` ACL from the resolved SID; a profile path with a space; a
+275-character path; host discovery and a live `debug agents` load from the
+Desktop 2.2.5 sidecar; and closed failures for a locked bundle and a locked
+state file. The receipt is
+`docs/experiments/receipts/2026-11-02-windows-install-cycle-native.md`. The
+current installer lane was re-run on 2026-11-03
+(`docs/experiments/receipts/2026-11-03-windows-install-cycle-native.md`): rebuild,
+flat `plugins/tawassul.js`, four wasm assets, in-place upgrade, 278-character
+path, and the security check all passed.
+
+Remaining Windows boundaries: ARM64 is not covered; Windows 11 shares the
+file-path format and the Defender update channel with Windows 10, so the path,
+ACL, and Defender results carry over, with only version-level differences. The
+host-side watcher, service, and SQLite lane stay out of scope. Defender and
+SmartScreen were measured on this machine: Defender reported no detection across
+install, verify, upgrade, uninstall, and purge, and a kit tagged with
+Mark-of-the-Web completed the lane without a prompt. SmartScreen blocks only an
+unsigned downloaded executable, which the kit does not contain. The earlier
+emulator receipts remain the evidence for the Windows lane under Wine.
 
 ## Features by platform
 
@@ -76,5 +91,9 @@ an emulator are labelled as emulator evidence and never counted as native
 evidence.
 
 Current gate state: `gate:fast`, the full proof run, and the build are green on
-Linux x64 at the release commit. Every other row above is stated with its own
-evidence level, and experimental rows make no promise beyond "it runs here".
+Linux x64 at the release commit. Native Windows x64 has a separate native receipt
+for the bundle and wasm lane; its proofs still run on the POSIX lane. A Windows
+workflow (`.github/workflows/windows.yml`) runs the install cycle, PowerShell 7,
+a 278-character path, and the tree-sitter lane on `windows-latest`; those steps
+are native Windows checks, not proofs. Every other row above is stated with its
+own evidence level, and experimental rows make no promise beyond "it runs here".

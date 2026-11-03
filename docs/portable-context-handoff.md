@@ -7,7 +7,7 @@ stands after the independent isolated re-run on host 2.2.2 (section 10): the
 the transfer, and `synthetic` is not used for injection. One unit, no phases.
 Implemented in full; 15 feature proofs pass across the fast, proofs and smoke
 gates, with the release-path eval stage kept separate.
-Repository: `/home/htoz/Desktop/Tawassul V2`
+Repository: `<workspace>`
 Scope rule: one unit. No phases, no MVPs, no per-agent slices.
 
 Delivery is complete only when all three paths work together: agent to agent,
@@ -267,7 +267,7 @@ sharing persistent pack state with read-only roles.
 | `src/validation.ts:91` | `.optional()` for the new fields, otherwise `safeParse` strips them silently |
 | `src/bootstrap/{tool-registry,service-factory,plugin-init}.ts` | Registration; `plugin-init` remembers the loaded config for the runtime kill switch |
 | `scripts/release-smoke.sh:124,146,177,178,193,197,199`, `scripts/prove-e27.ts:40`, `scripts/prove-independence-boot.ts:144`, `scripts/prove-global-boot.ts:224,225,267,268,292,293,313` | Tool count 42 to 43. Sixteen lines across four files, not eleven |
-| `scripts/gate-manifest.json` | <!-- generated:proof-steps -->151<!-- /generated --> proofs-stage steps; <!-- generated:proof-files -->154<!-- /generated --> proof files across the three stages |
+| `scripts/gate-manifest.json` | <!-- generated:proof-steps -->152<!-- /generated --> proofs-stage steps; <!-- generated:proof-files -->155<!-- /generated --> proof files across the three stages |
 | `package.json`, `ISSUES.md`, `.opencode/feature-index.json` | Scripts, issue record, index |
 
 ---
