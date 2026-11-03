@@ -19,7 +19,7 @@ import {
   setProjectScale,
 } from "../services/iteration-budget.ts";
 import { armDbMaintenanceTrigger } from "../services/db-maintenance-trigger.ts";
-import { stateDirWritable } from "../utils/state-paths.ts";
+import { STATE_DIR_ALIAS_ENV, STATE_DIR_ENV, stateDirWritable } from "../utils/state-paths.ts";
 import { TawassulContext } from "../context.ts";
 import type { TawassulConfig } from "../context/types.ts";
 import { createServices } from "./service-factory.ts";
@@ -559,7 +559,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
     const ContextClass = deps?.TawassulContext ?? TawassulContext;
     const workspaceDir = ctx.directory;
     const stateOverride =
-      process?.env?.TAWASSUL_V2_STATE_DIR?.trim() || process?.env?.TAWASSUL_STATE_DIR?.trim();
+      process?.env?.[STATE_DIR_ENV]?.trim() || process?.env?.[STATE_DIR_ALIAS_ENV]?.trim();
     const projectRoot = stateOverride ? undefined : ctx.projectRoot?.trim();
     const persistDir = stateOverride || projectRoot || workspaceDir;
     if (projectRoot && projectRoot !== workspaceDir) {

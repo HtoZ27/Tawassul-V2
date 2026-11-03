@@ -48,7 +48,7 @@ async function boot(config: { notice: boolean; noRetry: boolean } | undefined): 
     join(process.cwd(), ".opencode", "agents", "dev.md"),
     join(work, ".opencode", "agents", "dev.md"),
   );
-  const stateDir = join(work, "context");
+  const stateDir = join(work, "state");
   const configBlock: Record<string, unknown> = {
     agent: { dev: { model: "opencode/big-pickle", mode: "subagent", permission: { edit: "allow", bash: "allow" } } },
   };
@@ -71,7 +71,6 @@ async function boot(config: { notice: boolean; noRetry: boolean } | undefined): 
   Object.assign(process.env, {
     TAWASSUL_SCOPE: "project",
     TAWASSUL_PROJECT_DIR: work,
-    TAWASSUL_STATE_DIR: join(work, "context"),
     TAWASSUL_V2_STATE_DIR: join(work, "state"),
     TAWASSUL_HMAC_KEY_DIR: keyDir,
     TAWASSUL_LOG_FILE: join(work, "tawassul.log"),

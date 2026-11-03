@@ -93,7 +93,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-053.10 | Deleted-agent names persist in the user-owned deletion list and survive a seed. | `src/scripts/gen-opencode-config.ts:58` `deletedPath: resolve(root, ".opencode", "deleted-agents.json"),` | `scripts/prove-seed-agents.ts`, `scripts/prove-first-boot-seed.ts` | verified |
 | S-054 | The frozen boot-scorecard fixes are ported. | `scripts/boot-scorecard-v2.sh:30` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
 | S-055 | The v1 docs and atomic backlog is triaged before retirement. | - | - | doc-only |
-| S-056 | The legacy state directory and fallback reads are removed; HMAC key and signature compatibility remain. | `src/utils/state-paths.ts:40` `export function statePath(` | `scripts/prove-v2-independence.ts`, `scripts/prove-s017.ts` | verified |
+| S-056 | The legacy state directory and fallback reads are removed; HMAC key and signature compatibility remain. | `src/utils/state-paths.ts:41` `export function statePath(` | `scripts/prove-v2-independence.ts`, `scripts/prove-s017.ts` | verified |
 | S-057 | The addagent advisory consults the provider before warning about an unknown model. | `src/core/model-registry.ts:171` `shouldWarnUnverifiedModel` | `scripts/prove-s028.ts` | verified |
 
 ## Open items

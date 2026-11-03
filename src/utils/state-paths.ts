@@ -3,6 +3,7 @@ import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { globalConfigBaseDir, safeHomedir } from "./path-resolver.ts";
 
 export const STATE_DIR_ENV = "TAWASSUL_V2_STATE_DIR";
+export const STATE_DIR_ALIAS_ENV = "TAWASSUL_STATE_DIR";
 export const STATE_DIR_NAME = "tawassul-v2";
 export const STATE_SUBDIR = "state";
 export const QUARANTINE_SUBDIR = "quarantine";
@@ -14,7 +15,7 @@ export function v2NamespaceRoot(base: string): string {
 }
 
 export function stateDir(): string {
-  const override = process.env[STATE_DIR_ENV]?.trim();
+  const override = process.env[STATE_DIR_ENV]?.trim() || process.env[STATE_DIR_ALIAS_ENV]?.trim();
   if (override) return resolve(override);
   return resolve(v2NamespaceRoot(globalConfigBaseDir()), STATE_SUBDIR);
 }

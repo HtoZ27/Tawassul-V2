@@ -195,8 +195,9 @@ function startMock(): Promise<MockProvider> {
   });
 }
 
-function writeWorkspace(directory: string, port: number, fallback: Record<string, unknown>): void {
+function writeWorkspace(directory: string, stateDir: string, port: number, fallback: Record<string, unknown>): void {
   mkdirSync(join(directory, ".opencode", "plugins"), { recursive: true });
+  mkdirSync(join(stateDir, ".opencode"), { recursive: true });
   copyFileSync(PROJECT_ENTRY, join(directory, ".opencode", "plugins", "tawassul.js"));
   symlinkSync(join(REPO, ".opencode", "node_modules"), join(directory, ".opencode", "node_modules"), "dir");
   writeFileSync(
@@ -215,7 +216,7 @@ function writeWorkspace(directory: string, port: number, fallback: Record<string
       2,
     )}\n`,
   );
-  writeFileSync(join(directory, ".opencode", "tawassul.json"), `${JSON.stringify({ fallback }, null, 2)}\n`);
+  writeFileSync(join(stateDir, ".opencode", "tawassul.json"), `${JSON.stringify({ fallback }, null, 2)}\n`);
 }
 
 function hostEnv(input: {
@@ -344,7 +345,8 @@ async function main(): Promise<void> {
   let failed = false;
   try {
     const positiveWorkspace = join(ROOT, "positive");
-    writeWorkspace(positiveWorkspace, mock.port, {
+    const positiveState = join(ROOT, "positive-state");
+    writeWorkspace(positiveWorkspace, positiveState, mock.port, {
       enabled: true,
       maxSwitches: 2,
       cooldownMs: 0,
@@ -354,7 +356,7 @@ async function main(): Promise<void> {
       home: HOME,
       workspace: positiveWorkspace,
       db: join(ROOT, "positive.db"),
-      state: join(ROOT, "positive-state"),
+      state: positiveState,
       log: join(ROOT, "positive.log"),
       n2: join(ROOT, "positive-n2.jsonl"),
     });
@@ -396,12 +398,13 @@ async function main(): Promise<void> {
     );
 
     const negativeWorkspace = join(ROOT, "negative");
-    writeWorkspace(negativeWorkspace, mock.port, { enabled: false });
+    const negativeState = join(ROOT, "negative-state");
+    writeWorkspace(negativeWorkspace, negativeState, mock.port, { enabled: false });
     const negativeEnv = hostEnv({
       home: HOME,
       workspace: negativeWorkspace,
       db: join(ROOT, "negative.db"),
-      state: join(ROOT, "negative-state"),
+      state: negativeState,
       log: join(ROOT, "negative.log"),
       n2: join(ROOT, "negative-n2.jsonl"),
     });

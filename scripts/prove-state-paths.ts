@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { safeHomedir } from "../src/utils/path-resolver.ts";
 import {
   QUARANTINE_SUBDIR,
+  STATE_DIR_ALIAS_ENV,
   STATE_DIR_ENV,
   STATE_DIR_NAME,
   STATE_SUBDIR,
@@ -138,7 +139,21 @@ try {
     quarantinePath("x.json") === resolve(overrideDir, QUARANTINE_SUBDIR, "x.json"),
     "the quarantine lives under the overridden state dir",
   );
+  process.env[STATE_DIR_ALIAS_ENV] = resolve(overrideDir, "alias");
+  assert(
+    stateDir() === resolve(overrideDir),
+    "the state override wins over the compatibility alias",
+  );
   delete process.env[STATE_DIR_ENV];
+  assert(
+    stateDir() === resolve(overrideDir, "alias"),
+    "the compatibility alias applies when the primary is unset",
+  );
+  assert(
+    quarantinePath("x.json") === resolve(overrideDir, "alias", QUARANTINE_SUBDIR, "x.json"),
+    "the quarantine follows the compatibility alias",
+  );
+  delete process.env[STATE_DIR_ALIAS_ENV];
 
   assert(stateDirWritable(join(root, "writable-state")) === true, "a creatable state directory is writable");
   writeFileSync(join(root, "not-a-dir"), "x", "utf-8");
