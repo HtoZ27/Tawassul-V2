@@ -107,8 +107,8 @@ without its key.
 - A state file from an earlier `0.1.x` build migrates in place when the schema
   version changes.
 - A downgrade is not supported across a schema change.
-- Native Windows remains pending a native receipt; an upgrade does not change
-  that claim.
+- Native Windows is supported for the bundle and wasm lane; an upgrade does not
+  add the database lane.
 
 ## Pre-release builds
 

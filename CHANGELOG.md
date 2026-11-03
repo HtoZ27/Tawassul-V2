@@ -12,30 +12,25 @@ pre-stable.
 - A native Windows receipt for the bundle and wasm lane: install, verify,
   in-place upgrade, uninstall, purge, `icacls` ACL, a profile path with a space,
   a 275-character path, `C:`/`D:`/`F:` drives, host discovery, a live host load,
-  and file locking.
-- `scripts/windows-install.ps1` and `scripts/windows-install.cmd`: an unattended,
-  time-bounded Windows ladder for install, verify, uninstall, purge, and the full
-  cycle. It finds Bun, resolves the repository relative to itself, and works from
-  any drive.
+  and file locking. A current-lane receipt re-ran the flat layout on 2026-11-03:
+  rebuild, install, in-place upgrade, 278-character path, and the security check.
 - `scripts/windows-security-check.ps1`: an unattended Defender and SmartScreen
-  receipt. It tags the kit with Mark-of-the-Web, runs the ladder, compares the
-  detection count, and removes every tag; `-ProbeShellLaunch` adds the opt-in
-  SmartScreen probe, which waits for a person by design.
+  receipt. It tags the bundle and `scripts/install-global.ts` with
+  Mark-of-the-Web, runs install and verify, compares the detection count, and
+  removes every tag; `-ProbeShellLaunch` adds the opt-in SmartScreen probe, which
+  waits for a person by design.
 - `scripts/windows-bounded.ps1`: one bounded process runner shared by both Windows
   scripts. It always returns the exit code, stdout, stderr, and elapsed seconds,
   and a timeout kills the child instead of waiting forever.
-- `-StateRoot` on the Windows ladder, with automatic isolation for
-  `-Action cycle`: the whole cycle runs against a temporary home, so a test never
-  reads or archives the operator's state. `-KeepState` keeps that directory for
-  inspection.
 - `scripts/windows-ci.ps1`: a four-mode Windows gate (`cycle`, `pwsh7`,
-  `longpath`, `ast`) that plants guard files in the real state, runs the ladder,
-  and asserts exit codes, isolation, purge, the three-ACE key ACL, and a
-  278-character install path. The `ast` mode runs `AstService` against the wasm
-  assets the installer staged and parses TypeScript, TSX, and JavaScript, then
-  imports the installed bundle and runs the real `astquery` queries. All four
-  modes pass natively, `pwsh7` under portable PowerShell 7.4.13 Core; each prints
-  `verdict=PASS` or exits 1.
+  `longpath`, `ast`) that plants guard files in the real state, drives
+  `scripts/install-global.ts` directly in an isolated home, and asserts exit
+  codes, idempotence, in-place upgrade, purge, the three-ACE key ACL, and a
+  278-character install path. `cycle` rebuilds the bundle and lowers the marker
+  version to exercise the upgrade path; `-Log` writes the transcript. The `ast`
+  mode runs `AstService` against the wasm assets the installer staged and parses
+  TypeScript, TSX, and JavaScript, then imports the installed bundle and runs
+  the real `astquery` queries. Each mode prints `verdict=PASS` or exits 1.
 - `scripts/check-ast-runtime.ts`: loads `AstService` against a staged runtime,
   parses TypeScript, TSX, and JavaScript, and asserts the symbols and imports. It
   runs on any platform and is what the `ast` gate mode calls.
@@ -80,6 +75,28 @@ pre-stable.
   and the resulting `Executable not found in $PATH` aborted the whole registry,
   leaving `astquery` and every other tool unregistered. The tool now builds the
   service lazily and returns a clear message while the remaining tools load.
+- `scripts/windows-security-check.ps1` reported PASS on install and verify alone
+  even when purge failed; the verdict now requires a zero purge exit.
+- `git grep -O` and `git grep --open-files-in-pager` are denied after the
+  `git grep*` allow rule, so the pager cannot execute an arbitrary command.
+- The local build staged the database scripts but not the four wasm files, so a
+  project install ran the AST tools in the degraded mode; `build-v2.mjs` now
+  stages them under `.opencode/tawassul-runtime/wasm`.
+- `scripts/release-smoke.sh` failed on native Windows before it reached the host:
+  it used a bash here-string, symlinked `node_modules` and `auth.json`, and
+  looked only for POSIX host paths. It now uses a portable field split, copies on
+  MSYS, finds the Desktop sidecar, and falls back to a Bun timeout when
+  `timeout` is absent.
+- `scripts/gate.ts` looked for `bash` on Windows, where Git ships only `sh`, and
+  passed a Windows PATH to the shell. It now resolves `sh.exe`, converts PATH to
+  the POSIX form, and exports `TAWASSUL_BUN` so smoke steps find Bun.
+
+### Removed
+
+- `scripts/windows-install.ps1` and `scripts/windows-install.cmd` and their
+  `-StateRoot`/`-KeepState` knobs. `scripts/install-global.ts` is the only
+  installer; `scripts/windows-ci.ps1` and `scripts/windows-security-check.ps1`
+  drive it directly.
 
 ## [0.1.0-experimental]
 
@@ -88,7 +105,7 @@ platform or host row without a receipt is not a support claim.
 
 ### Added
 
-- A plugin runtime that adds eight specialist agents, 44 tools, four skills, and
+- A plugin runtime that adds eight agents, 44 tools, four skills, and
   one slash command to an OpenCode workspace.
 - A goal ledger with items, definition-of-done criteria, evidence rules, and a
   mechanical close.

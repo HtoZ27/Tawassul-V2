@@ -131,8 +131,39 @@ if (niceLevel !== null) {
   console.log(`GATE nice: ${niceLevel}`);
 }
 
+function resolveShell(command: string): string {
+  if (process.platform !== "win32" || command !== "bash") return command;
+  const candidates: string[] = [];
+  const located = spawnSync("where.exe", ["git"], { encoding: "utf-8" });
+  const git = (located.stdout ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+  if (git) {
+    const root = dirname(dirname(git));
+    candidates.push(join(root, "bin", "bash.exe"), join(root, "usr", "bin", "sh.exe"));
+  }
+  if (process.env.ProgramFiles) candidates.push(join(process.env.ProgramFiles, "Git", "bin", "bash.exe"));
+  return candidates.find((candidate) => existsSync(candidate)) ?? command;
+}
+
+function shellBinPaths(shell: string): string[] {
+  const match = shell.match(/^(.*?)[\\/](?:usr[\\/])?bin[\\/][^\\/]+$/i);
+  const root = match?.[1];
+  return root ? [join(root, "usr", "bin"), dirname(shell)] : [dirname(shell)];
+}
+
+function toPosixPath(value: string): string {
+  const drive = value.match(/^([A-Za-z]):[\\/](.*)$/);
+  const letter = drive?.[1];
+  const rest = drive?.[2];
+  return letter !== undefined && rest !== undefined
+    ? `/${letter.toLowerCase()}/${rest.replace(/\\/g, "/")}`
+    : value.replace(/\\/g, "/");
+}
+
 function runStep(step: GateStep): StepResult {
-  const command = step.cmd[0];
+  const command = resolveShell(step.cmd[0] ?? "");
   if (!command) fail(`step ${step.name} has no command`);
   const timeBin = activeBudget?.rssMb !== undefined ? "/usr/bin/time" : null;
   if (timeBin !== null && !existsSync(timeBin) && !activeTimeWarned) {
@@ -143,12 +174,25 @@ function runStep(step: GateStep): StepResult {
   const rssFile = useTime
     ? join(tmpdir(), `tawassul-gate-rss-${process.pid}-${Date.now()}-${Math.round(Math.random() * 1_000_000)}.txt`)
     : null;
-  const argv = useTime ? [timeBin, "-f", "%M", "-o", rssFile as string, ...step.cmd] : step.cmd.slice();
+  const base = [command, ...step.cmd.slice(1)];
+  const argv = useTime ? [timeBin, "-f", "%M", "-o", rssFile as string, ...base] : base;
   const started = Date.now();
+  const env: NodeJS.ProcessEnv = { ...process.env, ...step.env };
+  if (process.versions.bun) env.TAWASSUL_BUN = process.execPath;
+  if (process.platform === "win32" && command !== step.cmd[0]) {
+    const entries = [...shellBinPaths(command), ...(env.PATH ?? "").split(";")]
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map(toPosixPath);
+    for (const key of Object.keys(env)) {
+      if (key.toUpperCase() === "PATH") delete env[key];
+    }
+    env.PATH = [...new Set(entries)].join(":");
+  }
   const result = spawnSync(argv[0] as string, argv.slice(1), {
     cwd: repo,
     stdio: "inherit",
-    env: { ...process.env, ...step.env },
+    env,
   });
   const elapsed = Date.now() - started;
   if (rssFile) {

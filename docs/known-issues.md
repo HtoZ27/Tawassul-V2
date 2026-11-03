@@ -34,22 +34,26 @@ bash scripts/opencode-db-scheduled.sh --run
 
 ## AST tools warn `AST degraded`
 
-**Symptom:** `astquery`, `readsymbol`, `depmap`, or `projectmap` return a warning
-that the wasm directory is missing.
+**Symptom:** the log shows one `AST degraded` warning that
+`tawassul-runtime/wasm` is missing. `astquery` returns a misleading
+`not supported` or `not found` message; `readsymbol` silently falls back to a
+regex read.
 
-**Cause:** the four grammars are not beside the bundle. A project-scope install
-needs the runtime staged; a manual copy of the bundle alone is not enough.
+**Cause:** the wasm files are not beside the bundle. A project-scope install
+needs the runtime staged; a manual copy of the bundle alone is not enough. The
+set is one runtime and three grammars.
 
-**Workaround:** run the global installer, which stages the grammars, then restart
-the host.
+**Workaround:** run the global installer, which stages the wasm files, then
+restart the host.
 
 ```bash
 bun scripts/install-global.ts
 bun scripts/install-global.ts --verify
 ```
 
-**Closes when:** nothing to close; this is the documented degradation path. The
-tools stay usable through their non-AST fallback.
+**Closes when:** nothing to close; this is the documented degradation path.
+`depmap` keeps working with `ast: false` (the default); `ast: true` returns no
+imports while the wasm is missing.
 
 ## `opencode plugin list` prints `No plugins found`
 

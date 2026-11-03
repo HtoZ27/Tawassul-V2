@@ -8,19 +8,15 @@ param(
 $ErrorActionPreference = "Stop"
 $scriptsRoot = $PSScriptRoot
 $repo = Split-Path -Parent $scriptsRoot
-$wrapper = Join-Path $scriptsRoot "windows-install.cmd"
-$ladder = Join-Path $scriptsRoot "windows-install.ps1"
 $installer = Join-Path $scriptsRoot "install-global.ts"
-$cmdExe = Join-Path $env:SystemRoot "System32\cmd.exe"
-$powershellExe = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
 $icaclsExe = Join-Path $env:SystemRoot "System32\icacls.exe"
-$script:cmdCalls = 0
 $runner = Join-Path ([System.IO.Path]::GetTempPath()) ("tawassul-ci-" + [guid]::NewGuid().ToString("N").Substring(0, 8))
 $guardId = [guid]::NewGuid().ToString("N").Substring(0, 8)
 $lines = New-Object System.Collections.Generic.List[string]
 $bunPath = $Bun
 
 New-Item -ItemType Directory -Force -Path $runner | Out-Null
+. "$PSScriptRoot\windows-bounded.ps1"
 
 function Note([string]$text) {
   $line = "windows-ci: $text"
@@ -52,36 +48,31 @@ function Invoke-Native([string]$file, [string[]]$arguments) {
   return @{ Code = $code; Out = ($output -join "`n") }
 }
 
-function Invoke-Cycle([string]$launcher) {
-  $globalDir = Join-Path $runner "opencode"
-  $started = Get-Date
-  if ($launcher -eq "cmd") {
-    $script:cmdCalls = $script:cmdCalls + 1
-    $commandLine = "`"$wrapper`" -Action cycle -GlobalDir `"$globalDir`" -Bun `"$bunPath`""
-    $result = Invoke-Native $cmdExe @("/c", $commandLine)
-  } else {
-    $result = Invoke-Native $launcher @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ladder, "-Action", "cycle", "-GlobalDir", $globalDir, "-Bun", $bunPath)
-  }
-  return @{
-    Code = $result.Code
-    Seconds = [Math]::Round(((Get-Date) - $started).TotalSeconds, 1)
-    Out = $result.Out
-    GlobalDir = $globalDir
-  }
+function Invoke-Installer([string[]]$arguments, [int]$seconds = 180) {
+  $result = Invoke-BoundedProcess $bunPath (@($installer) + $arguments) $seconds
+  if ($result.Out) { Write-Host $result.Out; $lines.Add("  " + $result.Out) | Out-Null }
+  if ($result.Err) { Write-Host $result.Err; $lines.Add("  " + $result.Err) | Out-Null }
+  return $result
 }
 
-function Invoke-CycleShim {
-  if (-not (Test-Path -LiteralPath $cmdExe) -or -not (Test-Path -LiteralPath $wrapper)) {
-    Note "cmd-shim=skipped (cmd.exe or windows-install.cmd absent)"
-    return $null
-  }
-  Note "cmd-shim=probe"
-  return Invoke-Cycle "cmd"
+function Invoke-Build {
+  $result = Invoke-BoundedProcess $bunPath @((Join-Path $repo "build-v2.mjs")) 300
+  if ($result.Out) { Write-Host $result.Out; $lines.Add("  " + $result.Out) | Out-Null }
+  if ($result.Err) { Write-Host $result.Err; $lines.Add("  " + $result.Err) | Out-Null }
+  Assert-True ($result.Code -eq 0) "build-v2.mjs exited $($result.Code)"
+  Assert-True (-not $result.TimedOut) "build-v2.mjs timed out"
 }
 
-function Assert-CmdFree {
-  Assert-True ($script:cmdCalls -eq 0) "the primary lane invoked cmd.exe $($script:cmdCalls) times"
-  Note "cmd-free: PASS"
+function Set-IsolatedHome([string]$root) {
+  $homeDir = Join-Path $root "home"
+  New-Item -ItemType Directory -Force -Path (Join-Path $homeDir ".config") | Out-Null
+  New-Item -ItemType Directory -Force -Path (Join-Path $homeDir ".local\share") | Out-Null
+  $env:HOME = $homeDir
+  $env:XDG_CONFIG_HOME = Join-Path $homeDir ".config"
+  $env:XDG_DATA_HOME = Join-Path $homeDir ".local\share"
+  $env:TAWASSUL_CACHE_DIR = Join-Path $homeDir ".cache"
+  $env:TAWASSUL_GLOBAL_DIR = Join-Path $root "opencode"
+  return $env:TAWASSUL_GLOBAL_DIR
 }
 
 function Get-RealStatePaths {
@@ -94,7 +85,7 @@ function Get-RealStatePaths {
 function Plant-Guards {
   $files = @()
   foreach ($base in Get-RealStatePaths) {
-    New-Item -ItemType Directory -Force -Path $base | Out-Null
+    if (-not (Test-Path -LiteralPath $base)) { continue }
     $file = Join-Path $base ("windows-ci-guard-" + $guardId + ".txt")
     Set-Content -LiteralPath $file -Value $guardId -Encoding ASCII
     $files += $file
@@ -133,8 +124,43 @@ function Assert-KeyAcl([string]$keyDir) {
   }
 }
 
-function Invoke-Installer([string[]]$arguments) {
-  return Invoke-Native $bunPath (@($installer) + $arguments)
+function Invoke-CycleBody([string]$label, [string[]]$guards, [int]$archivesBefore) {
+  $globalDir = Set-IsolatedHome $runner
+  $started = Get-Date
+  Invoke-Build
+  $installed = Invoke-Installer @()
+  Assert-True ($installed.Code -eq 0) "install exited $($installed.Code)"
+  Assert-True (-not $installed.TimedOut) "install timed out"
+  Assert-True ($installed.Out -match "installed ") "install did not report an install"
+  $verified = Invoke-Installer @("--verify")
+  Assert-True ($verified.Code -eq 0) "verify exited $($verified.Code)"
+  Assert-True (-not $verified.TimedOut) "verify timed out"
+  Assert-True ($verified.Out -match "verified ") "verify did not report a verification"
+  $second = Invoke-Installer @()
+  Assert-True ($second.Code -eq 0) "the idempotent install exited $($second.Code)"
+  Assert-True ($second.Out -match "already installed") "the second install was not idempotent"
+  $marker = Join-Path $globalDir "tawassul-runtime\VERSION"
+  Assert-True (Test-Path -LiteralPath $marker) "the installer did not write the marker"
+  $markerText = Get-Content -LiteralPath $marker -Raw
+  $lowered = $markerText -replace '"version": "[^"]+"', '"version": "0.0.0-receipt"'
+  Assert-True ($lowered -ne $markerText) "the marker version was not lowered"
+  Set-Content -LiteralPath $marker -Value $lowered -NoNewline
+  $upgraded = Invoke-Installer @()
+  Assert-True ($upgraded.Code -eq 0) "the upgrade install exited $($upgraded.Code)"
+  Assert-True ($upgraded.Out -match "installed ") "the upgrade install did not report an install"
+  $upgradedVerify = Invoke-Installer @("--verify")
+  Assert-True ($upgradedVerify.Code -eq 0) "verify after upgrade exited $($upgradedVerify.Code)"
+  Assert-True ((Get-Content -LiteralPath $marker -Raw) -notmatch "0\.0\.0-receipt") "the upgrade did not rewrite the marker version"
+  $plugin = Join-Path $globalDir "plugins\tawassul.js"
+  Assert-True (Test-Path -LiteralPath $plugin) "install did not stage the bundle at $plugin"
+  $removed = Invoke-Installer @("--uninstall", "--purge", "--yes")
+  Assert-True ($removed.Code -eq 0) "purge exited $($removed.Code)"
+  Assert-True (-not $removed.TimedOut) "purge timed out"
+  Assert-True (-not (Test-Path -LiteralPath $plugin)) "the plugin survived the purge"
+  Assert-KeyAcl (Join-Path $runner "tawassul")
+  Assert-Guards $guards
+  Assert-True ((Get-PurgeArchives) -eq $archivesBefore) "the cycle archived real state"
+  Note "$label seconds=$([Math]::Round(((Get-Date) - $started).TotalSeconds, 1))"
 }
 
 $bunPath = Resolve-BunPath
@@ -146,51 +172,28 @@ Note "guards planted=$($guards.Count) purge-archives-before=$archivesBefore"
 try {
   switch ($Mode) {
     "cycle" {
-      $result = Invoke-Cycle $powershellExe
-      Assert-True ($result.Code -eq 0) "the ladder exited $($result.Code)"
-      Assert-True ($result.Out -match "PASS \(cycle\)") "the ladder did not print PASS (cycle)"
-      Assert-True ($result.Out -match "state isolated at:") "the cycle did not isolate state"
-      Assert-True ($result.Out -match "install-global install exit=0") "install did not report exit 0"
-      Assert-True ($result.Out -match "install-global --verify exit=0") "verify did not report exit 0"
-      Assert-True ($result.Out -match "--uninstall --purge --yes exit=0") "purge did not report exit 0"
-      Assert-True ($result.Out -match "removed the isolated state at:") "the cycle did not remove its isolated state"
-      $tempRoot = (($result.Out -split "state isolated at: ")[1] -split "`n")[0].Trim()
-      Assert-True (-not (Test-Path -LiteralPath $tempRoot)) "the isolated state $tempRoot survived the cycle"
-      Assert-True (-not (Test-Path -LiteralPath (Join-Path $result.GlobalDir "plugins\tawassul.js"))) "the plugin survived the purge"
-      Assert-Guards $guards
-      Assert-True ((Get-PurgeArchives) -eq $archivesBefore) "the cycle archived real state"
-      Assert-KeyAcl (Join-Path (Split-Path -Parent $result.GlobalDir) "tawassul")
-      Note "cycle seconds=$($result.Seconds)"
-      Assert-CmdFree
-      $shim = Invoke-CycleShim
-      if ($shim) {
-        Assert-True ($shim.Code -eq 0) "the cmd shim exited $($shim.Code)"
-        Assert-True ($shim.Out -match "PASS \(cycle\)") "the cmd shim did not print PASS (cycle)"
-        Note "cmd-shim seconds=$($shim.Seconds)"
-      }
+      Invoke-CycleBody "cycle" $guards $archivesBefore
     }
     "pwsh7" {
       $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
       if (-not $pwsh) { throw "pwsh was not found; this mode requires PowerShell 7" }
-      $result = Invoke-Cycle $pwsh.Source
-      Assert-True ($result.Code -eq 0) "the ladder exited $($result.Code) under pwsh"
-      Assert-True ($result.Out -match "PASS \(cycle\)") "the ladder did not print PASS (cycle) under pwsh"
-      Assert-True ($result.Out -match "state isolated at:") "the cycle did not isolate state under pwsh"
+      $started = Get-Date
+      $result = Invoke-BoundedProcess $pwsh.Source @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath, "-Mode", "cycle", "-Bun", $bunPath) 600
+      if ($result.Out) { Write-Host $result.Out; $lines.Add("  " + $result.Out) | Out-Null }
+      if ($result.Err) { Write-Host $result.Err; $lines.Add("  " + $result.Err) | Out-Null }
+      Assert-True ($result.Code -eq 0) "the cycle under pwsh exited $($result.Code)"
+      Assert-True (-not $result.TimedOut) "the cycle under pwsh timed out"
+      Assert-True ($result.Out -match "verdict=PASS") "the cycle under pwsh did not pass"
       Assert-Guards $guards
-      Assert-True ((Get-PurgeArchives) -eq $archivesBefore) "the cycle archived real state under pwsh"
-      Assert-CmdFree
-      Note "pwsh seconds=$($result.Seconds)"
+      Note "pwsh seconds=$([Math]::Round(((Get-Date) - $started).TotalSeconds, 1))"
     }
     "longpath" {
+      Set-IsolatedHome $runner | Out-Null
       $long = $runner
       while ($long.Length -lt 268) { $long = $long + "\" + "segment0123456789" }
       $long = $long + "\opencode"
       Note "long path length=$($long.Length)"
-      $stateRoot = Join-Path $runner "home"
       $env:TAWASSUL_GLOBAL_DIR = $long
-      $env:HOME = $stateRoot
-      $env:XDG_CONFIG_HOME = Join-Path $stateRoot ".config"
-      $env:XDG_DATA_HOME = Join-Path $stateRoot ".local\share"
       $installed = Invoke-Installer @()
       Assert-True ($installed.Code -eq 0) "install at $($long.Length) characters exited $($installed.Code)"
       Assert-True ($installed.Out -match "installed ") "install at a long path did not report an install"
@@ -204,16 +207,10 @@ try {
       Assert-True ($acl.Out -match "\(OI\)\(CI\)") "icacls did not show a protected ACL at the long path"
       $removed = Invoke-Installer @("--uninstall")
       Assert-True ($removed.Code -eq 0) "uninstall at a long path exited $($removed.Code)"
-      Assert-CmdFree
       Note "longpath ok length=$($long.Length)"
     }
     "ast" {
-      $globalDir = Join-Path $runner "opencode"
-      $stateRoot = Join-Path $runner "home"
-      $env:TAWASSUL_GLOBAL_DIR = $globalDir
-      $env:HOME = $stateRoot
-      $env:XDG_CONFIG_HOME = Join-Path $stateRoot ".config"
-      $env:XDG_DATA_HOME = Join-Path $stateRoot ".local\share"
+      $globalDir = Set-IsolatedHome $runner
       $installed = Invoke-Installer @()
       Assert-True ($installed.Code -eq 0) "install before the AST check exited $($installed.Code)"
       $runtime = Join-Path $globalDir "tawassul-runtime"
@@ -235,7 +232,6 @@ try {
       Assert-True ($bundleCheck.Out -match "tools=\d+") "the installed-bundle AST check did not count the registered tools"
       $removed = Invoke-Installer @("--uninstall")
       Assert-True ($removed.Code -eq 0) "uninstall after the AST check exited $($removed.Code)"
-      Assert-CmdFree
       Note "ast wasm=$($assets.Count) grammars=$($grammars.Count)"
     }
   }

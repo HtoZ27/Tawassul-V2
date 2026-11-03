@@ -4,6 +4,8 @@
 # Exit: 0 pass · 2 version drift or missing host · 3 boot/plugin failure · 4 tool failure · 5 model reply required but missing · 64 usage.
 set -u
 
+BUN="${TAWASSUL_BUN:-bun}"
+
 usage() {
   echo "usage: release-smoke.sh [--model provider/model] [--timeout seconds] [--resolve-only]" >&2
 }
@@ -25,7 +27,11 @@ done
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 TRIPWIRE_FILE="$REPO/scripts/tool-tripwire.json"
 [ -f "$TRIPWIRE_FILE" ] || { echo "release-smoke: tripwire file missing at $TRIPWIRE_FILE (run bun scripts/generate-tool-tripwire.ts)." >&2; exit 3; }
-read -r TOOL_COUNT TOOL_HASH TOOL_FLOOR <<< "$(TRIPWIRE_FILE="$TRIPWIRE_FILE" bun -e 'const t = require(process.env.TRIPWIRE_FILE); console.log(`${t.count} ${t.hash} ${t.floor}`)')"
+TRIPWIRE_VALUES="$(TRIPWIRE_FILE="$TRIPWIRE_FILE" "$BUN" -e 'const t = require(process.env.TRIPWIRE_FILE); console.log(`${t.count} ${t.hash} ${t.floor}`)')"
+set -- $TRIPWIRE_VALUES
+TOOL_COUNT="${1:-}"
+TOOL_HASH="${2:-}"
+TOOL_FLOOR="${3:-}"
 [ -n "$TOOL_COUNT" ] && [ -n "$TOOL_HASH" ] && [ -n "$TOOL_FLOOR" ] || { echo "release-smoke: cannot read $TRIPWIRE_FILE." >&2; exit 3; }
 PIN="${TAWASSUL_OPENCODE_VERSION:-}"
 MIN_VERSION="2.2.0"
@@ -41,15 +47,28 @@ resolve_bin() {
   if [ -n "${OPENCODE:-}" ] && command -v "$OPENCODE" >/dev/null 2>&1; then printf '%s' "$OPENCODE"; return; fi
   if [ -x "$HOME/.opencode/bin/opencode" ]; then printf '%s' "$HOME/.opencode/bin/opencode"; return; fi
   best=""
-  for dir in "$HOME/.config/ai.opencode.desktop/cli/"*/; do
-    [ -d "$dir" ] || continue
-    [ -x "$dir/opencode-cli" ] || continue
-    version="$(basename "$dir")"
-    if [ -z "$best" ] || [ "$(printf '%s\n%s\n' "$best" "$version" | sort -V | tail -n1)" = "$version" ]; then
-      best="$version"
-    fi
+  best_name=""
+  for root in "$HOME/.config/ai.opencode.desktop/cli" "${LOCALAPPDATA:-}/ai.opencode.desktop/cli"; do
+    [ -d "$root" ] || continue
+    for dir in "$root"/*/; do
+      [ -d "$dir" ] || continue
+      name=""
+      if [ -x "$dir/opencode-cli" ]; then name="opencode-cli"; fi
+      if [ -z "$name" ] && [ -x "$dir/opencode-cli.exe" ]; then name="opencode-cli.exe"; fi
+      [ -n "$name" ] || continue
+      version="$(basename "$dir")"
+      if [ -z "$best" ] || [ "$(printf '%s\n%s\n' "$best" "$version" | sort -V | tail -n1)" = "$version" ]; then
+        best="$version"
+        best_name="$dir$name"
+      fi
+    done
   done
-  if [ -n "$best" ]; then printf '%s' "$HOME/.config/ai.opencode.desktop/cli/$best/opencode-cli"; return; fi
+  if [ -n "$best" ]; then printf '%s' "$best_name"; return; fi
+  if [ -n "${LOCALAPPDATA:-}" ]; then
+    for candidate in "$LOCALAPPDATA/Programs/ai.opencode.desktop/resources/opencode-cli.exe" "${PROGRAMFILES:-}/ai.opencode.desktop/resources/opencode-cli.exe"; do
+      if [ -x "$candidate" ]; then printf '%s' "$candidate"; return; fi
+    done
+  fi
   command -v opencode 2>/dev/null || true
 }
 
@@ -98,7 +117,10 @@ trap cleanup EXIT
 mkdir -p "$WORK/.opencode/plugins" "$WORK/dist"
 cp "$ENTRY" "$WORK/.opencode/plugins/tawassul.js"
 cp "$REPO/dist/index.js" "$WORK/dist/index.js"
-ln -s "$REPO/.opencode/node_modules" "$WORK/.opencode/node_modules"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) cp -r "$REPO/.opencode/node_modules" "$WORK/.opencode/node_modules" ;;
+  *) ln -s "$REPO/.opencode/node_modules" "$WORK/.opencode/node_modules" ;;
+esac
 
 mkdir -p "$WORK/home/.config" "$WORK/home/.local/share" "$WORK/home/.local/state" "$WORK/home/.cache"
 AUTH_SRC="${TAWASSUL_SMOKE_AUTH_SRC:-$HOME/.local/share/opencode/auth.json}"
@@ -108,7 +130,7 @@ export XDG_STATE_HOME="$WORK/home/.local/state"
 export XDG_CACHE_HOME="$WORK/home/.cache"
 if [ -f "$AUTH_SRC" ]; then
   mkdir -p "$XDG_DATA_HOME/opencode"
-  ln -s "$AUTH_SRC" "$XDG_DATA_HOME/opencode/auth.json"
+  cp "$AUTH_SRC" "$XDG_DATA_HOME/opencode/auth.json"
 else
   echo "release-smoke: no auth source at $AUTH_SRC — the scratch boot runs on the anonymous free endpoint, so a provider quota refusal is expected (set TAWASSUL_SMOKE_AUTH_SRC to a real auth.json)" >&2
 fi
@@ -120,7 +142,14 @@ export TAWASSUL_N2_LOG="$WORK/n2.jsonl"
 export OPENCODE_DB="$WORK/opencode.db"
 
 cd "$WORK" || { KEEP=1; exit 3; }
-timeout "$BOOT_TIMEOUT" "$BIN" run --standalone --auto --format json --model "$MODEL" "Reply with exactly: SMOKE" >"$WORK/run.out" 2>"$WORK/run.err"
+run_boot() {
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$BOOT_TIMEOUT" "$BIN" run --standalone --auto --format json --model "$MODEL" "Reply with exactly: SMOKE"
+    return $?
+  fi
+  BOOT_TIMEOUT="$BOOT_TIMEOUT" "$BUN" -e 'const { spawnSync } = require("node:child_process"); const [bin, ...args] = process.argv.slice(1); const result = spawnSync(bin, args, { stdio: "inherit", timeout: Number(process.env.BOOT_TIMEOUT) * 1000 }); if (result.error) { console.error(String(result.error)); process.exit(124); } process.exit(result.status ?? 124);' "$BIN" run --standalone --auto --format json --model "$MODEL" "Reply with exactly: SMOKE"
+}
+run_boot >"$WORK/run.out" 2>"$WORK/run.err"
 BOOT_RC=$?
 PLUGIN_BOOT=0
 MODEL_REPLY=0
@@ -172,7 +201,7 @@ if [ -f "$WORK/run.err" ] && grep -qE "$TAW_WARN_RE" "$WORK/run.err"; then
   exit 3
 fi
 
-SMOKE_ENTRY="$WORK/.opencode/plugins/tawassul.js" SMOKE_DIR="$WORK" SMOKE_COUNT="$TOOL_COUNT" SMOKE_HASH="$TOOL_HASH" SMOKE_FLOOR="$TOOL_FLOOR" bun -e '
+SMOKE_ENTRY="$WORK/.opencode/plugins/tawassul.js" SMOKE_DIR="$WORK" SMOKE_COUNT="$TOOL_COUNT" SMOKE_HASH="$TOOL_HASH" SMOKE_FLOOR="$TOOL_FLOOR" "$BUN" -e '
 const entry = process.env.SMOKE_ENTRY;
 const dir = process.env.SMOKE_DIR;
 const mod = await import(entry);

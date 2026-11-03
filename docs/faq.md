@@ -3,7 +3,7 @@
 ## What is Tawassul?
 
 An OpenCode plugin that adds a small team runtime to a workspace: eight
-specialist agents, 44 tools, handoffs, a goal ledger, mission boards,
+agents, 44 tools, handoffs, a goal ledger, mission boards,
 checkpoints, memory records, discussions, and context packs.
 
 ## Is it free?

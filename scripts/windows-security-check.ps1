@@ -8,10 +8,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot
-$wrapper = Join-Path $repo "scripts\windows-install.cmd"
-$script = Join-Path $repo "scripts\windows-install.ps1"
-$powershellExe = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
-$cmdExe = Join-Path $env:SystemRoot "System32\cmd.exe"
+$installer = Join-Path $repo "scripts\install-global.ts"
 $bundle = Join-Path $repo "dist\global.js"
 $work = Join-Path ([System.IO.Path]::GetTempPath()) ("tawassul-security-" + [guid]::NewGuid().ToString("N").Substring(0, 8))
 $report = New-Object System.Collections.Generic.List[string]
@@ -35,8 +32,8 @@ function Resolve-Bun {
 
 . "$PSScriptRoot\windows-bounded.ps1"
 
-function Invoke-Ladder([string[]]$arguments, [int]$seconds) {
-  return Invoke-BoundedProcess $powershellExe (@("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $script) + $arguments) $seconds
+function Invoke-Installer([string[]]$arguments, [int]$seconds) {
+  return Invoke-BoundedProcess $bunPath (@($installer) + $arguments) $seconds
 }
 
 function Add-MarkOfTheWeb([string]$file) {
@@ -101,7 +98,7 @@ function Invoke-ShellProbe([string]$file) {
 
 $bunPath = Resolve-Bun
 if (-not (Test-Path -LiteralPath $bundle)) { throw "dist/global.js is absent; build it first" }
-if (-not (Test-Path -LiteralPath $script)) { throw "windows-install.ps1 is absent" }
+if (-not (Test-Path -LiteralPath $installer)) { throw "scripts/install-global.ts is absent" }
 New-Item -ItemType Directory -Force -Path $work | Out-Null
 
 $status = Get-MpComputerStatus
@@ -122,7 +119,7 @@ $beforeCount = Get-Detections
 Record "windows-security: detections before=$beforeCount"
 
 try {
-  $filesToTag = @(@($script, $bundle) + @($wrapper | Where-Object { $_ -and (Test-Path -LiteralPath $_) }))
+  $filesToTag = @($installer, $bundle)
   foreach ($file in $filesToTag) { Add-MarkOfTheWeb $file }
   $marked = @($tagged | Where-Object { Test-MarkOfTheWeb $_ }).Count
   Record "windows-security: marked=$marked of $($tagged.Count) repository files with zone 3"
@@ -133,27 +130,23 @@ try {
   New-Item -ItemType Directory -Force -Path (Join-Path $stateHome ".config\tawassul-v2\state") | Out-Null
   '{}' | Set-Content -LiteralPath (Join-Path $stateHome ".config\tawassul-v2\state\state.json")
   $previousHome = $env:HOME
+  $previousGlobal = $env:TAWASSUL_GLOBAL_DIR
+  $previousXdg = $env:XDG_CONFIG_HOME
+  $previousData = $env:XDG_DATA_HOME
   $env:HOME = $stateHome
+  $env:XDG_CONFIG_HOME = Join-Path $stateHome ".config"
+  $env:XDG_DATA_HOME = Join-Path $stateHome ".local\share"
+  $env:TAWASSUL_GLOBAL_DIR = $target
 
-  Record "windows-security: probe 1 - tagged kit through windows-install.ps1"
-  $install = Invoke-Ladder @("-Action", "install", "-GlobalDir", $target, "-Bun", $bunPath) $TimeoutSeconds
+  Record "windows-security: probe 1 - tagged kit through install-global.ts"
+  $install = Invoke-Installer @() $TimeoutSeconds
   Record "windows-security: install exit=$($install.Code) timeout=$($install.TimedOut) seconds=$($install.Seconds)"
   if ($install.Out) { Record ($install.Out.TrimEnd()) }
   if ($install.Err) { Record ($install.Err.TrimEnd()) }
 
-  $verify = Invoke-Ladder @("-Action", "verify", "-GlobalDir", $target, "-Bun", $bunPath) 120
+  $verify = Invoke-Installer @("--verify") 120
   Record "windows-security: verify exit=$($verify.Code) timeout=$($verify.TimedOut) seconds=$($verify.Seconds)"
   if ($verify.Out) { Record ($verify.Out.TrimEnd()) }
-
-  $shimExit = 0
-  if ((Test-Path -LiteralPath $cmdExe) -and (Test-Path -LiteralPath $wrapper)) {
-    Record "windows-security: probe 1b - optional cmd shim through windows-install.cmd"
-    $shim = Invoke-BoundedProcess $cmdExe @("/c", $wrapper, "-Action", "verify", "-GlobalDir", $target, "-Bun", $bunPath) 120
-    $shimExit = $shim.Code
-    Record "windows-security: cmd-shim exit=$($shim.Code) timeout=$($shim.TimedOut) seconds=$($shim.Seconds)"
-  } else {
-    Record "windows-security: cmd-shim=skipped (cmd.exe or windows-install.cmd absent)"
-  }
 
   Record "windows-security: probe 2 - on-demand scan of the installed tree"
   $scan = "not-admin"
@@ -197,14 +190,17 @@ try {
   Record "windows-security: recorded threats=$($threat.Count)"
   foreach ($item in $threat) { Record "windows-security: threat $($item.ThreatName) severity=$($item.SeverityID)" }
 
-  Record "windows-security: probe 4 - uninstall through windows-install.ps1"
-  $uninstall = Invoke-Ladder @("-Action", "purge", "-GlobalDir", $target, "-Bun", $bunPath) 120
+  Record "windows-security: probe 4 - purge through install-global.ts"
+  $uninstall = Invoke-Installer @("--uninstall", "--purge", "--yes") 120
   Record "windows-security: purge exit=$($uninstall.Code) timeout=$($uninstall.TimedOut) seconds=$($uninstall.Seconds)"
   if ($uninstall.Out) { Record ($uninstall.Out.TrimEnd()) }
 
   $env:HOME = $previousHome
+  $env:TAWASSUL_GLOBAL_DIR = $previousGlobal
+  $env:XDG_CONFIG_HOME = $previousXdg
+  $env:XDG_DATA_HOME = $previousData
 
-  $verdict = if ($install.Code -eq 0 -and -not $install.TimedOut -and $verify.Code -eq 0 -and $shimExit -eq 0 -and $afterCount -eq $beforeCount) { "PASS" } else { "FAIL" }
+  $verdict = if ($install.Code -eq 0 -and -not $install.TimedOut -and $verify.Code -eq 0 -and $uninstall.Code -eq 0 -and -not $uninstall.TimedOut -and $afterCount -eq $beforeCount) { "PASS" } else { "FAIL" }
   Record "windows-security: verdict=$verdict"
 } finally {
   foreach ($file in $tagged) { Remove-MarkOfTheWeb $file }

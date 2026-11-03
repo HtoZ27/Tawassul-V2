@@ -102,22 +102,22 @@ manual entry, if you use one, must point at a directory. See
 | Linux x64 | Ready, including maintenance and triggers |
 | Linux arm64, macOS | Experimental |
 | WSL2 | Experimental; keep the key off `/mnt/` |
-| Native Windows x64 | **Pending a native receipt** |
+| Native Windows x64 | Supported for the bundle and wasm lane (native receipts 2026-11-02 and 2026-11-03) |
 
 Native Windows loads the bundle and runs the in-process features. It has no
-database maintenance, no scheduled trigger, and no native receipt for NTFS ACLs,
-Defender, or long paths. The emulator receipt is published and labelled.
+database maintenance and no scheduled trigger. The native receipts cover NTFS
+ACLs, Defender, long paths, and file locking.
 
 ## Verification
 
 | Check | Result at this release |
 | --- | --- |
 | Fast gate | 11 steps |
-| Proofs | 153 steps, one child process each |
+| Proofs | 154 steps, one child process each |
 | Smoke | 4 steps, including global boot and independence boot |
-| Proof files | 156, all catalogued across the stages |
+| Proof files | 157, all catalogued across the stages |
 | Public docs | 41 files, 44 tools, 8 agents, 4 skills |
-| Native Windows | Not verified; emulator evidence only |
+| Native Windows | Native receipts for the bundle and wasm lane; database lane unavailable |
 
 The counts are generated from `scripts/gate-manifest.json`. See
 [validation](validation.md) for what each stage proves and what it does not.
@@ -136,7 +136,8 @@ The counts are generated from `scripts/gate-manifest.json`. See
 
 ## Known limits
 
-- No native Windows maintenance lane and no native Windows receipt.
+- No native Windows database maintenance lane or scheduled trigger; the bundle
+  and wasm lane has native receipts.
 - No macOS scheduler; run the scheduled script yourself.
 - No hosted documentation site; the repository is the reference.
 - No npm package yet. Distribution is the bundle and the installer.

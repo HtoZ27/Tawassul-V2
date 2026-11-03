@@ -34,7 +34,11 @@ a real `icacls` ACL from the resolved SID; a profile path with a space; a
 275-character path; host discovery and a live `debug agents` load from the
 Desktop 2.2.5 sidecar; and closed failures for a locked bundle and a locked
 state file. The receipt is
-`docs/experiments/receipts/2026-11-02-windows-install-cycle-native.md`.
+`docs/experiments/receipts/2026-11-02-windows-install-cycle-native.md`. The
+current installer lane was re-run on 2026-11-03
+(`docs/experiments/receipts/2026-11-03-windows-install-cycle-native.md`): rebuild,
+flat `plugins/tawassul.js`, four wasm assets, in-place upgrade, 278-character
+path, and the security check all passed.
 
 Remaining Windows boundaries: ARM64 is not covered; Windows 11 shares the
 file-path format and the Defender update channel with Windows 10, so the path,

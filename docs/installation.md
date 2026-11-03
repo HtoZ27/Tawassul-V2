@@ -16,7 +16,7 @@ Global scope is an explicit, reversible operation with its own verification pass
 | OpenCode host | `>=2.2.0` | Audited against `2.2.1`; newer majors run untested and are probed at init |
 | Node.js | `26.13.0` | Pinned in `.nvmrc`; used for development and for the build |
 | Bun | `1.3.x` | Runs the build and the installer scripts |
-| Disk | under 10 MB | Bundle, wasm grammars, and the runtime directory |
+| Disk | under 10 MB | Bundle, wasm files, and the runtime directory |
 | Platform | see [compatibility](compatibility.md) | Database maintenance is POSIX-only |
 
 The published bundle is plain JavaScript. It has no native addon and needs no
@@ -39,6 +39,8 @@ npm run build
 | `dist/index.js` | The plugin bundle used by the host in this workspace |
 | `dist/global.js` | The self-contained bundle the global installer ships |
 | `.opencode/plugins/tawassul.js` | The host entry the workspace loads |
+| `.opencode/tawassul-runtime/wasm/` | Four wasm files (one runtime, three grammars) for the AST tools |
+| `.opencode/tawassul-runtime/db/` | Database scripts (POSIX only) |
 
 The host discovers `.opencode/plugins/tawassul.js` on its own. Do not edit
 `opencode.json` to register it.
@@ -76,7 +78,7 @@ install-global: no opencode.json edit is needed; the host discovers this file
 | Path | Content | Removed on uninstall |
 | --- | --- | --- |
 | `~/.config/opencode/plugins/tawassul.js` | The plugin bundle | Yes |
-| `~/.config/opencode/tawassul-runtime/wasm/` | Four wasm grammars | Yes |
+| `~/.config/opencode/tawassul-runtime/wasm/` | Four wasm files (one runtime, three grammars) | Yes |
 | `~/.config/opencode/tawassul-runtime/db/` | Database scripts (POSIX only) | Yes |
 | `~/.config/opencode/tawassul-runtime/VERSION` | Marker: version, hashes, owner, host | Yes |
 
@@ -159,19 +161,22 @@ a hand-made install must create it too, or the host refuses to start with
 
 - **Linux and macOS** — full lane, including database maintenance and scheduled
   triggers.
-- **Windows** — native install stages the bundle and the wasm grammars only.
+- **Windows** — native install stages the bundle and the wasm files only.
   Database maintenance and scheduled triggers are unavailable on `win32`, and
   the key directory is protected with an `icacls` ACL instead of POSIX modes.
-  The native ladder (`scripts\windows-install.cmd -Action cycle`) is unattended
-  and bounded, works from any drive, and installs to
-  `%USERPROFILE%\.config\opencode` unless `TAWASSUL_GLOBAL_DIR` is set. Native
-  Windows x64 has a native receipt; see [compatibility](compatibility.md).
-  Defender and SmartScreen were measured: Defender reports no detection, and a
-  kit carrying Mark-of-the-Web completes the lane without a prompt. SmartScreen
-  only gates an unsigned downloaded executable, and the kit contains none.
-  A `-Action cycle` runs in an isolated home under `%TEMP%` and removes it
-  afterwards, so it never archives your real state; each step prints its exit
-  code and duration, and a step that exceeds its bound is killed and named.
+  Native Windows x64 has a native receipt; see [compatibility](compatibility.md).
+  The zero-dependency path is a hand copy: rename `dist\global.js` to
+  `%USERPROFILE%\.config\opencode\plugins\tawassul.js` and copy the four wasm
+  files, keeping their folders, under
+  `%USERPROFILE%\.config\opencode\tawassul-runtime\wasm\`. That needs nothing
+  beyond Explorer, but a hand copy has no install marker, no key-directory ACL,
+  and no `--verify` coverage; use it only when Bun and Node are both
+  unavailable. `bun scripts\install-global.ts` stages the same layout plus the
+  install marker, supports `--verify` and `--uninstall`, and needs Bun 1.3 or
+  newer (Node 24 or newer runs the same script; verified on Node 26.13.0). Set `TAWASSUL_GLOBAL_DIR` to
+  install somewhere other than `%USERPROFILE%\.config\opencode`. Defender
+  reports no detection for the bundle, and SmartScreen gates only an unsigned
+  downloaded executable, which the release does not contain.
 - **WSL2** — experimental. Keep the key on the Linux filesystem; a Windows mount
   does not carry the same permission semantics.
 

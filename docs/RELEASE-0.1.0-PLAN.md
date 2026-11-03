@@ -1,6 +1,6 @@
 # Release 0.1.0-experimental — Execution Plan
 
-Revision 5 · 2026-11-01 · owner HtoZ27
+Revision 6 · 2026-11-03 · owner HtoZ27
 Status: ACTIVE. Every work package closes only when its acceptance check passes
 on disk.
 
@@ -9,19 +9,28 @@ section 10, the `canary` workflow, the first canary tag in WP13, the canary row
 in the CI table, `docs/CANARY.md`, the acceptance item and the risk rows. The
 first published artifact is the stable release; no prerelease tag is planned.
 
-Revision 5 also declares native Windows supported, but as of 2026-11-01 that
-claim is **pending**. The `win32` lane is implemented and an emulator run under
-Wine loaded the real v2.2.5 host and this bundle
-(`docs/experiments/receipts/2026-11-01-windows-host-wine.md`), yet no real
-Windows host has produced the WP5a receipt. Until one does, Windows stays out of
-public support text: the emulator receipt says nothing about NTFS ACLs,
-Defender, long paths, case sensitivity or file locking. The OpenCode v2 download
-page lists Windows ARM64 and x64 standalone CLI builds and Windows x64 and ARM64
-Desktop builds, so a native Windows host loads this plugin without WSL2. The
-plugin is a JavaScript bundle and needs no POSIX tool at runtime; only the
-installer and the database lane are POSIX-bound. WP5a adds the `win32` installer
-lane: an explicit platform branch, `where` instead of `which`, `icacls` on the
-key directory, and no database payload, trigger or smoke step.
+Revision 6 records the current installer lane: the flat entry
+`plugins/tawassul.js` beside `tawassul-runtime/wasm`, the retired PowerShell
+ladder, and the native Windows receipt re-run on 2026-11-03
+(`docs/experiments/receipts/2026-11-03-windows-install-cycle-native.md`).
+`scripts/install-global.ts` is the only installer in the tree today; the
+`install.sh` rows in WP5 describe the planned release artifact, not a second
+in-tree installer.
+
+Revision 5 also declares native Windows supported. The native receipt landed on
+2026-11-02 (`docs/experiments/receipts/2026-11-02-windows-install-cycle-native.md`)
+and the current installer lane was re-run on 2026-11-03
+(`docs/experiments/receipts/2026-11-03-windows-install-cycle-native.md`), so
+Windows is in public support text for the bundle and wasm lane. The earlier
+emulator run (`docs/experiments/receipts/2026-11-01-windows-host-wine.md`) said
+nothing about NTFS ACLs, Defender, long paths, case sensitivity or file locking;
+the native receipts cover them. The OpenCode v2 download page lists Windows
+ARM64 and x64 standalone CLI builds and Windows x64 and ARM64 Desktop builds, so
+a native Windows host loads this plugin without WSL2. The plugin is a JavaScript
+bundle and needs no POSIX tool at runtime; only the installer and the database
+lane are POSIX-bound. WP5a adds the `win32` installer lane: an explicit platform
+branch, `where` instead of `which`, `icacls` on the key directory, and no
+database payload, trigger or smoke step.
 
 Revision 4 adds the platform HMAC key table in section 8.1, the Windows guard
 ordering, and the state-directory defects found while verifying the code against
@@ -64,8 +73,8 @@ contains.
 | npm publish | blocked by `private: true`; the tarball is not an npm channel |
 | Plugin authoring package | `@opencode/plugin` `2.2.x`; `@opencode-ai/plugin/v2` is not used |
 | Config key | `plugins` (plural) only; `plugin` is not read |
-| Project discovery | `<project>/.opencode/plugins/tawassul/` with `index.js`; a direct `.js` file also loads |
-| Global discovery | `<global-config>/plugins/tawassul/` with `index.js`; here `<global-config>` is `~/.config/opencode` |
+| Project discovery | `<project>/.opencode/plugins/tawassul.js`; the shipped layout is a direct file |
+| Global discovery | `<global-config>/plugins/tawassul.js`; here `<global-config>` is `~/.config/opencode` |
 | Configured local paths | directories only; a path to a single file is skipped |
 | Installer config writes | none; discovery loads the plugin and `opencode.json(c)` is never edited |
 | Package installs | bare npm and Git entries only; `opencode plugin add` rejects tarballs |
@@ -82,7 +91,7 @@ contains.
 | Linux x64 | Ready |
 | Linux arm64 | Experimental |
 | macOS arm64/x64 | Experimental |
-| Windows native | Pending native receipt: plugin, tools, skills and state; database maintenance and scheduled triggers unavailable. OpenCode v2 ships Windows x64, ARM64 and Desktop builds, so a native host loads the plugin, and the installer needs no bash, sqlite3, fuser or POSIX tooling |
+| Windows native | Supported for the bundle and wasm lane: native receipts 2026-11-02 and 2026-11-03; plugin, tools, skills and state load. Database maintenance and scheduled triggers unavailable. OpenCode v2 ships Windows x64, ARM64 and Desktop builds, so a native host loads the plugin, and the installer needs no bash, sqlite3, fuser or POSIX tooling |
 | WSL2 | Experimental: the Linux lane inside the distro, untested hardware |
 
 OpenCode `1.x` is a host major, not Tawassul v1. Removing Tawassul v1 removes
@@ -117,7 +126,7 @@ host. An untested minor cannot be the floor that the plugin claims to support.
 | WP14 | GitHub metadata, branch and tag protections, release notes, Discussions | metadata set; protections active |
 | WP15 | Post-release: npm, CLI, docs site, awesome-opencode, OCX/AUR, release-please | 0.1.1 backlog, dropped from the goal before release |
 
-WP0 is complete. WP1 starts after the owner confirms revision 5.
+WP0 is complete. WP1 starts after the owner confirms revision 6.
 
 ---
 
@@ -190,7 +199,7 @@ Every row below was raised in review and is now part of a work package.
 | `install.sh` was going to mutate `opencode.json` | discovery removes the need; the installer copies files and never edits config | WP5 |
 | No platform guard for the installer and maintenance lanes | Windows runs the plugin, tools and state natively with maintenance disabled; macOS gets manual maintenance | WP2, WP5a, WP7 |
 | Dependency policy assumed the host installs local dependencies | `@opencode/plugin` and `zod` are dependencies, matching the docs; `global.js` bundles both | WP5 |
-| `web-tree-sitter` wasm missing from project and tarball installs | stage four wasm files beside the bundle; `prove-ast-runtime` in a clean HOME | WP5 |
+| `web-tree-sitter` wasm missing from project and tarball installs | stage four wasm files under the sibling `tawassul-runtime/wasm`; `prove-ast-runtime` in a clean HOME | WP5 |
 | `@types/node` is `^24` while Node is `26` | upgrade to `^26` and regenerate the lockfile | WP5 |
 | `VALIDATION.md` still cites 109 proofs and a deleted parity document | resolved: the public page is `docs/validation.md`, its counts come from the manifest, and the stale case-colliding copy is removed | WP7 |
 | A second transcript generator duplicates `gate.ts` | `gate.ts` owns `docs/CI-TRANSCRIPT.md`; no second generator | WP7 |
@@ -227,13 +236,13 @@ Checked on 2026-10-30 against `https://opencode.ai/v2/docs/plugins/`,
 
 Four corrections follow from the table:
 
-1. The build writes `.opencode/plugins/tawassul/index.js` from `dist/global.js`,
-   not `dist/index.js`, and stages the four wasm files inside the same plugin
-   directory. The instruction to run a package install under `.opencode` is
-   deleted.
-2. `install.sh` copies into the discovery directory and never edits
-   `opencode.json(c)`. A manual entry is optional, and it must name a
-   directory.
+1. The build writes `.opencode/plugins/tawassul.js` from `dist/global.js`,
+   not `dist/index.js`, and stages the four wasm files under
+   `.opencode/tawassul-runtime/wasm`. The instruction to run a package install
+   under `.opencode` is deleted.
+2. The installer copies into the discovery directory and never edits
+   `opencode.json(c)`. A manual entry is optional, and it must name the plugin
+   file.
 3. Wasm is staged beside the bundle in all three layouts. A proof runs
    `astquery` from a clean `HOME` with no `node_modules`.
 4. `dist/index.js` is reserved for a future npm entry. Every project or global
@@ -264,18 +273,18 @@ OpenCode 2.x host API, the OpenCode DB schema generations, or the
 | Roster | `src/utils/path-resolver.ts`, `src/utils/opencode-config.ts`, `src/context/managers/ConfigManager.ts` | remove `TAWASSUL_ROSTER_FILE_LEGACY` and every `tawassul.json` accept path |
 | Encrypted fields | `src/context/migration.ts`, `src/context/managers/ModelManager.ts`, `src/context/managers/StateManager.ts` | remove `replaceLegacyEncryptedFields` |
 | Health | `src/tools/tawa/health.ts` | remove the legacy router line |
-| AST warning | `src/services/ast-service.ts` | replace the `install:global` instruction with the project, global and tarball wasm paths from `docs/INSTALL.md` |
+| AST warning | `src/services/ast-service.ts` | replace the `install:global` instruction with the project, global and tarball wasm paths from `docs/installation.md` |
 | Text | `src/i18n/en.json` | remove the legacy roster note |
 | Mission board migration | `src/services/mission-board.ts`, `src/scripts/migrate-mission-board.ts` | delete `DATA_DIR`, `shouldRunPluginFolderMigration`, `migrateLegacyDataDir`, `migrateLegacyBoardDataDir` call sites and the script; keep the feature |
 | Kanban data | `data/kanban` | delete the directory and every reference; no migration, no orphan handling |
 | State routing | `src/utils/path-resolver.ts`, `src/utils/state-paths.ts`, `src/context-class.ts`, `src/bootstrap/service-factory.ts`, `src/bootstrap/tool-registry.ts`, `src/services/mission-board.ts`, `src/services/goal-store.ts` | remove `resolveRuntimeStateDir` and every `scope === "global"` branch on a state path; make `stateDir()` take the project directory instead of a home-based default; delete `legacyStateDir()` |
 | Host config precedence | `src/utils/path-resolver.ts` | `resolveActiveConfigPath` reads global, project root and `.opencode/opencode.jsonc` in the host's order |
 | Doctor | `scripts/doctor-v2.sh` | remove the external tree section and v1 global package checks |
-| Installer | `scripts/install-global.ts` | remove `LEGACY_PACKAGE`, `refuseLegacyPackage` and v1 artifact checks; target `plugins/tawassul/index.js` with `tawassul-runtime/wasm` inside that directory; floor `2.2.1` |
+| Installer | `scripts/install-global.ts` | remove `LEGACY_PACKAGE`, `refuseLegacyPackage` and v1 artifact checks; target `plugins/tawassul.js` with `tawassul-runtime/wasm` beside it; floor `2.2.1` |
 | Entry point | `src/index.ts` | remove the `server: initPlugin` export and the intersection type |
-| Local build | `build-v2.mjs` | copy `dist/global.js` to `.opencode/plugins/tawassul/index.js`; stage the four wasm files in `.opencode/plugins/tawassul/tawassul-runtime/wasm`; remove `.opencode/plugin/tawassul.js` and the empty singular directory; delete the `bun install` instruction |
+| Local build | `build-v2.mjs` | copy `dist/global.js` to `.opencode/plugins/tawassul.js`; stage the four wasm files in `.opencode/tawassul-runtime/wasm`; remove `.opencode/plugin/tawassul.js` and the empty singular directory; delete the `bun install` instruction |
 | Proofs | `scripts/prove-state-namespace.ts`, `scripts/prove-p09.ts` | delete |
-| Proofs | `scripts/prove-v2-independence.ts` | invert: assert absence of every removed name, including the legacy environment variables; update the build-target assertion to `.opencode/plugins/tawassul/index.js` |
+| Proofs | `scripts/prove-v2-independence.ts` | invert: assert absence of every removed name, including the legacy environment variables; update the build-target assertion to `.opencode/plugins/tawassul.js` |
 | Proofs | `scripts/prove-first-boot-seed.ts`, `prove-d05.ts`, `prove-desktop-scan.ts`, `prove-global-install.ts`, `prove-feature-index-english.ts`, `prove-g003i2/i3/i5/i6.ts`, `prove-e14/e15/e44.ts`, `prove-b03.ts`, `prove-cancel-metric.ts`, `prove-db-retention.ts`, `prove-gen-guard-wal.ts`, `prove-guard-matrix.ts`, `prove-goal-capture.ts`, `prove-goal-item-ids.ts`, `prove-store-priming.ts`, `prove-disclosure.ts` | update fixtures, line budgets and expected counts |
 | Package scripts | `package.json` | remove `prove:state-namespace`, `prove:p09` and their manifest entries; add the new scripts in section 5 |
 | Personal paths | `scripts/doctor-v2.sh`, `scripts/prove-g002i4.ts` | remove `gtttt`, `paassss`, `/home/htoz` |
@@ -311,7 +320,7 @@ decision is not rediscovered later.
 | Release preparation | `scripts/release/prepare-public.ts` | allowlist copy from `scripts/release/public-files.json` |
 | Package build | `scripts/release/pack.sh` | `npm pack`, runtime archive and checksums |
 | Installer | `scripts/release/install.sh` | download, checksum, preflight, discovery install, dry-run, uninstall; never edits config |
-| Runtime staging | `build-v2.mjs`, `scripts/install-global.ts` | four wasm files beside the bundle in project, global and tarball layouts |
+| Runtime staging | `build-v2.mjs`, `scripts/install-global.ts` | four wasm files under the sibling `tawassul-runtime/wasm` in project, global and tarball layouts |
 | License check | `scripts/gen-third-party-notices.ts --check` | fails on notice drift or a copyleft dependency |
 | Artifact verification | `scripts/verify-release-artifact.ts` | tarball and asset contents, wasm, hashes, no forbidden files |
 | SBOM | `scripts/gen-sbom.ts` | CycloneDX JSON from the built bundle and the runtime archive |
@@ -397,7 +406,7 @@ Consequences:
 
 - Two projects never share a state file, in either install scope.
 - A global install writes into each project it opens. `docs/STATE.md` and
-  `docs/INSTALL.md` tell the user to add the six entries to the project
+  `docs/installation.md` tell the user to add the six entries to the project
   `.gitignore`.
 - `mission-board` remains a feature. Only its install-directory fallback is
   removed.
@@ -425,11 +434,11 @@ Install layouts:
 
 | Layout | Entry | Wasm | Config |
 | --- | --- | --- | --- |
-| Project | `<project>/.opencode/plugins/tawassul/` with `index.js` | `<project>/.opencode/plugins/tawassul/tawassul-runtime/wasm/` | none; discovery |
-| Global | `<global-config>/plugins/tawassul/` with `index.js` | `<global-config>/plugins/tawassul/tawassul-runtime/wasm/` | none; discovery |
+| Project | `<project>/.opencode/plugins/tawassul.js` | `<project>/.opencode/tawassul-runtime/wasm/` | none; discovery |
+| Global | `<global-config>/plugins/tawassul.js` | `<global-config>/tawassul-runtime/wasm/` | none; discovery |
 | Tarball package | `<pkg>/dist/index.js` | `<pkg>/tawassul-runtime/wasm/` | `exports` in `package.json` |
 
-A single-file install means one bundled entry, `index.js`, plus the wasm
+A single-file install means one bundled entry, `tawassul.js`, plus the wasm
 directory. It has no `node_modules` and no second JavaScript file.
 
 Rules:
@@ -452,8 +461,8 @@ Rules:
    `tree-sitter-typescript/tree-sitter-typescript.wasm` and
    `tree-sitter-typescript/tree-sitter-tsx.wasm`. They are staged, never
    installed by a lifecycle script.
-7. `install.sh` writes no config. A manual entry is optional and must name the
-   plugin directory, not the file.
+7. The installer writes no config. A manual entry is optional and must name the
+   plugin file.
 8. `opencode plugin add` is never used for the tarball. It accepts npm and Git
    entries only.
 9. `opencode plugin add github:HtoZ27/tawassul-v2` is not supported. `dist/`
@@ -492,7 +501,7 @@ English is canonical. The `0.1.0` column marks required files. The
 | `SECURITY.md` | security | yes | no |
 | `CODE_OF_CONDUCT.md` | community | yes | no |
 | `SUPPORT.md` | community | yes | no |
-| `docs/INSTALL.md` | user | yes | yes |
+| `docs/installation.md` | user | yes | yes |
 | `docs/COMPATIBILITY.md` | user | yes | yes |
 | `docs/FEATURES.md` | user | yes | yes |
 | `docs/TOOLS.md` | user | yes | yes |
@@ -535,16 +544,18 @@ Not published: `ISSUES.md`, `PLAN.md`, `PLAN-DB-INSTALL.md`,
 `docs/RELEASE-0.1.0-PLAN.md`, `docs/portable-context-handoff.md`,
 `docs/historical-*`, `scripts/release/public-files.json` and every internal log.
 
-`docs/INSTALL.md` covers three modes: project discovery, global discovery and
-the tarball. The OpenCode 2 config key is `plugins` (plural) only when a manual
+`docs/installation.md` covers project discovery, global discovery and the
+tarball. The OpenCode 2 config key is `plugins` (plural) only when a manual
 entry is used; the installer relies on discovery and never edits
-`opencode.json(c)`. Project discovery is
-`<project>/.opencode/plugins/tawassul/`, global discovery is
-`<global-config>/plugins/tawassul/`, and a configured path must be a
-directory. `opencode plugin add` accepts npm and Git entries only, so the
-GitHub tarball is installed by `install.sh`. A `plugins/` directory beside a
-project-root `opencode.json(c)` is not discovered; the plugin must live under
-`.opencode/plugins/` or be configured by directory path.
+`opencode.json(c)`. The shipped layout is a direct file:
+`<project>/.opencode/plugins/tawassul.js` for project discovery and
+`<global-config>/plugins/tawassul.js` for global discovery, with the four wasm
+files under the sibling `tawassul-runtime/wasm`. A configured path must name a
+directory; a path to a single file is skipped. `opencode plugin add` accepts npm
+and Git entries only, so the GitHub tarball is installed by `install.sh`. A
+`plugins/` directory beside a project-root `opencode.json(c)` is not
+discovered; the plugin must live under `.opencode/plugins/` or be configured by
+directory path.
 
 `docs/STATE.md` carries the topology table from section 5.2, the two state
 environment variables and their precedence, the section 8.1 platform key table,
@@ -644,7 +655,7 @@ variables stay English in every language.
 | Linux x64 | Ready | current host, full gate, systemd user timer |
 | Linux arm64 | Experimental | portable code, untested hardware |
 | macOS arm64/x64 | Experimental | manual install preflight, no scheduler, manual maintenance only |
-| Windows native | Pending native receipt: plugin, tools, skills, state | OpenCode v2 native Windows host; installer stages the bundle and wasm only, so no bash, sqlite3 or fuser is required. The emulator run under Wine loaded the host and the bundle; a real Windows host receipt is still required before the public claim |
+| Windows native | Supported (bundle and wasm lane) | native receipts 2026-11-02 and 2026-11-03: plugin, tools, skills, state, `icacls` ACL, long path, file locking; no database payload |
 | WSL2 | Experimental | the Linux lane inside the distro; untested hardware |
 
 | Host | Status | Behaviour |
@@ -657,8 +668,8 @@ variables stay English in every language.
 
 | Install scope | Plugin location | Runtime state root | Config state root |
 | --- | --- | --- | --- |
-| Project | `<project>/.opencode/plugins/tawassul/` with `index.js` and `tawassul-runtime/wasm/` | `<project>` | `<project>/.opencode` |
-| Global | `<global-config>/plugins/tawassul/` with `index.js` and `tawassul-runtime/wasm/` | `<project>` | `<project>/.opencode` |
+| Project | `<project>/.opencode/plugins/tawassul.js` with `<project>/.opencode/tawassul-runtime/wasm/` | `<project>` | `<project>/.opencode` |
+| Global | `<global-config>/plugins/tawassul.js` with `<global-config>/tawassul-runtime/wasm/` | `<project>` | `<project>/.opencode` |
 
 `<global-config>` is `~/.config/opencode` unless `TAWASSUL_GLOBAL_DIR` or
 `XDG_CONFIG_HOME` overrides it. Neither scope writes a config entry; discovery
@@ -744,12 +755,12 @@ Rules:
    added.
 4. WSL2 keeps the key on the Linux filesystem. `doctor` warns when the resolved
    key directory is under `/mnt/`.
-5. Windows native is implemented and pending a native receipt. The installer
-   applies `icacls` to the key directory, never reuses the POSIX mode claim, and
-   stages no database payload. Durable writes fsync the writable handle they
-   created; reopening the temp file read-only failed `FlushFileBuffers` with
-   `EPERM` on the Windows side of Wine, and the installer proof now pins the
-   writable-descriptor contract.
+5. Windows native is implemented and has native receipts (2026-11-02 and
+   2026-11-03). The installer applies `icacls` to the key directory, never
+   reuses the POSIX mode claim, and stages no database payload. Durable writes
+   fsync the writable handle they created; reopening the temp file read-only
+   failed `FlushFileBuffers` with `EPERM` on the Windows side of Wine, and the
+   installer proof now pins the writable-descriptor contract.
 6. `secret-tool` and `security` are POSIX keyring backends. On `win32` the
    keyring lookup fails closed to the file store under the key directory, so
    Windows is never described as using a system keyring.
@@ -872,28 +883,31 @@ of forbidden files.
 and `--uninstall`. It verifies the checksum, detects the platform, falls back
 to `shasum -a 256`, refuses offline when the expected hash is unavailable,
 downloads `dist/global.js` and the runtime archive, installs
-`tawassul/index.js` from `dist/global.js` plus the four wasm files under
-`tawassul/tawassul-runtime/wasm/`, removes exactly that directory on
-`--uninstall`, removes the alternate single-file layout on upgrade, writes no
-`opencode.json(c)`, and produces the same result on a second run.
+`plugins/tawassul.js` from `dist/global.js` plus the four wasm files under
+`tawassul-runtime/wasm/`, removes exactly those paths on `--uninstall`, removes
+the alternate directory layout on upgrade, writes no `opencode.json(c)`, and
+produces the same result on a second run.
 
 Windows install paths: `install.sh` is a POSIX shell script, so on native
 Windows it runs under Git Bash (Git for Windows), which supplies `bash`,
 `shasum` and the core utilities it calls. The second path is
-`bun scripts/install-global.ts --install`, which needs no shell at all and is
+`bun scripts/install-global.ts`, which needs no shell at all and is
 the lane WP5a hardens. Both write `tawassul.js` and the four wasm files into the
 host global directory (`%USERPROFILE%\.config\opencode` by default) and neither
 edits the host config. OpenCode v2 does not support Windows package managers, so
 no winget, Chocolatey or Scoop package is planned.
 
-Windows prerequisites, in preference order: (1) copy `dist/global.js` and the
-four wasm files into `%USERPROFILE%\.config\opencode\plugins\tawassul\` by hand,
-which needs nothing beyond Explorer; (2) `bun scripts/install-global.ts
---install`, which needs Bun 1.3 or newer; (3) `install.sh`, which needs Git for
-Windows for `bash` and `shasum`. A stock Windows profile can carry none of them:
-the profile inspected while writing this plan has no Git, Node, Bun or `.config`
-directory, so path 1 is the only one that always works and the other two must
-state their prerequisite where they are offered.
+Windows prerequisites, in preference order: (1)
+`bun scripts/install-global.ts`, which needs Bun 1.3 or newer and writes the
+flat entry `%USERPROFILE%\.config\opencode\plugins\tawassul.js` plus the four
+wasm files under `%USERPROFILE%\.config\opencode\tawassul-runtime\wasm\`, the
+install marker and the key-directory ACL, and supports `--verify` and
+`--uninstall`; (2) `install.sh`, which needs Git for Windows for `bash` and
+`shasum`; (3) copy `dist/global.js` to `plugins\tawassul.js` and the four wasm
+files under `tawassul-runtime\wasm\` by hand, which needs nothing beyond
+Explorer but carries no marker, no ACL and no `--verify` coverage. The installer
+is the supported lane; the hand copy is a fallback for a profile that carries
+neither Bun nor Git.
 
 ---
 
@@ -950,7 +964,7 @@ package registry, and a prerelease that is ever reintroduced publishes with the
 5. `check-release` passes: tag, package, CHANGELOG, docs, FACTS and the manifest
    proof count agree.
 6. `check-docs` passes for English and every translated language.
-7. All 42 tools and every registry environment variable are documented.
+7. All 44 tools and every registry environment variable are documented.
 8. `check-public-tree` passes over every published file and every built bundle.
 9. `verify:release-artifact` passes for the tarball and the runtime archive.
 10. `THIRD-PARTY-NOTICES.md` and the SBOM match the built bundle; no copyleft.
@@ -1020,7 +1034,8 @@ package registry, and a prerelease that is ever reintroduced publishes with the
 - A Windows package manager package (winget, Chocolatey, Scoop), which OpenCode
   v2 itself does not support either.
 - Dual-major OpenCode support.
-- Replacing the Bun build and proof runtime with a Node-only toolchain.
+- Replacing the Bun build and proof runtime with a Node-only toolchain (measured
+  and registered for discussion in 17.7).
 - A benchmark or token-cost study.
 
 These are 0.1.1 or later. None of them may reopen the retired v1 channel or
@@ -1128,3 +1143,57 @@ no repository action now.
 
 - Cold-boot acceptance N1-N5 for v2 (`S-033.3` = n-a, `E-56`, decision
   2026-10-30). v2 makes no N1-N5 claim.
+
+### 17.7 Bun runtime split — [DISCUSS][EVAL] (open)
+
+Tag: `[DISCUSS][EVAL]` · status OPEN · opened 2026-11-02 · owner HtoZ27.
+This entry records a measurement and opens two questions. It takes no decision,
+so it claims no revision.
+
+Measured on this disk on 2026-11-02:
+
+| Fact | Measurement | Anchor |
+| --- | --- | --- |
+| Host runtime | the installed desktop CLI `opencode-cli.exe` 2.2.5 (247.2 MB) is a `bun build --compile` product; a byte scan finds `Bun v1.4.4 (Windows` inside it | host binary |
+| Host CLI surface | `--help` and `plugin --help` mention Bun zero times; the subcommands are `upgrade`, `uninstall`, `acp`, `api`, `debug`, `auth`, `mcp`, `plugin`, `models`, `stats`, `mini`, `run`, `session`, `service` | host help output |
+| Build dependency | `build-v2.mjs` line 1 imports `{ build } from "bun"`; the tree holds no Node equivalent of that bundler API | `build-v2.mjs` |
+| Script portability | every `scripts/*.ts` file is free of `Bun.*` and of `from "bun"` | repository scan, zero matches |
+| Install path | `install-global.ts` imports only `node:child_process` and `node:fs`; it copies `dist/global.js` (2,330 KB, no bare static import in a line-start scan) with `durableWriteFile` | `scripts/install-global.ts` |
+| Dev runner | the portable Bun on disk is 1.3.14 (baseline build); CI pins `bun-version: 1.3.14` | local copy and `.github/workflows/windows.yml` |
+| Background state | no `bun.exe` process, no PATH entry, no startup command, no scheduled task | process, PATH and task scans |
+
+Why this is a plan question and not a defect:
+
+- The embedded runtime cannot serve as a CLI. A compiled Bun binary runs its own
+  entry point and exposes neither `bun install` nor `bun build`, so it cannot
+  build the bundle or install the development dependencies.
+- The two runtimes are different versions (host 1.4.4, project 1.3.14). Building
+  with the host copy would bind the artifact to the version the desktop app
+  ships; a host update would change the bytes with no repository change, and
+  `prove:bundle-freshness` plus reproducible builds depend on the pin.
+- Installing the plugin needs neither runtime. The release artifact is a flat
+  JavaScript file and the end user runs no package manager.
+- Only the build and the gate invoke Bun, and the gate scripts are already
+  Node-portable.
+
+Options for discussion:
+
+| Option | Change | Cost | Risk |
+| --- | --- | --- | --- |
+| A. Keep Bun build-only (status quo) | none | none | none; the end user is already isolated |
+| B. Run the gate on Node 26.13.0 | replace `bun scripts/gate.ts ...` and the `prove:*` entries with Node type stripping, keep `bun build-v2.mjs` | script rewrites and a full proof run | medium; TypeScript stripping rules and any hidden loader behaviour |
+| C. Remove Bun entirely | replace the bundler as well | a new bundler, new artifact bytes, a full re-proof and a new SBOM | high; it changes the shipped artifact |
+
+Evaluation criteria, if the item is taken up:
+
+- The gate runs from a clean clone with only Node 26.13.0 available.
+- The proof count and the gate manifest stay identical.
+- `dist/global.js` stays self-contained and `prove:bundle-freshness` passes.
+- The install path keeps writing one file and still needs no package manager.
+- `docs/installation.md` and `docs/dependencies.md` name Bun only where the
+  build needs it.
+- An end-user Windows install needs neither `bash` nor `bun` on PATH.
+
+Release impact: none. Section 13 acceptance does not change, and section 15
+keeps a Node-only toolchain out of 0.1.0. If the owner selects option B or C,
+the work lands after the first release.

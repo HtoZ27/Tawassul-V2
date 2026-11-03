@@ -57,6 +57,8 @@ export const BASH_READ_ONLY: Record<string, string> = {
   "git rev-parse*": "allow",
   "git ls-files*": "allow",
   "git grep*": "allow",
+  "git grep*-O*": "deny",
+  "git grep*--open-files-in-pager*": "deny",
 
   
   "npm run lint": "allow",
@@ -180,11 +182,9 @@ export const BASH_READ_ONLY: Record<string, string> = {
   "diff *--editor*": "deny",
   "tail *-f*": "deny",
   "tail *--follow*": "deny",
-  
-  
-  
-  
-  
+  "tail *-F*": "deny",
+  "tail *-?F*": "deny",
+  "tail *-??F*": "deny",
   "tail *-?f*": "deny",
   "tail *-??f*": "deny",
   "git *--output*": "deny",
@@ -192,6 +192,9 @@ export const BASH_READ_ONLY: Record<string, string> = {
   
   "* | tail*-f*": "deny",
   "* | tail*--follow*": "deny",
+  "* | tail*-F*": "deny",
+  "* | tail*-?F*": "deny",
+  "* | tail*-??F*": "deny",
   "* | tail*-?f*": "deny",
   "* | tail*-??f*": "deny",
   "* | sort*-o*": "deny",

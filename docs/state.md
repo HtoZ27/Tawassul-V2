@@ -103,9 +103,9 @@ hold the state file and its lock.
 
 A purge is a rename, not an erase: moving `tawassul-v2.purged-<timestamp>` back to
 `tawassul-v2` restores the namespace, with any files written after the purge left
-in place. On Windows, `scripts\windows-install.cmd -Action cycle` runs against an
-isolated home under `%TEMP%`, so a test cycle never produces such an archive in
-your profile.
+in place. The installer's purge runs against the configured state roots, so
+point `HOME`, `XDG_CONFIG_HOME` and `TAWASSUL_GLOBAL_DIR` at a temporary
+directory when you test a cycle; a test then never archives your profile.
 
 ## Isolated mode
 

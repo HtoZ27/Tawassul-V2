@@ -19,8 +19,8 @@
 | **Scope** | Where the plugin is installed: `project` (one workspace) or `global` (every workspace of the user). |
 | **Lane** | The classification of a database path: host-default, desktop-sidecar, isolated, custom, or unset. |
 | **Marker** | The `VERSION` file the installer writes, recording version, hashes, owner, and host. |
-| **Bundle** | The JavaScript file the host loads: `dist/index.js` for a project, `dist/global.js` for a global install. |
-| **Wasm** | The four tree-sitter grammars staged beside the bundle for AST tools. |
+| **Bundle** | The JavaScript file the host loads: `.opencode/plugins/tawassul.js` (built from `dist/index.js`) for a project, and `plugins/tawassul.js` (built from `dist/global.js`) for a global install. |
+| **Wasm** | The four wasm files staged beside the bundle for AST tools: one runtime and three grammars. |
 | **Proof** | A script under `scripts/prove-*.ts` that asserts one invariant and exits non-zero when it fails. |
 | **Gate** | A named stage that runs a set of steps: `fast`, `proofs`, `smoke`, or `evals`. |
 | **Fast gate** | Rules, docs, typecheck, config, facts, pins, parity, and the proof catalog. |

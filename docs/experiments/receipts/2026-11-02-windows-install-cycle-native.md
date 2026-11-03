@@ -3,6 +3,10 @@
 - Date: 2026-11-02
 - Verdict: **native Windows receipt.** Acceptance item 20 is satisfied for the
   bundle and wasm lane on Windows x64.
+- Historical note: the ladder scripts `scripts/windows-install.ps1` and
+  `scripts/windows-install.cmd` named below were removed later on 2026-11-02
+  because they duplicated `scripts/install-global.ts`. This receipt records the
+  run as it happened.
 - Machine: Windows 10 IoT Enterprise LTSC 21H2, build 19044, x64
 - CPU: Intel Core i5-2320 (Sandy Bridge, no AVX2)
 - Drives exercised: `C:`, `D:`, `F:`
@@ -19,10 +23,11 @@
 - Project entry: `.opencode\plugins\tawassul.js`, byte-identical to `dist\index.js`
   (2,139,581 bytes). The host discovers the plural directory without a
   configuration edit, so acceptance item 17 holds on this build.
-- Reproduce: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows-install.ps1 -Action cycle -GlobalDir <path>`
+- Reproduce (historical): `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows-install.ps1 -Action cycle -GlobalDir <path>`
   from Windows PowerShell 5.1 or PowerShell 7. `scripts\windows-install.cmd` is an
   optional compatibility shim around the same script, not part of the primary
-  lane.
+  lane. The ladder was removed later on 2026-11-02; the current command is
+  `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows-ci.ps1 -Mode cycle -Bun <bun>`.
 
 ## Defects this run found and fixed
 
