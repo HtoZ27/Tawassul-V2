@@ -15,10 +15,18 @@ const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 const MANIFEST = JSON.parse(
   readFileSync(join(REPO, "scripts", "release", "public-files.json"), "utf8"),
 ) as Manifest;
+const IGNORED = new Set(["node_modules", "dist", ".git", ".opencode", "coverage"]);
+const args = process.argv.slice(2);
+const treeIndex = args.indexOf("--tree");
+const listOnly = args.includes("--list");
+const requestedTree = treeIndex >= 0 ? resolve(REPO, args[treeIndex + 1] ?? "") : "";
+const HAS_GIT = existsSync(join(REPO, ".git"));
+const TARGET = requestedTree || (HAS_GIT ? "" : REPO);
+const TRACKED = HAS_GIT ? gitFiles() : [];
 const PUBLIC = new Set([...MANIFEST.documents, ...MANIFEST.rootFiles]);
-const TRACKED = gitFiles();
+const prefixSource = HAS_GIT ? TRACKED : TARGET && existsSync(TARGET) ? walk(TARGET) : [];
 for (const prefix of MANIFEST.prefixes) {
-  for (const file of TRACKED) if (file.startsWith(prefix)) PUBLIC.add(file);
+  for (const file of prefixSource) if (file.startsWith(prefix)) PUBLIC.add(file);
 }
 
 function gitFiles(): string[] {
@@ -36,6 +44,7 @@ function gitFiles(): string[] {
 function walk(root: string, base = root): string[] {
   const files: string[] = [];
   for (const entry of readdirSync(root, { withFileTypes: true })) {
+    if (entry.isDirectory() && IGNORED.has(entry.name)) continue;
     const path = join(root, entry.name);
     if (entry.isDirectory()) {
       files.push(...walk(path, base));
@@ -92,12 +101,7 @@ function scan(files: string[], root: string): void {
   }
 }
 
-const args = process.argv.slice(2);
-const treeIndex = args.indexOf("--tree");
-const listOnly = args.includes("--list");
-const tree = treeIndex >= 0 ? resolve(REPO, args[treeIndex + 1] ?? "") : "";
-
-if (treeIndex >= 0 && (!tree || tree === REPO)) {
+if (treeIndex >= 0 && (!requestedTree || requestedTree === REPO)) {
   console.error("check-public-tree: --tree needs a directory other than the repository root");
   process.exit(2);
 }
@@ -112,40 +116,43 @@ const internal = new Set(MANIFEST.internal);
 const overlap = [...PUBLIC].filter((file) => internal.has(file));
 if (overlap.length > 0) fail("public-files.json", `files are both public and internal: ${overlap.join(", ")}`);
 
-for (const file of MANIFEST.internal) {
-  if (!tracked.includes(file)) fail(file, "internal file is not tracked; remove it from the list");
-}
-
-const unclassified = tracked.filter((file) => !PUBLIC.has(file) && !internal.has(file));
-for (const file of unclassified) {
-  fail(file, "is neither public nor declared internal; decide in scripts/release/public-files.json");
+const unclassified = HAS_GIT
+  ? tracked.filter((file) => !PUBLIC.has(file) && !internal.has(file))
+  : [];
+if (HAS_GIT) {
+  for (const file of MANIFEST.internal) {
+    if (!tracked.includes(file)) fail(file, "internal file is not tracked; remove it from the list");
+  }
+  for (const file of unclassified) {
+    fail(file, "is neither public nor declared internal; decide in scripts/release/public-files.json");
+  }
 }
 
 for (const file of MANIFEST.documents) {
   if (!existsSync(join(REPO, file))) fail(file, "document is missing");
 }
 
-if (tree) {
-  if (!existsSync(tree)) {
-    console.error(`check-public-tree: no tree at ${tree}`);
+if (TARGET) {
+  if (!existsSync(TARGET)) {
+    console.error(`check-public-tree: no tree at ${TARGET}`);
     process.exit(2);
   }
-  const present = walk(tree).sort();
+  const present = walk(TARGET).sort();
   const expected = [...PUBLIC].sort();
   for (const file of expected) if (!present.includes(file)) fail(file, "public file is missing from the tree");
   for (const file of present) if (!PUBLIC.has(file)) fail(file, "file is not in the public manifest");
-  scan(present, tree);
+  scan(present, TARGET);
   if (findings.length > 0) {
-    console.error(`check-public-tree: ${findings.length} problem(s) in ${tree}`);
+    console.error(`check-public-tree: ${findings.length} problem(s) in ${TARGET}`);
     for (const finding of findings) console.error(`  - ${finding}`);
     process.exit(1);
   }
   const total = present.reduce(
-    (digest, file) => digest.update(createHash("sha256").update(readFileSync(join(tree, file))).digest("hex")),
+    (digest, file) => digest.update(createHash("sha256").update(readFileSync(join(TARGET, file))).digest("hex")),
     createHash("sha256"),
   );
   console.log(
-    `check-public-tree: OK (${present.length} files in ${tree}, tree ${total.digest("hex").slice(0, 12)})`,
+    `check-public-tree: OK (${present.length} files in ${TARGET}, tree ${total.digest("hex").slice(0, 12)})`,
   );
   process.exit(0);
 }

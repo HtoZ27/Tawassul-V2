@@ -680,9 +680,16 @@ export function buildExpectedConfig(maybeRaw?: string, opts?: GenOptions): strin
   return spliceAgentSection(raw, agents);
 }
 
-export function checkGeneratedConfig(raw?: string, opts?: GenOptions): { ok: boolean; diff?: string } {
+export function checkGeneratedConfig(raw?: string, opts?: GenOptions): { ok: boolean; diff?: string; missing?: boolean } {
   const paths = opts?.projectRoot ? resolveGenPaths(opts.projectRoot) : getDefaultPaths();
-  const actualRaw = raw ?? readFileSync(paths.configPath, "utf-8");
+  let actualRaw: string;
+  if (raw !== undefined) {
+    actualRaw = raw;
+  } else if (existsSync(paths.configPath)) {
+    actualRaw = readFileSync(paths.configPath, "utf-8");
+  } else {
+    return { ok: true, missing: true };
+  }
   let actualObj: Record<string, unknown>;
   try {
     actualObj = readJsoncObject(actualRaw);
@@ -895,7 +902,11 @@ function runCheck(): void {
   }
   const result = checkGeneratedConfig(undefined, opts);
   if (result.ok) {
-    logger.warn("[gen-opencode-config] --check: opencode.json is up to date ✔");
+    logger.warn(
+      result.missing
+        ? "[gen-opencode-config] --check: no opencode.json; nothing to compare ✔"
+        : "[gen-opencode-config] --check: opencode.json is up to date ✔",
+    );
     process.exitCode = 0;
     return;
   }

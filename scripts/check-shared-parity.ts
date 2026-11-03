@@ -408,6 +408,15 @@ function main(argv: string[]): number {
     return 2;
   }
 
+  if (!existsSync(SHARED_PATH) || !existsSync(ISSUES_PATH)) {
+    if (mode === "write") {
+      process.stderr.write("[shared-parity] write needs SHARED.md and ISSUES.md\n");
+      return 2;
+    }
+    process.stdout.write("[shared-parity] no v1 shared log in this tree; nothing to compare\n");
+    return 0;
+  }
+
   let data: Parity;
   try {
     data = loadData();

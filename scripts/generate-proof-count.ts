@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -53,7 +53,7 @@ const docs = [
   "TRIAGE.md",
   join("docs", "validation.md"),
   join("docs", "portable-context-handoff.md"),
-];
+].filter((file) => existsSync(join(repo, file)));
 const MARKER = /<!-- generated:([a-z-]+) -->[\s\S]*?<!-- \/generated -->/g;
 const used = new Set<string>();
 

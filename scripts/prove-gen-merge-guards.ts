@@ -65,6 +65,9 @@ async function proveHybridPins(): Promise<void> {
     const allowed = checkGeneratedConfig(raw, { projectRoot: dir, pinsPath: withPins });
     if (!allowed.ok) fail(`pinned drift must pass: ${allowed.diff ?? ""}`);
     console.log("A5-hybrid pinned-drift-passes ok");
+    const absent = checkGeneratedConfig(undefined, { projectRoot: dir });
+    if (!absent.ok || !absent.missing) fail("a missing project config must pass as nothing to compare");
+    console.log("A5-hybrid missing-config-passes ok");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

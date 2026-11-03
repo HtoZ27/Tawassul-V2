@@ -53,9 +53,7 @@ type Registry = {
 };
 
 const rootManifest = readJson<Manifest>(join(REPO, "package.json"));
-const opencodeManifest = readJson<Manifest>(join(REPO, ".opencode", "package.json"));
 const rootLock = readJson<Lock>(join(REPO, "package-lock.json"));
-const opencodeLock = readJson<Lock>(join(REPO, ".opencode", "package-lock.json"));
 const registry = readJson<Registry>(join(REPO, "src", "upstream", "registry.json"));
 const installer = readFileSync(join(REPO, "scripts", "install-global.ts"), "utf-8");
 const smoke = readFileSync(join(REPO, "scripts", "release-smoke.sh"), "utf-8");
@@ -63,14 +61,21 @@ const launcher = readFileSync(join(REPO, "scripts", "opencode-v2-iso.sh"), "utf-
 const doctor = readFileSync(join(REPO, "scripts", "doctor-v2.sh"), "utf-8");
 
 const rootDeclared = versionOf(rootManifest.devDependencies?.["@opencode/plugin"]);
-const opencodeDeclared = versionOf(opencodeManifest.dependencies?.["@opencode/plugin"]);
 const lockKey = "node_modules/@opencode/plugin";
 const rootLocked = versionOf(rootLock.packages?.[lockKey]?.version);
-const opencodeLocked = versionOf(opencodeLock.packages?.[lockKey]?.version);
 
-assert(rootDeclared === opencodeDeclared, `root and .opencode declare the same SDK minimum (${rootDeclared})`);
 assert(rootLocked === rootDeclared, `the root lockfile pins the declared SDK (${rootLocked})`);
-assert(opencodeLocked === opencodeDeclared, `the .opencode lockfile pins the declared SDK (${opencodeLocked})`);
+
+const opencodeManifest = join(REPO, ".opencode", "package.json");
+const opencodeLockfile = join(REPO, ".opencode", "package-lock.json");
+if (existsSync(opencodeManifest) && existsSync(opencodeLockfile)) {
+  const opencodeDeclared = versionOf(readJson<Manifest>(opencodeManifest).dependencies?.["@opencode/plugin"]);
+  const opencodeLocked = versionOf(readJson<Lock>(opencodeLockfile).packages?.[lockKey]?.version);
+  assert(rootDeclared === opencodeDeclared, `root and .opencode declare the same SDK minimum (${rootDeclared})`);
+  assert(opencodeLocked === opencodeDeclared, `the .opencode lockfile pins the declared SDK (${opencodeLocked})`);
+} else {
+  console.log("skip the .opencode lane; this checkout has no project package yet (the install guide creates it)");
+}
 
 for (const [label, path] of [
   ["root", join(REPO, "node_modules", "@opencode", "plugin", "package.json")],

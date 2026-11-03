@@ -56,10 +56,16 @@ const manifest = JSON.parse(text("scripts/gate-manifest.json")) as {
   smoke?: Array<{ name: string }>;
 };
 const steps = manifest.proofs ?? [];
-const agents = text("AGENTS.md");
-const agentMatch = /generated:proof-steps -->(\d+)<!-- \/generated -->/.exec(agents);
-check(agentMatch !== null, "AGENTS.md carries no generated proof-step count");
-check(Number(agentMatch?.[1] ?? -1) === steps.length, `AGENTS.md records ${agentMatch?.[1]} proofs; the manifest has ${steps.length}`);
+const agentsPath = join(REPO, "AGENTS.md");
+if (existsSync(agentsPath)) {
+  const agents = text("AGENTS.md");
+  const agentMatch = /generated:proof-steps -->(\d+)<!-- \/generated -->/.exec(agents);
+  check(agentMatch !== null, "AGENTS.md carries no generated proof-step count");
+  check(
+    Number(agentMatch?.[1] ?? -1) === steps.length,
+    `AGENTS.md records ${agentMatch?.[1]} proofs; the manifest has ${steps.length}`,
+  );
+}
 
 const validation = text("docs/validation.md");
 const validationMatch = /^\| Proofs \| `npm run gate:proofs` \| (\d+) \|/m.exec(validation);

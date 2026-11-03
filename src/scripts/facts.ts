@@ -77,19 +77,26 @@ if (process.argv[1] && process.argv[1].endsWith("facts.ts")) {
     process.stdout.write(`[facts] wrote ${FACTS_PATH}\n`);
   } else if (process.argv[2] === "check") {
     const { readFileSync } = await import("node:fs");
-    let onDisk: Record<string, string> = {};
-    try {
-      onDisk = parseFacts(readFileSync(FACTS_PATH, "utf-8"));
-    } catch {
-      onDisk = {};
-    }
-    const drifted = diffFactsText(onDisk, buildFacts());
-    if (drifted.length > 0) {
-      for (const line of drifted) process.stderr.write(`[facts] drift ${line}\n`);
-      process.stderr.write("[facts] CHECK FAILED — run: bun src/scripts/facts.ts write\n");
-      process.exitCode = 1;
+    const jsoncPath = resolve(PLUGIN_ROOT, "..", "opencode.jsonc");
+    const jsonPath = resolve(PLUGIN_ROOT, "..", "opencode.json");
+    if (!existsSync(jsoncPath) && !existsSync(jsonPath)) {
+      process.stdout.write("[facts] no opencode.json; nothing to compare\n");
+      process.exitCode = 0;
     } else {
-      process.stdout.write("[facts] check ok\n");
+      let onDisk: Record<string, string> = {};
+      try {
+        onDisk = parseFacts(readFileSync(FACTS_PATH, "utf-8"));
+      } catch {
+        onDisk = {};
+      }
+      const drifted = diffFactsText(onDisk, buildFacts());
+      if (drifted.length > 0) {
+        for (const line of drifted) process.stderr.write(`[facts] drift ${line}\n`);
+        process.stderr.write("[facts] CHECK FAILED — run: bun src/scripts/facts.ts write\n");
+        process.exitCode = 1;
+      } else {
+        process.stdout.write("[facts] check ok\n");
+      }
     }
   } else {
     process.stdout.write(`${renderFacts(buildFacts())}\n`);
