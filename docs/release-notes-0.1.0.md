@@ -129,10 +129,10 @@ Defender, or long paths. The emulator receipt is published and labelled.
 
 | Check | Result at this release |
 | --- | --- |
-| Fast gate | 12 steps |
-| Proofs | 153 steps, one child process each |
+| Fast gate | 14 steps |
+| Proofs | 151 steps, one child process each |
 | Smoke | 6 steps, including the release artifacts, global boot, and independence boot |
-| Proof files | 156, all catalogued across the stages |
+| Proof files | 154, all catalogued across the stages |
 | Public docs | 42 files, 44 tools, 8 agents, 4 skills |
 | Native Windows | Not verified; emulator evidence only |
 

@@ -3,8 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getInitReady } from "../src/bootstrap/plugin-init.ts";
-import { tawassul } from "../src/index.ts";
+import { getInitReady, initPlugin } from "../src/bootstrap/plugin-init.ts";
 import { createV2Setup } from "../src/v2/setup.ts";
 import { measureDescriptionText } from "../src/v2/adapters.ts";
 import type { ToolDefinition } from "../src/tool.ts";
@@ -118,7 +117,7 @@ const registry = new Map<string, V2ToolDefinition>();
 
 try {
   mkdirSync(join(work, ".opencode"), { recursive: true });
-  const hooks = await tawassul.server({ client: {}, directory: work, worktree: work } as never);
+  const hooks = await initPlugin({ client: {}, directory: work, worktree: work } as never);
   const probe = getInitReady(hooks as never);
   assert(probe !== undefined, "the isolated boot exposes the init readiness probe");
   const status = await probe!();

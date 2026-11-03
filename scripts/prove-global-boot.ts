@@ -315,7 +315,7 @@ try {
 function directToolProbe(): string {
   return [
     "const mod = await import(process.env.SMOKE_ENTRY);",
-    "const hooks = await mod.tawassul.server({ client: {}, directory: process.env.SMOKE_DIR, worktree: process.env.SMOKE_DIR });",
+    "const hooks = await mod.createHooks({ client: {}, directory: process.env.SMOKE_DIR, worktree: process.env.SMOKE_DIR });",
     "const names = Object.keys(hooks.tool ?? {});",
     'const { createHash } = await import("node:crypto");',
     'const actualHash = createHash("sha256").update([...names].sort().join("\\n")).digest("hex");',

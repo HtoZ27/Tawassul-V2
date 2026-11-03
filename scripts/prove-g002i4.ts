@@ -42,7 +42,7 @@ const GATED: Array<[string, string]> = [
 const UNGATED: Array<[string, string]> = [
   ["rm -rf /tmp/opencode/junk", "a project cleanup of an absolute temp path is reversible"],
   ["rm -rf /tmp/a /tmp/b", "a multi-path temp cleanup is reversible"],
-  ["rm -rf /home/htoz/project/build", "a project build directory is reversible"],
+  ["rm -rf /home/user/project/build", "a project build directory is reversible"],
   ["git push origin main", "a plain push is not irreversible and is not gated"],
   ["git push origin main --force", "a force push is not gated by this set"],
   ["GIT PUSH origin", "an uppercase push is not gated"],

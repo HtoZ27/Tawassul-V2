@@ -91,7 +91,6 @@
     "prove:e33": "bun scripts/prove-e33.ts",
     "prove:e36": "bun scripts/prove-e36.ts",
     "prove:p08": "bun scripts/prove-p08.ts",
-    "prove:p09": "bun scripts/prove-p09.ts",
     "prove:s021": "bun scripts/prove-s021.ts",
     "prove:resurrection": "bun scripts/prove-goal-resurrection.ts",
     "prove:goal-capture": "bun scripts/prove-goal-capture.ts",
@@ -110,7 +109,6 @@
     "prove:s038": "bun scripts/prove-s038.ts",
     "pin:env": "bash scripts/pin-v2-env.sh",
     "sweep:state": "bun scripts/sweep-state-retired-pins.ts",
-    "prove:state-namespace": "bun scripts/prove-state-namespace.ts",
     "prove:state-root-survival": "bun scripts/prove-state-root-survival.ts",
     "prove:state-root-rollback": "bun scripts/prove-state-root-rollback.ts",
     "prove:boot-gate": "bun scripts/prove-boot-gate.ts",
@@ -164,7 +162,9 @@
     "prove:reachability-audit": "bun scripts/prove-reachability-audit.ts",
     "prove:snapshot-boundary": "bun scripts/prove-snapshot-boundary.ts",
     "pack:release": "bash scripts/release/pack.sh",
-    "verify:release-artifact": "bun scripts/release/verify-artifact.ts"
+    "verify:release-artifact": "bun scripts/release/verify-artifact.ts",
+    "check:public-tree": "bun scripts/check-public-tree.ts",
+    "check:release": "bun scripts/release/check-release.ts"
   },
   "devDependencies": {
     "@opencode/plugin": "^2.2.1",

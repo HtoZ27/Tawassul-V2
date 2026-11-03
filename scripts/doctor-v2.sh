@@ -591,19 +591,6 @@ else
   fi
 fi
 
-section "external v1 trees"
-for tree in "$HOME_DIR/Desktop/gtttt" "$HOME_DIR/Desktop/paassss"; do
-  [ -d "$tree" ] || continue
-  if compgen -G "$tree/.opencode/plugins/*/index.ts" >/dev/null; then
-    for v1_entry in "$tree"/.opencode/plugins/*/index.ts; do
-      [ -f "$v1_entry" ] || continue
-      warn "external v1 tree still exposes $v1_entry (user refused removal) — it can fail to load on boot; not modified"
-    done
-  else
-    pass "external tree has no live v1 entry: $tree"
-  fi
-done
-
 section "hosts"
 if [ -f "$SERVICE_DESC" ]; then
   svc_url="$(sed -n 's/.*"url":"\([^"]*\)".*/\1/p' "$SERVICE_DESC" 2>/dev/null)"

@@ -44,7 +44,7 @@ mkdirSync(worktree, { recursive: true });
 
 async function main(): Promise<void> {
   const secrets = [
-    "sk-abcdefghijklmnopqrstuvwxyz012345",
+    "sk-test-fixture-0000000000000001",
     "Bearer supersecret-token-value",
     "--password hunter2",
   ].join("\n");
@@ -68,7 +68,7 @@ async function main(): Promise<void> {
 
   assert(!record.payload.includes("supersecret-token-value"), "the bearer token is redacted before storage");
   assert(!record.payload.includes("hunter2"), "the password is redacted before storage");
-  assert(!record.payload.includes("sk-abcdefghijklmnopqrstuvwxyz012345"), "the api key is redacted before storage");
+  assert(!record.payload.includes("sk-test-fixture-0000000000000001"), "the api key is redacted before storage");
   assert(record.payload.includes("***"), "redaction leaves an explicit marker");
   assert(record.payload.includes(arabic), "arabic text survives sanitization");
   assert(record.payload.includes(cjk), "CJK text survives sanitization");

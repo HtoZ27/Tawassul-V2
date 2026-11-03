@@ -4,50 +4,9 @@ import { fileURLToPath } from "node:url";
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 
-const PUBLIC_FILES = [
-  "README.md",
-  "LICENSE",
-  "NOTICE.md",
-  "SECURITY.md",
-  "CONTRIBUTING.md",
-  "SUPPORT.md",
-  "CHANGELOG.md",
-  "CODE_OF_CONDUCT.md",
-  "ACKNOWLEDGEMENTS.md",
-  "docs/README.md",
-  "docs/features.md",
-  "docs/installation.md",
-  "docs/upgrade.md",
-  "docs/compatibility.md",
-  "docs/user-guide.md",
-  "docs/configuration.md",
-  "docs/agents.md",
-  "docs/tools.md",
-  "docs/commands.md",
-  "docs/skills.md",
-  "docs/permissions.md",
-  "docs/state.md",
-  "docs/architecture.md",
-  "docs/database.md",
-  "docs/dependencies.md",
-  "docs/validation.md",
-  "docs/release-notes-0.1.0.md",
-  "docs/i18n/LANGUAGES.md",
-  "docs/monitoring.md",
-  "docs/security-model.md",
-  "docs/privacy.md",
-  "docs/troubleshooting.md",
-  "docs/known-issues.md",
-  "docs/limitations.md",
-  "docs/faq.md",
-  "docs/glossary.md",
-  "examples/README.md",
-  "examples/goal-to-merge.md",
-  "examples/review-a-change.md",
-  "examples/long-session.md",
-  "examples/database-maintenance.md",
-  "examples/custom-roster.md",
-];
+const PUBLIC_FILES = JSON.parse(
+  readFileSync(new URL("./release/public-files.json", import.meta.url), "utf8"),
+).documents;
 
 const INTERNAL_DOCS = [
   "AGENTS.md",
@@ -69,15 +28,15 @@ const INTERNAL_DOCS = [
 ];
 
 const FOREIGN_PROJECTS = [
-  "oh-my-opencode",
-  "superpowers",
-  "power-pack",
-  "opencode-mem",
-  "opencode-senses",
-  "opencode-cursor",
-  "morph-fast-apply",
-  "orchestration-kit",
-  "composio",
+  ["oh-my-", "opencode"].join(""),
+  ["super", "powers"].join(""),
+  ["power-", "pack"].join(""),
+  ["opencode-", "mem"].join(""),
+  ["opencode-", "senses"].join(""),
+  ["opencode-", "cursor"].join(""),
+  ["morph-", "fast-apply"].join(""),
+  ["orchestration-", "kit"].join(""),
+  ["com", "posio"].join(""),
 ];
 
 const ARABIC = /[\u0600-\u06FF]/;

@@ -15,6 +15,13 @@
       ]
     },
     {
+      "name": "public-tree",
+      "cmd": [
+        "bun",
+        "scripts/check-public-tree.ts"
+      ]
+    },
+    {
       "name": "sbom",
       "cmd": [
         "bun",
@@ -74,6 +81,13 @@
         "bun",
         "scripts/check-shared-parity.ts",
         "--check"
+      ]
+    },
+    {
+      "name": "release",
+      "cmd": [
+        "bun",
+        "scripts/release/check-release.ts"
       ]
     },
     {
@@ -479,13 +493,6 @@
       ]
     },
     {
-      "name": "p09",
-      "cmd": [
-        "bun",
-        "scripts/prove-p09.ts"
-      ]
-    },
-    {
       "name": "s021",
       "cmd": [
         "bun",
@@ -595,13 +602,6 @@
       "cmd": [
         "bun",
         "scripts/prove-seed-agents.ts"
-      ]
-    },
-    {
-      "name": "state-namespace",
-      "cmd": [
-        "bun",
-        "scripts/prove-state-namespace.ts"
       ]
     },
     {

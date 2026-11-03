@@ -20,7 +20,7 @@ import { PredictiveRouter } from "../features/predictive-router.ts";
 import { AgentAvailabilityManager } from "../services/agent-availability.ts";
 import crypto from "node:crypto";
 import { join, dirname, resolve } from "node:path";
-import { existsSync, readFileSync, copyFileSync, renameSync, rmSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { getWriteBlockReason } from "../services/isolation.ts";
 import { schedulePersist } from "../services/persist-utils.ts";
 
@@ -70,7 +70,7 @@ import { resolveAgentModelRef } from "../services/model-refs.ts";
 import { logger } from "../utils/logger.ts";
 import { t } from "../translations.ts";
 import { resolveRuntimeStateDir } from "../utils/path-resolver.ts";
-import { legacyReadsEnabled, scopedStatePath, stateReadPath } from "../utils/state-paths.ts";
+import { scopedStatePath, statePath } from "../utils/state-paths.ts";
 
 
 
@@ -152,39 +152,6 @@ export interface ServiceFactoryResult {
 }
 
 
-export function migrateLegacyCollectiveMemory(
-  newStateDir: string,
-  legacyStateDir: string,
-  memFile: string,
-  projectKey: string | undefined,
-): "migrated" | "skipped" {
-  if (!legacyReadsEnabled()) return "skipped";
-  const newMemFile = join(newStateDir, memFile);
-  const legacyMemFile = join(legacyStateDir, "collective-memory.json");
-  if (!projectKey || newMemFile === legacyMemFile || existsSync(newMemFile) || !existsSync(legacyMemFile)) {
-    return "skipped";
-  }
-  try {
-    mkdirSync(newStateDir, { recursive: true });
-    copyFileSync(legacyMemFile, newMemFile);
-    renameSync(legacyMemFile, `${legacyMemFile}.bak`);
-    logger.info("[tawassul] migrated legacy collective-memory.json to per-project store (backup kept)");
-    return "migrated";
-  } catch (e) {
-    
-    
-    
-    
-    try {
-      rmSync(newMemFile, { force: true });
-    } catch {
-
-    }
-    logger.warn("[tawassul] collective-memory migration failed, starting fresh:", e);
-    return "skipped";
-  }
-}
-
 export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirectory?: string): ServiceFactoryResult {
   
   
@@ -246,7 +213,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   let routerReadPath: string | null = null;
   try {
     routerStatePath = scopedStatePath(runtimeStateDir, tawaCtx.scope, "predictive-router.json");
-    routerReadPath = existsSync(routerStatePath) ? routerStatePath : stateReadPath("predictive-router.json");
+    routerReadPath = existsSync(routerStatePath) ? routerStatePath : statePath("predictive-router.json");
   } catch {
     logger.warn(`[tawassul] ${t("bootNoHome")}`);
   }
@@ -354,7 +321,6 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   
   if (isInnovationOn("collectiveMemory")) {
-    migrateLegacyCollectiveMemory(projectStateDir, runtimeStateDir, memFile, pk);
     loadPromises.push(collectiveMemory.load());
   }
   if (isInnovationOn("trustScore")) loadPromises.push(trustScore.load());

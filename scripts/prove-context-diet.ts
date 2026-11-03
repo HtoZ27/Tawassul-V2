@@ -3,9 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getInitReady } from "../src/bootstrap/plugin-init.ts";
+import { getInitReady, initPlugin } from "../src/bootstrap/plugin-init.ts";
 import { TOOL_COUNT, TOOL_NAME_SET_HASH } from "../src/generated/tool-tripwire.ts";
-import { tawassul } from "../src/index.ts";
 import { toolNameSetHash } from "../src/services/tool-tripwire.ts";
 import type { ToolDefinition } from "../src/tool.ts";
 import { measureDescriptionText } from "../src/v2/adapters.ts";
@@ -76,7 +75,7 @@ delete process.env.TAWASSUL_ISOLATED;
 delete process.env.TAWASSUL_CONTEXT_HANDOFF;
 
 try {
-  const hooks = await tawassul.server({ client: {}, directory: work, worktree: work } as never);
+  const hooks = await initPlugin({ client: {}, directory: work, worktree: work } as never);
   const probe = getInitReady(hooks as never);
   assert(probe !== undefined, "the isolated boot exposes the init readiness probe");
   const status = await probe!();

@@ -9,8 +9,8 @@ without weakening it.
 
 | Stage | Command | Steps | Purpose |
 | --- | --- | --- | --- |
-| Fast | `npm run gate:fast` | 12 | Rules, docs, SBOM, types, config, facts, pins, parity, catalog, counts |
-| Proofs | `npm run gate:proofs` | 153 | One isolated proof per invariant |
+| Fast | `npm run gate:fast` | 14 | Rules, docs, public tree, SBOM, types, config, facts, pins, parity, release, catalog, counts |
+| Proofs | `npm run gate:proofs` | 151 | One isolated proof per invariant |
 | Smoke | `npm run gate:smoke` | 6 | Build, release artifacts, release smoke, global boot, independence boot |
 | Evals | `npm run gate:evals` | 1 | Pilot evaluation of agent behaviour |
 
@@ -24,12 +24,13 @@ after an edit; `npm run ci` is the check before a tag.
 
 ## Fast stage
 
-The twelve steps, in order:
+The fourteen steps, in order:
 
 | Step | What it rejects |
 | --- | --- |
 | `source-rules` | Non-English text or a comment in scanned code |
 | `docs` | A broken public link, a missing tool/agent/skill, a foreign project name |
+| `public-tree` | A tracked file that is neither public nor declared internal, a retired name, a personal path, a secret, or a hidden control character |
 | `sbom` | A missing licence, a copyleft dependency, or an unreadable lockfile |
 | `shell-syntax` | A shell script that does not parse |
 | `typecheck` | A strict TypeScript error |
@@ -38,6 +39,7 @@ The twelve steps, in order:
 | `sdk-pins` | A dependency pin outside the audited range |
 | `upstream-registry` | A host registry change the plugin has not accounted for |
 | `shared-parity` | Two copies of a shared contract that disagree |
+| `release` | A version, changelog, notes, installer, proof count, or action pin that disagrees with the release |
 | `proof-catalog` | A proof file missing from the manifest, or the reverse |
 | `proof-count` | A hand-written proof count that drifted from the manifest |
 
@@ -53,7 +55,7 @@ Examples: a state file cannot escape its namespace, the web tool refuses a
 private address, a torn ledger tail is skipped, an uninstall removes exactly the
 files in its marker.
 
-At this release the tree holds 156 proof files and the proofs stage runs 153 of
+At this release the tree holds 154 proof files and the proofs stage runs 151 of
 them. The other three run where they belong: `prove-proof-catalog.ts` in the
 fast stage, and `prove-global-boot.ts` and `prove-independence-boot.ts` in the
 smoke stage. A file that runs nowhere fails the catalog check.

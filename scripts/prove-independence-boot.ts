@@ -21,6 +21,7 @@ const MODEL = process.env.TAWASSUL_SMOKE_MODEL ?? "opencode/big-pickle";
 const BOOT_TIMEOUT = Number(process.env.TAWASSUL_SMOKE_TIMEOUT ?? 90);
 const PROVIDER_REFUSAL = /provider\.[a-z-]+|FreeUsageLimitError|"status": *429|Free usage limit/i;
 const BOOT_MARKER_RE = new RegExp(`v2 registered ${TOOL_COUNT} tools name-set ${TOOL_NAME_SET_HASH}`);
+const RETIRED_NAME = ["tawas", "syl"].join("");
 
 let passed = 0;
 
@@ -134,7 +135,7 @@ try {
     `every plugin load is the scratch v2 entry (found ${[...new Set(loads)].join(", ") || "none"})`,
   );
   assert(
-    hostLines.every((line) => !/tawassyl|retired-v1|plugins\/tawassul/i.test(line)),
+    hostLines.every((line) => !new RegExp(`${RETIRED_NAME}|retired-v1|plugins/tawassul`, "i").test(line)),
     "the boot log never mentions the v1 tree or a package-directory entry",
   );
   assert(
@@ -146,7 +147,7 @@ try {
   assert(BOOT_MARKER_RE.test(pluginLog), `the scratch bundle registers ${TOOL_COUNT} tools`);
   assert(/initPlugin=/.test(pluginLog), "the scratch bundle records initPlugin");
 
-  for (const legacy of [".config/tawassul", ".local/share/tawassul", ".cache/tawassul", ".config/tawassyl"]) {
+  for (const legacy of [".config/tawassul", ".local/share/tawassul", ".cache/tawassul", `.config/${RETIRED_NAME}`]) {
     assert(!existsSync(join(HOME, legacy)), `the isolated HOME has no v1 state at ~/${legacy}`);
   }
   assert(

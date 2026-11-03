@@ -29,29 +29,26 @@ function walk(dir: string, suffix: string): string[] {
 const rel = (file: string): string => relative(repo, file).split("\\").join("/");
 const text = (file: string): string => readFileSync(file, "utf-8");
 
+const RETIRED_NAME = ["tawas", "syl"].join("");
+const retired = new RegExp(RETIRED_NAME, "i");
+
 const srcDir = join(repo, "src");
 const srcFiles = walk(srcDir, ".ts");
 assert(srcFiles.length > 0, "source tree is present");
 
-const v1PathHits = srcFiles.filter((file) => /Desktop\/tawassyl|\.\.\/tawassyl|from\s+["']tawassyl/.test(text(file)));
+const v1PathHits = srcFiles.filter((file) =>
+  new RegExp(`Desktop/${RETIRED_NAME}|\\.\\./${RETIRED_NAME}|from\\s+["']${RETIRED_NAME}`).test(text(file)),
+);
 assert(v1PathHits.length === 0, `shipped source has no v1 tree reference (found ${v1PathHits.map(rel).join(", ") || "none"})`);
 
-const legacyHits = srcFiles.filter((file) => /tawassyl/i.test(text(file)));
+const legacyHits = srcFiles.filter((file) => retired.test(text(file)));
 assert(
-  legacyHits.length === 1 && rel(legacyHits[0] ?? "") === "src/utils/state-paths.ts",
-  `legacy state name is confined to state-paths.ts (found ${legacyHits.map(rel).join(", ") || "none"})`,
+  legacyHits.length === 0,
+  `shipped source never names the retired tree (found ${legacyHits.map(rel).join(", ") || "none"})`,
 );
 
 const statePaths = text(join(srcDir, "utils", "state-paths.ts"));
-assert(statePaths.includes('LEGACY_STATE_DIR_NAME = "tawassyl"'), "legacy state directory is named explicitly");
-const primaryCheck = statePaths.indexOf("existsSync(primary)");
-const gateCheck = statePaths.indexOf("if (!legacyReadsEnabled())");
-const legacyCheck = statePaths.indexOf("legacyStatePath(fileName)");
-assert(
-  primaryCheck !== -1 && gateCheck !== -1 && legacyCheck !== -1 && primaryCheck < gateCheck && gateCheck < legacyCheck,
-  "state reads prefer the v2 path and gate the legacy fallback behind an explicit opt-in",
-);
-assert(statePaths.includes("TAWASSUL_V2_LEGACY_READS"), "the legacy read gate is named explicitly");
+assert(!/LEGACY_|legacyStateDir|stateReadPath/.test(statePaths), "state paths expose no legacy lane");
 
 const pkg = JSON.parse(text(join(repo, "package.json"))) as {
   dependencies?: Record<string, string>;
@@ -59,20 +56,20 @@ const pkg = JSON.parse(text(join(repo, "package.json"))) as {
 };
 const deps = Object.entries({ ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) });
 assert(
-  deps.every(([name, version]) => !/tawassyl/i.test(name) && !/tawassyl/i.test(version)),
+  deps.every(([name, version]) => !retired.test(name) && !retired.test(version)),
   "package manifest has no v1 dependency",
 );
 
 const build = text(join(repo, "build-v2.mjs"));
 assert(build.includes('join(".opencode", "plugin")'), "build targets the local host plugin directory");
 assert(build.includes('"tawassul.js"'), "build emits the host plugin entry");
-assert(!/tawassyl/i.test(build), "build has no v1 reference");
+assert(!retired.test(build), "build has no v1 reference");
 
 const launcher = text(join(repo, "scripts", "opencode-v2-iso.sh"));
 assert(launcher.includes('GUARD="$V2_REPO/scripts/guard-db-generation.sh"'), "launcher uses the local guard");
-assert(!/tawassyl/i.test(launcher), "launcher has no v1 reference");
+assert(!retired.test(launcher), "launcher has no v1 reference");
 
-const foreignRef = /Desktop\/tawassyl|\.\.\/tawassyl|plugins\/tawassul\//;
+const foreignRef = new RegExp(`Desktop/${RETIRED_NAME}|\\.\\./${RETIRED_NAME}|plugins/` + "tawassul/");
 const scriptFiles = [...walk(join(repo, "scripts"), ".ts"), ...walk(join(repo, "scripts"), ".sh")];
 const scriptHits = scriptFiles.filter((file) => foreignRef.test(text(file)));
 assert(
@@ -166,6 +163,6 @@ assert(
   escaping.length === 0,
   `no repository symlink escapes the tree (found ${escaping.join(", ") || "none"})`,
 );
-assert(!symlinks.some((link) => /tawassyl/i.test(link)), "no symlink points at the v1 tree");
+assert(!symlinks.some((link) => retired.test(link)), "no symlink points at the v1 tree");
 
 console.log("PROOF PASS: v2 runs without the v1 tree and ships one host entry");

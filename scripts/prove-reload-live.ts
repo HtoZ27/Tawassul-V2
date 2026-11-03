@@ -2,9 +2,8 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getInitReady } from "../src/bootstrap/plugin-init.ts";
+import { getInitReady, initPlugin } from "../src/bootstrap/plugin-init.ts";
 import { TOOL_COUNT, TOOL_NAME_SET_HASH } from "../src/generated/tool-tripwire.ts";
-import { tawassul } from "../src/index.ts";
 import { toolNameSetHash } from "../src/services/tool-tripwire.ts";
 import type { ToolDefinition } from "../src/tool.ts";
 import { collectToolSchemas, schemaFingerprint } from "../src/v2/adapters.ts";
@@ -82,7 +81,7 @@ function build(): void {
 
 try {
   mkdirSync(join(work, ".opencode"), { recursive: true });
-  const hooks = await tawassul.server({ client: {}, directory: work, worktree: work } as never);
+  const hooks = await initPlugin({ client: {}, directory: work, worktree: work } as never);
   const probe = getInitReady(hooks as never);
   assert(probe !== undefined, "the isolated boot exposes the init readiness probe");
   const status = await probe!();

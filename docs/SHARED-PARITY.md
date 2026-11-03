@@ -23,7 +23,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 
 | Entry | Requirement | v2 anchor | Proof | Status |
 | --- | --- | --- | --- | --- |
-| S-001 | The v2 entry is a module exporting a plugin object with id, server, and setup. | `src/index.ts:8` `setup: createV2Setup` | `scripts/prove-host-entry.ts` | verified |
+| S-001 | The v2 entry is a module exporting a plugin object with id and setup. | `src/index.ts:9` `setup: createV2Setup` | `scripts/prove-host-entry.ts` | verified |
 | S-002 | The build resolves the host plugin package through the ESM exports condition instead of a static external list. | `build-v2.mjs:18` `import.meta.resolve` | `scripts/prove-host-entry.ts` | verified |
 | S-003 | Every tool execute result is converted from the v1 shape to the v2 shape. | `src/v2/adapters.ts:99` `toV2Result` | `scripts/prove-v2-compat.ts` | verified |
 | S-004 | Setup aborts before registration when the host lacks the session or tool domain. | `src/v2/setup.ts:465` `host missing required domains` | `scripts/prove-host-entry.ts` | verified |
@@ -31,7 +31,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-006 | Model display names are English-only with no bilingual shape or lang parameter. | `src/core/model-registry.ts:91` `MODEL_DISPLAY_NAMES` | `scripts/prove-feature-index-english.ts` | verified |
 | S-007 | A full-tree port must never overwrite hand-fixed files. | - | - | n-a |
 | S-008 | The translations loader is English-canonical, ships the Arabic table for runtime languages, and has no logger dependency. | `src/translations.ts:4` `LANGUAGES` | `scripts/prove-feature-index-english.ts` | verified |
-| S-009 | One object serves the v1 host through server and the v2 host through setup. | `src/index.ts:7` `server: initPlugin` | `scripts/prove-host-entry.ts` | verified |
+| S-009 | The entry carries no v1 server member; the v2 host initializes through setup. | `src/index.ts:7` `export const tawassul: Plugin.Plugin = {` | `scripts/prove-host-entry.ts` | verified |
 | S-010 | Conflict-marker debris must never reach v2 sources. | - | - | n-a |
 | S-011 | Status changes refresh the board index and carry session provenance. | `src/services/mission-board.ts:188` `scheduleIndexWrite` | `scripts/prove-board-invariants.ts` | verified |
 | S-012 | A completed board cannot be reopened; transitions are close-only. | `src/services/mission-board.ts:304` `isCompleted` | `scripts/prove-board-invariants.ts` | verified |
@@ -40,7 +40,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-014 | A standalone health tool exists in the tawa namespace. | `src/tools/tawa/health.ts:56` `buildHealthTool` | `scripts/prove-e46.ts` | verified |
 | S-015 | The retired kanban-board name must not return. | - | - | n-a |
 | S-016 | Conflict-marker pollutants must not be propagated. | - | - | n-a |
-| S-017 | The three-day hardening batch is ported on merit: model retirements, generator hardening, governance, and runtime rows. | `src/services/proxy-fallback-chains.ts:73` `sweepRetiredModelPins` | `scripts/prove-s017.ts`, `scripts/prove-gen-lock-contention.ts`, `scripts/prove-gen-merge-guards.ts`, `scripts/prove-gen-guard-wal.ts`, `scripts/prove-roster-boundary.ts`, `scripts/prove-event-trust-p1.ts`, `scripts/prove-web-ssrf.ts`, `scripts/prove-s028.ts`, `scripts/prove-state-namespace.ts` | verified |
+| S-017 | The three-day hardening batch is ported on merit: model retirements, generator hardening, governance, and runtime rows. | `src/services/proxy-fallback-chains.ts:73` `sweepRetiredModelPins` | `scripts/prove-s017.ts`, `scripts/prove-gen-lock-contention.ts`, `scripts/prove-gen-merge-guards.ts`, `scripts/prove-gen-guard-wal.ts`, `scripts/prove-roster-boundary.ts`, `scripts/prove-event-trust-p1.ts`, `scripts/prove-web-ssrf.ts`, `scripts/prove-s028.ts` | verified |
 | S-018 | R-008, R-009, and R-011 are ported in a v2 shape with first-boot roster seeding. | `src/utils/opencode-config.ts:506` `ensureGlobalRosterSeed` | `scripts/prove-first-boot-seed.ts` | verified |
 | S-019 | The atomic-audit P0 closures are ported: containment, WAL probe, backup environment, and fail-closed gates. | `scripts/opencode-db-maintenance.sh:596` `require_v2_generation` | `scripts/prove-db-retention.ts` | verified |
 | S-020 | The nine-day batch is ported: tool surface, cache generation, guards, and wiring. | `src/context/model-utils.ts:24` `getPortCacheGen` | `scripts/prove-s020.ts` | verified |
@@ -83,17 +83,17 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-052 | Goal auto-capture follows the corrected shape, not the v1 code. | `src/services/goal-store.ts:713` `finishLocked` | `scripts/prove-goal-capture.ts` | verified |
 | S-053.1 | The watcher policy is owned by the v2 launcher with env over pinned over auto and one decision line. | `scripts/opencode-v2-iso.sh:302` `[launcher] watcher mode=` | `scripts/prove-boot-gate.ts` | verified |
 | S-053.2 | DB retention prunes event rows and the backup probe counts both session tables. | `scripts/opencode-db-maintenance.sh:91` `EVENT_KEEP` | `scripts/prove-db-retention.ts` | verified |
-| S-053.3 | The seven-item unchecked-task census is either ported as tests or recorded as out of scope. | `ISSUES.md:2978` `### E-53` | `scripts/prove-handoff-rescue.ts`, `scripts/prove-state-namespace.ts`, `scripts/prove-seed-agents.ts` | verified |
+| S-053.3 | The seven-item unchecked-task census is either ported as tests or recorded as out of scope. | `ISSUES.md:2978` `### E-53` | `scripts/prove-handoff-rescue.ts`, `scripts/prove-seed-agents.ts` | verified |
 | S-053.4 | Pause during a live session halts dispatch and persists the paused handoff set. | `src/tools/system-controls.ts:79` `const pauseState: PauseState = {` | `scripts/prove-s053.ts` | verified |
 | S-053.5 | A task that runs longer than 420 seconds is tracked by the task timeout. | `src/hooks/tool-execute.ts:72` `export const TASK_TIMEOUT_MS = 420_000;` | `scripts/prove-s053.ts` | verified |
 | S-053.6 | An image-generation 401 refreshes the token once and fails closed on a second 401. | `src/tools/image-gen.ts:190` `const refreshed = await refreshAndUpdateToken();` | `scripts/prove-s053.ts` | verified |
 | S-053.7 | Confidentiality at rest for plugin state is a host and OS responsibility, not a plugin feature. | - | - | n-a |
 | S-053.8 | User-level rate limiting is not a single-user local plugin surface. | - | - | n-a |
-| S-053.9 | Shared state is signed with HMAC-SHA256 before it is written and verified on read. | `src/utils/crypto.ts:20` `export const HMAC_PREFIX = "TAWASSUL_V2_HMAC_V1:";` | `scripts/prove-state-namespace.ts` | verified |
+| S-053.9 | Shared state is signed with HMAC-SHA256 before it is written and verified on read. | `src/utils/crypto.ts:20` `export const HMAC_PREFIX = "TAWASSUL_V2_HMAC_V1:";` | `scripts/prove-s017.ts` | verified |
 | S-053.10 | Deleted-agent names persist in the user-owned deletion list and survive a seed. | `src/scripts/gen-opencode-config.ts:58` `deletedPath: resolve(root, ".opencode", "deleted-agents.json"),` | `scripts/prove-seed-agents.ts`, `scripts/prove-first-boot-seed.ts` | verified |
 | S-054 | The frozen boot-scorecard fixes are ported. | `scripts/boot-scorecard-v2.sh:30` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
 | S-055 | The v1 docs and atomic backlog is triaged before retirement. | - | - | doc-only |
-| S-056 | v1 shared state, HMAC, lock, seat, and N2 surfaces are namespaced. | `src/utils/state-paths.ts:110` `legacyFallbackFor` | `scripts/prove-state-namespace.ts` | verified |
+| S-056 | The legacy state directory and fallback reads are removed; HMAC key and signature compatibility remain. | `src/utils/state-paths.ts:40` `export function statePath(` | `scripts/prove-v2-independence.ts`, `scripts/prove-s017.ts` | verified |
 | S-057 | The addagent advisory consults the provider before warning about an unknown model. | `src/core/model-registry.ts:171` `shouldWarnUnverifiedModel` | `scripts/prove-s028.ts` | verified |
 
 ## Open items

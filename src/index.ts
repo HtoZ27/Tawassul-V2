@@ -2,9 +2,10 @@ import { Plugin } from "@opencode/plugin";
 import { initPlugin } from "./bootstrap/plugin-init.ts";
 import { createV2Setup } from "./v2/setup.ts";
 
-export const tawassul: Plugin.Plugin & { server: typeof initPlugin } = {
+export const createHooks = initPlugin;
+
+export const tawassul: Plugin.Plugin = {
   id: "tawassul",
-  server: initPlugin,
   setup: createV2Setup(),
 };
 

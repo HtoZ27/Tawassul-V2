@@ -23,7 +23,7 @@ were wrong in earlier planning are recorded with their correction.
 | Registered skills | 4, 376 description bytes in total | `skills/manifest.json`, `scripts/prove-skills-manifest.ts` |
 | Shipped commands | 1 (`tawassul-goals`) | `scripts/prove-pilot-eval.ts` |
 | i18n table | 42,754 bytes, bundle weight only | never injected into the model context |
-| Proof scripts | 156 files, 153 manifest steps | `scripts/generate-proof-count.ts --check` |
+| Proof scripts | 154 files, 151 manifest steps | `scripts/generate-proof-count.ts --check` |
 | Full proof stage | 301,221 ms in one process; four balanced shards at about 83 s each | `scripts/proof-shards.json` |
 | Hot-tool retries | top-8 at the frozen zero | `scripts/prove-context-diet.ts` |
 | State root | `v2DataRoot()/projects/<key>/`, 14 `state:` keys migrated | `scripts/prove-state-root-rollback.ts`, 74 assertions |

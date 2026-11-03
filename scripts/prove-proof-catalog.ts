@@ -176,7 +176,6 @@ const PINNED_PROOF_FILES = [
   "prove-model-switch.ts",
   "prove-n2-cap.ts",
   "prove-p08.ts",
-  "prove-p09.ts",
   "prove-partial-install.ts",
   "prove-payload-cache.ts",
   "prove-pilot-eval.ts",
@@ -211,7 +210,6 @@ const PINNED_PROOF_FILES = [
   "prove-skill-registration.ts",
   "prove-skills-manifest.ts",
   "prove-snapshot-boundary.ts",
-  "prove-state-namespace.ts",
   "prove-state-root-rollback.ts",
   "prove-state-root-survival.ts",
   "prove-store-priming.ts",
@@ -226,7 +224,7 @@ const PINNED_PROOF_FILES = [
   "prove-web-ssrf.ts",
 ];
 
-const PINNED_PROOF_STEPS = 153;
+const PINNED_PROOF_STEPS = 151;
 const SMOKE_PROOFS = new Set(["prove-global-boot.ts", "prove-independence-boot.ts"]);
 
 const proofFiles = readdirSync(join(repo, "scripts"))

@@ -2,7 +2,7 @@
 
 - Date: 2026-11-01
 - Verdict: **emulator evidence, not a native Windows receipt.** Acceptance item 20 stays open.
-- Kit: `/home/htoz/tawassul-windows-kit`, unpacked to a fresh directory, `RUN-RECEIPT.cmd` driven by Wine's `cmd`
+- Kit: `/home/user/tawassul-windows-kit`, unpacked to a fresh directory, `RUN-RECEIPT.cmd` driven by Wine's `cmd`
 - Bun: 1.3.14 **baseline** for win-x64; the normal build aborts with `Illegal instruction` on a host without AVX2
 - Host: `opencode.exe` v2.2.5 win-x64 from the same release the earlier host receipt used
 - Emulator: Wine 9.0 through `/usr/lib/wine/wine64`, clean prefix, `env -i` so no Linux variable leaks into the Windows process

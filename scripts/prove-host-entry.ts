@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import defined, { tawassul } from "../src/index.ts";
+import defined, { createHooks, tawassul } from "../src/index.ts";
 import { initPlugin } from "../src/bootstrap/plugin-init.ts";
 import { createV2Setup } from "../src/v2/setup.ts";
 import type { PluginInput, TawassulHooks } from "../src/plugin-types.ts";
@@ -24,9 +24,10 @@ function assert(cond: unknown, name: string): void {
 
 async function entryShape(): Promise<void> {
   assert(tawassul.id === "tawassul", "the entry declares the tawassul id");
-  assert(typeof tawassul.server === "function", "the entry carries the v1 server function");
+  assert(!("server" in tawassul), "the entry carries no v1 server member");
+  assert(JSON.stringify(Object.keys(tawassul).sort()) === JSON.stringify(["id", "setup"]), "the entry exposes exactly id and setup");
   assert(typeof tawassul.setup === "function", "the entry carries the v2 setup function");
-  assert(tawassul.server === initPlugin, "the v1 server is the plugin initializer itself");
+  assert(createHooks === initPlugin, "the standalone initializer is exported for embedders and proofs");
   assert(defined === tawassul, "Plugin.define returns the same entry object");
   assert(defined.id === "tawassul" && typeof defined.setup === "function", "the defined plugin keeps id and setup");
 }

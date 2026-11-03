@@ -7,7 +7,7 @@ import { wrapWithHmac, unwrapWithHmac } from "../utils/crypto.ts";
 import { getWriteBlockReason } from "./isolation.ts";
 import { logger } from "../utils/logger.ts";
 import { atomicWriteFile } from "../utils/atomic.ts";
-import { legacyFallbackFor } from "../utils/state-paths.ts";
+import { projectRootFallback } from "../utils/state-paths.ts";
 
 
 
@@ -137,14 +137,14 @@ export async function hmacReadFile<T>(filePath: string): Promise<T | null> {
   try {
     await access(source, constants.F_OK);
   } catch {
-    const legacy = legacyFallbackFor(filePath);
+    const legacy = projectRootFallback(filePath);
     if (legacy === undefined) return null;
     try {
       await access(legacy, constants.F_OK);
     } catch {
       return null;
     }
-    logger.info(`[persist] reading legacy state file ${legacy} (namespaced file absent)`);
+    logger.info(`[persist] reading project-root state file ${legacy} (namespaced file absent)`);
     source = legacy;
   }
   try {

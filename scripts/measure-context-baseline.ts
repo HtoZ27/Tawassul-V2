@@ -46,9 +46,9 @@ try {
     throw new Error(`built entry missing at ${entry}; run npm run build`);
   }
   const mod = (await import(pathToFileURL(entry).href)) as {
-    tawassul: { server: (input: { client: Record<string, never>; directory: string; worktree: string }) => Promise<{ tool?: Record<string, ToolDefinition> }> };
+    createHooks: (input: { client: Record<string, never>; directory: string; worktree: string }) => Promise<{ tool?: Record<string, ToolDefinition> }>;
   };
-  const hooks = await mod.tawassul.server({ client: {}, directory: work, worktree: work });
+  const hooks = await mod.createHooks({ client: {}, directory: work, worktree: work });
   const probe = getInitReady(hooks as never);
   if (!probe) {
     throw new Error("the built plugin does not expose the init readiness probe");

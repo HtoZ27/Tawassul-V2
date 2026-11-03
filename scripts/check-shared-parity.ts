@@ -58,7 +58,11 @@ function sharedHeadings(): Heading[] {
   const headings: Heading[] = [];
   for (let index = 0; index < lines.length; index++) {
     const match = /^## (S-\d{3})\s+(.*)$/.exec(lines[index] ?? "");
-    if (match) headings.push({ id: match[1] ?? "", title: (match[2] ?? "").trim(), line: index + 1 });
+    if (match) {
+      const raw = (match[2] ?? "").trim();
+      const title = raw.replace(/\s*\(reference:[^)]*\)/i, " (reference: retired)");
+      headings.push({ id: match[1] ?? "", title, line: index + 1 });
+    }
   }
   return headings;
 }

@@ -8,11 +8,11 @@
       "sharedLine": 17,
       "requirements": [
         {
-          "text": "The v2 entry is a module exporting a plugin object with id, server, and setup.",
+          "text": "The v2 entry is a module exporting a plugin object with id and setup.",
           "status": "verified",
           "anchor": {
             "file": "src/index.ts",
-            "line": 8,
+            "line": 9,
             "marker": "setup: createV2Setup"
           },
           "proofs": [
@@ -183,22 +183,22 @@
     },
     {
       "id": "S-009",
-      "title": "Dual-entry v1/v2 adapter (reference: oh-my-opencode-slim)",
+      "title": "Dual-entry v1/v2 adapter (reference: retired)",
       "sharedLine": 103,
       "requirements": [
         {
-          "text": "One object serves the v1 host through server and the v2 host through setup.",
+          "text": "The entry carries no v1 server member; the v2 host initializes through setup.",
           "status": "verified",
           "anchor": {
             "file": "src/index.ts",
             "line": 7,
-            "marker": "server: initPlugin"
+            "marker": "export const tawassul: Plugin.Plugin = {"
           },
           "proofs": [
             "scripts/prove-host-entry.ts"
           ],
           "issue": null,
-          "note": "Dual export is the shipped entry shape.",
+          "note": "0.1.0 removes the v1 host lane; prove-host-entry asserts the exact entry keys.",
           "hostNote": null
         }
       ],
@@ -378,11 +378,10 @@
             "scripts/prove-roster-boundary.ts",
             "scripts/prove-event-trust-p1.ts",
             "scripts/prove-web-ssrf.ts",
-            "scripts/prove-s028.ts",
-            "scripts/prove-state-namespace.ts"
+            "scripts/prove-s028.ts"
           ],
           "issue": null,
-          "note": "All four groups are proven: the retirement set and sweep, in-lock generation with permission and facts checks, the roster and add allowlists, and every named runtime row has a source marker or a behavioral probe. Eight existing proofs remain part of the evidence.",
+          "note": "All four groups are proven: the retirement set and sweep, in-lock generation with permission and facts checks, the roster and add allowlists, and every named runtime row has a source marker or a behavioral probe.",
           "hostNote": null
         }
       ],
@@ -1276,7 +1275,6 @@
           },
           "proofs": [
             "scripts/prove-handoff-rescue.ts",
-            "scripts/prove-state-namespace.ts",
             "scripts/prove-seed-agents.ts"
           ],
           "issue": null,
@@ -1355,7 +1353,7 @@
             "marker": "export const HMAC_PREFIX = \"TAWASSUL_V2_HMAC_V1:\";"
           },
           "proofs": [
-            "scripts/prove-state-namespace.ts"
+            "scripts/prove-s017.ts"
           ],
           "issue": null,
           "note": "New writes carry the v2 prefix, both legacy prefixes still verify, and the proof asserts the signature shape and the namespace.",
@@ -1426,18 +1424,19 @@
       "sharedLine": 1201,
       "requirements": [
         {
-          "text": "v1 shared state, HMAC, lock, seat, and N2 surfaces are namespaced.",
+          "text": "The legacy state directory and fallback reads are removed; HMAC key and signature compatibility remain.",
           "status": "verified",
           "anchor": {
             "file": "src/utils/state-paths.ts",
-            "line": 110,
-            "marker": "legacyFallbackFor"
+            "line": 40,
+            "marker": "export function statePath("
           },
           "proofs": [
-            "scripts/prove-state-namespace.ts"
+            "scripts/prove-v2-independence.ts",
+            "scripts/prove-s017.ts"
           ],
           "issue": null,
-          "note": "39 assertions cover paths, read fallback, dual-prefix HMAC, and the seat.",
+          "note": "0.1.0 deletes the legacy lane; the HMAC key directory and the old signature prefixes stay readable.",
           "hostNote": null
         }
       ],

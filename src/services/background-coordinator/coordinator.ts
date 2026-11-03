@@ -7,7 +7,7 @@ import { logger } from "../../utils/logger.ts";
 import { withTimeout } from "../../utils/with-timeout.ts";
 import { TimeoutError } from "../../utils/errors.ts";
 import { isIsolationActiveSync } from "../isolation.ts";
-import { legacyFallbackFor } from "../../utils/state-paths.ts";
+import { projectRootFallback } from "../../utils/state-paths.ts";
 import type { BackgroundJob, BackgroundTaskResult, BackgroundCoordinatorConfig, BackgroundEvent } from "./types.js";
 import type { TimerManagerLike } from "../../types/timer-types.ts";
 import {
@@ -479,14 +479,14 @@ export class BackgroundCoordinator {
     try {
       await access(source, constants.F_OK);
     } catch {
-      const legacy = legacyFallbackFor(this.storagePath);
+      const legacy = projectRootFallback(this.storagePath);
       if (legacy === undefined) return;
       try {
         await access(legacy, constants.F_OK);
       } catch {
         return;
       }
-      logger.info(`[background-coordinator] reading legacy state file ${legacy} (namespaced file absent)`);
+      logger.info(`[background-coordinator] reading project-root state file ${legacy} (namespaced file absent)`);
       source = legacy;
     }
 

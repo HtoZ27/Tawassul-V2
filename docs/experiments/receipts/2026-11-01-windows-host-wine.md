@@ -60,4 +60,4 @@ env -i WINEPREFIX="$WINEPREFIX" WINEDEBUG=-all WINEDLLOVERRIDES="mscoree,mshtml=
 
 ## Environment hazard
 
-The first attempt failed with `SQLiteError: unable to open database file`. The cause was not Wine: the shell that launched Wine carried `OPENCODE_DB=/home/htoz/.local/share/opencode/tawassul-v2/opencode.db` from the Linux session, and Wine turned that into `C:\home\htoz\...`. Running Wine through `env -i` with a minimal environment removed the false failure. Any future emulator run must not inherit the outer OpenCode session's variables.
+The first attempt failed with `SQLiteError: unable to open database file`. The cause was not Wine: the shell that launched Wine carried `OPENCODE_DB=/home/user/.local/share/opencode/tawassul-v2/opencode.db` from the Linux session, and Wine turned that into `C:\home\htoz\...`. Running Wine through `env -i` with a minimal environment removed the false failure. Any future emulator run must not inherit the outer OpenCode session's variables.
