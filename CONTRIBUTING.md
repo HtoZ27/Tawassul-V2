@@ -78,6 +78,20 @@ A workflow never receives a provider key, an HMAC key, or a state directory. Do
 not add a secret to a workflow to make a proof pass; an isolated state root is
 the correct fix.
 
+## Release worktree
+
+The public tree is built from the allow-list, not copied by hand:
+
+```bash
+npm run prepare:public -- /tmp/tawassul-public
+bun scripts/check-public-tree.ts --tree /tmp/tawassul-public
+```
+
+The script copies only the files in `scripts/release/public-files.json`. It
+never deletes anything: a target that holds a file outside the manifest is
+refused, so remove that file yourself and run it again. Run `npm ci` and
+`npm run verify` inside the result before the root commit.
+
 ## Style
 
 - Follow the surrounding code. Naming, file layout, and error shapes are

@@ -164,6 +164,7 @@
     "pack:release": "bash scripts/release/pack.sh",
     "verify:release-artifact": "bun scripts/release/verify-artifact.ts",
     "check:public-tree": "bun scripts/check-public-tree.ts",
+    "prepare:public": "bun scripts/release/prepare-public.ts",
     "check:release": "bun scripts/release/check-release.ts"
   },
   "devDependencies": {
