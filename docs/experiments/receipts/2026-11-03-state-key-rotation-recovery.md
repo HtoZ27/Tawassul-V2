@@ -8,8 +8,9 @@
 - Host: OpenCode Desktop 2.2.5, sidecar `opencode-cli.exe`
 - Bun: 1.3.14 baseline; Node: v26.13.0
 - HEAD at the time of the live recovery: `c0b19a2` plus the uncommitted
-  rotation-heal change set, committed as `297d208`. A follow-up commit adds the
-  reload supersede guard described under "Reload hazard".
+  rotation-heal change set, committed as `297d208`. Two follow-up commits add
+  the reload supersede guard and its process-global registry (`d842512`,
+  `b50e613`), described under "Reload hazard".
 
 ## Symptom
 
@@ -114,8 +115,11 @@ Fix: `src/bootstrap/plugin-init.ts` now keeps a per-directory registry of the
 active instance. A second init for the same directory retires the previous
 instance before loading state; the retire runs the normal cleanup and stops its
 timers, and skips only the coexistence release because the replacement uses the
-same claim. `dispose` is idempotent. `prove-c03` now asserts that a second init
-retires the previous instance (20 assertions).
+same claim. `dispose` is idempotent. The registry is stored under
+`Symbol.for("tawassul.v2.activePluginInstances")` on `globalThis`, because a
+host reload can re-evaluate the plugin module and a module-local map would start
+empty. `prove-c03` asserts both the same-module and the re-imported-module
+supersede path (21 assertions).
 
 Recovery after the merge: the validated 3,567,322-byte payload was written
 again at `05:09:17Z`, the sidecar pid 1136 was force-stopped, and pid 6464
@@ -123,15 +127,36 @@ started at `05:09:26Z`. The restore status reported `ok=true`, HMAC valid, 2019
 records, 1000 handoffs, and no conflict line appeared in the minutes after that
 restart.
 
+## Deployed reload verification
+
+The guard was deployed on the committed build `b50e613` (bundle 2,143,330
+bytes, content SHA `aab2c627b781`) by force-stopping pid 5076; pid 6908 started
+at `05:17:01Z` with `ok=true`, HMAC valid, 2019 records, 1001 handoffs.
+
+A real `opencode-cli reload` then ran at `05:17:21Z` on that build:
+
+| Check | Result |
+| --- | --- |
+| Supersede log line | `v2 superseding the previous plugin instance for C:\Users\htoz\Desktop\Tawassul V2` |
+| Previous instance shutdown | `dispose: 1 pending, 0 active handoffs`; `[background-coordinator] Stopped` at `05:17:23.651Z` |
+| Replacement startup | `[background-coordinator] Started with 5 jobs` at `05:17:23.814Z`, then `Background init completed successfully` |
+| Save conflicts | none since `05:17:21Z`; no HMAC, rejection, or quarantine line |
+| Write probe `R-3022` | canonical rewritten at `05:18:01Z`, 3,220,479 bytes, 2020 records, probe present |
+| Delete probe `R-3022` | canonical rewritten at `05:18:10Z`, 3,220,468 bytes, 2019 records, probe absent |
+
+The retired instance finished its dispose before the replacement loaded state,
+so the reload no longer creates a second autosave writer. The state file was
+observed for several minutes after the reload with no merge and no record growth.
+
 ## Verification
 
 | Command | Result |
 | --- | --- |
-| `bun scripts/gate.ts fast` | `GATE PASS: fast (11 step(s), 19310ms)`, 157 proofs, exit 0 |
+| `bun scripts/gate.ts fast` | `GATE PASS: fast (11 step(s), 18837ms)`, 157 proofs, exit 0 |
 | `bun scripts/prove-e13.ts` | `PROOF PASS` 38 assertions, exit 0 |
 | `bun scripts/prove-s033.ts` | `PROOF PASS` 41 assertions, exit 0 |
-| `bun scripts/prove-c03.ts` | `PROOF PASS` 20 assertions, including the supersede guard |
-| `bun build-v2.mjs` | `dist\index.js`, `dist\global.js`, `.opencode\plugins\tawassul.js`; four wasm assets |
+| `bun scripts/prove-c03.ts` | `PROOF PASS` 21 assertions, including the same-module and re-imported-module supersede path |
+| `bun build-v2.mjs` | `dist\index.js`, `dist\global.js`, `.opencode\plugins\tawassul.js` at 2,143,330 bytes; marker matches the built commit `b50e613`; four wasm assets |
 | `install-global.ts` isolated lane | install, `--verify`, tamper exit 2, uninstall, purge all as expected; marker `81fc4b064d66` |
 
 ## Boundaries
