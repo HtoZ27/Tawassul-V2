@@ -141,12 +141,23 @@ A real `opencode-cli reload` then ran at `05:17:21Z` on that build:
 | Previous instance shutdown | `dispose: 1 pending, 0 active handoffs`; `[background-coordinator] Stopped` at `05:17:23.651Z` |
 | Replacement startup | `[background-coordinator] Started with 5 jobs` at `05:17:23.814Z`, then `Background init completed successfully` |
 | Save conflicts | none since `05:17:21Z`; no HMAC, rejection, or quarantine line |
-| Write probe `R-3022` | canonical rewritten at `05:18:01Z`, 3,220,479 bytes, 2020 records, probe present |
+| Write probe `R-3022` | canonical rewritten at `05:18:01Z`, 3,220,479 bytes, 2020 records, probe present (the id was reused after the earlier probe was deleted) |
 | Delete probe `R-3022` | canonical rewritten at `05:18:10Z`, 3,220,468 bytes, 2019 records, probe absent |
 
 The retired instance finished its dispose before the replacement loaded state,
 so the reload no longer creates a second autosave writer. The state file was
-observed for several minutes after the reload with no merge and no record growth.
+then observed from `05:17:21Z` to `05:33:44Z` and confirmed again at `05:36Z`:
+
+| Check | Result |
+| --- | --- |
+| Canonical state | 3,220,728 bytes, 2019 records, 1001 handoffs, last write `05:22:36Z` |
+| Save conflicts | none; no HMAC, rejection, quarantine, or lock-loss line in the window |
+| 15-minute autosave | the interval elapsed without a rewrite; an unchanged payload is a no-op because `cmpKey` excludes `_meta`, so a clean ledger does not churn revisions |
+| Visible post-reload writes | the probe create and delete at `05:18:01Z` and `05:18:10Z`, both by the surviving instance |
+
+No merge and no record growth occurred. The only supersede line in the log is
+the expected one at `05:17:21.446Z`; a second instance would have produced a
+second supersede line and competing save revisions.
 
 ## Verification
 
@@ -166,8 +177,10 @@ observed for several minutes after the reload with no merge and no record growth
   recovery; that gap is covered by the saved pre-recovery backups.
 - The inactive project key that also holds a byte-identical 3,213,875-byte
   generation was left untouched. Only the live key was restored.
-- Existing quarantine copies were not pruned by hand. The new cap applies when
-  the next quarantine copy is created.
+- Existing quarantine copies were not pruned by hand: 8 copies (21.5 MB) sit in
+  the live project key and 17 copies (50.4 MB) in the inactive key. Most are
+  byte-identical copies of the same 3,213,875-byte generation. The new cap
+  applies when the next quarantine copy is created.
 - The v1 tree was not read, built, or modified.
 - `gate:proofs` and `npm run ci` still need a POSIX host with `python3` and
   `/usr/bin` shims; only `gate:fast` ran natively.
