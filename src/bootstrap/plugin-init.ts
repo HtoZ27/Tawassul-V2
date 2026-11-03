@@ -400,6 +400,9 @@ let uncaughtHandler: ((err: Error) => void) | undefined = undefined;
 let _homeProjectWarned = false;
 let unhandledRejectionHandler: ((reason: unknown) => void) | undefined = undefined;
 
+type ActivePluginDispose = (options?: { releaseClaim?: boolean }) => Promise<void>;
+const activePluginInstances = new Map<string, ActivePluginDispose>();
+
 function disposeGlobalErrorHandlers(): void {
   errorHandlerRefCount = Math.max(0, errorHandlerRefCount - 1);
   if (errorHandlerRefCount !== 0) return;
@@ -497,6 +500,17 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
     logger.warn("Plugin disabled via TAWASSUL_DISABLED env var");
     return {};
   }
+
+  const previousDispose = activePluginInstances.get(ctx.directory);
+  if (previousDispose) {
+    activePluginInstances.delete(ctx.directory);
+    logger.info(`[tawassul] v2 superseding the previous plugin instance for ${ctx.directory}`);
+  }
+  const previousRetire = previousDispose
+    ? Promise.resolve()
+        .then(() => previousDispose({ releaseClaim: false }))
+        .catch((e) => logger.warn("[plugin-init] previous instance cleanup failed:", e))
+    : Promise.resolve();
 
   
   
@@ -645,7 +659,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
 
   const initPromise = runWithContext(tawaCtx, async () => {
     try {
-      
+      await Promise.race([previousRetire, new Promise<void>((resolve) => setTimeout(resolve, 8000))]);
       await tawaCtx.init();
       if (initAbortController.signal.aborted) return;
 
@@ -997,6 +1011,48 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   let toolReadyWarned = false;
   let toolTamperWarned = false;
 
+  let disposed = false;
+  const disposeInstance = async (options?: { releaseClaim?: boolean }): Promise<void> => {
+    if (disposed) return;
+    disposed = true;
+    if (activePluginInstances.get(ctx.directory) === disposeInstance) activePluginInstances.delete(ctx.directory);
+    disposeGlobalErrorHandlers();
+    initAbortController.abort();
+    if (tawaCtx.pipelineState) stopAutoSweep(tawaCtx.pipelineState);
+    if (options?.releaseClaim !== false && !coexistenceReleased) {
+      coexistenceReleased = true;
+      releaseCoexistence(coexistenceScope, coexistenceToken, ctx.directory);
+    }
+    try {
+      tawaCtx.agentManager.stopRefresh();
+    } catch (e) {
+      logger.warn("[plugin-init] dispose: stopRefresh failed:", e);
+    }
+    try {
+      resetAllState(tawaCtx.pipelineState, tawaCtx.rateLimiter);
+    } catch (e) {
+      logger.warn("[plugin-init] dispose: resetAllState failed:", e);
+    }
+    try {
+      resetModelCache();
+    } catch (e) {
+      logger.warn("[plugin-init] dispose: resetModelCache failed:", e);
+    }
+    try {
+      tawaCtx.askChannelInstance?.dispose();
+    } catch (e) {
+      logger.warn("[plugin-init] dispose: askChannel cleanup failed:", e);
+    }
+    const status = await ensureReady();
+    if (!status.ready) {
+      logger.warn("dispose: init not ready, forcing cleanup:", status.error?.message ?? "pending");
+    }
+    return runWithContext(tawaCtx, async () => {
+      if (hooks) return hooks.disposeHook();
+    });
+  };
+  activePluginInstances.set(ctx.directory, disposeInstance);
+
   return {
     tool: wrappedTools,
     [INIT_READY]: ensureReady,
@@ -1196,48 +1252,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
         }
       });
     }) as NonNullable<Hooks["event"]>),
-    dispose: async () => {
-      disposeGlobalErrorHandlers();
-      initAbortController.abort();
-      if (tawaCtx.pipelineState) stopAutoSweep(tawaCtx.pipelineState); 
-      
-      
-      
-      
-      
-      if (!coexistenceReleased) {
-        coexistenceReleased = true;
-        releaseCoexistence(coexistenceScope, coexistenceToken, ctx.directory);
-      }
-      
-      try {
-        tawaCtx.agentManager.stopRefresh();
-      } catch (e) {
-        logger.warn("[plugin-init] dispose: stopRefresh failed:", e);
-      }
-      try {
-        resetAllState(tawaCtx.pipelineState, tawaCtx.rateLimiter);
-      } catch (e) {
-        logger.warn("[plugin-init] dispose: resetAllState failed:", e);
-      }
-      try {
-        resetModelCache();
-      } catch (e) {
-        logger.warn("[plugin-init] dispose: resetModelCache failed:", e);
-      }
-      try {
-        tawaCtx.askChannelInstance?.dispose();
-      } catch (e) {
-        logger.warn("[plugin-init] dispose: askChannel cleanup failed:", e);
-      }
-      const status = await ensureReady();
-      if (!status.ready) {
-        logger.warn("dispose: init not ready, forcing cleanup:", status.error?.message ?? "pending");
-      }
-      return runWithContext(tawaCtx, async () => {
-        if (hooks) return hooks.disposeHook();
-      });
-    },
+    dispose: disposeInstance,
     tawaCtx,
   };
 }

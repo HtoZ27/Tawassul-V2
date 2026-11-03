@@ -67,6 +67,7 @@ async function liveBoot(): Promise<{
   plugin: BootedPlugin;
   transcript: TranscriptCall[];
   hostAsks: { count: number };
+  hostCtx: never;
 }> {
   const work = mkdtempSync(join(tmpdir(), "tawassul-c03-"));
   const keyDir = join(work, "hmac");
@@ -146,7 +147,7 @@ async function liveBoot(): Promise<{
   if (probe) await probe();
   const logPath = join(work, "tawassul.log");
   if (!existsSync(logPath)) fail(`isolated boot wrote no log at ${logPath}`);
-  return { work, bootLog: readFileSync(logPath, "utf-8"), plugin, transcript, hostAsks };
+  return { work, bootLog: readFileSync(logPath, "utf-8"), plugin, transcript, hostAsks, hostCtx: ctx as never };
 }
 
 async function userSays(plugin: BootedPlugin, content: string, messageID: string): Promise<void> {
@@ -180,7 +181,7 @@ function questionsFor(transcript: TranscriptCall[], command: string): Transcript
 }
 
 async function main(): Promise<void> {
-  const { work, bootLog, plugin, transcript, hostAsks } = await liveBoot();
+  const { work, bootLog, plugin, transcript, hostAsks, hostCtx } = await liveBoot();
   const { resetConsentApprovals, ConsentBlockedError } = await import(
     "../src/hooks/guards/consent-gate-guard.ts"
   );
@@ -226,6 +227,24 @@ async function main(): Promise<void> {
   assert(known instanceof ConsentBlockedError, "the managed-agent consent path is unchanged");
   await flush();
   assert(questionsFor(transcript, KNOWN_CMD).length === 1, "the managed-agent control parks its own question");
+
+  const { initPlugin, getInitReady } = await import("../src/bootstrap/plugin-init.ts");
+  const { buildPluginInput } = await import("../src/v2/client-shim.ts");
+  const lifecycleManager = (
+    plugin as unknown as { tawaCtx: { lifecycleManager: { destroy: () => Promise<void> } } }
+  ).tawaCtx.lifecycleManager;
+  const originalDestroy = lifecycleManager.destroy.bind(lifecycleManager);
+  let retired = 0;
+  lifecycleManager.destroy = async () => {
+    retired += 1;
+    return originalDestroy();
+  };
+  const second = initPlugin(buildPluginInput(hostCtx)) as unknown as BootedPlugin;
+  const secondProbe = getInitReady(second as never);
+  if (secondProbe) await secondProbe();
+  assert(retired === 1, "a second init retires the previous instance for the same directory");
+  const secondDispose = (second as unknown as { dispose?: () => Promise<void> }).dispose;
+  if (secondDispose) await secondDispose();
 
   await new Promise((resolve) => setTimeout(resolve, 100));
   rmSync(work, { recursive: true, force: true });

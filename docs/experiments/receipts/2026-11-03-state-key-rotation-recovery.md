@@ -8,7 +8,8 @@
 - Host: OpenCode Desktop 2.2.5, sidecar `opencode-cli.exe`
 - Bun: 1.3.14 baseline; Node: v26.13.0
 - HEAD at the time of the live recovery: `c0b19a2` plus the uncommitted
-  rotation-heal change set
+  rotation-heal change set, committed as `297d208`. A follow-up commit adds the
+  reload supersede guard described under "Reload hazard".
 
 ## Symptom
 
@@ -83,7 +84,7 @@ write it back after a backup.
 | Restore status file | `ok=true`, final bytes 3,567,322, HMAC valid, 2019 records, 1000 handoffs |
 | `record(get: "R-1001")` | returned the original recovered record text |
 | `status()` | 2019 session records, 78 completed handoffs |
-| `health()` | pending flushes 0, state file present, HMAC key present |
+| `health()` | state file present, HMAC key present |
 | Write probe `R-3022` | canonical rewritten at `04:52:57Z`, 3,214,958 bytes, 2020 records, probe present |
 | Delete probe `R-3022` | canonical rewritten at `04:53:08Z`, 3,214,655 bytes, 2019 records, probe absent |
 | Log since `04:52:32Z` | no HMAC failure, no rejection, no quarantine, no isolation, no save skip |
@@ -91,15 +92,47 @@ write it back after a backup.
 The size drop from 3,567,322 to about 3,214,958 bytes is expected: the recovery
 copy was pretty-printed, the plugin writes compact JSON with the same content.
 
+## Reload hazard
+
+`opencode-cli reload` returned "Configuration reloaded" and initialized a second
+plugin instance in the same process, but the host did not call the previous
+instance's `dispose` hook. Two auto-save timers then wrote the same state file.
+At `05:07:00Z` the save path logged:
+
+```
+SAVE_CONFLICT_DETECTED: attempt=1 ... baseRev=896 diskRev=897 outcome=rebased
+```
+
+The rebase merged the two in-memory ledgers into one 7,315,278-byte file with
+5000 records and duplicate titles, and the earliest records were dropped by the
+record cap. A probe created just before that write (`R-5042`) was lost in the
+merge. The merged file was copied to
+`C:\Users\htoz\AppData\Local\Temp\opencode\merged-5000-evidence.json`
+(SHA-256 `49cd34759884...`) before recovery.
+
+Fix: `src/bootstrap/plugin-init.ts` now keeps a per-directory registry of the
+active instance. A second init for the same directory retires the previous
+instance before loading state; the retire runs the normal cleanup and stops its
+timers, and skips only the coexistence release because the replacement uses the
+same claim. `dispose` is idempotent. `prove-c03` now asserts that a second init
+retires the previous instance (20 assertions).
+
+Recovery after the merge: the validated 3,567,322-byte payload was written
+again at `05:09:17Z`, the sidecar pid 1136 was force-stopped, and pid 6464
+started at `05:09:26Z`. The restore status reported `ok=true`, HMAC valid, 2019
+records, 1000 handoffs, and no conflict line appeared in the minutes after that
+restart.
+
 ## Verification
 
 | Command | Result |
 | --- | --- |
-| `bun scripts/gate.ts fast` | `GATE PASS: fast (11 step(s), 20015ms)`, 157 proofs, exit 0 |
+| `bun scripts/gate.ts fast` | `GATE PASS: fast (11 step(s), 19310ms)`, 157 proofs, exit 0 |
 | `bun scripts/prove-e13.ts` | `PROOF PASS` 38 assertions, exit 0 |
 | `bun scripts/prove-s033.ts` | `PROOF PASS` 41 assertions, exit 0 |
+| `bun scripts/prove-c03.ts` | `PROOF PASS` 20 assertions, including the supersede guard |
 | `bun build-v2.mjs` | `dist\index.js`, `dist\global.js`, `.opencode\plugins\tawassul.js`; four wasm assets |
-| `install-global.ts` isolated lane | install, `--verify`, tamper exit 2, uninstall, purge all as expected |
+| `install-global.ts` isolated lane | install, `--verify`, tamper exit 2, uninstall, purge all as expected; marker `81fc4b064d66` |
 
 ## Boundaries
 
