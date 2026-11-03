@@ -41,7 +41,11 @@ the retired ladder used to cover:
 
 ## Boundaries
 
-- `-Mode pwsh7` was not run: `pwsh` is not installed on this machine.
+- `-Mode pwsh7` was not re-run here because `pwsh` is not installed on this
+  machine. The mode itself is proven: the 2026-11-02 receipt executed it
+  natively under portable PowerShell 7.4.13 Core (`verdict=PASS`, 9.9 seconds,
+  all four modes green), so this is a missing re-run on this host, not an
+  untested path.
 - `gate:proofs` and `npm run ci` were not run natively: the proof stage needs a
   POSIX host with `python3` and `/usr/bin` shims, and this machine has neither
   Python nor a WSL distro. `gate:fast`, the build, the smoke stage, and three of
