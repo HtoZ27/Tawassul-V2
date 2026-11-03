@@ -112,7 +112,7 @@ for (const name of workflowNames) {
   for (const action of uses) {
     if (action.startsWith("./") || action.startsWith("docker://")) continue;
     check(
-      /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+@[a-f0-9]{40}$/.test(action),
+      /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)?@[a-f0-9]{40}$/.test(action),
       `${name} action is not pinned to a full SHA: ${action}`,
     );
   }
