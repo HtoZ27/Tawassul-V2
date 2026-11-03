@@ -53,7 +53,8 @@
     "package-lock.json",
     "tsconfig.json",
     "build-v2.mjs",
-    "install.sh"
+    "install.sh",
+    "tawassul.schema.json"
   ],
   "prefixes": [
     "src/",

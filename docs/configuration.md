@@ -11,6 +11,9 @@ all the plugin runs on its defaults.
 `TAWASSUL_GLOBAL_DIR` moves the global root. `configFile` renames the project
 file; it is read from the global file, so it must be set there to take effect.
 
+`tawassul.schema.json` in the repository root is the JSON Schema generated from
+the same Zod definition; editors can use it for completion and validation.
+
 ## Merge order
 
 1. The global file is parsed and validated.

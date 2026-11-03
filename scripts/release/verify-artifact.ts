@@ -109,6 +109,7 @@ if (existsSync(tarball)) {
     "package/LICENSE",
     "package/CHANGELOG.md",
     "package/NOTICE.md",
+    "package/tawassul.schema.json",
     "package/dist/index.js",
     "package/dist/global.js",
     ...WASM.map((rel) => `package/tawassul-runtime/wasm/${rel}`),

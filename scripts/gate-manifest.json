@@ -52,6 +52,14 @@
       ]
     },
     {
+      "name": "schema",
+      "cmd": [
+        "bun",
+        "src/scripts/gen-schema.ts",
+        "--check"
+      ]
+    },
+    {
       "name": "facts",
       "cmd": [
         "bun",

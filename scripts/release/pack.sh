@@ -81,7 +81,7 @@ PKG="$STAGE/package"
 mkdir -p "$PKG/dist" "$PKG/tawassul-runtime/wasm"
 cp "$DIST/index.js" "$PKG/dist/index.js"
 cp "$DIST/global.js" "$PKG/dist/global.js"
-cp "$REPO/README.md" "$REPO/LICENSE" "$REPO/CHANGELOG.md" "$REPO/NOTICE.md" "$PKG/"
+cp "$REPO/README.md" "$REPO/LICENSE" "$REPO/CHANGELOG.md" "$REPO/NOTICE.md" "$REPO/tawassul.schema.json" "$PKG/"
 
 for rel in $WASM_FILES; do
   mkdir -p "$PKG/tawassul-runtime/wasm/$(dirname "$rel")"
@@ -101,7 +101,7 @@ const manifest = {
     ".": "./dist/index.js",
     "./global.js": "./dist/global.js",
   },
-  files: ["dist", "tawassul-runtime", "README.md", "LICENSE", "CHANGELOG.md", "NOTICE.md"],
+  files: ["dist", "tawassul-runtime", "README.md", "LICENSE", "CHANGELOG.md", "NOTICE.md", "tawassul.schema.json"],
   engines: { node: ">=26.13.0" },
 };
 fs.writeFileSync(process.argv[1], JSON.stringify(manifest, null, 2) + "\n");
