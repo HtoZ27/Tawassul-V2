@@ -81,7 +81,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/v2/setup.ts",
-            "line": 465,
+            "line": 466,
             "marker": "host missing required domains"
           },
           "proofs": [
@@ -690,7 +690,7 @@
           "status": "verified",
           "anchor": {
             "file": "build-v2.mjs",
-            "line": 130,
+            "line": 132,
             "marker": "tawassul.js"
           },
           "proofs": [
@@ -751,7 +751,7 @@
           "status": "verified",
           "anchor": {
             "file": "scripts/install-global.ts",
-            "line": 224,
+            "line": 212,
             "marker": "hostCandidates"
           },
           "proofs": [
@@ -1068,7 +1068,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/v2/setup.ts",
-            "line": 48,
+            "line": 49,
             "marker": "SCHEMA_RETRY_ATTEMPTS"
           },
           "proofs": [

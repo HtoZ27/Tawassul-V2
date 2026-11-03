@@ -10,7 +10,7 @@ without weakening it.
 | Stage | Command | Steps | Purpose |
 | --- | --- | --- | --- |
 | Fast | `npm run gate:fast` | 14 | Rules, docs, public tree, SBOM, types, config, facts, pins, parity, release, catalog, counts |
-| Proofs | `npm run gate:proofs` | 152 | One isolated proof per invariant |
+| Proofs | `npm run gate:proofs` | 154 | One isolated proof per invariant |
 | Smoke | `npm run gate:smoke` | 6 | Build, release artifacts, release smoke, global boot, independence boot |
 | Evals | `npm run gate:evals` | 1 | Pilot evaluation of agent behaviour |
 
@@ -53,9 +53,10 @@ A proof is a script under `scripts/prove-*.ts`. It asserts one invariant,
 prints `PROOF PASS` with its assertion count, and exits non-zero on failure.
 Examples: a state file cannot escape its namespace, the web tool refuses a
 private address, a torn ledger tail is skipped, an uninstall removes exactly the
-files in its marker.
+files in its marker. The host-floor proof asserts that the installer and both
+plugin entry paths refuse `2.2.0` and accept `2.2.1`.
 
-At this release the tree holds <!-- generated:proof-files -->155<!-- /generated --> proof files and the proofs stage runs <!-- generated:proof-steps -->152<!-- /generated --> of
+At this release the tree holds <!-- generated:proof-files -->157<!-- /generated --> proof files and the proofs stage runs <!-- generated:proof-steps -->154<!-- /generated --> of
 them. The remaining proofs run where they belong: <!-- generated:fast-proof-steps -->1<!-- /generated --> in the fast stage
 and <!-- generated:smoke-proof-steps -->2<!-- /generated --> in the smoke stage. A file that runs nowhere fails the catalog check.
 
@@ -82,9 +83,9 @@ npm run gate:proofs:3
 npm run gate:proofs:4
 ```
 
-The four shards are balanced and take about <!-- generated:shard-seconds -->83.1<!-- /generated --> seconds each. They are the same
+The four shards are balanced and take about <!-- generated:shard-seconds -->85.1<!-- /generated --> seconds each. They are the same
 proofs, split; a shard is a convenience, not a weaker gate. The full stage takes
-about <!-- generated:proof-seconds -->332<!-- /generated --> seconds. The detached runner
+about <!-- generated:proof-seconds -->340<!-- /generated --> seconds. The detached runner
 is `npm run gate:proofs:bg` with `:status`, `:wait`, and `:stop`.
 
 ## Smoke

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { HOST_AUDITED, HOST_FLOOR } from "../src/core/host-floor.ts";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -104,11 +105,20 @@ assert(
   `the newest hostContract matches the SDK pin (${newest?.hostContract ?? "missing"})`,
 );
 
-const installerMin = versionOf(installer.match(/const HOST_MIN = "([^"]+)"/)?.[1]);
-const installerAudited = versionOf(installer.match(/const HOST_AUDITED = "([^"]+)"/)?.[1]);
+const installerMin = versionOf(HOST_FLOOR);
+const installerAudited = versionOf(HOST_AUDITED);
 const smokeMin = versionOf(smoke.match(/MIN_VERSION="([^"]+)"/)?.[1]);
 const smokeAudited = versionOf(smoke.match(/AUDITED_VERSION="([^"]+)"/)?.[1]);
 const launcherAudited = versionOf(launcher.match(/OPENCODE_VERSION_AUDITED="([^"]+)"/)?.[1]);
+const pluginInit = readFileSync(join(REPO, "src", "bootstrap", "plugin-init.ts"), "utf-8");
+const v2Setup = readFileSync(join(REPO, "src", "v2", "setup.ts"), "utf-8");
+assert(installer.includes("const HOST_MIN = HOST_FLOOR"), "the installer takes the floor from the shared host policy");
+assert(
+  installer.includes("const HOST_AUDITED = HOST_AUDITED_VERSION"),
+  "the installer takes the audited host from the shared host policy",
+);
+assert(pluginInit.includes("hostFloorProblem(ctx.hostVersion)"), "the init path enforces the shared floor");
+assert(v2Setup.includes("hostFloorProblem(reportedVersion)"), "the v2 setup path enforces the shared floor");
 assert(installerAudited === audited, `the installer audited host matches the SDK pin (${installerAudited})`);
 assert(smokeAudited === audited, `the smoke audited host matches the SDK pin (${smokeAudited})`);
 assert(launcherAudited === audited, `the launcher audited host matches the SDK pin (${launcherAudited})`);

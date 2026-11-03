@@ -660,6 +660,13 @@
       ]
     },
     {
+      "name": "host-floor",
+      "cmd": [
+        "bun",
+        "scripts/prove-host-floor.ts"
+      ]
+    },
+    {
       "name": "host-goal",
       "cmd": [
         "bun",
@@ -1105,6 +1112,13 @@
       "cmd": [
         "bun",
         "scripts/prove-pilot-eval.ts"
+      ]
+    },
+    {
+      "name": "state-paths",
+      "cmd": [
+        "bun",
+        "scripts/prove-state-paths.ts"
       ]
     },
     {

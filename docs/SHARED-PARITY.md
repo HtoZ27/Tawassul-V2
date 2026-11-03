@@ -26,7 +26,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-001 | The v2 entry is a module exporting a plugin object with id and setup. | `src/index.ts:9` `setup: createV2Setup` | `scripts/prove-host-entry.ts` | verified |
 | S-002 | The build resolves the host plugin package through the ESM exports condition instead of a static external list. | `build-v2.mjs:18` `import.meta.resolve` | `scripts/prove-host-entry.ts` | verified |
 | S-003 | Every tool execute result is converted from the v1 shape to the v2 shape. | `src/v2/adapters.ts:99` `toV2Result` | `scripts/prove-v2-compat.ts` | verified |
-| S-004 | Setup aborts before registration when the host lacks the session or tool domain. | `src/v2/setup.ts:465` `host missing required domains` | `scripts/prove-host-entry.ts` | verified |
+| S-004 | Setup aborts before registration when the host lacks the session or tool domain. | `src/v2/setup.ts:466` `host missing required domains` | `scripts/prove-host-entry.ts` | verified |
 | S-005 | The role to tool matrix is ported without an i18n or NLP dependency. | `src/role-matrix.ts:40` `TAWASSUL_TOOL_ROLES` | `scripts/prove-s005.ts`, `scripts/prove-s013.ts` | verified |
 | S-006 | Model display names are English-only with no bilingual shape or lang parameter. | `src/core/model-registry.ts:91` `MODEL_DISPLAY_NAMES` | `scripts/prove-feature-index-english.ts` | verified |
 | S-007 | A full-tree port must never overwrite hand-fixed files. | - | - | n-a |
@@ -54,10 +54,10 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-028 | The provider model cache is the source of truth for suffix governance. | `src/core/model-registry.ts:148` `getProviderModelTokens` | `scripts/prove-s028.ts` | verified |
 | S-029 | R7 variant pins, dispatch precedence, dotted suffixes, and the log default are ported. | `src/tools/agent-management.ts:239` `computePinEntries` | `scripts/prove-s029.ts` | verified |
 | S-030 | The live roster is aligned with the generation-layer retire. | `src/scripts/gen-opencode-config.ts:287` `unionDeletedVariants` | `scripts/prove-s029.ts` | verified |
-| S-031 | The documented install path materializes the plugin entry on every build. | `build-v2.mjs:130` `tawassul.js` | `scripts/release-smoke.sh` | verified |
+| S-031 | The documented install path materializes the plugin entry on every build. | `build-v2.mjs:132` `tawassul.js` | `scripts/release-smoke.sh` | verified |
 | S-032 | A stale project-scope copy must not win registration in a shared process. | `src/core/install-scope.ts:56` `claimCoexistence` | `scripts/prove-s038.ts` | verified |
 | S-033.1 | The plugin-side cold-boot wave is ported: quiet resolution, write-behind, save debounce, jitter, logger stamp, quarantine, and save guard. | `src/utils/quiet.ts:6` `forceQuietMode` | `scripts/prove-s033.ts` | verified |
-| S-033.2 | Launcher and installer duties stay in the host install script, not in the plugin. | `scripts/install-global.ts:224` `hostCandidates` | `scripts/prove-s033.ts` | verified |
+| S-033.2 | Launcher and installer duties stay in the host install script, not in the plugin. | `scripts/install-global.ts:212` `hostCandidates` | `scripts/prove-s033.ts` | verified |
 | S-033.3 | The cold-boot launch wave passes only after a recorded cold-boot run meets N1 to N5. | - | - | n-a |
 | S-034.1 | N2 records only announced assistant text parts. | `src/hooks/n2-auto.ts:40` `assistantMessages` | `scripts/prove-v2-compat.ts` | verified |
 | S-034.2 | A v2 boot scorecard implements N1 to N5 with an explicit since gate. | `scripts/boot-scorecard-v2.sh:30` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
@@ -73,7 +73,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-042 | Local plugin entries must be deduplicated by the loader, not only by the plugin. | `src/core/install-scope.ts:56` `claimCoexistence` | - | host-bound |
 | S-043 | Legacy config keys no longer produce per-boot normalization warnings. | `src/utils/opencode-config.ts:376` `applyBootRepairs` | `scripts/prove-e02.ts` | verified |
 | S-044 | Select and multiselect elicitation fail closed through the ask bridge. | `src/services/ask-channel-parse.ts:12` `multiselect` | `scripts/prove-v2-ask-bridge.ts` | verified |
-| S-045 | Deferred tool schemas are refreshed after init with a bounded retry. | `src/v2/setup.ts:48` `SCHEMA_RETRY_ATTEMPTS` | `scripts/prove-b02.ts` | verified |
+| S-045 | Deferred tool schemas are refreshed after init with a bounded retry. | `src/v2/setup.ts:49` `SCHEMA_RETRY_ATTEMPTS` | `scripts/prove-b02.ts` | verified |
 | S-046 | Unknown permission actions need a host default policy or rule registration. | `src/v2/ask.ts:18` `evaluate` | - | host-bound |
 | S-047 | Tool output deltas and a compaction prompt contract are implemented. | `src/hooks/tool-output-stream.ts:90` `message.part.delta` | `scripts/prove-e15.ts` | verified |
 | S-048 | The input and output schema pairing needs host documentation. | `src/v2/result-bridge.ts:99` `writeBackV1Output` | - | host-bound |

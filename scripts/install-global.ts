@@ -25,14 +25,20 @@ import {
 } from "../src/core/install-lane.ts";
 import { hostProbeCommand } from "../src/core/install-host.ts";
 import { durableWriteFile } from "../src/core/install-write.ts";
+import {
+  HOST_AUDITED as HOST_AUDITED_VERSION,
+  HOST_FLOOR,
+  compareHostVersions,
+  parseHostVersion,
+} from "../src/core/host-floor.ts";
 import { v2DataRoot } from "../src/utils/state-paths.ts";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 const GLOBAL_BUNDLE = join(REPO, "dist", "global.js");
 const PROJECT_BUNDLE = join(REPO, ".opencode", "plugins", "tawassul.js");
 const HOME = process.env.HOME?.trim() || homedir();
-const HOST_MIN = "2.2.0";
-const HOST_AUDITED = "2.2.1";
+const HOST_MIN = HOST_FLOOR;
+const HOST_AUDITED = HOST_AUDITED_VERSION;
 const HOST_AUDITED_MAJOR = 2;
 const HOST_OVERRIDE = process.env.TAWASSUL_OPENCODE_VERSION?.trim();
 const PLUGIN_ID = "tawassul-v2";
@@ -153,26 +159,8 @@ function parseVersion(text: string): string | undefined {
   return match?.[1];
 }
 
-function versionParts(version: string): [number, number, number] | undefined {
-  const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
-  if (!match) return undefined;
-  return [Number(match[1]), Number(match[2]), Number(match[3])];
-}
-
-function compareHostVersions(left: string, right: string): number {
-  const a = versionParts(left);
-  const b = versionParts(right);
-  if (!a || !b) return left.localeCompare(right);
-  for (let index = 0; index < 3; index += 1) {
-    const leftPart = a[index] ?? 0;
-    const rightPart = b[index] ?? 0;
-    if (leftPart !== rightPart) return leftPart - rightPart;
-  }
-  return 0;
-}
-
 function isSupportedHost(version: string): boolean {
-  const parts = versionParts(version);
+  const parts = parseHostVersion(version);
   if (!parts) return false;
   if (compareHostVersions(version, HOST_MIN) < 0) return false;
   return HOST_OVERRIDE ? version === HOST_OVERRIDE : true;
@@ -180,7 +168,7 @@ function isSupportedHost(version: string): boolean {
 
 function overrideRangeError(): string | undefined {
   if (!HOST_OVERRIDE) return undefined;
-  const parts = versionParts(HOST_OVERRIDE);
+  const parts = parseHostVersion(HOST_OVERRIDE);
   if (!parts) {
     return `TAWASSUL_OPENCODE_VERSION=v${HOST_OVERRIDE} is not a semantic version`;
   }
@@ -199,7 +187,7 @@ function hostRange(): string {
 function hostWarning(version: string): string | undefined {
   if (HOST_OVERRIDE || !isSupportedHost(version)) return undefined;
   if (compareHostVersions(version, HOST_AUDITED) > 0) {
-    const major = versionParts(version)?.[0] ?? HOST_AUDITED_MAJOR;
+    const major = parseHostVersion(version)?.[0] ?? HOST_AUDITED_MAJOR;
     if (major > HOST_AUDITED_MAJOR) {
       return `host v${version} is a newer major than the audited v${HOST_AUDITED}; installing in untested mode — the plugin probes host capabilities at init and reports any missing domain`;
     }

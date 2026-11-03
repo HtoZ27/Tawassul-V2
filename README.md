@@ -36,7 +36,7 @@ Tawassul makes that structure explicit:
 
 ## Quick start
 
-Requires OpenCode `>=2.2.0`, Node.js `26.13.0` (see `.nvmrc`), and Bun `1.3.x`.
+Requires OpenCode `>=2.2.1`, Node.js `26.13.0` (see `.nvmrc`), and Bun `1.3.x`.
 
 Install the release for every workspace of the current user:
 
@@ -109,9 +109,11 @@ More in [docs/skills.md](docs/skills.md).
 | Windows x64 | Supported (native receipt); bundle and wasm only, no database lane |
 | WSL2 | Experimental |
 
-The host floor is `2.2.0`; the audited version is `2.2.1`. Newer majors run in
-untested mode behind a capability probe. Full detail, including the evidence
-level of every row, is in [docs/compatibility.md](docs/compatibility.md).
+The host floor is `2.2.1`, the audited version. The installer refuses an older
+host, and the plugin refuses one that reports an older version at init. Newer
+majors run in untested mode behind a capability probe. Full detail, including
+the evidence level of every row, is in
+[docs/compatibility.md](docs/compatibility.md).
 
 ## Documentation
 

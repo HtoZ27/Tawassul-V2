@@ -8,14 +8,16 @@ gate; a row marked pending has no receipt yet and is not a support claim.
 
 | Host version | Status | Evidence |
 | --- | --- | --- |
-| `< 2.2.0` | Rejected | The installer and the plugin refuse to start below the floor |
-| `2.2.0` | Supported | Plugin API floor used by the bundle |
-| `2.2.1` | Supported, audited | The version the current proof run targets |
+| `< 2.2.1` | Rejected | The installer refuses below the floor, and the plugin refuses a reported version below it at init |
+| `2.2.1` | Supported, audited | The floor and the version the current proof run targets |
 | `2.2.x` above the audited build | Supported, unaudited patch level | Capability probe at init; installer advises `check:upstream` |
 | Newer major (`3.x` and above) | Untested | Accepted in untested mode with a warning; the plugin probes host capabilities at init and reports any missing domain |
 
 The plugin API dependency is `@opencode/plugin ^2.2.1`. The installer refuses a
-host below `2.2.0` and warns when the host is newer than the audited `2.2.1`.
+host below `2.2.1` and warns when the host is newer than the audited `2.2.1`.
+The plugin refuses a host that reports a version below `2.2.1` at init; when the
+host reports no version, that check is skipped and the capability probe still
+runs.
 
 ## Platforms
 

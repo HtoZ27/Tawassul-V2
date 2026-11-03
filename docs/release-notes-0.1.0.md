@@ -113,8 +113,7 @@ point at a directory.
 
 | Area | Status |
 | --- | --- |
-| OpenCode `2.2.0` | Supported (floor) |
-| OpenCode `2.2.1` | Supported, audited |
+| OpenCode `2.2.1` | Supported, audited (floor) |
 | OpenCode `3.x` | Untested mode behind a capability probe |
 | Linux x64 | Ready, including maintenance and triggers |
 | Linux arm64, macOS | Experimental |

@@ -26,6 +26,7 @@ import {
   warmWorkspace,
 } from "../services/context-pack/index.ts";
 import { parseFreeLimitSignal } from "../services/free-limit.ts";
+import { hostFloorProblem } from "../core/host-floor.ts";
 import {
   commitFailover,
   parseModelTarget,
@@ -464,6 +465,16 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
     if (!ctx || !ctx.session || !ctx.tool) {
       logger.error("[tawassul] v2 setup aborted: host missing required domains (session/tool)");
       return async () => undefined;
+    }
+
+    const reportedVersion = ctx.app?.version;
+    const floorProblem = hostFloorProblem(reportedVersion);
+    if (floorProblem) {
+      logger.error(`[tawassul] v2 setup refused: ${floorProblem}`);
+      return async () => undefined;
+    }
+    if (!reportedVersion) {
+      logger.debug("[tawassul] v2 setup: the host reported no version; the floor check is skipped");
     }
 
     if (detectInstallScope(import.meta.url) === "global") {

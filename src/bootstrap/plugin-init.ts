@@ -23,6 +23,7 @@ import { TawassulContext } from "../context.ts";
 import type { TawassulConfig } from "../context/types.ts";
 import { createServices } from "./service-factory.ts";
 import { createHooks } from "./hooks-registration.ts";
+import { hostFloorProblem } from "../core/host-floor.ts";
 import { buildToolJsonSchema } from "../lib/tool-schema-injection.ts";
 import { initAutoSweep, stopAutoSweep, resetAllState } from "../hooks/validation-pipeline.ts";
 import { resetModelCache } from "../hooks/guards/shared.ts";
@@ -466,6 +467,16 @@ export function getInitReady(hooks: Hooks): InitReadyProbe | undefined {
 }
 
 export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof TawassulContext }) {
+  const floorProblem = hostFloorProblem(ctx.hostVersion);
+  if (floorProblem) {
+    logger.error(`[tawassul] refusing to initialize: ${floorProblem}`);
+    const initError = new Error(floorProblem);
+    return {
+      [INIT_READY]: async () => ({ ready: false, error: initError }),
+      dispose: async () => undefined,
+    } as Hooks;
+  }
+
   perfReset();
   mark("initPlugin:start");
 

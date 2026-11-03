@@ -36,8 +36,10 @@ encryption if the state must be confidential at rest.
 
 ## Which host versions are supported?
 
-The floor is `2.2.0`; `2.2.1` is audited. A newer major runs in untested mode
-behind a capability probe at init. See [compatibility](compatibility.md).
+The floor is `2.2.1`, the audited version. The installer refuses an older host,
+and the plugin refuses one that reports an older version at init. A newer major
+runs in untested mode behind a capability probe at init. See
+[compatibility](compatibility.md).
 
 ## Does it work on Windows?
 

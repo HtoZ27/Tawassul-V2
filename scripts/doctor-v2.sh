@@ -623,8 +623,8 @@ if [ -n "$resolved" ] && [ -x "$resolved" ]; then
       warn "opencode on PATH is v$cli_version; the pinned host is v$TAWASSUL_OPENCODE_VERSION (v1 hosts must not run)"
     fi
   elif [ -n "$cli_version" ]; then
-    if [ "$(printf '%s\n%s\n' "2.2.0" "$cli_version" | sort -V | head -n1)" != "2.2.0" ]; then
-      warn "opencode on PATH is v$cli_version; supported hosts are v>=2.2.0 (v1 hosts must not run)"
+    if [ "$(printf '%s\n%s\n' "2.2.1" "$cli_version" | sort -V | head -n1)" != "2.2.1" ]; then
+      warn "opencode on PATH is v$cli_version; supported hosts are v>=2.2.1 (v1 hosts must not run)"
     elif [ "$cli_version" != "2.2.1" ]; then
       if [ "${cli_version%%.*}" -gt 2 ] 2>/dev/null; then
         warn "opencode on PATH is v$cli_version, a newer major than the audited v2.2.1 — untested mode; the plugin probes capabilities at init"

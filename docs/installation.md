@@ -13,7 +13,7 @@ Global scope is an explicit, reversible operation with its own verification pass
 
 | Requirement | Version | Notes |
 | --- | --- | --- |
-| OpenCode host | `>=2.2.0` | Audited against `2.2.1`; newer majors run untested and are probed at init |
+| OpenCode host | `>=2.2.1` | Audited at `2.2.1`; newer majors run untested and are probed at init |
 | Node.js | `26.13.0` | Pinned in `.nvmrc`; used for development and for the build |
 | Bun | `1.3.x` | Runs the build and the installer scripts |
 | Disk | under 10 MB | Bundle, wasm files, and the runtime directory |

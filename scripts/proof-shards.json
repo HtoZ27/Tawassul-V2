@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "totalEstimateMs": 332441,
+  "totalEstimateMs": 340441,
   "shards": [
     {
       "name": "1",
-      "estimateMs": 80029,
+      "estimateMs": 88029,
       "steps": [
         "gen-lock",
         "web-ssrf",
@@ -39,7 +39,9 @@
         "record-digest-dedupe",
         "skills-manifest",
         "review-independence-retro",
-        "reachability-audit"
+        "reachability-audit",
+        "host-floor",
+        "state-paths"
       ]
     },
     {

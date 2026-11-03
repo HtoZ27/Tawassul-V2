@@ -91,6 +91,12 @@ pre-stable.
   passed a Windows PATH to the shell. It now resolves `sh.exe`, converts PATH to
   the POSIX form, and exports `TAWASSUL_BUN` so smoke steps find Bun.
 
+### Changed
+
+- The host floor is `2.2.1`, the audited version. The installer, the isolated
+  launcher, the release smoke, and the doctor refuse `2.2.0`, and the plugin
+  refuses a reported version below `2.2.1` at both entry paths.
+
 ### Removed
 
 - `scripts/windows-install.ps1` and `scripts/windows-install.cmd` and their
