@@ -1,6 +1,6 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
-import { globalConfigBaseDir, safeHomedir, type InstallScope } from "./path-resolver.ts";
+import { globalConfigBaseDir, safeHomedir } from "./path-resolver.ts";
 
 export const STATE_DIR_ENV = "TAWASSUL_V2_STATE_DIR";
 export const STATE_DIR_NAME = "tawassul-v2";
@@ -45,9 +45,25 @@ export function statePath(fileName: string): string {
   }
 }
 
-export function scopedStatePath(base: string, scope: InstallScope | undefined, fileName: string): string {
-  if (scope === "global") return statePath(fileName);
+export function projectStatePath(base: string, fileName: string): string {
   return resolve(base, ".opencode", fileName);
+}
+
+export function stateDirWritable(dir: string): boolean {
+  const probe = resolve(dir, `.tawassul-write-probe-${process.pid}`);
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(probe, "probe", { mode: 0o600 });
+    rmSync(probe, { force: true });
+    return true;
+  } catch {
+    try {
+      rmSync(probe, { force: true });
+    } catch {
+
+    }
+    return false;
+  }
 }
 
 export function projectRootFallback(filePath: string): string | undefined {

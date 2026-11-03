@@ -6,23 +6,26 @@ retained, how to back it up, and what deleting it means.
 
 ## Topology
 
-| Data | Project scope | Global scope |
-| --- | --- | --- |
-| Main state | `<project>/.opencode/tawassul-state.json` | `<global config>/tawassul-state.json` |
-| Goals, ratings, service state | `<project>/.opencode/` | `<global config>/tawassul-v2-state/` |
-| Goal ledger | `<state root>/goals/goals.jsonl` and `goals-meta.json` | same, under the global state root |
-| Context packs | `$XDG_DATA_HOME/tawassul/context-packs/<workspace-hash>/` | same |
-| Maintenance stamps | `$XDG_DATA_HOME/tawassul-v2/db-maintenance/` | same |
-| Database backups | `$XDG_DATA_HOME/tawassul-v2/backups/` | same |
-| Isolated database | `$XDG_DATA_HOME/opencode-projects/<hash>/opencode.db` | same |
-| HMAC key | `$TAWASSUL_HMAC_KEY_DIR` or `~/.config/tawassul/.tawassul-hmac-key` | same |
+Scope decides where the plugin file, the roster and the signing key live. It
+does not decide where runtime state lives: every install scope keeps state in
+the project.
 
-`<global config>` is `~/.config/opencode` unless `TAWASSUL_GLOBAL_DIR` or
-`XDG_CONFIG_HOME` moves it. `$XDG_DATA_HOME` falls back to `~/.local/share`.
+| Data | Path |
+| --- | --- |
+| Main state | `<project>/.opencode/tawassul-state.json` |
+| Goals, ratings, service state | `<project>/.opencode/` |
+| Goal ledger | `<project>/goals/goals.jsonl` and `goals-meta.json` |
+| Context packs | `$XDG_DATA_HOME/tawassul/context-packs/<workspace-hash>/` |
+| Maintenance stamps | `$XDG_DATA_HOME/tawassul-v2/db-maintenance/` |
+| Database backups | `$XDG_DATA_HOME/tawassul-v2/backups/` |
+| Isolated database | `$XDG_DATA_HOME/opencode-projects/<hash>/opencode.db` |
+| HMAC key | `$TAWASSUL_HMAC_KEY_DIR` or `~/.config/tawassul/.tawassul-hmac-key` |
 
-Two workspaces do not share a state file. A context pack is keyed by a hash of
-the workspace path, so a pack written in one workspace is not discovered by
-another.
+`$XDG_DATA_HOME` falls back to `~/.local/share`.
+
+Two workspaces do not share a state file, in project or global scope. A
+context pack is keyed by a hash of the workspace path, so a pack written in one
+workspace is not discovered by another.
 
 ## Files and modes
 
@@ -60,11 +63,13 @@ The plugin refuses to persist rather than guess:
   and no key is created to "repair" the file.
 - An isolated session is read-only for persistence by design; its writes are
   blocked with a `read-only fail-safe` message.
+- A project whose state directory cannot be written boots normally. State-backed
+  writes are skipped, one warning is logged, and `health` reports
+  `state: read-only`.
 
 A read-only session still answers reads. The refusal is the point: creating a
-key for a file you did not sign would convert a denial into silent trust. If the
-state path is unwritable, the write fails and the failure is logged; move the
-workspace or fix the permission instead of forcing a write.
+key for a file you did not sign would convert a denial into silent trust. Fix
+the directory permission or move the workspace instead of forcing a write.
 
 ## Backup
 
@@ -73,14 +78,16 @@ do not move a live file.
 
 ```bash
 tar -czf tawassul-state-$(date +%Y%m%d).tar.gz \
-  "$HOME/.config/opencode/tawassul-state.json" \
-  "$HOME/.config/opencode/tawassul-v2-state" \
+  "<project>/.opencode" "<project>/goals" "<project>/sagas" \
+  "<project>/timeline" "<project>/mission-board" \
   "$HOME/.local/share/tawassul"
 ```
 
-For a project-scope install, archive `<project>/.opencode/` instead of the two
-config paths. The key is separate on purpose: back it up only if you intend to
-restore state signed with it. A key is a secret; store the archive accordingly.
+The key is separate on purpose: back it up only if you intend to restore state
+signed with it. A key is a secret; store the archive accordingly.
+
+Restoring state signed by a different key produces a read-only session, which is
+the intended refusal, not a bug.
 
 Restoring state signed by a different key produces a read-only session, which is
 the intended refusal, not a bug.

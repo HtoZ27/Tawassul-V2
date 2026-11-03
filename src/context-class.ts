@@ -50,7 +50,6 @@ import { SemanticCoverageGuard } from "./services/semantic-coverage-guard.ts";
 import { SemanticRegressionOracle } from "./services/semantic-regression-oracle.ts";
 import { TawassulState } from "./context/tawassul-state.ts";
 import { detectInstallScope } from "./core/install-scope.ts";
-import { resolveRuntimeStateDir } from "./utils/path-resolver.ts";
 import { lazy } from "./core/lazy.ts";
 import { createRatingOperations, type IRatingOperations } from "./core/rating-operations.ts";
 import { PipelineState } from "./hooks/PipelineState.ts";
@@ -67,6 +66,7 @@ import * as LifecycleFacade from "./context/facades/lifecycle-facade.ts";
 
 
 export class TawassulContext implements TawaOrchestratorContext {
+  stateReadOnly = false;
   
   state: import("./context/tawassul-state.ts").TawassulState;
   get records(): RecordEntry[] {
@@ -421,9 +421,7 @@ export class TawassulContext implements TawaOrchestratorContext {
     this.persistDir = persistDir?.trim() || directory;
     this.projectRoot = projectRoot?.trim() || undefined;
     this.scope = detectInstallScope(import.meta.url);
-    this.metricsCollector = new MetricsCollector(
-      resolve(resolveRuntimeStateDir(this.persistDir, this.scope), "metrics.json"),
-    );
+    this.metricsCollector = new MetricsCollector(resolve(this.persistDir, "metrics.json"));
     this.sessionManager = new SessionManager(this.persistDir);
     logger.debug(`Session started: ${this.sessionManager.getSessionId()}`);
     this.configManager = new ConfigManager(directory, (n, f) => this.safeConfigPath(n, f), this.scope);

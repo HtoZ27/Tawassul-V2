@@ -40,7 +40,7 @@ function makeStore(dir: string, maxGoals?: number): GoalStore {
     minEvidenceIntervalMs: 0,
   };
   if (maxGoals !== undefined) options.maxGoals = maxGoals;
-  return new GoalStore(dir, undefined, options);
+  return new GoalStore(dir, options);
 }
 
 function countsLine(store: GoalStore): string {

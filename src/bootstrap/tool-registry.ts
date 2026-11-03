@@ -5,7 +5,6 @@ import type { ToolDefinition } from "../tool.ts";
 import { TAWASSUL_TOOL_NAMES } from "../tool-names.ts";
 import type { ServiceFactoryResult } from "./service-factory.ts";
 import { ServiceIndex } from "../services/service-index.ts";
-import { resolveRuntimeStateDir } from "../utils/path-resolver.ts";
 import { getImageRouter } from "../services/image-router/index.ts";
 import {
   buildDiscussionTool,
@@ -115,7 +114,7 @@ export function buildToolRegistry(
   services: ServiceFactoryResult | undefined,
 ): ToolRegistryResult {
   const serviceIndex = new ServiceIndex(tawaCtx.eventHub, {
-    storageDir: resolveRuntimeStateDir(tawaCtx.persistDir, tawaCtx.scope),
+    storageDir: tawaCtx.persistDir,
     ...(services
       ? {
           taskOrchestrator: services.taskOrchestrator,

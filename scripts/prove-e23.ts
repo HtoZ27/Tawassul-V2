@@ -22,7 +22,7 @@ const work = mkdtempSync(join(tmpdir(), "tawassul-e23-"));
 const dir = join(work, "state");
 
 function makeStore(): GoalStore {
-  return new GoalStore(dir, undefined, { minEvidenceIntervalMs: 0 });
+  return new GoalStore(dir, { minEvidenceIntervalMs: 0 });
 }
 
 function isLocked(result: { ok: boolean; reason?: string }): boolean {

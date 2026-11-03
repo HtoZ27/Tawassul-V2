@@ -69,8 +69,7 @@ import { createHandoffEntry } from "../services/handoff-entry.ts";
 import { resolveAgentModelRef } from "../services/model-refs.ts";
 import { logger } from "../utils/logger.ts";
 import { t } from "../translations.ts";
-import { resolveRuntimeStateDir } from "../utils/path-resolver.ts";
-import { scopedStatePath, statePath } from "../utils/state-paths.ts";
+import { projectStatePath } from "../utils/state-paths.ts";
 
 
 
@@ -161,8 +160,8 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   
   
-  const runtimeStateDir = resolveRuntimeStateDir(tawaCtx.persistDir, tawaCtx.scope);
-  const projectStateDir = tawaCtx.scope === "global" ? runtimeStateDir : resolve(runtimeStateDir, ".opencode");
+  const runtimeStateDir = tawaCtx.persistDir;
+  const projectStateDir = resolve(runtimeStateDir, ".opencode");
   const stateFile = (fileName: string): string => join(projectStateDir, fileName);
   const healthCfg = tawaCtx.config.health ?? {};
   const healthTracker = new HealthTracker(healthCfg.stuckTimeoutMs, undefined, tawaCtx.eventHub, tawaCtx.timerManager);
@@ -212,8 +211,8 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   let routerStatePath: string | null = null;
   let routerReadPath: string | null = null;
   try {
-    routerStatePath = scopedStatePath(runtimeStateDir, tawaCtx.scope, "predictive-router.json");
-    routerReadPath = existsSync(routerStatePath) ? routerStatePath : statePath("predictive-router.json");
+    routerStatePath = projectStatePath(runtimeStateDir, "predictive-router.json");
+    routerReadPath = routerStatePath;
   } catch {
     logger.warn(`[tawassul] ${t("bootNoHome")}`);
   }
@@ -237,6 +236,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   const savePredictiveRouter = async (): Promise<void> => {
     if (!routerStatePath) return;
+    if (tawaCtx.stateReadOnly) return;
     const blockReason = getWriteBlockReason(routerStatePath);
     if (blockReason !== null) {
       logger.warn(
@@ -558,7 +558,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   let goalStore: GoalStore | undefined;
   try {
-    goalStore = new GoalStore(tawaCtx.persistDir, tawaCtx.scope);
+    goalStore = new GoalStore(tawaCtx.persistDir);
 
 
     void goalStore.ensureLoaded({ sweepStaleMs: 14 * 24 * 3600 * 1000 });
@@ -742,7 +742,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   const taskOrchestrator = new TaskOrchestrator(tawaCtx.eventHub, parallelDispatcher, specDriven);
   const resultEngine = new ResultEngine(tawaCtx.eventHub);
-  const missionBoard = new MissionBoard(tawaCtx.eventHub, undefined, tawaCtx.persistDir, tawaCtx.scope);
+  const missionBoard = new MissionBoard(tawaCtx.eventHub, undefined, tawaCtx.persistDir);
   const strategyDispatcher = new StrategyDispatcher(parallelDispatcher);
   
   const costTracker = costTransparency;

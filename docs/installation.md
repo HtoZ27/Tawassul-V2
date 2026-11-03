@@ -175,7 +175,8 @@ deleting them:
 
 - `~/.config/tawassul-v2`
 - `~/.local/share/tawassul-v2`
-- `~/.config/opencode/tawassul-v2-state`
+- `~/.config/opencode/tawassul-v2-state`, when a pre-release build left it
+  behind
 - `tawassul.jsonc`, `tawassul.json`, and `tawassul-pins.json` in the global
   config root
 

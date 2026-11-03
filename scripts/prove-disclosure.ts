@@ -67,6 +67,7 @@ const SILENT_CATCH_INVENTORY: Record<string, number> = {
   "utils/path-resolver.ts": 1,
   "utils/path.ts": 4,
   "utils/project-state-migration.ts": 1,
+  "utils/state-paths.ts": 1,
   "utils/validation.ts": 1,
 };
 const SCAN_DIRS = ["tools", "services", "utils", "bootstrap", "context", "core", "scripts", "infra", "hooks"];

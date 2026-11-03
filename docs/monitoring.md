@@ -29,9 +29,11 @@ A read-only snapshot:
 | Active timers | Timers the plugin owns; a growing count is a leak signal |
 | Platform | `linux`, `darwin`, `win32`, or another Node value |
 | Maintenance | `automatic` on Linux, `manual` on macOS, `unavailable` on Windows |
+| DB maintenance | `enabled`, `disabled`, or `unavailable` |
 | DB path and lane | The database the host opened, and how the plugin classifies it |
 | DB isolated | Whether the path is one of the isolated lanes |
 | Scope | `project` or `global` |
+| State | `writable`, or `read-only` when the state directory cannot be written |
 | State dir, workspace, state file | The resolved paths actually in use |
 | HMAC key | Whether the key file exists at the resolved path |
 | Pending flushes | Saves queued but not yet written |

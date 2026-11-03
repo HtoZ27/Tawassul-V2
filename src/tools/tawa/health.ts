@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 import { defaultKeyFile, classifyDbLane, isolatedDbPathFor, dataRoot } from "../../bootstrap/db-isolation.ts";
 import { failoverSummary } from "../../services/model-failover.ts";
 import { dbMaintenanceState } from "../../services/db-maintenance-trigger.ts";
-import { scopedStatePath, statePath } from "../../utils/state-paths.ts";
+import { projectStatePath } from "../../utils/state-paths.ts";
 
 const LAG_WARN_THRESHOLD_MS = 500;
 const LAG_SPIKE_CAP = 20;
@@ -84,8 +84,7 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
       const mainBytes = existsSync(dbPath) ? statSync(dbPath).size : null;
       const walBytes = existsSync(`${dbPath}-wal`) ? statSync(`${dbPath}-wal`).size : null;
       const sizeText = mainBytes === null ? "absent" : `main ${mainBytes} / WAL ${walBytes ?? 0}`;
-      const routerFile = scopedStatePath(ctx.persistDir, ctx.scope, "predictive-router.json");
-      const legacyRouterFile = statePath("predictive-router.json");
+      const routerFile = projectStatePath(ctx.persistDir, "predictive-router.json");
       const flushes = pendingFlushes();
       const failover = failoverSummary();
       const maintenance =
@@ -107,11 +106,11 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
           `- DB isolated: ${dbIsolated ? "yes" : "no"}`,
           `- DB size: ${sizeText}`,
           `- Scope: ${ctx.scope}`,
+          `- State: ${ctx.stateReadOnly ? "read-only" : "writable"}`,
           `- State dir: ${ctx.persistDir}`,
           `- Workspace: ${ctx.stateDir}`,
           `- State file: ${ctx.statePath()}`,
           `- Router file: ${routerFile} (${existsSync(routerFile) ? "exists" : "missing"})`,
-          `- Router legacy: ${legacyRouterFile} (${existsSync(legacyRouterFile) ? "exists" : "missing"})`,
           `- HMAC key: ${keyFile} (${keyPresent ? "present" : "missing"})`,
           `- Pending flushes: ${flushes}`,
           ...(expectedDb && dbMatches !== null ? [`- DB expected: ${expectedDb}`] : []),

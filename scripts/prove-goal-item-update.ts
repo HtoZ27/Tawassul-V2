@@ -21,7 +21,7 @@ function assert(cond: unknown, name: string): void {
 const dir = mkdtempSync(join(tmpdir(), "tawassul-goal-item-update-"));
 
 try {
-  const store = new GoalStore(dir, undefined, { lockManager: null, minEvidenceIntervalMs: 0 });
+  const store = new GoalStore(dir, { lockManager: null, minEvidenceIntervalMs: 0 });
   const created = await store.create({
     title: "owner can rewrite or drop items",
     owner: "@dev",
@@ -98,7 +98,7 @@ try {
 
   const reconcileDir = mkdtempSync(join(tmpdir(), "tawassul-goal-item-reconcile-"));
   try {
-    const reconcileStore = new GoalStore(reconcileDir, undefined, { lockManager: null, minEvidenceIntervalMs: 0 });
+    const reconcileStore = new GoalStore(reconcileDir, { lockManager: null, minEvidenceIntervalMs: 0 });
     const seeded = await reconcileStore.create({
       title: "owner drop survives todo reconcile",
       owner: "@dev",

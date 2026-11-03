@@ -7,7 +7,6 @@ import { DEFAULT_RETENTION } from "./retention.ts";
 import { atomicWriteFileFast } from "../infra/disk-utils.ts";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { resolveRuntimeStateDir } from "../utils/path-resolver.ts";
 
 type Status = "backlog" | "ready" | "in_progress" | "review" | "done" | "blocked" | "failed";
 
@@ -93,7 +92,6 @@ export class MissionBoard {
     private eventHub?: EventHub,
     dataDir?: string,
     private stateDir?: string,
-    private scope?: import("../utils/path-resolver.ts").InstallScope,
   ) {
     if (dataDir === undefined && stateDir === undefined) {
       throw new Error("MissionBoard requires a data directory or a state directory");
@@ -105,7 +103,7 @@ export class MissionBoard {
 
   
   private resolveStateDataDir(): string {
-    return path.join(resolveRuntimeStateDir(this.stateDir!, this.scope), "mission-board");
+    return path.join(this.stateDir!, "mission-board");
   }
 
   

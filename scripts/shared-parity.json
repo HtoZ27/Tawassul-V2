@@ -231,7 +231,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/mission-board.ts",
-            "line": 155,
+            "line": 153,
             "marker": "scheduleIndexWrite"
           },
           "proofs": [
@@ -254,7 +254,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/mission-board.ts",
-            "line": 271,
+            "line": 269,
             "marker": "isCompleted"
           },
           "proofs": [
@@ -466,7 +466,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/goal-store.ts",
-            "line": 452,
+            "line": 449,
             "marker": "mutate"
           },
           "proofs": [
@@ -1217,7 +1217,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/goal-store.ts",
-            "line": 713,
+            "line": 710,
             "marker": "finishLocked"
           },
           "proofs": [

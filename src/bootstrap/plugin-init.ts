@@ -19,6 +19,7 @@ import {
   setProjectScale,
 } from "../services/iteration-budget.ts";
 import { armDbMaintenanceTrigger } from "../services/db-maintenance-trigger.ts";
+import { stateDirWritable } from "../utils/state-paths.ts";
 import { TawassulContext } from "../context.ts";
 import type { TawassulConfig } from "../context/types.ts";
 import { createServices } from "./service-factory.ts";
@@ -588,6 +589,19 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   if (tawaCtx.isConfigDisabled()) {
     logger.warn("Plugin disabled via config.disabled");
     return {};
+  }
+  try {
+    if (!stateDirWritable(dirname(tawaCtx.statePath()))) {
+      tawaCtx.stateReadOnly = true;
+      logger.warn(
+        "[tawassul] the state directory is read-only; state-backed writes are disabled (health reports state: read-only)",
+      );
+    }
+  } catch {
+    tawaCtx.stateReadOnly = true;
+    logger.warn(
+      "[tawassul] the state directory could not be inspected; state-backed writes are disabled (health reports state: read-only)",
+    );
   }
   setContextHandoffConfig(tawaCtx.config);
 

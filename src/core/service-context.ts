@@ -172,6 +172,7 @@ export interface TawaOrchestratorContext
     RatingErrorManagerContext,
     SessionInfoContext {
   queueDrainer?: QueueDrainerPort;
+  stateReadOnly?: boolean;
 }
 
 export interface QueueDrainerPort {

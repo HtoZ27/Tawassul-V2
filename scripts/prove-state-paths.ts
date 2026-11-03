@@ -8,9 +8,10 @@ import {
   STATE_DIR_NAME,
   STATE_SUBDIR,
   projectRootFallback,
+  projectStatePath,
   quarantinePath,
-  scopedStatePath,
   stateDir,
+  stateDirWritable,
   statePath,
   v2DataRoot,
   v2NamespaceRoot,
@@ -137,21 +138,19 @@ try {
     quarantinePath("x.json") === resolve(overrideDir, QUARANTINE_SUBDIR, "x.json"),
     "the quarantine lives under the overridden state dir",
   );
-  assert(
-    scopedStatePath(projectRoot, "global", "predictive-router.json") === statePath("predictive-router.json"),
-    "global scope keeps the router in the namespaced state dir",
-  );
   delete process.env[STATE_DIR_ENV];
 
+  assert(stateDirWritable(join(root, "writable-state")) === true, "a creatable state directory is writable");
+  writeFileSync(join(root, "not-a-dir"), "x", "utf-8");
   assert(
-    scopedStatePath(projectRoot, "project", "predictive-router.json") ===
-      join(projectRoot, ".opencode", "predictive-router.json"),
-    "project scope keeps the router inside the project",
+    stateDirWritable(join(root, "not-a-dir", "state")) === false,
+    "a state directory under a regular file is not writable",
   );
+
   assert(
-    scopedStatePath(projectRoot, undefined, "predictive-router.json") ===
+    projectStatePath(projectRoot, "predictive-router.json") ===
       join(projectRoot, ".opencode", "predictive-router.json"),
-    "an absent scope is treated as project scope",
+    "the router lives inside the project for every install scope",
   );
 
   mkdirSync(join(projectRoot, ".opencode"), { recursive: true });

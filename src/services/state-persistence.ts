@@ -657,6 +657,7 @@ export class StatePersistence {
   async saveState(): Promise<void> {
     if (this.disposing) return;
     if (!this.ctx.persistDir) return;
+    if (this.ctx.stateReadOnly) return;
     this.markDirty();
     await this.persistThrough(this.dirtyGeneration);
   }
@@ -806,6 +807,11 @@ export class StatePersistence {
   async doSave(type?: string): Promise<void> {
     if (this.disposing) return;
     if (!this.ctx.persistDir) return;
+    if (this.ctx.stateReadOnly) {
+      this.saveDirty = false;
+      this.persistedGeneration = this.dirtyGeneration;
+      return;
+    }
     
     
     

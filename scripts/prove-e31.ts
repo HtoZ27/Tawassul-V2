@@ -2,7 +2,6 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { TawassulContext } from "../src/context-class.ts";
-import { resolveRuntimeStateDir } from "../src/utils/path-resolver.ts";
 
 let passed = 0;
 
@@ -45,7 +44,7 @@ async function main(): Promise<void> {
     "a failed listener is counted on the live collector",
   );
 
-  const metricsPath = resolve(resolveRuntimeStateDir(dir, ctx.scope), "metrics.json");
+  const metricsPath = resolve(dir, "metrics.json");
   await ctx.metricsCollector.saveToDisk();
   assert(existsSync(metricsPath), "the live collector knows where to save its counters");
   const saved = JSON.parse(readFileSync(metricsPath, "utf8")) as Record<string, number>;

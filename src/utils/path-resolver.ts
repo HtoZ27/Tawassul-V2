@@ -95,12 +95,6 @@ export function homeOpenCodeDir(): string {
 }
 
 
-export function resolveRuntimeStateDir(stateDir: string, scope?: InstallScope): string {
-  if (scope === "global") return resolve(globalConfigDir(), "tawassul-v2-state");
-  return stateDir;
-}
-
-
 export function isTawassulGlobalSpace(rosterPath?: string): boolean {
   const g = globalConfigDir();
   if (existsSync(resolve(g, "agent", "tawa.md"))) return true;

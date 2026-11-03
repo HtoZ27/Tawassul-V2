@@ -181,7 +181,7 @@ function outputOf(value: unknown): string {
 
 async function proveToolSurface(): Promise<void> {
   const dir = mkdtempSync(join(tmpdir(), "tawassul-host-goal-store-"));
-  const store = new GoalStore(dir, undefined, { lockManager: null, minEvidenceIntervalMs: 0 });
+  const store = new GoalStore(dir, { lockManager: null, minEvidenceIntervalMs: 0 });
   const fake = fakeContext(store);
   let present = true;
   const mirror = new HostGoalMirror(

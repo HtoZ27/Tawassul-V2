@@ -6,7 +6,6 @@ import { logger } from "../utils/logger.ts";
 import { hmacWriteFile, hmacReadFile } from "./persist-utils.ts";
 import { isIsolationActiveSync } from "./isolation.ts";
 import { FileLockManager } from "../infra/file-lock.ts";
-import { resolveRuntimeStateDir } from "../utils/path-resolver.ts";
 import type {
   Goal,
   GoalStatus,
@@ -175,11 +174,9 @@ export class GoalStore {
 
   constructor(
     stateDir?: string,
-    private scope?: import("../utils/path-resolver.ts").InstallScope,
     options: GoalStoreOptions = {},
   ) {
-    
-    const base = stateDir ? resolve(resolveRuntimeStateDir(stateDir, this.scope), GOALS_SUBDIR) : resolve(GOALS_SUBDIR);
+    const base = stateDir ? resolve(stateDir, GOALS_SUBDIR) : resolve(GOALS_SUBDIR);
     this.dir = base;
     this.eventsPath = join(base, EVENTS_FILE);
     this.metaPath = join(base, META_FILE);

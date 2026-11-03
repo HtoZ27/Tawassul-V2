@@ -89,8 +89,27 @@ async function healthWith(dbPath: string | undefined): Promise<string> {
 
 const sidecarOutput = await healthWith(sidecar);
 check(sidecarOutput.includes("- DB lane: desktop-sidecar"), "health names the desktop sidecar lane");
+check(sidecarOutput.includes("- State: writable"), "health reports a writable state directory");
 check(sidecarOutput.includes("- Model failover:"), "health reports the model failover state");
 check(sidecarOutput.includes("- DB isolated: yes"), "health counts the sidecar DB as isolated");
+
+const readOnlyHealth = buildHealthTool(
+  {
+    stateDir,
+    persistDir: stateDir,
+    scope: "project",
+    timerManager: { activeCount: 3 },
+    statePath: () => join(stateDir, ".opencode", "tawassul-state.json"),
+    stateReadOnly: true,
+  } as never,
+  {
+    measureLag: async () => 4,
+    rssMb: () => 120,
+    pendingFlushes: () => 0,
+  },
+);
+const readOnlyOutput = ((await readOnlyHealth.execute({}, {} as never)) as { output: string }).output;
+check(readOnlyOutput.includes("- State: read-only"), "health reports a read-only state directory");
 
 const sharedOutput = await healthWith(shared);
 check(sharedOutput.includes("- DB lane: host-default"), "health names the host-default lane");
@@ -119,5 +138,5 @@ if (previousKeyDir === undefined) delete process.env.TAWASSUL_HMAC_KEY_DIR;
 else process.env.TAWASSUL_HMAC_KEY_DIR = previousKeyDir;
 rmSync(keyDir, { recursive: true, force: true });
 
-assert.equal(passed, 34);
+assert.equal(passed, 36);
 console.log(`PROOF PASS: the DB lane is classified truthfully (${passed} assertions)`);
