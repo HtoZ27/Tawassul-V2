@@ -29,10 +29,23 @@ fails=0
 warns=0
 snapshots=0
 
-pass() { printf 'PASS  %s\n' "$1"; }
-info() { printf 'INFO  %s\n' "$1"; }
-warn() { warns=$((warns + 1)); printf 'WARN  %s\n' "$1"; }
-fail() { fails=$((fails + 1)); printf 'FAIL  %s\n' "$1"; }
+REDACT=0
+
+redact_text() {
+  [ "$REDACT" = "1" ] || { printf '%s' "$1"; return; }
+  local text="$1"
+  if [ -n "$HOME_DIR" ]; then text="${text//$HOME_DIR/\~}"; fi
+  if [ -n "${XDG_CONFIG_HOME:-}" ]; then text="${text//$XDG_CONFIG_HOME/\$XDG_CONFIG_HOME}"; fi
+  if [ -n "${XDG_DATA_HOME:-}" ]; then text="${text//$XDG_DATA_HOME/\$XDG_DATA_HOME}"; fi
+  if [ -n "${XDG_STATE_HOME:-}" ]; then text="${text//$XDG_STATE_HOME/\$XDG_STATE_HOME}"; fi
+  if [ -n "${TMPDIR:-}" ]; then text="${text//$TMPDIR/\$TMPDIR}"; fi
+  printf '%s' "$text"
+}
+
+pass() { printf 'PASS  %s\n' "$(redact_text "$1")"; }
+info() { printf 'INFO  %s\n' "$(redact_text "$1")"; }
+warn() { warns=$((warns + 1)); printf 'WARN  %s\n' "$(redact_text "$1")"; }
+fail() { fails=$((fails + 1)); printf 'FAIL  %s\n' "$(redact_text "$1")"; }
 section() { printf '\n== %s ==\n' "$1"; }
 
 db_contract() {
@@ -232,15 +245,31 @@ desktop_scan() {
   fi
 }
 
-if [ "${1:-}" = "--db-contract" ]; then
+MODE=""
+SCAN_ROOT_ARG=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --redact) REDACT=1; shift ;;
+    --db-contract) MODE="db-contract"; shift ;;
+    --scan-desktop)
+      MODE="scan-desktop"; shift
+      if [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; then SCAN_ROOT_ARG="$1"; shift; fi ;;
+    -h|--help)
+      printf 'usage: doctor-v2.sh [--redact] [--db-contract | --scan-desktop [root]]\n'
+      exit 0 ;;
+    *) printf 'doctor-v2: unknown argument: %s\n' "$1" >&2; exit 64 ;;
+  esac
+done
+
+if [ "$MODE" = "db-contract" ]; then
   db_contract
   printf '\n== summary ==\n'
   printf 'checks: %d failure(s), %d warning(s)\n' "$fails" "$warns"
   exit 0
 fi
 
-if [ "${1:-}" = "--scan-desktop" ]; then
-  desktop_scan "${2:-}"
+if [ "$MODE" = "scan-desktop" ]; then
+  desktop_scan "$SCAN_ROOT_ARG"
   printf '\n== summary ==\n'
   printf 'checks: %d failure(s), %d warning(s)\n' "$fails" "$warns"
   if [ "$fails" -gt 0 ]; then exit 1; fi

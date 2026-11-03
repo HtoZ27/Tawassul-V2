@@ -65,7 +65,7 @@ function legacy(dbPath: string, sessions: number): void {
 
 type RunResult = { status: number; out: string };
 
-function run(extra: Record<string, string> = {}): RunResult {
+function run(extra: Record<string, string> = {}, args: string[] = []): RunResult {
   const env: NodeJS.ProcessEnv = { ...process.env };
   for (const key of [
     "OPENCODE_DB",
@@ -83,7 +83,7 @@ function run(extra: Record<string, string> = {}): RunResult {
   env.TMPDIR = work;
   env.TAWASSUL_DOCTOR_ROOT = project;
   Object.assign(env, extra);
-  const result = spawnSync("bash", [doctorScript], { env, encoding: "utf8" });
+  const result = spawnSync("bash", [doctorScript, ...args], { env, encoding: "utf8" });
   return { status: result.status ?? -1, out: `${result.stdout ?? ""}${result.stderr ?? ""}` };
 }
 
@@ -110,6 +110,19 @@ async function main(): Promise<void> {
     "the shared and launcher baselines are reported",
   );
   assert(hashes(dbFiles) === before, "the census never writes to the source databases");
+
+  const redacted = run({}, ["--redact"]);
+  assert(redacted.status === 0, "the redacted report still passes");
+  assert(!redacted.out.includes(home), "the redacted report hides the home directory");
+  assert(redacted.out.includes("~"), "the redacted report uses the home placeholder");
+  assert(!redacted.out.includes(work), "the redacted report hides the scratch root");
+  const redactedContract = run({}, ["--db-contract", "--redact"]);
+  assert(redactedContract.status === 0, "the redacted DB contract still passes");
+  assert(!redactedContract.out.includes(home), "the redacted DB contract hides the home directory");
+  const help = run({}, ["--help"]);
+  assert(help.status === 0 && help.out.includes("--redact"), "doctor --help lists --redact");
+  const bogus = run({}, ["--bogus"]);
+  assert(bogus.status === 64, "an unknown doctor flag exits 64");
 
   const orphan = join(data, "opencode-projects/deadbeef/opencode.db");
   v2(orphan, 1, "/legacy/project");

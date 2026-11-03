@@ -130,5 +130,15 @@ TAWASSUL_DEBUG=1 TAWASSUL_LOG_FILE=/tmp/tawassul.log opencode
 npm run doctor
 ```
 
-Attach the log with secrets redacted. Never paste a key, a token, or a full
-transcript that contains one.
+`doctor` accepts `--redact`, which replaces the home directory with `~`, the
+XDG roots with their variable names, and `$TMPDIR` with its name. The result
+is safe to attach to an issue:
+
+```bash
+bash scripts/doctor-v2.sh --redact
+bash scripts/doctor-v2.sh --db-contract --redact
+```
+
+`--help` lists the modes. An unknown flag exits 64 rather than running a
+partial report. Redaction covers paths only; logs still need a review for
+tokens, keys, and transcript content. Never paste a key or a token.
