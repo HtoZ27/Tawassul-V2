@@ -1351,7 +1351,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/utils/crypto.ts",
-            "line": 20,
+            "line": 21,
             "marker": "export const HMAC_PREFIX = \"TAWASSUL_V2_HMAC_V1:\";"
           },
           "proofs": [

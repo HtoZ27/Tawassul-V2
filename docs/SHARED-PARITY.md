@@ -89,7 +89,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-053.6 | An image-generation 401 refreshes the token once and fails closed on a second 401. | `src/tools/image-gen.ts:190` `const refreshed = await refreshAndUpdateToken();` | `scripts/prove-s053.ts` | verified |
 | S-053.7 | Confidentiality at rest for plugin state is a host and OS responsibility, not a plugin feature. | - | - | n-a |
 | S-053.8 | User-level rate limiting is not a single-user local plugin surface. | - | - | n-a |
-| S-053.9 | Shared state is signed with HMAC-SHA256 before it is written and verified on read. | `src/utils/crypto.ts:20` `export const HMAC_PREFIX = "TAWASSUL_V2_HMAC_V1:";` | `scripts/prove-state-namespace.ts` | verified |
+| S-053.9 | Shared state is signed with HMAC-SHA256 before it is written and verified on read. | `src/utils/crypto.ts:21` `export const HMAC_PREFIX = "TAWASSUL_V2_HMAC_V1:";` | `scripts/prove-state-namespace.ts` | verified |
 | S-053.10 | Deleted-agent names persist in the user-owned deletion list and survive a seed. | `src/scripts/gen-opencode-config.ts:58` `deletedPath: resolve(root, ".opencode", "deleted-agents.json"),` | `scripts/prove-seed-agents.ts`, `scripts/prove-first-boot-seed.ts` | verified |
 | S-054 | The frozen boot-scorecard fixes are ported. | `scripts/boot-scorecard-v2.sh:30` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
 | S-055 | The v1 docs and atomic backlog is triaged before retirement. | - | - | doc-only |

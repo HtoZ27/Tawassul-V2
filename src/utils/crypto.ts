@@ -12,6 +12,7 @@ import {
   unlinkSync,
   mkdirSync,
   rmSync,
+  statSync,
 } from "node:fs";
 import { resolve } from "node:path";
 import { logger } from "./logger.ts";
@@ -79,6 +80,22 @@ export function hmacKeyFileExists(): boolean {
   } catch {
     return false;
   }
+}
+
+
+export function hmacKeyCreatedAtMs(): number | null {
+  const candidates = [resolve(getKeyDir(), HMAC_KEY_FILE), resolve(getLegacyKeyDir(), HMAC_KEY_FILE)];
+  for (const keyFile of candidates) {
+    try {
+      if (!existsSync(keyFile)) continue;
+      const st = statSync(keyFile);
+      const created = st.birthtimeMs > 0 ? st.birthtimeMs : st.mtimeMs;
+      if (Number.isFinite(created) && created > 0) return created;
+    } catch {
+
+    }
+  }
+  return null;
 }
 
 
