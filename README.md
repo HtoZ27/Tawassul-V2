@@ -37,6 +37,21 @@ Tawassul makes that structure explicit:
 
 Requires OpenCode `>=2.2.0`, Node.js `26.13.0` (see `.nvmrc`), and Bun `1.3.x`.
 
+Install the release for every workspace of the current user:
+
+```bash
+sh install.sh --global --dry-run
+sh install.sh --global
+```
+
+The installer verifies the bundle and the runtime archive against
+`SHA256SUMS`, stages the four wasm grammars, and never edits `opencode.json`.
+`sh install.sh --project <dir>` installs into one workspace, and
+`sh install.sh --global --uninstall` reverses it. See
+[docs/installation.md](docs/installation.md#release-installer).
+
+From a source checkout:
+
 ```bash
 nvm use
 npm install
@@ -46,17 +61,14 @@ npm run build
 Open the workspace in OpenCode. The host discovers
 `.opencode/plugin/tawassul.js` on its own; no configuration edit is needed.
 
-Install once for every workspace of the current user:
+The repository installer adds the host probe, the database scripts, and the
+scheduled maintenance trigger:
 
 ```bash
 bun scripts/install-global.ts --dry-run
 bun scripts/install-global.ts
 bun scripts/install-global.ts --verify
 ```
-
-The installer writes the bundle and four wasm grammars under the OpenCode config
-directory, records what it wrote, and removes exactly that on uninstall. It never
-edits `opencode.json`.
 
 ## The agent team
 

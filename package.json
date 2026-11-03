@@ -1,6 +1,6 @@
 {
   "name": "tawassul-v2",
-  "version": "0.1.0",
+  "version": "0.1.0-experimental",
   "description": "Tawassul plugin for OpenCode v2 (Plugin API v2)",
   "license": "MIT",
   "private": true,
@@ -24,7 +24,7 @@
     "check:rules": "node scripts/check-v2-rules.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "sbom": "bun scripts/gen-sbom.ts",
-    "check:sh": "for f in scripts/*.sh; do bash -n \"$f\" || exit 1; done && echo \"sh syntax OK\"",
+    "check:sh": "for f in scripts/*.sh scripts/release/*.sh install.sh; do bash -n \"$f\" || exit 1; done && echo \"sh syntax OK\"",
     "check:config": "bun src/scripts/gen-opencode-config.ts --check",
     "seed:agents": "bun scripts/seed-agents.ts --write",
     "check:agents": "bun scripts/seed-agents.ts --check",
@@ -162,7 +162,9 @@
     "gate:evals": "bun scripts/gate.ts evals",
     "prove:gate-budget": "bun scripts/prove-gate-budget.ts",
     "prove:reachability-audit": "bun scripts/prove-reachability-audit.ts",
-    "prove:snapshot-boundary": "bun scripts/prove-snapshot-boundary.ts"
+    "prove:snapshot-boundary": "bun scripts/prove-snapshot-boundary.ts",
+    "pack:release": "bash scripts/release/pack.sh",
+    "verify:release-artifact": "bun scripts/release/verify-artifact.ts"
   },
   "devDependencies": {
     "@opencode/plugin": "^2.2.1",
@@ -173,5 +175,8 @@
     "typescript": "^5.6.0",
     "web-tree-sitter": "^0.26.13",
     "zod": "^4.1.8"
+  },
+  "engines": {
+    "node": ">=26.13.0"
   }
 }

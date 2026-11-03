@@ -27,7 +27,7 @@
       "cmd": [
         "bash",
         "-c",
-        "for f in scripts/*.sh; do bash -n \"$f\" || exit 1; done"
+        "for f in scripts/*.sh scripts/release/*.sh install.sh; do bash -n \"$f\" || exit 1; done"
       ]
     },
     {
@@ -1171,6 +1171,20 @@
       "cmd": [
         "bun",
         "build-v2.mjs"
+      ]
+    },
+    {
+      "name": "pack",
+      "cmd": [
+        "bash",
+        "scripts/release/pack.sh"
+      ]
+    },
+    {
+      "name": "verify-artifact",
+      "cmd": [
+        "bun",
+        "scripts/release/verify-artifact.ts"
       ]
     },
     {

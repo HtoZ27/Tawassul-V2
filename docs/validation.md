@@ -11,7 +11,7 @@ without weakening it.
 | --- | --- | --- | --- |
 | Fast | `npm run gate:fast` | 12 | Rules, docs, SBOM, types, config, facts, pins, parity, catalog, counts |
 | Proofs | `npm run gate:proofs` | 153 | One isolated proof per invariant |
-| Smoke | `npm run gate:smoke` | 4 | Build, release smoke, global boot, independence boot |
+| Smoke | `npm run gate:smoke` | 6 | Build, release artifacts, release smoke, global boot, independence boot |
 | Evals | `npm run gate:evals` | 1 | Pilot evaluation of agent behaviour |
 
 `npm run ci` runs fast, proofs, and smoke in that order, each in its own process.
@@ -90,12 +90,38 @@ is `npm run gate:proofs:bg` with `:status`, `:wait`, and `:stop`.
 | Step | Proves |
 | --- | --- |
 | `build` | `dist/index.js` and `dist/global.js` build from clean output |
+| `pack` | The tarball, runtime archive, bundle, index, SBOM and checksums are written |
+| `verify-artifact` | The file lists, wasm hashes, checksums and manifest versions agree |
 | `release-smoke` | The host pin holds, a scratch workspace boots, and two direct tools answer |
 | `global-boot` | The global bundle installs and initialises in an isolated home |
 | `independence-boot` | The plugin boots without the v1 tree or its state |
 
 Smoke uses isolated homes and databases. It does not write into the real
 configuration, and it does not install over a live host.
+
+## Packaging
+
+`npm run pack:release` writes the release set under `dist/release/`:
+
+| Asset | Content |
+| --- | --- |
+| `tawassul-<version>.tgz` | The package layout: `dist/`, the four wasm grammars, README, licence, changelog, notice |
+| `tawassul-runtime-<version>.tar.gz` | `tawassul-runtime/wasm/` only |
+| `tawassul-<version>.global.js` | The self-contained bundle `install.sh` installs |
+| `tawassul-<version>.index.js` | The externalising bundle the package entry uses |
+| `tawassul-<version>.cdx.json` | The CycloneDX SBOM for the build |
+| `VERSION`, `NOTICE.md`, `SHA256SUMS` | The version, the notices, and the checksums |
+
+`npm run verify:release-artifact` checks the set: every checksum, the exact
+tarball and archive file lists, the four wasm hashes against the SBOM, the
+version against `package.json`, and the absence of source, tests, docs, and
+state inside the archives. `SOURCE_DATE_EPOCH` fixes the archive timestamps, and
+the SBOM serial is derived from the component list, so a rebuild from the same
+lockfile is comparable.
+
+`install.sh` is the consumer of those assets. The smoke stage packs and verifies
+the set but does not download anything; the offline install cycle is exercised
+with `install.sh --from dist/release` in a scratch directory.
 
 ## Receipts
 

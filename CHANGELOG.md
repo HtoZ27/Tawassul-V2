@@ -22,11 +22,14 @@ platform or host row without a receipt is not a support claim.
   keyed per workspace.
 - A global installer that writes the bundle durably, stages four wasm grammars,
   records a marker, verifies the artifact, and removes exactly what it wrote.
+- A release pipeline: `pack.sh` writes a package tarball, a runtime archive, the
+  self-contained bundle, an SBOM, notices, and `SHA256SUMS`; `install.sh`
+  verifies the hashes and installs without Node or Bun.
 - Per-project SQLite isolation keyed by an HMAC of the workspace path, with a
   maintenance ladder, verified backups, pruning, and a generation guard.
 - A full public documentation set, enforced by `npm run check:docs` for links,
   language, allow-list, and tool/agent/skill coverage.
-- A validation suite: a 12-step fast gate, 153 isolated proofs, and a 4-step
+- A validation suite: a 12-step fast gate, 153 isolated proofs, and a 6-step
   smoke stage, with the counts generated from one manifest.
 
 ### Changed

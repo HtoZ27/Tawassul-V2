@@ -92,6 +92,8 @@ Status meanings:
 | English-only and no-comments gate | Ready | [validation](validation.md) |
 | 153 isolated proofs | Ready | One child process each |
 | Fast, proofs, and smoke stages | Ready | [validation](validation.md) |
+| Release tarball, runtime archive, and checksums | Ready | [validation](validation.md#packaging) |
+| Shell installer verified against `SHA256SUMS` | Ready | [installation](installation.md#release-installer) |
 | SBOM and licence check | Ready | [dependencies](dependencies.md) |
 | evals | Experimental | Pilot, not a benchmark |
 | Hosted documentation site | None | The repository is the reference |

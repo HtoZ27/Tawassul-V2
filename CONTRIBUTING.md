@@ -41,6 +41,8 @@ cheap enough to run alone.
 | `npm run check:rules` | English-only and no-comments |
 | `npm run check:docs` | Public-doc links, language, allow-list, and surface drift |
 | `npm run sbom` | Every installed package has a licence; no copyleft dependency |
+| `npm run pack:release` | The tarball, runtime archive, bundle, SBOM and checksums are written |
+| `npm run verify:release-artifact` | The release file lists, hashes and versions agree |
 | `npm run gate:fast` | Rules, docs, SBOM, config, facts, contract, parity, catalog |
 | `npm run gate:proofs` | Every proof, one isolated child process each |
 | `npm run gate:smoke` | Build and release smoke |

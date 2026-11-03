@@ -50,10 +50,12 @@ workspace, so one workspace does not discover another's.
 
 ### An installer that can be verified
 
-The global installer writes the bundle through a durable write, stages the four
-wasm grammars, and records the version, hashes, owner, and host pin in a marker.
-`--verify` checks the artifact without touching it, and an uninstall removes
-exactly the files the marker lists.
+The release script `install.sh` verifies the bundle and the runtime archive
+against `SHA256SUMS` before writing, then stages the entry and the four wasm
+grammars. The repository installer writes the bundle through a durable write,
+stages the same grammars, and records the version, hashes, owner, and host pin in
+a marker. `--verify` checks the artifact without touching it, and an uninstall
+removes exactly the files the marker lists.
 
 ### Database isolation
 
@@ -72,7 +74,25 @@ registered tool, shipped agent, and bundled skill is covered.
 
 ## Install
 
+From the release assets, with no Node or Bun:
+
+```bash
+sh install.sh --global --dry-run
+sh install.sh --global
+```
+
 Project scope:
+
+```bash
+sh install.sh --project /path/to/workspace
+```
+
+The installer verifies both artifacts against `SHA256SUMS` and refuses an
+unverified or offline asset. See
+[installation](installation.md#release-installer) for `--prefix`, `--from`,
+`--release`, and the uninstall.
+
+From a source checkout:
 
 ```bash
 npm ci
@@ -82,15 +102,12 @@ npm run build
 Global scope:
 
 ```bash
-npm ci
-npm run build
 bun scripts/install-global.ts
 bun scripts/install-global.ts --verify
 ```
 
-The installer relies on host discovery and never edits `opencode.json(c)`. A
-manual entry, if you use one, must point at a directory. See
-[installation](installation.md).
+Neither installer edits `opencode.json(c)`. A manual entry, if you use one, must
+point at a directory.
 
 ## Compatibility
 
@@ -114,9 +131,9 @@ Defender, or long paths. The emulator receipt is published and labelled.
 | --- | --- |
 | Fast gate | 12 steps |
 | Proofs | 153 steps, one child process each |
-| Smoke | 4 steps, including global boot and independence boot |
+| Smoke | 6 steps, including the release artifacts, global boot, and independence boot |
 | Proof files | 156, all catalogued across the stages |
-| Public docs | 41 files, 44 tools, 8 agents, 4 skills |
+| Public docs | 42 files, 44 tools, 8 agents, 4 skills |
 | Native Windows | Not verified; emulator evidence only |
 
 The counts are generated from `scripts/gate-manifest.json`. See

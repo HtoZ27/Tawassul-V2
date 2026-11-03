@@ -66,10 +66,53 @@ A successful install prints the bundle path, its version, and the number of
 wasm assets staged:
 
 ```
-install-global: installed ~/.config/opencode/plugins/tawassul.js (v0.1.0, <bundle-sha>)
+install-global: installed ~/.config/opencode/plugins/tawassul.js (v0.1.0-experimental, <bundle-sha>)
 install-global: installed 4 wasm assets under ~/.config/opencode/tawassul-runtime/wasm
 install-global: no opencode.json edit is needed; the host discovers this file
 ```
+
+### Release installer
+
+A release checkout uses `install.sh` instead. It needs no Node, Bun, or package
+manager: a POSIX shell, `tar`, `gzip`, and `curl` or `wget`.
+
+```bash
+sh install.sh --global --dry-run
+sh install.sh --global
+sh install.sh --global --uninstall
+```
+
+For a project scope, name the workspace:
+
+```bash
+sh install.sh --project /path/to/workspace
+```
+
+The installer downloads the bundle and the runtime archive from the GitHub
+release, verifies both against `SHA256SUMS`, refuses when the expected hash is
+unavailable, and stages the flat layout:
+
+| Path | Content |
+| --- | --- |
+| `<config>/opencode/plugins/tawassul.js` | The self-contained bundle |
+| `<config>/opencode/tawassul-runtime/wasm/` | Four wasm grammars |
+| `<config>/opencode/tawassul-runtime/VERSION` | Marker: version, bundle hash, wasm hashes |
+
+`--prefix <dir>` treats `<dir>` as `HOME`, which is how the release test runs a
+scratch install. `--from <dir>` reads the artifacts from a local directory
+instead of the network, for an offline or audited install. `--release <v>`
+installs a different version. `--dry-run` prints the plan and writes nothing.
+`--version` prints the installer version.
+
+The release installer stages the bundle and the grammars. It does not register
+the scheduled database maintenance trigger and does not probe the host version;
+the repository installer above does both. Use the repository installer from a
+source checkout when you want that lane.
+
+A second run replaces the same files and produces the same layout. An uninstall
+removes the bundle, the four grammars, and the marker, and keeps every file the
+installer did not write. Neither installer edits `opencode.json` or
+`opencode.jsonc`.
 
 ### What the installer writes
 
