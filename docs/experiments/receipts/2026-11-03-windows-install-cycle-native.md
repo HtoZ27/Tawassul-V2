@@ -39,6 +39,36 @@ the retired ladder used to cover:
    real profile.
 7. The key directory has three explicit ACEs and no inherited ACE.
 
+## Real-profile global install check
+
+A separate opt-in check installed the current bundle into the operator's real
+global directory (`~/.config/opencode`), loaded it, and then removed it. This
+check is additional evidence; it is not part of `-Mode cycle`.
+
+| Command | Result |
+| --- | --- |
+| `bun scripts/install-global.ts --yes` | installed `plugins\tawassul.js` (2,390,278 bytes, marker `96adb98bf968`) and 4 wasm assets; re-applied the key-directory ACL with `icacls` to `~/.config/tawassul` |
+| `bun scripts/install-global.ts --verify` | exit 0; `global scope`, 4 wasm assets, bundle hash match |
+| `bun scripts/install-global.ts --yes` again | `already installed` (idempotent) |
+| `bun scripts/check-ast-bundle.ts --plugin ~/.config/opencode/plugins/tawassul.js` | `ast-bundle: PASS tools=44`; healthy init from the installed path; `astquery` executed and `codestate` registered |
+| `bun scripts/install-global.ts --uninstall` | removed the entry and 5 runtime files (marker plus 4 wasm); kept the roster, state, and data namespaces |
+| `bun scripts/install-global.ts --verify` after uninstall | exit 2, `not installed` |
+
+Pre/post inventory of `~/.config/opencode`: 13 files before, 13 after. The 8
+agent files, `tawassul.jsonc`, `service.json`, and `tawassul-v2-state/*` were
+byte-identical. The only changed file was the pre-existing global
+`tawassul-state.json` (2801 to 2841 bytes, revision 2, 0 records, 0 handoffs):
+the running Desktop host hot-loaded the global copy while it existed and
+flushed its empty global state, then delegated to the project copy. The live
+project state was untouched (2019 records, 1001 handoffs), the sidecar stayed on
+pid 6908, and the window logged no `SAVE_CONFLICT`, no rejection, and no
+quarantine.
+
+The installer also re-applied the key-directory ACL to
+`C:\Users\htoz\.config\tawassul` (the live key directory) with `icacls`. The
+same user retained access: the next project save succeeded at `06:10:27Z` and
+the canonical state still verifies with the current key.
+
 ## Boundaries
 
 - `-Mode pwsh7` was not re-run here because `pwsh` is not installed on this
