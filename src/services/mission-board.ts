@@ -7,7 +7,6 @@ import { DEFAULT_RETENTION } from "./retention.ts";
 import { atomicWriteFileFast } from "../infra/disk-utils.ts";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { resolveRuntimeStateDir } from "../utils/path-resolver.ts";
 
 type Status = "backlog" | "ready" | "in_progress" | "review" | "done" | "blocked" | "failed";
@@ -47,16 +46,6 @@ interface BlockedTask {
   since: number;
 }
 
-
-export const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-export const DATA_DIR = path.join(PLUGIN_ROOT, "data", "mission-board");
-
-
-export function shouldRunPluginFolderMigration(explicitDataDir: boolean, dataDir: string, legacyDir: string): boolean {
-  if (dataDir === legacyDir) return false; 
-  if (explicitDataDir) return false; 
-  return true;
-}
 const MAX_BOARDS = 500;
 const INDEX_FILE = "index.json";
 const SCHEMA_VERSION = 1;
@@ -96,7 +85,6 @@ export class MissionBoard {
   private boards: Map<string, Board> = new Map();
   private lockManager: FileLockManager;
   private dataDir: string;
-  private explicitDataDir: boolean;
   private indexWriteChain: Promise<void> = Promise.resolve();
   private boardChains: Map<string, Promise<unknown>> = new Map();
   private loadPromise: Promise<void>;
@@ -107,12 +95,10 @@ export class MissionBoard {
     private stateDir?: string,
     private scope?: import("../utils/path-resolver.ts").InstallScope,
   ) {
-    
-    
-    
-    
-    this.dataDir = dataDir ?? (stateDir ? this.resolveStateDataDir() : DATA_DIR);
-    this.explicitDataDir = dataDir !== undefined;
+    if (dataDir === undefined && stateDir === undefined) {
+      throw new Error("MissionBoard requires a data directory or a state directory");
+    }
+    this.dataDir = dataDir ?? this.resolveStateDataDir();
     this.lockManager = new FileLockManager(true);
     this.loadPromise = this.loadAllAsync().catch((err) => logger.warn(`MissionBoard: load failed: ${err}`));
   }
@@ -125,25 +111,6 @@ export class MissionBoard {
   
   async ready(): Promise<void> {
     await this.loadPromise;
-  }
-
-  
-  private async migrateLegacyDataDir(): Promise<void> {
-    const legacyDir = path.join(PLUGIN_ROOT, "data", "mission-board");
-    if (this.dataDir === legacyDir) {
-      
-      await migrateLegacyBoardDataDir(path.join(PLUGIN_ROOT, "data", "kanban"), this.dataDir);
-      return;
-    }
-    
-    
-    
-    
-    
-    
-    
-    if (!shouldRunPluginFolderMigration(this.explicitDataDir, this.dataDir, legacyDir)) return;
-    await migrateLegacyBoardDataDir(legacyDir, this.dataDir);
   }
 
   private persistAndLog(board: Board): void {
@@ -463,7 +430,6 @@ export class MissionBoard {
   }
 
   private async loadAllAsync(): Promise<void> {
-    await this.migrateLegacyDataDir();
     try {
       await this.ensureDataDir();
     } catch {
@@ -597,27 +563,3 @@ export class MissionBoard {
   }
 }
 
-
-export async function migrateLegacyBoardDataDir(legacyDir: string, newDir: string): Promise<boolean> {
-  try {
-    const [hasNew, hasLegacy] = await Promise.all([
-      fsp.access(newDir).then(
-        () => true,
-        () => false,
-      ),
-      fsp.access(legacyDir).then(
-        () => true,
-        () => false,
-      ),
-    ]);
-    if (hasNew || !hasLegacy) return false;
-    await fsp.mkdir(path.dirname(newDir), { recursive: true });
-    await fsp.rename(legacyDir, newDir);
-    logger.warn(`MissionBoard: migrated data/kanban → data/mission-board (one-time)`);
-    return true;
-  } catch (err) {
-    
-    logger.warn(`MissionBoard: legacy data migration skipped: ${(err as Error)?.message ?? err}`);
-    return false;
-  }
-}

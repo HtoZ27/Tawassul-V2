@@ -33,8 +33,8 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-008 | The translations loader is English-canonical, ships the Arabic table for runtime languages, and has no logger dependency. | `src/translations.ts:4` `LANGUAGES` | `scripts/prove-feature-index-english.ts` | verified |
 | S-009 | The entry carries no v1 server member; the v2 host initializes through setup. | `src/index.ts:7` `export const tawassul: Plugin.Plugin = {` | `scripts/prove-host-entry.ts` | verified |
 | S-010 | Conflict-marker debris must never reach v2 sources. | - | - | n-a |
-| S-011 | Status changes refresh the board index and carry session provenance. | `src/services/mission-board.ts:188` `scheduleIndexWrite` | `scripts/prove-board-invariants.ts` | verified |
-| S-012 | A completed board cannot be reopened; transitions are close-only. | `src/services/mission-board.ts:304` `isCompleted` | `scripts/prove-board-invariants.ts` | verified |
+| S-011 | Status changes refresh the board index and carry session provenance. | `src/services/mission-board.ts:155` `scheduleIndexWrite` | `scripts/prove-board-invariants.ts` | verified |
+| S-012 | A completed board cannot be reopened; transitions are close-only. | `src/services/mission-board.ts:271` `isCompleted` | `scripts/prove-board-invariants.ts` | verified |
 | S-013.1 | Role-scoped plugin permissions and record/eval read-back are enforced. | `src/security-policy.ts:458` `checkTawassulToolPermission` | `scripts/prove-s013.ts`, `scripts/prove-e21.ts` | verified |
 | S-013.2 | The MCP boundary is not applicable because v2 ships no MCP server or client. | - | - | n-a |
 | S-014 | A standalone health tool exists in the tawa namespace. | `src/tools/tawa/health.ts:57` `buildHealthTool` | `scripts/prove-e46.ts` | verified |

@@ -46,7 +46,7 @@ export class ServiceIndex {
     this.taskOrchestrator = opts?.taskOrchestrator ?? new TaskOrchestrator(eventHub);
     this.resultEngine = opts?.resultEngine ?? new ResultEngine(eventHub);
     this.selfHealEngine = opts?.selfHealEngine ?? new SelfHealEngine(eventHub);
-    this.missionBoard = opts?.missionBoard ?? new MissionBoard(eventHub);
+    this.missionBoard = opts?.missionBoard ?? new MissionBoard(eventHub, undefined, opts?.storageDir);
     this.strategyDispatcher = opts?.strategyDispatcher ?? new StrategyDispatcher();
     this.trustScore =
       opts?.trustScore ??

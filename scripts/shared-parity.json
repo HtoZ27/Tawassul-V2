@@ -231,7 +231,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/mission-board.ts",
-            "line": 188,
+            "line": 155,
             "marker": "scheduleIndexWrite"
           },
           "proofs": [
@@ -254,7 +254,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/mission-board.ts",
-            "line": 304,
+            "line": 271,
             "marker": "isCompleted"
           },
           "proofs": [
