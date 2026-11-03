@@ -558,7 +558,8 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   try {
     const ContextClass = deps?.TawassulContext ?? TawassulContext;
     const workspaceDir = ctx.directory;
-    const stateOverride = process?.env?.TAWASSUL_STATE_DIR?.trim();
+    const stateOverride =
+      process?.env?.TAWASSUL_V2_STATE_DIR?.trim() || process?.env?.TAWASSUL_STATE_DIR?.trim();
     const projectRoot = stateOverride ? undefined : ctx.projectRoot?.trim();
     const persistDir = stateOverride || projectRoot || workspaceDir;
     if (projectRoot && projectRoot !== workspaceDir) {

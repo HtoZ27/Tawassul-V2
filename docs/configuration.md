@@ -207,7 +207,8 @@ is not here is either internal to a proof or has no documented contract.
 | Variable | Effect |
 | --- | --- |
 | `TAWASSUL_GLOBAL_DIR` | Global config root; also moves the default key directory |
-| `TAWASSUL_STATE_DIR` | State directory override for the current process |
+| `TAWASSUL_V2_STATE_DIR` | Project state root override for the current process; wins over the alias |
+| `TAWASSUL_STATE_DIR` | Compatibility alias for `TAWASSUL_V2_STATE_DIR` |
 | `TAWASSUL_SCOPE` | Force `project` or `global` scope instead of detecting it |
 | `TAWASSUL_ISOLATED` | Force isolated mode; state and config go to a temporary root |
 | `TAWASSUL_CACHE_DIR` | Cache root override |
