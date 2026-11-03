@@ -73,8 +73,8 @@ it cannot be reached.
 
 - No Arabic outside `src/i18n/ar.json` in code, and none in the English
   documentation set. `npm run check:rules` and `npm run check:docs` enforce this.
-- A translation does not change a technical claim. If the English says "pending
-  a native receipt", the translation says the same thing.
+- A translation does not change a technical claim. If the English says "no
+  database lane on Windows", the translation says the same thing.
 - Machine translation is a draft. A language is listed as available only after a
   speaker has reviewed the user-facing pages.
 

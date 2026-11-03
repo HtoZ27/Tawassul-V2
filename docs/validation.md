@@ -134,8 +134,12 @@ observed output.
 
 A receipt is evidence for the environment it names, nothing wider. The Wine
 install cycle, for example, proves that the Windows code path runs; it does not
-prove NTFS ACL behaviour, Defender, or long-path handling. That is why Windows
-remains **pending a native receipt** in [compatibility](compatibility.md).
+prove NTFS ACL behaviour, Defender, or long-path handling. Those claims need a
+native run, and native Windows x64 now has one: two dated receipts cover the
+bundle and wasm lane, including the `icacls` key ACL, long paths, file locking,
+Defender, and SmartScreen. The database lane, ARM64, and the host watcher remain
+unmeasured on Windows, and [compatibility](compatibility.md) states each row at
+its own evidence level.
 
 ## What a green gate does not prove
 

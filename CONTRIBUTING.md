@@ -64,6 +64,16 @@ Smoke is not a CI job. It boots the host and may call a model, so it runs on a
 machine that has both. A green CI run is not a substitute for
 `npm run gate:smoke` before a release.
 
+The Windows lane is a separate workflow, `.github/workflows/windows.yml`. It
+runs `scripts/windows-ci.ps1` in four modes on `windows-latest`: `cycle` for the
+install, verify, upgrade, uninstall, and purge sequence; `pwsh7` for PowerShell
+7; `longpath` for a 278-character path; and `ast` for the tree-sitter runtime
+and the installed bundle (`check-ast-runtime.ts` and `check-ast-bundle.ts`).
+Every child process is bounded by `scripts/windows-bounded.ps1`, and
+`scripts/windows-security-check.ps1` is the on-demand Defender and SmartScreen
+probe. These are native Windows checks with their own receipts, not proofs, and
+they do not replace the Linux gate.
+
 A workflow never receives a provider key, an HMAC key, or a state directory. Do
 not add a secret to a workflow to make a proof pass; an isolated state root is
 the correct fix.
