@@ -40,7 +40,8 @@ cheap enough to run alone.
 | `npm run typecheck` | TypeScript strict |
 | `npm run check:rules` | English-only and no-comments |
 | `npm run check:docs` | Public-doc links, language, allow-list, and surface drift |
-| `npm run gate:fast` | Rules, config, facts, contract, parity, catalog |
+| `npm run sbom` | Every installed package has a licence; no copyleft dependency |
+| `npm run gate:fast` | Rules, docs, SBOM, config, facts, contract, parity, catalog |
 | `npm run gate:proofs` | Every proof, one isolated child process each |
 | `npm run gate:smoke` | Build and release smoke |
 | `npm run verify` | Fast gate plus build |
@@ -49,6 +50,21 @@ cheap enough to run alone.
 `npm run gate:proofs:1` … `:4` run balanced shards when you want a faster loop.
 A proof that fails is a finding, not noise: report it, do not retry it until it
 passes.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs the fast gate and the build in one job, and the
+four proof shards in parallel jobs, on every push to `main` and every pull
+request. Actions are pinned to a commit, not a moving tag; Dependabot proposes
+an update when a pinned action or a development dependency changes.
+
+Smoke is not a CI job. It boots the host and may call a model, so it runs on a
+machine that has both. A green CI run is not a substitute for
+`npm run gate:smoke` before a release.
+
+A workflow never receives a provider key, an HMAC key, or a state directory. Do
+not add a secret to a workflow to make a proof pass; an isolated state root is
+the correct fix.
 
 ## Style
 

@@ -1,0 +1,50 @@
+name: Feature request
+description: Describe a problem the current tool surface does not solve
+title: "[feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and where does it stop?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: The behaviour you want, not necessarily the implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: What you tried instead, including a tool or configuration workaround.
+    validations:
+      required: false
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Area
+      options:
+        - Agents and routing
+        - Tools and permissions
+        - Goals, handoffs, and records
+        - Context and long sessions
+        - Installer and upgrade
+        - Database maintenance
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: limits
+    attributes:
+      label: Fit
+      options:
+        - label: The request is about this plugin, not the OpenCode host or a model provider.
+          required: true
+        - label: I checked the limitations page and the request is not a documented boundary.
+          required: true

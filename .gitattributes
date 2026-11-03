@@ -1,0 +1,10 @@
+* text=auto eol=lf
+
+*.wasm binary
+*.png binary
+*.jpg binary
+*.zip binary
+*.gz binary
+
+*.sh text eol=lf
+*.md text eol=lf

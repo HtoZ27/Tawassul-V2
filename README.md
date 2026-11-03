@@ -132,9 +132,15 @@ level of every row, is in [docs/compatibility.md](docs/compatibility.md).
 ```bash
 npm run typecheck     # TypeScript strict
 npm run check:rules   # English-only and no-comments
+npm run check:docs    # public links, language, surface coverage
+npm run sbom          # CycloneDX inventory and licence check
 npm run verify        # fast gate plus build
 npm run ci            # fast, proofs, and smoke
 ```
+
+CI runs the fast gate and the four proof shards on every pull request; smoke is
+a local release check because it boots the host. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 The proof suite runs every proof in its own child process. A failing proof is a
 finding; it is not retried until it passes.
