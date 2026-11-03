@@ -61,7 +61,8 @@ npm run gate:fast
 `doctor` checks the install layout, the key, the database lane, and the host
 version. It prints `pass`, `warn`, and `fail` lines; a `fail` is a stop sign.
 Add `--redact` before sharing the output: it replaces the home directory, the
-XDG roots, and `$TMPDIR` with their names.
+XDG roots, and `$TMPDIR` with their names. `--json` prints the same checks as
+one redacted JSON document for a script or a bug report.
 
 ```bash
 bash scripts/opencode-db-scheduled.sh --check

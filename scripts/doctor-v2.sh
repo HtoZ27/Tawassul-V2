@@ -30,6 +30,8 @@ warns=0
 snapshots=0
 
 REDACT=0
+JSON=0
+JSON_LOG=""
 
 redact_text() {
   [ "$REDACT" = "1" ] || { printf '%s' "$1"; return; }
@@ -39,14 +41,91 @@ redact_text() {
   if [ -n "${XDG_DATA_HOME:-}" ]; then text="${text//$XDG_DATA_HOME/\$XDG_DATA_HOME}"; fi
   if [ -n "${XDG_STATE_HOME:-}" ]; then text="${text//$XDG_STATE_HOME/\$XDG_STATE_HOME}"; fi
   if [ -n "${TMPDIR:-}" ]; then text="${text//$TMPDIR/\$TMPDIR}"; fi
+  if [ -n "$TMPROOT" ]; then text="${text//$TMPROOT/\$TMPDIR}"; fi
   printf '%s' "$text"
 }
 
-pass() { printf 'PASS  %s\n' "$(redact_text "$1")"; }
-info() { printf 'INFO  %s\n' "$(redact_text "$1")"; }
-warn() { warns=$((warns + 1)); printf 'WARN  %s\n' "$(redact_text "$1")"; }
-fail() { fails=$((fails + 1)); printf 'FAIL  %s\n' "$(redact_text "$1")"; }
-section() { printf '\n== %s ==\n' "$1"; }
+json_escape() {
+  local text="$1"
+  text="${text//\\/\\\\}"
+  text="${text//\"/\\\"}"
+  text="${text//$'\t'/\\t}"
+  text="${text//$'\r'/\\r}"
+  text="${text//$'\n'/\\n}"
+  printf '%s' "$text"
+}
+
+record() {
+  [ "$JSON" = "1" ] || return 0
+  printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$JSON_LOG"
+}
+
+emit_json() {
+  local tab kind a b first_section=1 first_entry=1
+  tab="$(printf '\t')"
+  printf '{\n'
+  printf '  "schema": 1,\n'
+  printf '  "tool": "doctor-v2",\n'
+  printf '  "generatedAt": "%s",\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf '  "platform": "%s",\n' "$(json_escape "$(uname -s 2>/dev/null || printf unknown)")"
+  printf '  "redacted": %s,\n' "$([ "$REDACT" = "1" ] && printf true || printf false)"
+  printf '  "summary": { "failures": %d, "warnings": %d },\n' "$fails" "$warns"
+  printf '  "sections": ['
+  while IFS="$tab" read -r kind a b; do
+    case "$kind" in
+      S)
+        if [ "$first_section" = "1" ]; then
+          printf '\n'
+          first_section=0
+        else
+          printf '\n      ]\n    },\n'
+        fi
+        printf '    {\n      "name": "%s",\n      "entries": [' "$(json_escape "$a")"
+        first_entry=1
+        ;;
+      L)
+        if [ "$first_entry" = "1" ]; then
+          printf '\n'
+          first_entry=0
+        else
+          printf ',\n'
+        fi
+        printf '        { "level": "%s", "message": "%s" }' "$(json_escape "$a")" "$(json_escape "$b")"
+        ;;
+    esac
+  done < "$JSON_LOG"
+  if [ "$first_section" = "1" ]; then
+    printf ']\n}\n'
+  else
+    printf '\n      ]\n    }\n  ]\n}\n'
+  fi
+}
+
+pass() {
+  local line
+  line="$(redact_text "$1")"
+  if [ "$JSON" = "1" ]; then record L pass "$line"; else printf 'PASS  %s\n' "$line"; fi
+}
+info() {
+  local line
+  line="$(redact_text "$1")"
+  if [ "$JSON" = "1" ]; then record L info "$line"; else printf 'INFO  %s\n' "$line"; fi
+}
+warn() {
+  local line
+  warns=$((warns + 1))
+  line="$(redact_text "$1")"
+  if [ "$JSON" = "1" ]; then record L warn "$line"; else printf 'WARN  %s\n' "$line"; fi
+}
+fail() {
+  local line
+  fails=$((fails + 1))
+  line="$(redact_text "$1")"
+  if [ "$JSON" = "1" ]; then record L fail "$line"; else printf 'FAIL  %s\n' "$line"; fi
+}
+section() {
+  if [ "$JSON" = "1" ]; then record S "$1" ""; else printf '\n== %s ==\n' "$1"; fi
+}
 
 db_contract() {
   section "db maintenance contract"
@@ -250,28 +329,50 @@ SCAN_ROOT_ARG=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --redact) REDACT=1; shift ;;
+    --json) JSON=1; REDACT=1; shift ;;
     --db-contract) MODE="db-contract"; shift ;;
     --scan-desktop)
       MODE="scan-desktop"; shift
       if [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; then SCAN_ROOT_ARG="$1"; shift; fi ;;
     -h|--help)
-      printf 'usage: doctor-v2.sh [--redact] [--db-contract | --scan-desktop [root]]\n'
+      printf 'usage: doctor-v2.sh [--redact] [--json] [--db-contract | --scan-desktop [root]]\n'
+      printf '  --redact       replace the home directory, XDG roots and TMPDIR with placeholders\n'
+      printf '  --json         print one JSON report; implies --redact\n'
+      printf '  --db-contract  check the database maintenance contract only\n'
+      printf '  --scan-desktop scan the desktop workspace roots for plugin entries\n'
       exit 0 ;;
     *) printf 'doctor-v2: unknown argument: %s\n' "$1" >&2; exit 64 ;;
   esac
 done
 
+if [ "$JSON" = "1" ]; then
+  JSON_LOG="$TMPROOT/tawassul-doctor-$$.jsonl"
+  if ! : > "$JSON_LOG" 2>/dev/null; then
+    printf 'doctor-v2: cannot create the JSON report file in %s\n' "$TMPROOT" >&2
+    exit 70
+  fi
+  trap 'rm -f "$JSON_LOG"' EXIT
+fi
+
 if [ "$MODE" = "db-contract" ]; then
   db_contract
-  printf '\n== summary ==\n'
-  printf 'checks: %d failure(s), %d warning(s)\n' "$fails" "$warns"
+  if [ "$JSON" = "1" ]; then
+    emit_json
+  else
+    printf '\n== summary ==\n'
+    printf 'checks: %d failure(s), %d warning(s)\n' "$fails" "$warns"
+  fi
   exit 0
 fi
 
 if [ "$MODE" = "scan-desktop" ]; then
   desktop_scan "$SCAN_ROOT_ARG"
-  printf '\n== summary ==\n'
-  printf 'checks: %d failure(s), %d warning(s)\n' "$fails" "$warns"
+  if [ "$JSON" = "1" ]; then
+    emit_json
+  else
+    printf '\n== summary ==\n'
+    printf 'checks: %d failure(s), %d warning(s)\n' "$fails" "$warns"
+  fi
   if [ "$fails" -gt 0 ]; then exit 1; fi
   exit 0
 fi
@@ -750,8 +851,12 @@ if [ -f "$PROJECT_ROUTER" ] && [ -f "$GLOBAL_ROUTER" ] && [ "$GLOBAL_ROUTER" -nt
   warn "global router is newer than the project router — a global-scope instance still writes $GLOBAL_ROUTER"
 fi
 
-section "summary"
-printf 'checks: %d failure(s), %d warning(s)\n' "$fails" "$warns"
+if [ "$JSON" = "1" ]; then
+  emit_json
+else
+  section "summary"
+  printf 'checks: %d failure(s), %d warning(s)\n' "$fails" "$warns"
+fi
 if [ "$fails" -gt 0 ]; then
   exit 1
 fi

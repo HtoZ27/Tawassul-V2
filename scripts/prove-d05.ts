@@ -121,8 +121,38 @@ async function main(): Promise<void> {
   assert(!redactedContract.out.includes(home), "the redacted DB contract hides the home directory");
   const help = run({}, ["--help"]);
   assert(help.status === 0 && help.out.includes("--redact"), "doctor --help lists --redact");
+  assert(help.out.includes("--json"), "doctor --help lists --json");
   const bogus = run({}, ["--bogus"]);
   assert(bogus.status === 64, "an unknown doctor flag exits 64");
+
+  const json = run({}, ["--json"]);
+  assert(json.status === 0, "the JSON report passes on a clean layout");
+  const report = JSON.parse(json.out) as {
+    schema: number;
+    redacted: boolean;
+    summary: { failures: number; warnings: number };
+    sections: Array<{ name: string; entries: Array<{ level: string; message: string }> }>;
+  };
+  assert(report.schema === 1, "the JSON report carries a schema version");
+  assert(report.redacted === true, "the JSON report is redacted by default");
+  assert(report.summary.failures === 0, "the JSON summary counts no failure on a clean layout");
+  assert(report.sections.some((section) => section.name === "project"), "the JSON report keeps its sections");
+  assert(
+    report.sections.some((section) => section.name === "database census"),
+    "the JSON report includes the database census",
+  );
+  assert(!json.out.includes(home), "the JSON report hides the home directory");
+  assert(!json.out.includes(work), "the JSON report hides the scratch root");
+
+  const jsonContract = run({}, ["--db-contract", "--json"]);
+  assert(jsonContract.status === 0, "the JSON DB contract passes");
+  const contractReport = JSON.parse(jsonContract.out) as {
+    sections: Array<{ name: string }>;
+  };
+  assert(
+    contractReport.sections.some((section) => section.name === "db maintenance contract"),
+    "the JSON DB contract keeps its section",
+  );
 
   const orphan = join(data, "opencode-projects/deadbeef/opencode.db");
   v2(orphan, 1, "/legacy/project");
@@ -130,6 +160,21 @@ async function main(): Promise<void> {
   assert(orphanRun.status === 1, "an undeclared database with sessions fails the doctor");
   assert(orphanRun.out.includes("undeclared database contains sessions"), "the failure names the undeclared database");
   assert(orphanRun.out.includes("deadbeef"), "the failure names the undeclared path");
+  const orphanJson = run({}, ["--json"]);
+  assert(orphanJson.status === 1, "the JSON report carries the failing exit code");
+  const orphanReport = JSON.parse(orphanJson.out) as {
+    summary: { failures: number };
+    sections: Array<{ entries: Array<{ level: string; message: string }> }>;
+  };
+  assert(orphanReport.summary.failures > 0, "the JSON summary counts the failure");
+  assert(
+    orphanReport.sections.some((section) =>
+      section.entries.some(
+        (entry) => entry.level === "fail" && entry.message.includes("undeclared database contains sessions"),
+      ),
+    ),
+    "the JSON report names the failing check",
+  );
   rmSync(dirname(orphan), { recursive: true, force: true });
 
   v2(shared, 1, "/legacy/project", 14);

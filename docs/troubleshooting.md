@@ -137,7 +137,13 @@ is safe to attach to an issue:
 ```bash
 bash scripts/doctor-v2.sh --redact
 bash scripts/doctor-v2.sh --db-contract --redact
+bash scripts/doctor-v2.sh --json
 ```
+
+`--json` prints one JSON document with `schema`, `generatedAt`, `platform`,
+`summary`, and `sections`, where each entry carries `level` and `message`. It
+implies `--redact` because the report is meant to be shared. The exit code
+matches text mode: `1` when any check fails.
 
 `--help` lists the modes. An unknown flag exits 64 rather than running a
 partial report. Redaction covers paths only; logs still need a review for
