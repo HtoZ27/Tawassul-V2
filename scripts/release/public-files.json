@@ -27,6 +27,9 @@
     "docs/database.md",
     "docs/dependencies.md",
     "docs/validation.md",
+    "docs/environment.md",
+    "docs/plugins.md",
+    "docs/roadmap.md",
     "docs/release-notes-0.1.0.md",
     "docs/i18n/LANGUAGES.md",
     "docs/monitoring.md",
@@ -54,7 +57,9 @@
     "tsconfig.json",
     "build-v2.mjs",
     "install.sh",
-    "tawassul.schema.json"
+    "tawassul.schema.json",
+    "THIRD-PARTY-NOTICES.md",
+    "opencode.example.json"
   ],
   "prefixes": [
     "src/",

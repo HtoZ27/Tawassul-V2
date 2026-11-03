@@ -4,9 +4,10 @@ import { fileURLToPath } from "node:url";
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 
-const PUBLIC_FILES = JSON.parse(
+const PUBLIC_MANIFEST = JSON.parse(
   readFileSync(new URL("./release/public-files.json", import.meta.url), "utf8"),
-).documents;
+);
+const PUBLIC_FILES = [...PUBLIC_MANIFEST.documents, ...PUBLIC_MANIFEST.rootFiles];
 
 const DOCS_ENV = JSON.parse(readFileSync(new URL("./docs-env.json", import.meta.url), "utf8"));
 const PUBLIC_ENV = new Set(DOCS_ENV.public);
@@ -203,5 +204,7 @@ if (findings.length > 0) {
 }
 
 console.log(
-  `check-docs: OK (${PUBLIC_FILES.length} public files, ${new Set(toolNames).size} tools, ${agents.length} agents, ${skillsManifest.skills.length} skills, ${PUBLIC_ENV.size + INTERNAL_ENV.size} environment variables)`,
+  `check-docs: OK (${PUBLIC_MANIFEST.documents.length} documents, ${PUBLIC_MANIFEST.rootFiles.length} root files, ` +
+    `${new Set(toolNames).size} tools, ${agents.length} agents, ${skillsManifest.skills.length} skills, ` +
+    `${PUBLIC_ENV.size + INTERNAL_ENV.size} environment variables)`,
 );

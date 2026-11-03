@@ -122,6 +122,11 @@ copyleft licence, or an unreadable lockfile fails the gate. The SBOM is a releas
 asset; it is not committed, because a committed copy would drift from the
 lockfile it describes.
 
+The committed [`THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md) is the same
+inventory as a readable page. `npm run check:notices` regenerates it and fails
+when it drifts from `package-lock.json`, when a package has no licence, or when
+a copyleft licence appears. It is a fast-gate step.
+
 ## Supply-chain rules
 
 - The installer never runs a package manager.

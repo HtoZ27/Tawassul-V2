@@ -122,9 +122,11 @@ the evidence level of every row, is in
 | [docs/release-notes-0.1.0.md](docs/release-notes-0.1.0.md) | What this release contains and what it does not claim |
 | [docs/features.md](docs/features.md) | Capability catalogue and the status of each claim |
 | [docs/installation.md](docs/installation.md) | Project and global install, upgrade, uninstall |
+| [docs/plugins.md](docs/plugins.md) | Package layout, discovery, a manual host entry |
 | [docs/upgrade.md](docs/upgrade.md) | Patch upgrades, downgrades, preserved state |
 | [docs/user-guide.md](docs/user-guide.md) | Goals, handoffs, reviews, long sessions |
 | [docs/configuration.md](docs/configuration.md) | Config file, keys, environment variables |
+| [docs/environment.md](docs/environment.md) | Environment variable precedence and contracts |
 | [docs/state.md](docs/state.md) | State topology, retention, backup, deletion |
 | [docs/permissions.md](docs/permissions.md) | Guard order, consent words, path rules |
 | [docs/compatibility.md](docs/compatibility.md) | Host versions, platforms, feature matrix |
@@ -137,6 +139,7 @@ the evidence level of every row, is in
 | [docs/privacy.md](docs/privacy.md) | Stored data, outbound flows, retention, deletion |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom, cause, fix |
 | [docs/faq.md](docs/faq.md) | Short answers to common questions |
+| [docs/roadmap.md](docs/roadmap.md) | What ships next, and what is out of scope |
 | [examples/README.md](examples/README.md) | Five end-to-end recipes, with conventions |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Build, gates, style, pull requests |
 | [SUPPORT.md](SUPPORT.md) | Where to ask, what to include, scope |
@@ -164,5 +167,6 @@ finding; it is not retried until it passes.
 ## Licence
 
 MIT. Third-party components and their licences are listed in
-[NOTICE.md](NOTICE.md). The projects whose ideas shaped this one are thanked in
-[ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md).
+[NOTICE.md](NOTICE.md), with the complete installed inventory in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). The projects whose ideas
+shaped this one are thanked in [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md).

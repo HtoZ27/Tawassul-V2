@@ -30,6 +30,14 @@
       ]
     },
     {
+      "name": "notices",
+      "cmd": [
+        "bun",
+        "scripts/gen-third-party-notices.ts",
+        "--check"
+      ]
+    },
+    {
       "name": "shell-syntax",
       "cmd": [
         "node",

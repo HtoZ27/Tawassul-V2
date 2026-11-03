@@ -24,6 +24,8 @@
     "check:rules": "node scripts/check-v2-rules.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "sbom": "bun scripts/gen-sbom.ts",
+    "notices": "bun scripts/gen-third-party-notices.ts",
+    "check:notices": "bun scripts/gen-third-party-notices.ts --check",
     "check:sh": "for f in scripts/*.sh scripts/release/*.sh install.sh; do bash -n \"$f\" || exit 1; done && echo \"sh syntax OK\"",
     "check:config": "bun src/scripts/gen-opencode-config.ts --check",
     "seed:agents": "bun scripts/seed-agents.ts --write",

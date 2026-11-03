@@ -10,11 +10,13 @@ and how it protects your work.
 | --- | --- |
 | [Features](features.md) | You want the capability catalogue, with the status of every claim |
 | [Installation](installation.md) | You want the plugin running in a workspace or for a whole user |
+| [Plugins](plugins.md) | You want the package layout, discovery, or a manual host entry |
 | [Release notes](release-notes-0.1.0.md) | You want to know what this release contains and what it does not claim |
 | [Upgrade](upgrade.md) | You are moving an existing install to a new build |
 | [Compatibility](compatibility.md) | You need to know which host and platform are supported |
 | [User guide](user-guide.md) | You want the working rhythm: goals, handoffs, reviews, long sessions |
 | [Configuration](configuration.md) | You need the config file, its keys, or an environment variable |
+| [Environment](environment.md) | You need an environment variable's precedence or its contract |
 | [Agents](agents.md) | You want to know who does what, and how routing works |
 | [Tools](tools.md) | You need the 44-tool surface, grouped by purpose |
 | [Commands](commands.md) | You want the slash command and the routes behind common requests |
@@ -31,6 +33,7 @@ and how it protects your work.
 | [Known issues](known-issues.md) | Something is not working and you want the current workaround |
 | [Limitations](limitations.md) | You need the boundaries that are by design |
 | [FAQ](faq.md) | You want a short answer to a common question |
+| [Roadmap](roadmap.md) | You want to know what ships next and what is out of scope |
 | [Glossary](glossary.md) | A term in these documents is unfamiliar |
 | [Validation](validation.md) | You are running the gates, a proof, or a release check |
 | [Languages](i18n/LANGUAGES.md) | You want to know what is translated and what is canonical |
@@ -56,6 +59,7 @@ and how it protects your work.
 | [CHANGELOG](../CHANGELOG.md) | What changed in each release |
 | [SECURITY](../SECURITY.md) | Reporting a vulnerability and the supported versions |
 | [NOTICE](../NOTICE.md) | Third-party components and their licences |
+| [Third-party notices](../THIRD-PARTY-NOTICES.md) | The complete installed inventory at the release lockfile |
 | [ACKNOWLEDGEMENTS](../ACKNOWLEDGEMENTS.md) | The prior art this project learned from |
 | [CODE_OF_CONDUCT](../CODE_OF_CONDUCT.md) | Community expectations |
 

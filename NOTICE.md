@@ -11,7 +11,7 @@ contain their source.
 
 | Component | Version | License | Role |
 | --- | --- | --- | --- |
-| OpenCode | `>=2.2.0` | MIT | Host runtime and plugin API |
+| OpenCode | `>=2.2.1` | MIT | Host runtime and plugin API |
 | [`@opencode/plugin`](https://www.npmjs.com/package/@opencode/plugin) | `^2.2.1` | MIT | Plugin API types and hooks |
 | [`zod`](https://www.npmjs.com/package/zod) | `^4.1.8` | MIT | Configuration and tool schemas |
 | [`web-tree-sitter`](https://www.npmjs.com/package/web-tree-sitter) | `^0.26.13` | MIT | AST queries |
@@ -27,9 +27,14 @@ so that an uninstall removes exactly what was installed.
 Every component above is permissively licensed. No copyleft dependency is
 distributed with this plugin.
 
-Release rule: this inventory is reconciled with the lockfile before a release is
-tagged, and a mismatch blocks the release. That reconciliation is a checklist
-step, not an automated gate yet.
+`THIRD-PARTY-NOTICES.md` is the complete inventory of the installed tree at the
+release lockfile. This page lists only the components that ship inside the
+bundle or as wasm grammars.
+
+Release rule: the inventory is reconciled with the lockfile before a release is
+tagged, and a mismatch blocks the release. `npm run check:notices` is that gate:
+it fails when the inventory drifts, when a package has no licence, or when a
+copyleft licence appears.
 
 ## Trademarks
 
