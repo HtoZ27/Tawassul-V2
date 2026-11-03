@@ -65,7 +65,7 @@ pid 6908, and the window logged no `SAVE_CONFLICT`, no rejection, and no
 quarantine.
 
 The installer also re-applied the key-directory ACL to
-`C:\Users\htoz\.config\tawassul` (the live key directory) with `icacls`. The
+`C:\Users\user\.config\tawassul` (the live key directory) with `icacls`. The
 same user retained access: the next project save succeeded at `06:10:27Z` and
 the canonical state still verifies with the current key.
 

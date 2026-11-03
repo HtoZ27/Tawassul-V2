@@ -16,11 +16,11 @@
 | --- | --- |
 | The Windows host binary runs | `opencode.exe --version` prints `opencode v2.2.5` |
 | A Windows Node process reports the target platform | `process.platform` is `win32`, `process.arch` is `x64`, `process.version` is `v22.14.0` |
-| The host resolves XDG-style paths, not `%APPDATA%` | `debug paths` prints `config C:\users\htoz\.config\opencode`, `data C:\users\htoz\.local\share\opencode`, `state C:\users\htoz\.local\state\opencode` |
-| The plugin directory the installer targets is discovered | the host logs `msg="loading plugin" id="C:\users\htoz\.config\opencode\plugins\tawassul.js"` for a file placed there |
+| The host resolves XDG-style paths, not `%APPDATA%` | `debug paths` prints `config C:\users\user\.config\opencode`, `data C:\users\user\.local\share\opencode`, `state C:\users\user\.local\state\opencode` |
+| The plugin directory the installer targets is discovered | the host logs `msg="loading plugin" id="C:\users\user\.config\opencode\plugins\tawassul.js"` for a file placed there |
 | The shipped bundle satisfies the v2 plugin contract | the same log carries no `failed to load plugin` for `tawassul.js`, while two control files with a wrong default export fail with `Plugin must export a default definition with an id and an effect or setup function` |
 | The plugin registers its roster | `debug agents --standalone` lists 15 agents; the seven host defaults plus `tawa`, `analyst`, `architect`, `designer`, `dev`, `doc`, `reviewer`, `tester` from this plugin |
-| A root-only `$HOME` no longer blanks the data root | the bundled `v2DataRoot()` probe under `env -u HOME` prints `C:\users\htoz\.local\share\tawassul-v2` |
+| A root-only `$HOME` no longer blanks the data root | the bundled `v2DataRoot()` probe under `env -u HOME` prints `C:\users\user\.local\share\tawassul-v2` |
 
 The control files matter: a loader that ignores a directory cannot report a contract error for a file inside it. Both `~/.config/opencode/plugins/` and `~/.config/opencode/plugin/` are scanned, so the installer's plural target is correct.
 
@@ -57,10 +57,10 @@ export WINEDEBUG=-all
 export WINEDLLOVERRIDES="mscoree,mshtml="
 mkdir -p "$WINEPREFIX"
 env -i WINEPREFIX="$WINEPREFIX" WINEDEBUG=-all WINEDLLOVERRIDES="mscoree,mshtml=" \
-  PATH=/usr/bin:/bin USER=htoz \
+  PATH=/usr/bin:/bin USER=user \
   /usr/lib/wine/wine64 ./opencode.exe debug paths
 ```
 
 ## Environment hazard
 
-The first attempt failed with `SQLiteError: unable to open database file`. The cause was not Wine: the shell that launched Wine carried `OPENCODE_DB=/home/user/.local/share/opencode/tawassul-v2/opencode.db` from the Linux session, and Wine turned that into `C:\home\htoz\...`. Running Wine through `env -i` with a minimal environment removed the false failure. Any future emulator run must not inherit the outer OpenCode session's variables.
+The first attempt failed with `SQLiteError: unable to open database file`. The cause was not Wine: the shell that launched Wine carried `OPENCODE_DB=/home/user/.local/share/opencode/tawassul-v2/opencode.db` from the Linux session, and Wine turned that into `C:\home\user\...`. Running Wine through `env -i` with a minimal environment removed the false failure. Any future emulator run must not inherit the outer OpenCode session's variables.

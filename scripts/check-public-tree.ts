@@ -47,7 +47,7 @@ function walk(root: string, base = root): string[] {
 }
 
 const HIDDEN = /[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/u;
-const HOME = /\/(?:home|Users)\/([A-Za-z0-9][A-Za-z0-9._-]*)\//g;
+const HOME = /(?:[A-Za-z]:)?[\\/](?:home|Users)[\\/]([A-Za-z0-9][A-Za-z0-9._-]*)[\\/]/gi;
 const HOME_ALLOWED = new Set(["user", "example", "runner"]);
 const RETIRED = ["tawas" + "syl", "gt" + "ttt", "pa" + "ssss"];
 const NAMES = new RegExp(`\\b(?:${RETIRED.join("|")})\\b`, "i");

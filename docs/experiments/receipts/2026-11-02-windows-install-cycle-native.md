@@ -81,7 +81,7 @@
 | Claim | Evidence |
 | --- | --- |
 | A native Windows build completes | `resolve guard: @opencode/plugin external`, `Build complete: dist\index.js`, `Global build complete: dist\global.js`, `Embedded content SHA: 909f07aae70f` |
-| A clean install writes the flat bundle and four wasm assets | `installed C:\Users\htoz\.config\opencode\plugins\tawassul.js (v0.1.0, a77a2f5cb29f)` and `installed 4 wasm assets under ...\tawassul-runtime\wasm` |
+| A clean install writes the flat bundle and four wasm assets | `installed C:\Users\user\.config\opencode\plugins\tawassul.js (v0.1.0, a77a2f5cb29f)` and `installed 4 wasm assets under ...\tawassul-runtime\wasm` |
 | The Windows lane stages no database payload | `the Windows lane stages no db scripts` in the dry run; the installed runtime holds the marker plus four wasm files |
 | The bundle verifies | `verified ...\tawassul.js (v0.1.0, a77a2f5cb29f, global scope, 4 wasm assets)` |
 | The key directory gets a real ACL from the resolved SID | `whoami /user` returns `S-1-5-21-3933359323-4026136743-463518354-1001`; `icacls` shows exactly three non-inherited ACEs: the current user, `NT AUTHORITY\SYSTEM`, `BUILTIN\Administrators`; SDDL carries `D:PAI` with no inherited ACEs |
@@ -89,7 +89,7 @@
 | The key the installer protects is the key that signs | with `TAWASSUL_GLOBAL_DIR` on `F:`, `hmacSign` produced `2067785c…55a49`, identical to an independent `createHmac("sha256", <key file>)` over the same payload; the key file is 32 bytes |
 | The key file inherits only the protected principals | `Get-Acl` on `F:\tawassul-windows-test\tawassul\.tawassul-hmac-key` lists `BUILTIN\Administrators`, `NT AUTHORITY\SYSTEM`, and the current user, all inherited from the restricted directory and no other principal |
 | An unusable operator key directory fails early | empty directory: `TAWASSUL_HMAC_KEY_DIR points at …\.tawassul-hmac-key, which is absent — the runtime refuses to sign without it`, exit 2 on both `install` and `--verify`; a 31-byte key: `the key at … is 31 bytes; expected 32`, exit 2 |
-| A profile path with a space installs and verifies | `installed C:\Users\htoz\Profile Space\.config\opencode\plugins\tawassul.js` and `verified ...` followed by `icacls` on the same path |
+| A profile path with a space installs and verifies | `installed C:\Users\user\Profile Space\.config\opencode\plugins\tawassul.js` and `verified ...` followed by `icacls` on the same path |
 | A path beyond `MAX_PATH` installs, verifies, and keeps the ACL | 275-character `TAWASSUL_GLOBAL_DIR`; `restricted the key directory ACL to the current user (...)`; `Get-Acl` on `\\?\...` shows the same three ACEs and `D:PAI` |
 | A non-system drive works | install, verify, ACL, and uninstall on `D:\tawassul-windows-test\opencode`; full automated cycle on `F:\tawassul-windows-test\opencode` exits 0 |
 | The real host loads the global copy | from a neutral directory, `opencode-cli.exe debug agents --standalone` exits 0 and lists `analyst`, `architect`, `designer`, `dev`, `doc` from this plugin |
@@ -153,7 +153,7 @@ reported `not-admin`, and the exclusion list could not be read without elevation
 - The native service and its SQLite database are not part of this lane. Database
   maintenance and scheduled triggers stay `unavailable` on Windows.
 - The host-side watcher backend was not measured on native Windows.
-- The profile with a space was `C:\Users\htoz\Profile Space`, not a real
+- The profile with a space was `C:\Users\user\Profile Space`, not a real
   `C:\Users\First Last` account; the path shape is covered, the account creation
   is not.
 - File locking was simulated with an exclusive `FileShare.None` handle, not by a

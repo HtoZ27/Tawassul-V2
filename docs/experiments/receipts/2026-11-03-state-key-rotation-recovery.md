@@ -63,7 +63,7 @@ write it back after a backup.
 
 1. Backups: canonical copy beside the file
    (`tawassul-state.json.unverified-backup-2026-11-03T04-48-04`) and
-   `C:\Users\htoz\AppData\Local\Temp\opencode\old-live-state-unverified.raw`;
+   `C:\Users\user\AppData\Local\Temp\opencode\old-live-state-unverified.raw`;
    both matched SHA-256 `defa5f74fc0b...`.
 2. Migration and validation: `StateSchema` PASS before and after,
    `migrateStateData` PASS, 2019 records and 1000 handoffs.
@@ -108,7 +108,7 @@ The rebase merged the two in-memory ledgers into one 7,315,278-byte file with
 5000 records and duplicate titles, and the earliest records were dropped by the
 record cap. A probe created just before that write (`R-5042`) was lost in the
 merge. The merged file was copied to
-`C:\Users\htoz\AppData\Local\Temp\opencode\merged-5000-evidence.json`
+`C:\Users\user\AppData\Local\Temp\opencode\merged-5000-evidence.json`
 (SHA-256 `49cd34759884...`) before recovery.
 
 Fix: `src/bootstrap/plugin-init.ts` now keeps a per-directory registry of the
@@ -137,7 +137,7 @@ A real `opencode-cli reload` then ran at `05:17:21Z` on that build:
 
 | Check | Result |
 | --- | --- |
-| Supersede log line | `v2 superseding the previous plugin instance for C:\Users\htoz\Desktop\Tawassul V2` |
+| Supersede log line | `v2 superseding the previous plugin instance for C:\Users\user\Desktop\Tawassul V2` |
 | Previous instance shutdown | `dispose: 1 pending, 0 active handoffs`; `[background-coordinator] Stopped` at `05:17:23.651Z` |
 | Replacement startup | `[background-coordinator] Started with 5 jobs` at `05:17:23.814Z`, then `Background init completed successfully` |
 | Save conflicts | none since `05:17:21Z`; no HMAC, rejection, or quarantine line |

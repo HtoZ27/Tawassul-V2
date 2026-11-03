@@ -132,6 +132,10 @@ operating system, a host upgrade, an evaluation run. Those are recorded instead,
 under `docs/experiments/receipts/`, with a date, the exact commands, and the
 observed output.
 
+Published receipts replace the operator's home directory name with `user` on
+every platform. Commands, versions, hashes, and observed output are otherwise
+unchanged.
+
 A receipt is evidence for the environment it names, nothing wider. The Wine
 install cycle, for example, proves that the Windows code path runs; it does not
 prove NTFS ACL behaviour, Defender, or long-path handling. Those claims need a
