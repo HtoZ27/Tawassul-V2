@@ -140,6 +140,11 @@ Resolution order for the script:
 The trigger is unavailable on native Windows. It reports `unavailable` rather
 than pretending to have run.
 
+The first enabled run logs one notice per bundle, naming the opt-out. Set
+`TAWASSUL_DB_MAINTENANCE=off` to skip the trigger entirely; `health` then
+reports `DB maintenance: disabled`. The maintenance script still runs on
+demand.
+
 ## What is never touched
 
 - Host session rows are never deleted by pruning.

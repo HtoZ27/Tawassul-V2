@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } 
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dataRoot } from "../bootstrap/db-isolation.ts";
+import { bundleFingerprint } from "../utils/bundle-fingerprint.ts";
 import { logger } from "../utils/logger.ts";
 
 const RUN_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -143,11 +144,49 @@ function attemptRun(projectDir: string, why: string): void {
   }
 }
 
+export type DbMaintenanceState = "enabled" | "disabled" | "unavailable";
+
+export function dbMaintenanceState(): DbMaintenanceState {
+  if (process.platform === "win32") return "unavailable";
+  const raw = process.env.TAWASSUL_DB_MAINTENANCE?.trim().toLowerCase();
+  if (raw === "off" || raw === "0" || raw === "false" || raw === "disabled") return "disabled";
+  return "enabled";
+}
+
+function noticePath(): string | undefined {
+  const fingerprint = bundleFingerprint();
+  if (!fingerprint) return undefined;
+  return resolve(dbMaintenanceRoot(), `notice-${fingerprint.sha256.slice(0, 12)}`);
+}
+
+function announceOnce(): void {
+  try {
+    const file = noticePath();
+    if (file && existsSync(file)) return;
+    logger.info(
+      "[tawassul] db maintenance is enabled: backup, prune and VACUUM run in the background; " +
+        "set TAWASSUL_DB_MAINTENANCE=off to disable it (see docs/database.md)",
+    );
+    if (file) {
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileSync(file, `${new Date().toISOString()}\n`, { mode: 0o600 });
+    }
+  } catch {
+    return;
+  }
+}
+
 export function armDbMaintenanceTrigger(projectDir: string): void {
-  if (process.platform === "win32") {
+  const state = dbMaintenanceState();
+  if (state === "unavailable") {
     logger.debug("[tawassul] db maintenance is unavailable on Windows");
     return;
   }
+  if (state === "disabled") {
+    logger.debug("[tawassul] db maintenance is disabled by TAWASSUL_DB_MAINTENANCE");
+    return;
+  }
+  announceOnce();
   try {
     attemptRun(projectDir, "boot");
     const timer = setInterval(() => attemptRun(projectDir, "interval"), RUN_INTERVAL_MS);

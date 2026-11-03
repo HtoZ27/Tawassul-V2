@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { armDbMaintenanceTrigger } from "../src/services/db-maintenance-trigger.ts";
+import { armDbMaintenanceTrigger, dbMaintenanceState } from "../src/services/db-maintenance-trigger.ts";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 const ROOT = mkdtempSync(join(tmpdir(), "tawassul-db-scheduler-"));
@@ -132,6 +132,14 @@ async function lockCases(): Promise<void> {
   const nonCanonical = await arm("non-canonical");
   assert(!nonCanonical.ran, "a non-canonical project cannot supply the lane script");
   process.env.TAWASSUL_DB_SCRIPT = shim;
+  if (process.platform !== "win32") {
+    process.env.TAWASSUL_DB_MAINTENANCE = "off";
+    assert(dbMaintenanceState() === "disabled", "TAWASSUL_DB_MAINTENANCE=off reports disabled");
+    const disabled = await arm("disabled");
+    assert(!disabled.ran, "TAWASSUL_DB_MAINTENANCE=off skips the lane");
+    delete process.env.TAWASSUL_DB_MAINTENANCE;
+    assert(dbMaintenanceState() === "enabled", "the trigger is enabled by default");
+  }
   const deadOwner = await arm("dead-owner");
   assert(deadOwner.ran, "a lock held by a dead pid is reclaimed and the lane runs");
   assert(!existsSync(lock), "the reclaimed lock is released by the lane");

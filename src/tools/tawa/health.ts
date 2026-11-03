@@ -7,6 +7,7 @@ import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { defaultKeyFile, classifyDbLane, isolatedDbPathFor, dataRoot } from "../../bootstrap/db-isolation.ts";
 import { failoverSummary } from "../../services/model-failover.ts";
+import { dbMaintenanceState } from "../../services/db-maintenance-trigger.ts";
 import { scopedStatePath, statePath } from "../../utils/state-paths.ts";
 
 const LAG_WARN_THRESHOLD_MS = 500;
@@ -89,6 +90,7 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
       const failover = failoverSummary();
       const maintenance =
         process.platform === "win32" ? "unavailable" : process.platform === "darwin" ? "manual" : "automatic";
+      const dbMaintenance = dbMaintenanceState();
       return {
         title: "Health",
         output: [
@@ -98,6 +100,7 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
           `- Active timers: ${activeTimers}`,
           `- Platform: ${process.platform}`,
           `- Maintenance: ${maintenance}`,
+          `- DB maintenance: ${dbMaintenance}`,
           `- Model failover: ${failover.switches} switch(es), ${failover.claimed} live claim(s), ${failover.sessions} tracked session(s)`,
           `- DB path (${dbSource}): ${dbPath}`,
           `- DB lane: ${dbLane}`,
