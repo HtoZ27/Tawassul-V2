@@ -172,6 +172,17 @@ assert(sqlite(backupPath, "PRAGMA quick_check;") === "ok", "backup passes quick_
 assert(sqlite(backupPath, "SELECT count(*) FROM session_v2;") === "1", "backup carries the v2 session table");
 assert(sqlite(backupPath, "SELECT count(*) FROM event;") === "4", "backup preserves pre-retention events");
 
+const liveSessions = sqlite(db, "SELECT count(*) FROM session;");
+const liveV2Sessions = sqlite(db, "SELECT count(*) FROM session_v2;");
+rmSync(db, { force: true });
+rmSync(`${db}-wal`, { force: true });
+rmSync(`${db}-shm`, { force: true });
+copyFileSync(backupPath, db);
+assert(sqlite(db, "PRAGMA quick_check;") === "ok", "the restored database passes quick_check");
+assert(sqlite(db, "SELECT count(*) FROM session;") === liveSessions, "restore keeps the legacy session count");
+assert(sqlite(db, "SELECT count(*) FROM session_v2;") === liveV2Sessions, "restore keeps the v2 session count");
+assert(sqlite(db, "SELECT count(*) FROM message WHERE id='m-old';") === "1", "restore brings back the pruned message");
+
 const plan = run(["--plan"]);
 const planMutation = (plan.match(/mutation-targets: (.*)/) ?? [])[1]?.trim() ?? "";
 const planProtected = (plan.match(/protected-tables: (.*)/) ?? [])[1]?.trim() ?? "";
