@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { GoalStore } from "../src/services/goal-store.ts";
 
+delete process.env.TAWASSUL_GOAL_AUTOCLOSE;
+
 let passed = 0;
 
 function assert(cond: boolean, msg: string): void {

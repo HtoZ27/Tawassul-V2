@@ -6,6 +6,8 @@ import { runTodoReconcile } from "../src/services/goal-auto.ts";
 import { hostGoalSuffix } from "../src/services/host-goal.ts";
 import type { HostGoalState } from "../src/services/host-goal.ts";
 
+delete process.env.TAWASSUL_GOAL_AUTOCLOSE;
+
 function fail(msg: string): never {
   console.error(`PROOF FAIL: ${msg}`);
   process.exitCode = 1;
@@ -119,6 +121,29 @@ try {
   assert(staled.length === 1 && staled[0] === staleCreated.goal.id, "flag-off markStale stales a complete goal as today");
   assert(staleStore.list("stale").some((g) => g.id === staleCreated.goal.id), "filter stale returns the stale goal");
   assert(staleStore.list("active").some((g) => g.id === staleCreated.goal.id), "flag-off stale stays in the active roster");
+  assert(staleStore.staleSection() === "", "flag-off board carries no Stale section");
+
+  process.env.TAWASSUL_GOAL_AUTOCLOSE = "1";
+  const boundedDir = tempDir("bounded");
+  const boundedStore = makeStore(boundedDir);
+  for (let n = 1; n <= 12; n++) {
+    const seeded = await boundedStore.create({
+      title: `bounded stale goal ${n}`,
+      owner: "@dev",
+      acceptance: ["done"],
+    });
+    if (!seeded.ok) fail(`bounded stale seed ${n} failed: ${seeded.reason}`);
+  }
+  const boundedSwept = await boundedStore.markStale(0, Date.now() + 60_000);
+  assert(boundedSwept.length === 12, "flag-on sweep marks every incomplete old goal stale");
+  assert(boundedStore.list("stale").length === 12, "flag-on filter stale returns every stale goal");
+  const boundedSection = boundedStore.staleSection();
+  assert(boundedSection.startsWith("\n\n⏳ STALE (12):"), "flag-on Stale section reports the full count");
+  const boundedLines = boundedSection.split("\n").filter((line) => line.startsWith("⏳ G-"));
+  assert(boundedLines.length === 10, "the Stale section is bounded to ten goals");
+  assert(boundedSection.includes("+ 2 more"), "the bounded Stale section points at the remaining goals");
+  assert(boundedSection.includes('filter: "stale"'), "the overflow hint names the stale filter");
+  delete process.env.TAWASSUL_GOAL_AUTOCLOSE;
 
   console.log("PROOF PASS: board keeps terminal counts, digests omit them, stale stays filterable");
 } finally {

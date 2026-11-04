@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { GoalStore, checkCloseInvariant } from "../src/services/goal-store.ts";
 import { runTodoReconcile } from "../src/services/goal-auto.ts";
 
+delete process.env.TAWASSUL_GOAL_AUTOCLOSE;
+
 let passed = 0;
 
 function fail(msg: string): never {

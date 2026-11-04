@@ -104,7 +104,16 @@ const ALLOWED_TRANSITIONS: Record<GoalStatus, readonly GoalStatus[]> = {
   stale: ["open", "in_progress", "dropped"],
 };
 
-const ACTIVE_STATUSES: readonly GoalStatus[] = ["open", "in_progress", "partial", "blocked", "stale"];
+const ACTIVE_STATUS_BASE: readonly GoalStatus[] = ["open", "in_progress", "partial", "blocked"];
+const ACTIVE_STATUS_LEGACY: readonly GoalStatus[] = ["open", "in_progress", "partial", "blocked", "stale"];
+
+function goalAutocloseEnabled(): boolean {
+  return process.env.TAWASSUL_GOAL_AUTOCLOSE === "1";
+}
+
+function activeStatuses(): readonly GoalStatus[] {
+  return goalAutocloseEnabled() ? ACTIVE_STATUS_BASE : ACTIVE_STATUS_LEGACY;
+}
 
 function sha1(text: string): string {
   return createHash("sha1").update(text, "utf8").digest("hex");
@@ -131,9 +140,13 @@ function effectiveStatus(goal: Pick<Goal, "status" | "closedAs">): GoalStatus {
   return goal.closedAs ?? goal.status;
 }
 
+export function isEmptyGoal(goal: Pick<Goal, "items" | "completedItems" | "acceptance">): boolean {
+  return goal.items.length === 0 && goal.completedItems.length === 0 && goal.acceptance.length === 0;
+}
+
 export function checkCloseInvariant(goal: Pick<Goal, "items" | "completedItems" | "acceptance">): GoalInvariantCheck {
   const missing: string[] = [];
-  if (goal.items.length === 0 && goal.completedItems.length === 0 && goal.acceptance.length === 0) {
+  if (isEmptyGoal(goal)) {
     missing.push("empty: no items, no completed items, and no acceptance criteria to verify");
     return { ok: false, missing };
   }
@@ -464,8 +477,12 @@ export class GoalStore {
   
   private activeCount(): number {
     let n = 0;
+    const statuses = activeStatuses();
+    const autoclose = goalAutocloseEnabled();
     for (const goal of this.goals.values()) {
-      if ((ACTIVE_STATUSES as readonly string[]).includes(goal.status)) n += 1;
+      if (!statuses.includes(goal.status)) continue;
+      if (autoclose && isEmptyGoal(goal)) continue;
+      n += 1;
     }
     return n;
   }
@@ -899,7 +916,11 @@ export class GoalStore {
     const all = [...this.goals.values(), ...this.tombstones.values()].sort((a, b) => a.seq - b.seq);
     if (filter === "all") return all;
     if (filter === "active") {
-      return all.filter((g) => (ACTIVE_STATUSES as readonly string[]).includes(effectiveStatus(g)));
+      const statuses = activeStatuses();
+      const autoclose = goalAutocloseEnabled();
+      return all.filter(
+        (g) => statuses.includes(effectiveStatus(g)) && !(autoclose && isEmptyGoal(g)),
+      );
     }
     return all.filter((g) => effectiveStatus(g) === filter);
   }
@@ -910,15 +931,42 @@ export class GoalStore {
     if (blocked) return [];
     const changed: string[] = [];
     await this.mutate("sweep", async () => {
-      for (const goal of this.goals.values()) {
-        
-        
-        
-        
+      const autoclose = goalAutocloseEnabled();
+      for (const goal of [...this.goals.values()]) {
+        if (goal.pinned) continue;
+        if (autoclose) {
+          if (isEmptyGoal(goal)) continue;
+          if (!hasIncompleteItems(goal)) {
+            if (
+              goal.status !== "open" &&
+              goal.status !== "in_progress" &&
+              goal.status !== "partial" &&
+              goal.status !== "blocked" &&
+              goal.status !== "stale"
+            ) {
+              continue;
+            }
+            const closed = await this.finishLocked(goal, "completed", "goal-sweep");
+            if (closed.ok) changed.push(goal.id);
+            continue;
+          }
+          if (
+            (goal.status === "open" ||
+              goal.status === "in_progress" ||
+              goal.status === "partial" ||
+              goal.status === "blocked") &&
+            nowMs - new Date(goal.updatedAt).getTime() > thresholdMs
+          ) {
+            const next = structuredClone(goal);
+            next.status = "stale";
+            next.updatedAt = new Date(nowMs).toISOString();
+            await this.commit(next);
+            changed.push(goal.id);
+          }
+          continue;
+        }
         if (hasIncompleteItems(goal)) continue;
-        
         if (
-          !goal.pinned &&
           (goal.status === "open" || goal.status === "in_progress" || goal.status === "partial") &&
           nowMs - new Date(goal.updatedAt).getTime() > thresholdMs
         ) {
@@ -931,6 +979,20 @@ export class GoalStore {
       }
     });
     return changed;
+  }
+
+  staleSection(limit = 10): string {
+    if (!goalAutocloseEnabled()) return "";
+    const stale = this.list("stale");
+    if (stale.length === 0) return "";
+    const lines = [`⏳ STALE (${stale.length}):`];
+    for (const goal of stale.slice(0, limit)) {
+      lines.push(`⏳ ${goal.id} · ${goal.status} ${goal.progressPct}% · ${goal.title}`);
+    }
+    if (stale.length > limit) {
+      lines.push(`+ ${stale.length - limit} more (goal(list: true, filter: "stale") for the full list)`);
+    }
+    return `\n\n${lines.join("\n")}`;
   }
 
   
@@ -958,18 +1020,28 @@ export class GoalStore {
     const attentionIds = new Set<string>();
     const attention: string[] = [];
     const pushAttention = (g: Goal, tag: string) => {
+      if (attentionIds.has(g.id)) return;
       if (attention.length >= attentionCap + changedCap) return;
       attentionIds.add(g.id);
       const line =
         tag === "changed"
           ? `📝 **${g.id}** updated — ${g.status} ${g.progressPct}% · ${g.title}`
-          : `${g.status === "blocked" ? "🚧" : "⏳"} **${g.id}** ${g.status} — ${g.title}`;
+          : tag === "empty"
+            ? `▫️ **${g.id}** empty — ${g.title}`
+            : `${g.status === "blocked" ? "🚧" : "⏳"} **${g.id}** ${g.status} — ${g.title}`;
       attention.push(line);
     };
     for (const g of active) {
       
       
       if (g.status === "blocked" || g.status === "stale" || g.pinned) pushAttention(g, "flag");
+    }
+    if (goalAutocloseEnabled()) {
+      for (const g of this.list("all")) {
+        if (g.status === "dropped" || g.status === "completed" || g.status === "verified") continue;
+        if (g.status === "stale") pushAttention(g, "flag");
+        else if (isEmptyGoal(g)) pushAttention(g, "empty");
+      }
     }
     let changed = 0;
     for (const g of byUpdated) {
@@ -1072,12 +1144,17 @@ export class GoalStore {
 
   
   private async pickCaptureGoal(owner: string, sessionId: string, now: string): Promise<Goal | null> {
-    const openFor = (g: Goal) => g.owner === owner && (ACTIVE_STATUSES as readonly string[]).includes(g.status);
+    const autoclose = goalAutocloseEnabled();
+    const statuses = activeStatuses();
+    const openFor = (g: Goal) =>
+      g.owner === owner && statuses.includes(g.status) && !(autoclose && isEmptyGoal(g));
     const open = [...this.goals.values()].filter(openFor);
     
     if (open.length === 1) return open[0] ?? null;
     
-    const capture = [...this.goals.values()].find((g) => g.owner === owner && g.detail === sessionId && !g.pinned);
+    const capture = [...this.goals.values()].find(
+      (g) => g.owner === owner && g.detail === sessionId && !g.pinned && !(autoclose && isEmptyGoal(g)),
+    );
     if (capture) return capture;
     
     if (this.activeCount() >= this.maxGoals) return null;

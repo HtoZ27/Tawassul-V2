@@ -15,6 +15,8 @@ import { runTodoReconcile } from "../src/services/goal-auto.ts";
 import { logger } from "../src/utils/logger.ts";
 import type { Goal } from "../src/types/goal-types.ts";
 
+delete process.env.TAWASSUL_GOAL_AUTOCLOSE;
+
 function fail(msg: string): never {
   console.error(`PROOF FAIL: ${msg}`);
   process.exitCode = 1;

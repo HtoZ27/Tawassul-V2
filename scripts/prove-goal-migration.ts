@@ -16,6 +16,8 @@ import { FileLockManager } from "../src/infra/file-lock.ts";
 import { migrateGoalLedger } from "./goal-migrate.ts";
 import type { Goal, GoalStatus } from "../src/types/goal-types.ts";
 
+delete process.env.TAWASSUL_GOAL_AUTOCLOSE;
+
 function fail(msg: string): never {
   console.error(`PROOF FAIL: ${msg}`);
   process.exitCode = 1;

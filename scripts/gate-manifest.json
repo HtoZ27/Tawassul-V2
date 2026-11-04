@@ -557,6 +557,13 @@
       ]
     },
     {
+      "name": "goal-stale-lifecycle",
+      "cmd": [
+        "bun",
+        "scripts/prove-goal-stale-lifecycle.ts"
+      ]
+    },
+    {
       "name": "early-exit",
       "cmd": [
         "bun",

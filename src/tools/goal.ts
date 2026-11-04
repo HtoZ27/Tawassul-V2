@@ -181,7 +181,7 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
         const hostGoal = await readHostGoal(cctx.sessionID);
         return {
           title: t("goalBoardTitle"),
-          output: `${digest.text}${hostGoalSuffix(hostGoal)}`,
+          output: `${digest.text}${store.staleSection()}${hostGoalSuffix(hostGoal)}`,
         };
       }
 
