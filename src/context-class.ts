@@ -137,6 +137,8 @@ export class TawassulContext implements TawaOrchestratorContext {
   askChannelInstance: import("./services/ask-channel.ts").AskChannel | undefined = undefined;
   eventHub: EventHub;
   handoffService?: import("./services/handoff-service.ts").HandoffService;
+  projectIdentity?: import("./utils/project-identity.ts").ProjectIdentity;
+  projectIndex?: import("./services/project-index/index.ts").ProjectIndexService;
   predictiveRouter?: import("./features/predictive-router.ts").PredictiveRouter;
   
   memoryRoutingIntegration?:

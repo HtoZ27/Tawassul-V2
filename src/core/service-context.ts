@@ -173,6 +173,8 @@ export interface TawaOrchestratorContext
     SessionInfoContext {
   queueDrainer?: QueueDrainerPort;
   stateReadOnly?: boolean;
+  projectIdentity?: import("../utils/project-identity.ts").ProjectIdentity;
+  projectIndex?: import("../services/project-index/index.ts").ProjectIndexService;
 }
 
 export interface QueueDrainerPort {

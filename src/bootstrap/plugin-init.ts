@@ -585,6 +585,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
     logger.warn("Returning empty hooks — no tools or hooks registered");
     return {};
   }
+  tawaCtx.projectIdentity = ctx.projectIdentity ?? resolveProjectIdentity(undefined, ctx.directory);
   mark("context:constructor:end");
   measure("context:constructor:start", "context:constructor:end", "new TawassulContext()");
 

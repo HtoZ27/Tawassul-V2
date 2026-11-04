@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "totalEstimateMs": 349841,
+  "totalEstimateMs": 358841,
   "shards": [
     {
       "name": "1",
-      "estimateMs": 88069,
+      "estimateMs": 91069,
       "steps": [
         "gen-lock",
         "web-ssrf",
@@ -42,12 +42,13 @@
         "reachability-audit",
         "host-floor",
         "state-paths",
-        "intelligence-off"
+        "intelligence-off",
+        "project-index-byproduct"
       ]
     },
     {
       "name": "2",
-      "estimateMs": 87533,
+      "estimateMs": 90533,
       "steps": [
         "gen-guard-wal",
         "first-boot",
@@ -89,12 +90,13 @@
         "skill-load-rate",
         "snapshot-boundary",
         "goal-board-truth",
-        "run-interrupt"
+        "run-interrupt",
+        "project-index-incremental"
       ]
     },
     {
       "name": "3",
-      "estimateMs": 87302,
+      "estimateMs": 90302,
       "steps": [
         "event-trust",
         "s017",
@@ -137,7 +139,8 @@
         "skill-discovery",
         "no-git-init",
         "goal-migration",
-        "goal-stale-lifecycle"
+        "goal-stale-lifecycle",
+        "project-index-corrupt"
       ]
     },
     {

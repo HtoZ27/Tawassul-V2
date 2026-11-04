@@ -94,6 +94,8 @@
     "docs/STATE-ROOT-DESIGN.md",
     "docs/UPSTREAM-EVAL-2.2.3-2.2.5.md",
     "docs/historical-plan-first-install-db-repair.md",
+    "docs/plan-goal-ledger-truth.md",
+    "docs/plan-intelligence-continuity.md",
     "docs/portable-context-handoff.md"
   ]
 }

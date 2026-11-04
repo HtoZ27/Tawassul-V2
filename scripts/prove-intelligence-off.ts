@@ -15,6 +15,8 @@ import {
   touch,
 } from "../src/services/continuity/owner.ts";
 import type { HandoffEntry } from "../src/context/types.ts";
+import { ProjectIndexService } from "../src/services/project-index/index.ts";
+import { snapshotPath } from "../src/services/project-index/store.ts";
 
 let passed = 0;
 
@@ -75,9 +77,27 @@ try {
   assert(TAWASSUL_TOOL_NAMES.length === 44, "the disabled probe keeps 44 tools registered");
   assert(!existsSync(join(ownersDir, "owners.json.tmp")), "no temporary owner file survives the disabled probe");
 
-  console.log(`PROOF PASS: continuity off keeps zero reads, writes and probes (${passed} assertions)`);
+  process.env.TAWASSUL_PROJECT_INDEX = "0";
+  const indexProject = join(dir, "index-off");
+  const indexFile = join(indexProject, "src", "a.ts");
+  mkdirSync(join(indexProject, "src"), { recursive: true });
+  writeFileSync(indexFile, "export const off = 1;\n");
+  const indexOff = new ProjectIndexService({ baseDir: indexProject, projectKey: "off-key" });
+  assert(!indexOff.enabled, "the project-index kill switch disables the index");
+  assert(!existsSync(snapshotPath(indexProject)), "no snapshot exists before the disabled run");
+  assert((await indexOff.recordFile(indexFile)) === null, "a disabled index records no file");
+  assert(!indexOff.recordImports(indexFile, [{ from: indexFile, specifier: "./a", to: null }]), "a disabled index records no import");
+  await indexOff.recordTree([{ path: indexFile, mtimeMs: 1, size: 10 }], [{ path: join(indexProject, "src"), mtimeMs: 2 }]);
+  assert(!indexOff.recordStamps([indexFile]), "a disabled index records no stamp");
+  assert(indexOff.snapshot().stats.files === 0, "a disabled index stays empty");
+  assert(indexOff.stats().parses === 0 && indexOff.stats().writes === 0, "a disabled index performs no parse and no write");
+  assert(!existsSync(snapshotPath(indexProject)), "a disabled index writes no snapshot and reads none");
+  assert(readdirSync(indexProject).length === 1, "a disabled index creates no state directory");
+
+  console.log(`PROOF PASS: continuity off keeps zero reads, writes and probes, and the project index off keeps zero reads, parses and writes (${passed} assertions)`);
 } finally {
   delete process.env.TAWASSUL_CONTINUITY;
+  delete process.env.TAWASSUL_PROJECT_INDEX;
   resetContinuity();
   rmSync(dir, { recursive: true, force: true });
 }

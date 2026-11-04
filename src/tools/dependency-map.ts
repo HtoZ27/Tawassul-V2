@@ -6,6 +6,7 @@ import { tool } from "../tool.ts";
 import { resolveSafe, toErrorMessage } from "../utils/path.ts";
 import { t } from "../translations.ts";
 import { getAstService } from "../services/ast-service.ts";
+import type { ImportEdge } from "../services/project-index/types.ts";
 
 const IMPORT_REGEX = /import\s+(?:type\s+)?(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+['"]([^'"]+)['"]/g;
 const REQUIRE_REGEX = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
@@ -56,6 +57,7 @@ interface DepNode {
   path: string;
   imports: string[];
   resolved: string[];
+  edges: ImportEdge[];
 }
 
 interface Cycle {
@@ -173,14 +175,17 @@ async function buildDepGraph(
         rawImports = extractImports(content);
       }
       const resolved: string[] = [];
+      const edges: ImportEdge[] = [];
       for (const imp of rawImports) {
         const r = await resolveImportPath(imp, filePath, projectDir);
+        edges.push({ from: filePath, specifier: imp, to: r });
         if (r) resolved.push(r);
       }
       nodes.push({
         path: filePath,
         imports: [...rawImports].filter((i) => i.startsWith(".")),
         resolved,
+        edges,
       });
     } catch {
       void 0;
@@ -238,7 +243,7 @@ function relativePaths(nodes: DepNode[], projectDir: string): DepNode[] {
   }));
 }
 
-export function buildDependencyMapTool(_ctx: TawassulContext): ToolDefinition {
+export function buildDependencyMapTool(ctx: TawassulContext): ToolDefinition {
   return tool({
     description: [
       "Analyze the dependency tree (imports) between project files.",
@@ -296,16 +301,20 @@ export function buildDependencyMapTool(_ctx: TawassulContext): ToolDefinition {
           }
 
           const lines: string[] = [t("depMapFileDeps", { file: relativePath }), ""];
+          const edges: ImportEdge[] = [];
 
           for (const imp of rawImports) {
             if (imp.startsWith(".")) {
               const r = await resolveImportPath(imp, safe.resolved, cctx.directory);
+              edges.push({ from: safe.resolved, specifier: imp, to: r });
               const resolvedStr = r ? (r.startsWith(dirPrefix) ? r.slice(dirPrefix.length) : r) : t("depMapNotFound");
               lines.push(`  📄 ${imp} → ${resolvedStr}`);
             } else {
+              edges.push({ from: safe.resolved, specifier: imp, to: null });
               lines.push(t("depMapExternalPackage", { imp }));
             }
           }
+          ctx.projectIndex?.recordImports(safe.resolved, edges);
 
           if (rawImports.size === 0) {
             lines.push(t("depMapNoImports"));
@@ -338,6 +347,7 @@ export function buildDependencyMapTool(_ctx: TawassulContext): ToolDefinition {
           const graph = await buildDepGraph(collected, cctx.directory, ast);
           nodes = graph.nodes;
           cycles = graph.cycles;
+          ctx.projectIndex?.recordImportBatch(nodes.map((node) => ({ path: node.path, edges: node.edges })));
           setCached(cctx.directory, maxDepth, collected, graph, ast);
         }
         const relNodes = relativePaths(nodes, cctx.directory);

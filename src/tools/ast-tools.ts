@@ -6,6 +6,10 @@ import { resolveSafe, toErrorMessage, escapeRegex } from "../utils/path.ts";
 import { t } from "../translations.ts";
 import { getAstService } from "../services/ast-service.ts";
 
+async function recordIndexFile(ctx: TawassulContext, filePath: string): Promise<void> {
+  await ctx.projectIndex?.recordFile(filePath);
+}
+
 function findBlockEnd(lines: string[], startLine: number): number {
   const startLineText = lines[startLine] || "";
   const stripped = startLineText.trim();
@@ -78,7 +82,7 @@ function extractSymbol(
   return { start: contextStart, end: endLine, found: true, lines: extractedLines };
 }
 
-export function buildAstQueryTool(_ctx: TawassulContext): ToolDefinition {
+export function buildAstQueryTool(ctx: TawassulContext): ToolDefinition {
   return tool({
     description: [
       "Query a file's structure using AST (Abstract Syntax Tree).",
@@ -114,6 +118,7 @@ export function buildAstQueryTool(_ctx: TawassulContext): ToolDefinition {
           if (!info) {
             return { output: t("readSymbolNotFound", { symbol, file }) };
           }
+          await recordIndexFile(ctx, safe.resolved);
           const output = [
             t("readSymbolLocation", { symbol: info.name, kind: info.kind, file, line: String(info.startLine + 1) }),
             "",
@@ -127,6 +132,7 @@ export function buildAstQueryTool(_ctx: TawassulContext): ToolDefinition {
           const ext = idx >= 0 ? file.slice(idx) : "";
           return { output: t("astQueryNotSupported", { ext }) };
         }
+        await recordIndexFile(ctx, safe.resolved);
         let filteredSymbols = structure.symbols;
         if (kind) {
           const mappedKind = ast.mapKind(kind);
@@ -164,7 +170,7 @@ export function buildAstQueryTool(_ctx: TawassulContext): ToolDefinition {
   });
 }
 
-export function buildReadSymbolTool(_ctx: TawassulContext): ToolDefinition {
+export function buildReadSymbolTool(ctx: TawassulContext): ToolDefinition {
   return tool({
     description: [
       "Read a specific symbol's definition (function, class, interface, type, variable) from a file.",
@@ -207,6 +213,7 @@ export function buildReadSymbolTool(_ctx: TawassulContext): ToolDefinition {
           const astService = getAstService();
           const info = await astService.findSymbol(safe.resolved, symbol, kind);
           if (info) {
+            await recordIndexFile(ctx, safe.resolved);
             const output = [
               t("readSymbolLocation", { symbol: info.name, kind: info.kind, file, line: String(info.startLine + 1) }),
               "",
@@ -220,6 +227,7 @@ export function buildReadSymbolTool(_ctx: TawassulContext): ToolDefinition {
         if (!result.found) {
           return { output: t("readSymbolNotFound", { symbol, file }) };
         }
+        await recordIndexFile(ctx, safe.resolved);
         const output = [
           t("readSymbolLocation", { symbol, kind: kind || "symbol", file, line: String(result.start + 1) }),
           "",

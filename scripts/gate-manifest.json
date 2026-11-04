@@ -1234,6 +1234,27 @@
         "bun",
         "scripts/prove-run-interrupt.ts"
       ]
+    },
+    {
+      "name": "project-index-byproduct",
+      "cmd": [
+        "bun",
+        "scripts/prove-project-index-byproduct.ts"
+      ]
+    },
+    {
+      "name": "project-index-incremental",
+      "cmd": [
+        "bun",
+        "scripts/prove-project-index-incremental.ts"
+      ]
+    },
+    {
+      "name": "project-index-corrupt",
+      "cmd": [
+        "bun",
+        "scripts/prove-project-index-corrupt.ts"
+      ]
     }
   ],
   "smoke": [

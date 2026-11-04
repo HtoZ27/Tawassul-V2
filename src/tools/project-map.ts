@@ -74,11 +74,29 @@ interface TreeNode {
   children?: TreeNode[];
 }
 
-async function buildTree(dirPath: string, rootDir: string, depth: number, maxDepth: number): Promise<TreeNode | null> {
+type TreeStamps = {
+  files: { path: string; mtimeMs: number; size: number }[];
+  dirs: { path: string; mtimeMs: number }[];
+};
+
+async function buildTree(
+  dirPath: string,
+  rootDir: string,
+  depth: number,
+  maxDepth: number,
+  stamps?: TreeStamps,
+): Promise<TreeNode | null> {
   if (depth > maxDepth) return null;
 
   const dirName = basename(dirPath);
   if (IGNORE_DIRS.has(dirName) || dirName.startsWith(".")) return null;
+
+  if (depth === 0 && stamps) {
+    try {
+      const rootStat = await stat(dirPath);
+      stamps.dirs.push({ path: dirPath, mtimeMs: rootStat.mtimeMs });
+    } catch {}
+  }
 
   let entries: string[];
   try {
@@ -95,6 +113,9 @@ async function buildTree(dirPath: string, rootDir: string, depth: number, maxDep
     try {
       const entryStat = await stat(fullPath);
       sorted.push({ name: entry, isDir: entryStat.isDirectory() });
+      if (entryStat.isDirectory() && stamps) {
+        stamps.dirs.push({ path: fullPath, mtimeMs: entryStat.mtimeMs });
+      }
     } catch {
 
     }
@@ -109,13 +130,16 @@ async function buildTree(dirPath: string, rootDir: string, depth: number, maxDep
   for (const entry of sorted) {
     const fullPath = resolve(dirPath, entry.name);
     if (entry.isDir) {
-      const child = await buildTree(fullPath, rootDir, depth + 1, maxDepth);
+      const child = await buildTree(fullPath, rootDir, depth + 1, maxDepth, stamps);
       if (child) {
         children.push(child);
       }
     } else {
       try {
         const fileStat = await stat(fullPath);
+        if (stamps) {
+          stamps.files.push({ path: fullPath, mtimeMs: fileStat.mtimeMs, size: fileStat.size });
+        }
         children.push({
           name: entry.name,
           type: "file",
@@ -198,7 +222,7 @@ function countStats(node: TreeNode): {
   return { files, dirs, totalSize, byType };
 }
 
-export function buildProjectMapTool(_ctx: TawassulContext): ToolDefinition {
+export function buildProjectMapTool(ctx: TawassulContext): ToolDefinition {
   return tool({
     description: [
       "Render the project structure as a tree with file classification and stats.",
@@ -226,10 +250,12 @@ export function buildProjectMapTool(_ctx: TawassulContext): ToolDefinition {
         rootDir = cctx.directory;
       }
 
-      const rootNode = await buildTree(rootDir, rootDir, 0, maxDepth);
+      const stamps: TreeStamps = { files: [], dirs: [] };
+      const rootNode = await buildTree(rootDir, rootDir, 0, maxDepth, stamps);
       if (!rootNode) {
         return { output: t("projectMapNoTree") };
       }
+      await ctx.projectIndex?.recordTree(stamps.files, stamps.dirs);
 
       const treeLines = renderTree(rootNode);
       const stats = countStats(rootNode);

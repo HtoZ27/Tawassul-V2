@@ -216,7 +216,7 @@ export function buildGitDiffTool(_ctx: TawassulContext): ToolDefinition {
   });
 }
 
-export function buildBatchReadTool(_ctx: TawassulContext): ToolDefinition {
+export function buildBatchReadTool(ctx: TawassulContext): ToolDefinition {
   return tool({
     description: [
       "Read multiple files in a single call instead of separate read tools.",
@@ -240,6 +240,7 @@ export function buildBatchReadTool(_ctx: TawassulContext): ToolDefinition {
       }
 
       const results: string[] = [];
+      const indexed: string[] = [];
       let errors = 0;
 
       for (const filePath of paths) {
@@ -252,6 +253,7 @@ export function buildBatchReadTool(_ctx: TawassulContext): ToolDefinition {
         }
         try {
           const content = await readFile(safe.resolved, "utf-8");
+          indexed.push(safe.resolved);
           const lines = content.split("\n");
           const totalLines = lines.length;
           const displayedLines = limit ? lines.slice(0, limit) : lines;
@@ -266,6 +268,8 @@ export function buildBatchReadTool(_ctx: TawassulContext): ToolDefinition {
           results.push(t("batchReadError", { error: toErrorMessage(e, t("batchReadReadError")) }));
         }
       }
+
+      ctx.projectIndex?.recordStamps(indexed);
 
       const summary =
         errors === 0

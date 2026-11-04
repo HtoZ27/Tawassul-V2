@@ -4,6 +4,8 @@ import { CircuitBreaker } from "../services/circuit-breaker.ts";
 import { SelfHealEngine } from "../services/self-heal-engine.ts";
 import { resolveFallbackAgent } from "../services/proxy-fallback-chains.ts";
 import { HandoffService } from "../services/handoff-service.ts";
+import { ProjectIndexService } from "../services/project-index/index.ts";
+import { resolveProjectIdentity } from "../utils/project-identity.ts";
 
 import { HandoffLedger } from "../services/handoff-ledger.ts";
 
@@ -120,6 +122,7 @@ export interface ServiceFactoryResult {
   circuitBreaker: CircuitBreaker;
   selfHealEngine: SelfHealEngine;
   handoffService: HandoffService;
+  projectIndex: ProjectIndexService;
   handoffLedger: HandoffLedger;
   queueDrainer: QueueDrainer;
   agentValidator: AgentValidator;
@@ -193,6 +196,14 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   );
   const handoffService = new HandoffService(tawaCtx, healthTracker, circuitBreaker);
   tawaCtx.handoffService = handoffService;
+  const projectIndex = new ProjectIndexService({
+    baseDir: tawaCtx.persistDir,
+    projectKey:
+      tawaCtx.projectIdentity?.key ??
+      resolveProjectIdentity(undefined, projectDirectory ?? tawaCtx.persistDir).key,
+    projectRoot: tawaCtx.projectIdentity?.canonical ?? tawaCtx.persistDir,
+  });
+  tawaCtx.projectIndex = projectIndex;
 
   
   const handoffLedger = new HandoffLedger(tawaCtx.persistDir, tawaCtx.timerManager);
@@ -785,6 +796,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
     circuitBreaker,
     selfHealEngine,
     handoffService,
+    projectIndex,
     agentMatcher,
     parallelDispatcher,
     predictiveRouter,
