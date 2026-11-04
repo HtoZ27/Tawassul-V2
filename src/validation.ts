@@ -112,6 +112,14 @@ export const HandoffEntrySchema = z.object({
   contextPackDigest: z.string().regex(/^[0-9a-f]{64}$/).optional(),
   contextPackActivatedAt: z.string().optional(),
   parentID: z.string().optional(),
+  ownerPid: lenient(z.number()),
+  ownerStartedAt: lenient(z.number()),
+  ownerBootId: lenient(z.string()),
+  heartbeatAt: lenient(z.string()),
+  runState: lenient(z.enum(["live", "stale", "interrupted", "unknown"])),
+  interruptedAt: lenient(z.string()),
+  interruptedReason: lenient(z.enum(["gone", "zombie", "rebooted", "unknown"])),
+  resumedAt: lenient(z.string()),
 });
 
 const CapabilityRecordSchema = z.object({

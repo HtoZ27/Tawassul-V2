@@ -78,6 +78,14 @@ export type HandoffEntry = {
   contextPackDigest?: string;
   contextPackActivatedAt?: string;
   parentID?: string;
+  ownerPid?: number;
+  ownerStartedAt?: number;
+  ownerBootId?: string;
+  heartbeatAt?: string;
+  runState?: "live" | "stale" | "interrupted" | "unknown";
+  interruptedAt?: string;
+  interruptedReason?: "gone" | "zombie" | "rebooted" | "unknown";
+  resumedAt?: string;
 };
 
 export type Strictness = "relaxed" | "normal" | "strict";
@@ -153,6 +161,9 @@ export type TawassulConfig = {
   
   
   
+  continuity?: {
+    enabled?: boolean;
+  };
   innovations?: Record<string, { enabled?: boolean; beta?: boolean; mandatory?: boolean }>;
   memoryWatchdogThreshold?: number;
   initTimeoutMs?: number;

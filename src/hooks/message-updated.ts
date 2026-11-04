@@ -28,6 +28,7 @@ import { logger } from "../utils/logger.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 import { translateError } from "../lib/conversational.ts";
 import { activatePack } from "../services/context-pack/index.ts";
+import { stampOwner } from "../services/continuity/owner.ts";
 import { getSessionBridge } from "../v2/session-bridge.ts";
 
 import type { DispatchTask } from "../services/parallel-dispatcher.ts";
@@ -304,6 +305,7 @@ async function acceptHandoffs(
   for (const h of handoffsIterable) {
     if (h.status !== "pending" || normalizeName(h.to) !== normalizeName(agentTag)) continue;
     h.status = "accepted";
+    await stampOwner(h, sessionID);
     if (!h.acknowledgedBy) {
       h.acknowledgedBy = agentTag;
       h.acknowledgedAt = new Date().toISOString();

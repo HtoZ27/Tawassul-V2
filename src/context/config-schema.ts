@@ -102,6 +102,11 @@ export const configSchema = tool.schema.object({
       circuitBreakerResetMs: tool.schema.number().min(1000).max(3600000).optional(),
     })
     .optional(),
+  continuity: tool.schema
+    .object({
+      enabled: tool.schema.boolean().optional(),
+    })
+    .optional(),
   
   
   

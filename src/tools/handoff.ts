@@ -17,6 +17,7 @@ import { resolveRole } from "../utils/agent.ts";
 import { MAX_PARALLEL_COPIES } from "../context/constants.ts";
 import { attachPackToHandoff } from "../services/context-pack/index.ts";
 import { resolveAgentModelRef } from "../services/model-refs.ts";
+import { clearOwner, clearRunFlags } from "../services/continuity/owner.ts";
 
 function buildAccumulatedContext(
   ctx: TawassulContext,
@@ -287,6 +288,8 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
           });
           await ctx.fileLocks.releaseAllForHandoff(h.id);
           ctx.taskPriority.removeFromQueue(h.id);
+          clearRunFlags(h);
+          await clearOwner(h.id);
         }
 
         const completionDecision = h.decision ?? { action: "allow", reason: "Handoff completed", confidence: 1 };
@@ -379,6 +382,8 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
           original.rescue = true;
           await ctx.fileLocks.releaseAllForHandoff(original.id);
           ctx.taskPriority.removeFromQueue(original.id);
+          clearRunFlags(original);
+          await clearOwner(original.id);
           ctx.updateLastActive(cctx.agent);
         }
 
@@ -474,6 +479,8 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
           }
           await ctx.fileLocks.releaseAllForHandoff(h.id);
           ctx.taskPriority.removeFromQueue(h.id);
+          clearRunFlags(h);
+          await clearOwner(h.id);
           ctx.updateLastActive(cctx.agent);
           ctx.saveState();
         }

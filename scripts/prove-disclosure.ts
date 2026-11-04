@@ -40,6 +40,7 @@ const SILENT_CATCH_INVENTORY: Record<string, number> = {
   "services/context-pack/index.ts": 1,
   "services/context-pack/lock.ts": 1,
   "services/context-pack/store.ts": 3,
+  "services/continuity/owner.ts": 1,
   "services/goal-migration.ts": 1,
   "services/goal-store.ts": 1,
   "services/host-goal.ts": 1,

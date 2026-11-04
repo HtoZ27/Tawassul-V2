@@ -74,6 +74,7 @@ report before sharing it: see [troubleshooting](troubleshooting.md).
 | `TAWASSUL_DB_SCRIPT` | Path to the database maintenance script |
 | `TAWASSUL_MAX_CONTEXT_TOKENS` | Context budget used when packing a session |
 | `TAWASSUL_CONTEXT_HANDOFF` | Enable session handoff independently of the config file |
+| `TAWASSUL_CONTINUITY=1` | Enable the cross-platform liveness probe and interrupted-run detection |
 | `TAWASSUL_CODE_STATE_AUTO` | Let code-state snapshots run without an explicit call |
 | `TAWASSUL_GOAL_AUTOCLOSE=1` | Auto-close finished goals and mark old unfinished goals stale in the background sweep |
 

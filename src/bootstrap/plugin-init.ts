@@ -52,6 +52,8 @@ import { releaseFSLock } from "../infra/file-lock.ts";
 import { createHandoffEntry } from "../services/handoff-entry.ts";
 import { resolveAgentModelRef } from "../services/model-refs.ts";
 import { setContextHandoffConfig } from "../services/context-pack/index.ts";
+import { configureContinuity } from "../services/continuity/owner.ts";
+import { detectInterrupted, resetContinuity } from "../services/continuity/detect.ts";
 import { requiresConsent } from "../hooks/guards/shared/limits.ts";
 import {
   evaluateFreeLimitBridge,
@@ -605,6 +607,12 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
     );
   }
   setContextHandoffConfig(tawaCtx.config);
+  configureContinuity({
+    baseDir: tawaCtx.persistDir,
+    configEnabled: tawaCtx.configManager.config.continuity?.enabled === true,
+    handoffs: () => tawaCtx.handoffs.values(),
+    flush: () => tawaCtx.flushSaves(),
+  });
 
   
   
@@ -904,6 +912,12 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
       measure("initPromise:start", "initPromise:complete", "initPromise() async chunk");
 
       initResolved = true;
+      const detectionTimer = setTimeout(() => {
+        void detectInterrupted().catch((e) =>
+          logger.warn("[tawassul] continuity boot detection failed:", e),
+        );
+      }, 0);
+      detectionTimer.unref?.();
       const fingerprint = bundleFingerprint();
       if (fingerprint) {
         logger.info(
@@ -1047,6 +1061,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   const disposeInstance = async (options?: { releaseClaim?: boolean }): Promise<void> => {
     if (disposed) return;
     disposed = true;
+    resetContinuity();
     if (activePluginInstances.get(ctx.directory) === disposeInstance) activePluginInstances.delete(ctx.directory);
     disposeGlobalErrorHandlers();
     initAbortController.abort();

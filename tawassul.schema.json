@@ -321,6 +321,15 @@
       },
       "additionalProperties": false
     },
+    "continuity": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
     "innovations": {
       "type": "object",
       "properties": {

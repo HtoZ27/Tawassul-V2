@@ -1220,6 +1220,20 @@
         "bun",
         "scripts/prove-no-git-init.ts"
       ]
+    },
+    {
+      "name": "intelligence-off",
+      "cmd": [
+        "bun",
+        "scripts/prove-intelligence-off.ts"
+      ]
+    },
+    {
+      "name": "run-interrupt",
+      "cmd": [
+        "bun",
+        "scripts/prove-run-interrupt.ts"
+      ]
     }
   ],
   "smoke": [

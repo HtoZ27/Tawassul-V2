@@ -43,12 +43,19 @@ import {
   type BackgroundItem,
 } from "../services/background-tasks.ts";
 import type { V2Context, V2SessionEvent, V2ToolContext, V2ToolHookInput } from "./types.ts";
+import { noteIdle } from "../services/continuity/detect.ts";
 
 const MAX_PROCESSED_MESSAGES = 1024;
 export const INITIAL_SCHEMA_WAIT_MS = 750;
 export const SCHEMA_RETRY_ATTEMPTS = 6;
 export const SCHEMA_RETRY_DELAY_MS = 500;
 
+export function noteExperimentalIdle(snapshot: { sessionID?: unknown; background?: unknown }): void {
+  if (typeof snapshot.sessionID !== "string") return;
+  if (!Array.isArray(snapshot.background)) return;
+  recordBackgroundSnapshot(snapshot.sessionID, snapshot.background as BackgroundItem[]);
+  void noteIdle();
+}
 
 const HOST_MESSAGE_ROLES = ["system", "user", "assistant", "tool"] as const;
 
@@ -712,10 +719,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
 
     try {
       const idleRegistration = await ctx.session.hook("experimental.idle", (event) => {
-        const snapshot = event as unknown as { sessionID?: unknown; background?: unknown };
-        if (typeof snapshot.sessionID !== "string") return;
-        if (!Array.isArray(snapshot.background)) return;
-        recordBackgroundSnapshot(snapshot.sessionID, snapshot.background as BackgroundItem[]);
+        noteExperimentalIdle(event as unknown as { sessionID?: unknown; background?: unknown });
       });
       registered.push(() => idleRegistration.dispose());
     } catch (e) {

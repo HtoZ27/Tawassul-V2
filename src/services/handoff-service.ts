@@ -6,6 +6,7 @@ import { effect, type SagaEffect } from "../core/saga-effects.ts";
 import { logRuleAdjustments } from "../core/rule-utils.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 import { logger } from "../utils/logger.ts";
+import { clearOwner, clearRunFlags } from "./continuity/owner.ts";
 
 interface HandoffCompletionResult {
   success: boolean;
@@ -310,6 +311,8 @@ export class HandoffService {
           { handoff: h, ctx: this.ctx },
         );
         if (result.recovered || result.success) {
+          clearRunFlags(h);
+          await clearOwner(h.id);
           resumed += 1;
           logger.info(`[tawassul] P2.3: resumed interrupted saga for handoff ${h.id}`);
         }
@@ -402,6 +405,8 @@ export class HandoffService {
         this.ctx.recordHelpRequestFulfilled(completedBy);
       }
 
+      clearRunFlags(h);
+      await clearOwner(h.id);
       this.ctx.updateLastActive(completedBy);
       try {
         await this.ctx.flushSaves();
@@ -460,6 +465,8 @@ export class HandoffService {
         };
       }
 
+      clearRunFlags(h);
+      await clearOwner(h.id);
       this.ctx.updateLastActive(cancelledBy);
       try {
         await this.ctx.flushSaves();
@@ -520,6 +527,8 @@ export class HandoffService {
       }
       await this.ctx.fileLocks.releaseAllForHandoff(h.id);
       this.ctx.taskPriority.removeFromQueue(h.id);
+      clearRunFlags(h);
+      await clearOwner(h.id);
       this.ctx.updateLastActive(undoneBy);
       try {
         await this.ctx.flushSaves();
@@ -557,6 +566,8 @@ export class HandoffService {
       if (this.healthTracker) this.healthTracker.onHandoffFailed(to);
       await this.ctx.fileLocks.releaseAllForHandoff(h.id);
       this.ctx.taskPriority.removeFromQueue(h.id);
+      clearRunFlags(h);
+      await clearOwner(h.id);
       this.ctx.updateLastActive(rescuedBy);
       try {
         await this.ctx.flushSaves();

@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "totalEstimateMs": 346801,
+  "totalEstimateMs": 349841,
   "shards": [
     {
       "name": "1",
-      "estimateMs": 88029,
+      "estimateMs": 88069,
       "steps": [
         "gen-lock",
         "web-ssrf",
@@ -41,12 +41,13 @@
         "review-independence-retro",
         "reachability-audit",
         "host-floor",
-        "state-paths"
+        "state-paths",
+        "intelligence-off"
       ]
     },
     {
       "name": "2",
-      "estimateMs": 84533,
+      "estimateMs": 87533,
       "steps": [
         "gen-guard-wal",
         "first-boot",
@@ -87,7 +88,8 @@
         "reload-live",
         "skill-load-rate",
         "snapshot-boundary",
-        "goal-board-truth"
+        "goal-board-truth",
+        "run-interrupt"
       ]
     },
     {

@@ -1,3 +1,5 @@
+import { noteIdle } from "../services/continuity/detect.ts";
+
 type V2EventRecord = Record<string, unknown> & {
   type?: unknown;
   event?: unknown;
@@ -151,6 +153,7 @@ export function mapV2EventToV1(event: unknown, options: V1EventMapOptions = {}):
     case "session.execution.succeeded":
       return [rawEvent(ev), v1("session.idle", props)];
     case "session.idle":
+      void noteIdle();
       return [rawEvent(ev), v1("session.status", { ...props, status: "idle" })];
     case "session.execution.failed": {
       const error = errorOf(ev);
