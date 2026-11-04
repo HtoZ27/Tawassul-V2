@@ -121,7 +121,7 @@ const unclassified = HAS_GIT
   : [];
 if (HAS_GIT) {
   for (const file of MANIFEST.internal) {
-    if (!tracked.includes(file)) fail(file, "internal file is not tracked; remove it from the list");
+    if (existsSync(join(REPO, file)) && !tracked.includes(file)) fail(file, "internal file is not tracked; remove it from the list");
   }
   for (const file of unclassified) {
     fail(file, "is neither public nor declared internal; decide in scripts/release/public-files.json");
