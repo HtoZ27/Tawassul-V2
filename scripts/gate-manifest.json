@@ -522,6 +522,13 @@
       ]
     },
     {
+      "name": "goal-board-truth",
+      "cmd": [
+        "bun",
+        "scripts/prove-goal-board-truth.ts"
+      ]
+    },
+    {
       "name": "goal-capture",
       "cmd": [
         "bun",
@@ -540,6 +547,13 @@
       "cmd": [
         "bun",
         "scripts/prove-goal-item-update.ts"
+      ]
+    },
+    {
+      "name": "goal-migration",
+      "cmd": [
+        "bun",
+        "scripts/prove-goal-migration.ts"
       ]
     },
     {

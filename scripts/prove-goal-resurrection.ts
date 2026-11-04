@@ -1,7 +1,8 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { GoalStore } from "../src/services/goal-store.ts";
+import type { Goal } from "../src/types/goal-types.ts";
 
 function fail(msg: string): never {
   console.error(`PROOF FAIL: ${msg}`);
@@ -46,4 +47,51 @@ await expectNoGhost("appendEvidence-vs-delete", (s, id) =>
   s.appendEvidence(id, "concurrent evidence text long enough"),
 );
 await expectNoGhost("update-vs-delete", (s, id) => s.update(id, { title: "updated during delete" }));
+
+const legacyDir = mkdtempSync(join(tmpdir(), "tawassul-resurrect-legacy-"));
+try {
+  mkdirSync(join(legacyDir, "goals"), { recursive: true });
+  const stamp = new Date().toISOString();
+  const record = (seq: number, status: Goal["status"]): Goal => ({
+    id: "G-001",
+    seq,
+    title: "legacy terminal goal",
+    detail: "",
+    status,
+    progressPct: status === "verified" ? 100 : 0,
+    owner: "@dev",
+    ownerKind: "solo",
+    parentId: null,
+    items: [],
+    completedItems: [],
+    acceptance: [],
+    linkedRecords: [],
+    linkedHandoffs: [],
+    linkedBoards: [],
+    evidence: [],
+    evidenceHashes: [],
+    pinned: false,
+    createdAt: stamp,
+    updatedAt: stamp,
+    verifiedBy: null,
+    lastEvidenceAt: null,
+  });
+  writeFileSync(
+    join(legacyDir, "goals", "goals.jsonl"),
+    `${JSON.stringify(record(1, "verified"))}\n${JSON.stringify(record(2, "dropped"))}\n`,
+  );
+  const legacy = new GoalStore(legacyDir, { lockManager: null });
+  await legacy.ensureLoaded();
+  const tomb = legacy.getAny("G-001");
+  if (!tomb || tomb.status !== "dropped") fail("legacy: dropped record is not readable as a tombstone");
+  if (tomb.closedAs !== "dropped") fail(`legacy: closedAs backfill is ${String(tomb.closedAs)}, expected dropped`);
+  if (!legacy.list("dropped").some((g) => g.id === "G-001")) fail("legacy: dropped filter hides the record");
+  const counts = legacy.lifecycleSnapshot();
+  if (counts.dropped !== 1) fail(`legacy: dropped count is ${counts.dropped}, expected 1`);
+  if (counts.verified !== 0) fail(`legacy: verified count is ${counts.verified}, expected 0`);
+  console.log("ok legacy record without closedAs counts as dropped");
+} finally {
+  rmSync(legacyDir, { recursive: true, force: true });
+}
+
 console.log("PROOF PASS: goal resurrection accepts both losers, never writes ghosts");

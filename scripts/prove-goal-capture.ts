@@ -44,7 +44,7 @@ function makeStore(dir: string, maxGoals?: number): GoalStore {
 }
 
 function countsLine(store: GoalStore): string {
-  return store.buildDigest().text.split("\n")[0] ?? "";
+  return store.buildDigest({ terminalCounts: true }).text.split("\n")[0] ?? "";
 }
 
 function tombstoneCount(dir: string): number {
@@ -95,6 +95,8 @@ try {
   assert(closeLine.includes("1 completed"), "close() counts one completed goal");
   assert(closeLine.includes("0 verified"), "close() leaves verified empty");
   assert(closeLine.includes("0 dropped"), "close() tombstone is not counted as dropped");
+  const defaultCloseLine = closeStore.buildDigest().text.split("\n")[0] ?? "";
+  assert(defaultCloseLine === "🎯 0 open", "default digest line carries the open count only");
   assert(tombstoneCount(dirClose) === 1, "close() writes exactly one tombstone");
   const closedAgain = await closeStore.close(closeId, false, "@dev");
   assert(!closedAgain.ok && closedAgain.reason === "not-found", "repeated close cannot double count");
@@ -163,9 +165,10 @@ try {
   assert((await legacyReloaded.deleteGoal(legacyGoal.id)).ok, "deleteGoal drops a legacy live completed goal");
   assert(legacyReloaded.getAny(legacyGoal.id)?.closedAs === "dropped", "deleteGoal marks the terminal status dropped");
   const legacyLine = countsLine(legacyReloaded);
-  assert(legacyLine.includes("1 completed"), "deleteGoal keeps exactly one completed count");
+  assert(legacyLine.includes("0 completed"), "deleteGoal clears the completed count of a live completed goal");
+  assert(legacyLine.includes("1 dropped"), "deleteGoal counts the live completed goal as dropped");
   assert(!legacyLine.includes("2 completed"), "deleteGoal never double counts the completed goal");
-  assert(legacyLine.includes("0 dropped"), "deleteGoal does not mislabel a completed goal as dropped");
+  assert(!legacyLine.includes("1 completed"), "deleteGoal never keeps the prior terminal count");
   unlinkSync(join(dirLegacy, "goals", "goals-meta.json"));
   const legacyHealed = makeStore(dirLegacy);
   await legacyHealed.ensureLoaded();

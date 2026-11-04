@@ -214,7 +214,7 @@ export class GoalStore {
     return this.loadPromise;
   }
 
-  async load(opts: { sweepStaleMs?: number } = {}): Promise<void> {
+  async load(opts: { sweepStaleMs?: number; replay?: boolean; persist?: boolean } = {}): Promise<void> {
     await this.dirReady;
     this.tornTailNeedsSep = false;
     const meta = await hmacReadFile<GoalMeta>(this.metaPath);
@@ -266,7 +266,6 @@ export class GoalStore {
     
     
     
-    const lastLive = new Map<string, GoalStatus>();
     const replayed = { completed: 0, verified: 0, dropped: 0 };
     let ledgerHash = "";
     for (const line of raw.split("\n")) {
@@ -291,17 +290,11 @@ export class GoalStore {
         
         
         
-        const prior = lastLive.get(goal.id) ?? null;
         if (goal.status === "dropped") {
-          if (prior === "completed") replayed.completed += 1;
-          else if (prior === "verified") replayed.verified += 1;
+          if (goal.closedAs === undefined) goal.closedAs = "dropped";
+          if (goal.closedAs === "completed") replayed.completed += 1;
+          else if (goal.closedAs === "verified") replayed.verified += 1;
           else replayed.dropped += 1;
-          if (goal.closedAs === undefined) {
-            goal.closedAs = prior === "completed" ? "completed" : prior === "verified" ? "verified" : "dropped";
-          }
-          lastLive.delete(goal.id);
-        } else {
-          lastLive.set(goal.id, goal.status);
         }
         ledgerHash = GoalStore.foldLedgerHash(ledgerHash, goal.id, goal.seq, goal.updatedAt);
       } catch {
@@ -323,14 +316,15 @@ export class GoalStore {
     
     const ledgerSeq = this.seq;
     const metaTrusted = !!(meta && typeof meta.seq === "number" && typeof meta.ledgerHash === "string");
-    if (!metaTrusted || meta.ledgerHash !== ledgerHash || meta.seq !== ledgerSeq || meta?.count !== this.goals.size) {
+    if (opts.replay === true || !metaTrusted || meta.ledgerHash !== ledgerHash || meta.seq !== ledgerSeq || meta?.count !== this.goals.size) {
       this.lifecycleCounts = { ...replayed };
       this.ledgerHash = ledgerHash;
       if (metaTrusted && (meta.ledgerHash !== ledgerHash || meta.seq < ledgerSeq))
         logger.warn(
           `[goal-store] meta stale (hash ${meta.ledgerHash !== ledgerHash ? "mismatch" : "match"} / seq ${meta.seq} vs ${ledgerSeq}) — counts replayed, meta healed`,
         );
-      await this.persistMeta().catch((e) => logger.warn("[goal-store] meta heal write failed on load (non-fatal):", e));
+      if (opts.persist !== false)
+        await this.persistMeta().catch((e) => logger.warn("[goal-store] meta heal write failed on load (non-fatal):", e));
     } else {
       this.ledgerHash = ledgerHash;
     }
@@ -340,6 +334,75 @@ export class GoalStore {
       if (staled.length > 0)
         logger.warn(`[goal-store] boot sweep staled ${staled.length} goal(s): ${staled.join(", ")}`);
     }
+  }
+
+  lifecycleSnapshot(): { completed: number; verified: number; dropped: number } {
+    return { ...this.lifecycleCounts };
+  }
+
+  async rebuildMeta(): Promise<
+    | {
+        ok: true;
+        counts: { completed: number; verified: number; dropped: number };
+        ledgerHash: string;
+        diff: Array<{ id: string; before: string; after: string }>;
+      }
+    | { ok: false; reason: string }
+  > {
+    return this.mutate("migrate", async () => {
+      const raw = await readFile(this.eventsPath, "utf-8").catch(() => "");
+      const before = GoalStore.legacyEffectiveStatuses(raw);
+      this.goals.clear();
+      this.tombstones.clear();
+      this.seq = 0;
+      this.ledgerHash = "";
+      this.lifecycleCounts = { completed: 0, verified: 0, dropped: 0 };
+      await this.load({ replay: true, persist: false });
+      const after = new Map<string, string>();
+      for (const goal of [...this.goals.values(), ...this.tombstones.values()]) {
+        after.set(goal.id, effectiveStatus(goal));
+      }
+      const ids = [...new Set([...before.keys(), ...after.keys()])].sort();
+      const diff = ids.map((id) => ({ id, before: before.get(id) ?? "missing", after: after.get(id) ?? "missing" }));
+      await this.persistMeta();
+      const written = await hmacReadFile<GoalMeta>(this.metaPath);
+      const counts = this.lifecycleSnapshot();
+      if (
+        !written ||
+        written.seq !== this.seq ||
+        written.ledgerHash !== this.ledgerHash ||
+        written.completed !== counts.completed ||
+        written.verified !== counts.verified ||
+        written.dropped !== counts.dropped
+      ) {
+        throw new Error("goal meta read-back mismatch after rebuild");
+      }
+      return { ok: true as const, counts, ledgerHash: this.ledgerHash, diff };
+    });
+  }
+
+  private static legacyEffectiveStatuses(raw: string): Map<string, GoalStatus> {
+    const before = new Map<string, GoalStatus>();
+    const lastLive = new Map<string, GoalStatus>();
+    for (const line of raw.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        const parsed = GoalSchema.safeParse(JSON.parse(trimmed));
+        if (!parsed.success) continue;
+        const goal = parsed.data as Goal;
+        if (goal.status === "dropped") {
+          before.set(goal.id, goal.closedAs ?? lastLive.get(goal.id) ?? "dropped");
+          lastLive.delete(goal.id);
+        } else {
+          lastLive.set(goal.id, goal.status);
+          before.set(goal.id, goal.status);
+        }
+      } catch {
+        continue;
+      }
+    }
+    return before;
   }
 
   
@@ -710,7 +773,7 @@ export class GoalStore {
         return this.finishLocked(next, patch.status, "goal.update");
       }
       if (patch.status === "dropped") {
-        this.bumpTerminal(fresh.status);
+        this.bumpTerminal("dropped");
         await this.commit(next, { remove: true });
         return { ok: true, goal: next };
       }
@@ -785,7 +848,7 @@ export class GoalStore {
       const tomb = structuredClone(fresh);
       tomb.status = "dropped";
       tomb.updatedAt = now;
-      this.bumpTerminal(fresh.status);
+      this.bumpTerminal("dropped");
       await this.commit(tomb, { remove: true });
       return { ok: true, goal: tomb };
     });
@@ -874,12 +937,19 @@ export class GoalStore {
   
   compactDigest(): string {
     const digest = this.buildDigest({ attentionCap: 12, rosterCap: 60, changedCap: 30 });
-    if (digest.open === 0) return "";
+    if (digest.open === 0 && digest.attention === 0) return "";
     return `### 🎯 Goals (${digest.open} open)\n${digest.text}`;
   }
 
   
-  buildDigest(opts: { attentionCap?: number; rosterCap?: number; changedCap?: number } = {}): GoalDigest {
+  buildDigest(
+    opts: {
+      attentionCap?: number;
+      rosterCap?: number;
+      changedCap?: number;
+      terminalCounts?: boolean;
+    } = {},
+  ): GoalDigest {
     const attentionCap = opts.attentionCap ?? DIGEST_ATTENTION_CAP;
     const rosterCap = opts.rosterCap ?? DIGEST_ROSTER_CAP;
     const changedCap = opts.changedCap ?? DIGEST_CHANGED_CAP;
@@ -927,8 +997,12 @@ export class GoalStore {
     const verified = this.lifecycleCounts.verified + this.countStatus("verified");
     const dropped = this.lifecycleCounts.dropped;
     const activeNow = this.activeCount();
+    const countsLine =
+      opts.terminalCounts === true
+        ? `🎯 ${active.length} open · ✅ ${done} completed · ✔ ${verified} verified · 🗑 ${dropped} dropped`
+        : `🎯 ${active.length} open`;
     const lines = [
-      `🎯 ${active.length} open · ✅ ${done} completed · ✔ ${verified} verified · 🗑 ${dropped} dropped`,
+      countsLine,
       `🚧 ATTENTION (${attention.length}):`,
       ...attention,
       `📋 ROSTER (${roster.length}):`,

@@ -155,3 +155,7 @@ export function formatHostGoal(state: HostGoalState): string {
   const reason = state.reason ? ` · ${state.reason}` : "";
   return `Host /goal · ${state.status} · ${rounds} · ${state.objective}${reason}`;
 }
+
+export function hostGoalSuffix(state: HostGoalState | null): string {
+  return state && state.status !== "complete" ? `\n\n${formatHostGoal(state)}` : "";
+}

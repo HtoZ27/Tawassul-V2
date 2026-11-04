@@ -4,7 +4,7 @@ import { t } from "../translations.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 import type { GoalStatus, GoalItemState } from "../types/goal-types.ts";
 import type { GoalStore } from "../services/goal-store.ts";
-import { formatHostGoal, readHostGoal } from "../services/host-goal.ts";
+import { formatHostGoal, hostGoalSuffix, readHostGoal } from "../services/host-goal.ts";
 import { GoalStatusSchema, GoalItemStateSchema, GoalListFilterSchema } from "../validation.ts";
 
 
@@ -177,11 +177,11 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
         };
       }
       if (args.board) {
-        const digest = store.buildDigest();
+        const digest = store.buildDigest({ terminalCounts: true });
         const hostGoal = await readHostGoal(cctx.sessionID);
         return {
           title: t("goalBoardTitle"),
-          output: hostGoal ? `${digest.text}\n\n${formatHostGoal(hostGoal)}` : digest.text,
+          output: `${digest.text}${hostGoalSuffix(hostGoal)}`,
         };
       }
 

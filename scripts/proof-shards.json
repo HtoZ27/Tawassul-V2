@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "totalEstimateMs": 340441,
+  "totalEstimateMs": 343401,
   "shards": [
     {
       "name": "1",
@@ -46,7 +46,7 @@
     },
     {
       "name": "2",
-      "estimateMs": 83413,
+      "estimateMs": 84533,
       "steps": [
         "gen-guard-wal",
         "first-boot",
@@ -86,12 +86,13 @@
         "skill-registration",
         "reload-live",
         "skill-load-rate",
-        "snapshot-boundary"
+        "snapshot-boundary",
+        "goal-board-truth"
       ]
     },
     {
       "name": "3",
-      "estimateMs": 82062,
+      "estimateMs": 83902,
       "steps": [
         "event-trust",
         "s017",
@@ -132,7 +133,8 @@
         "context-diet",
         "state-root-survival",
         "skill-discovery",
-        "no-git-init"
+        "no-git-init",
+        "goal-migration"
       ]
     },
     {
