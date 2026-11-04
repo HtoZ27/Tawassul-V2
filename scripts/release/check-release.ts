@@ -78,6 +78,18 @@ check(fileMatch !== null, "docs/validation.md has no proof-file sentence");
 check(Number(fileMatch?.[1] ?? -1) === proofFiles.length, `docs/validation.md records ${fileMatch?.[1]} proof files; the tree has ${proofFiles.length}`);
 check(Number(fileMatch?.[2] ?? -1) === steps.length, `docs/validation.md records ${fileMatch?.[2]} proof steps; the manifest has ${steps.length}`);
 
+const notesDoc = existsSync(notesPath) ? text(notesPath) : "";
+const fastCount = (manifest.fast ?? []).length;
+const smokeCount = (manifest.smoke ?? []).length;
+const notesFast = /^\| Fast gate \| (\d+) steps \|/m.exec(notesDoc);
+const notesProofs = /^\| Proofs \| (\d+) steps/m.exec(notesDoc);
+const notesSmoke = /^\| Smoke \| (\d+) steps/m.exec(notesDoc);
+const notesFiles = /^\| Proof files \| (\d+),/m.exec(notesDoc);
+check(notesFast !== null && Number(notesFast[1]) === fastCount, `${notesPath} records ${notesFast?.[1] ?? "no"} fast steps; the manifest has ${fastCount}`);
+check(notesProofs !== null && Number(notesProofs[1]) === steps.length, `${notesPath} records ${notesProofs?.[1] ?? "no"} proofs; the manifest has ${steps.length}`);
+check(notesSmoke !== null && Number(notesSmoke[1]) === smokeCount, `${notesPath} records ${notesSmoke?.[1] ?? "no"} smoke steps; the manifest has ${smokeCount}`);
+check(notesFiles !== null && Number(notesFiles[1]) === proofFiles.length, `${notesPath} records ${notesFiles?.[1] ?? "no"} proof files; the tree has ${proofFiles.length}`);
+
 const catalog = text("scripts/prove-proof-catalog.ts");
 const pinnedSteps = Number(/const PINNED_PROOF_STEPS = (\d+);/.exec(catalog)?.[1] ?? -1);
 check(pinnedSteps === steps.length, `proof catalog pins ${pinnedSteps} steps; the manifest has ${steps.length}`);
