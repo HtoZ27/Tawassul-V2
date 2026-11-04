@@ -311,7 +311,7 @@ No copyleft licence (GPL, LGPL, AGPL, MPL, SSPL, CPAL, or EUPL) is present.
 | `yallist` | 4.0.0 | `ISC` | development |
 | `yallist` | 4.0.0 | `ISC` | development |
 | `yallist` | 5.0.0 | `BlueOak-1.0.0` | development |
-| `zod` | 4.1.8 | `MIT` | direct |
+| `zod` | 4.6.7 | `MIT` | direct |
 
 ## How to verify
 

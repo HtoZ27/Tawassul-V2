@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { getInitReady } from "../src/bootstrap/plugin-init.ts";
 import { TOOL_COUNT, TOOL_NAME_SET_HASH } from "../src/generated/tool-tripwire.ts";
@@ -22,10 +22,12 @@ import { collectToolSchemas, measureDescriptionText, measureSchemaPayload } from
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const date = new Date().toISOString().slice(0, 10);
 const outDir = join(repo, "docs", "experiments", "baselines");
-const outPath = join(outDir, `${date}-context-baseline.json`);
+const outIndex = process.argv.indexOf("--out");
+const outArg = outIndex >= 0 ? process.argv[outIndex + 1] : undefined;
+const outPath = outArg ? resolve(repo, outArg) : join(outDir, `${date}-context-baseline.json`);
 const force = process.argv.includes("--force");
 
-if (existsSync(outPath) && !force) {
+if (!outArg && existsSync(outPath) && !force) {
   console.error(`context-baseline: ${outPath} already exists; baselines are immutable. Pass --force only for an uncommitted draft.`);
   process.exit(1);
 }
@@ -113,7 +115,7 @@ try {
       note: "One description-text line per plugin-registered skill; a body loads only when the skill is invoked.",
     },
   };
-  mkdirSync(outDir, { recursive: true });
+  mkdirSync(dirname(outPath), { recursive: true });
   if (existsSync(outPath)) chmodSync(outPath, 0o644);
   writeFileSync(outPath, `${JSON.stringify(artifact, null, 2)}\n`);
   chmodSync(outPath, 0o444);

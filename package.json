@@ -177,7 +177,7 @@
     "tree-sitter-typescript": "^0.23.2",
     "typescript": "^5.6.0",
     "web-tree-sitter": "^0.26.13",
-    "zod": "^4.1.8"
+    "zod": "^4.6.7"
   },
   "engines": {
     "node": ">=26.13.0"

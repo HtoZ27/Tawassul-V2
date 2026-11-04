@@ -1,0 +1,285 @@
+{
+  "date": "2026-11-04",
+  "commit": "1883eaf0dfd80751c3c5e365e4e11912f750e91d",
+  "method": "collectToolSchemas then measureSchemaPayload for whole schemas; measureDescriptionText for description text; buildConcordance output for the concordance",
+  "toolCount": 44,
+  "toolNameSetHash": "1c1f4d27508a7a3f6f3b50d1e10f8ae0cf8801c7ce3d73df9cd29783ee7c3bb2",
+  "schemaPayload": {
+    "bytes": 13868,
+    "estimatedTokens": 3467
+  },
+  "descriptionText": {
+    "bytes": 16147,
+    "estimatedTokens": 4037,
+    "lines": [
+      {
+        "name": "addagent",
+        "bytes": 1068,
+        "estimatedTokens": 267
+      },
+      {
+        "name": "astquery",
+        "bytes": 349,
+        "estimatedTokens": 88
+      },
+      {
+        "name": "batchread",
+        "bytes": 242,
+        "estimatedTokens": 61
+      },
+      {
+        "name": "check",
+        "bytes": 143,
+        "estimatedTokens": 36
+      },
+      {
+        "name": "checkpoint",
+        "bytes": 62,
+        "estimatedTokens": 16
+      },
+      {
+        "name": "codestate",
+        "bytes": 132,
+        "estimatedTokens": 33
+      },
+      {
+        "name": "dashboard",
+        "bytes": 97,
+        "estimatedTokens": 25
+      },
+      {
+        "name": "depmap",
+        "bytes": 427,
+        "estimatedTokens": 107
+      },
+      {
+        "name": "directresponse",
+        "bytes": 175,
+        "estimatedTokens": 44
+      },
+      {
+        "name": "discussion",
+        "bytes": 387,
+        "estimatedTokens": 97
+      },
+      {
+        "name": "divide",
+        "bytes": 415,
+        "estimatedTokens": 104
+      },
+      {
+        "name": "evaluationreport",
+        "bytes": 673,
+        "estimatedTokens": 169
+      },
+      {
+        "name": "evidence",
+        "bytes": 457,
+        "estimatedTokens": 115
+      },
+      {
+        "name": "fasttrack",
+        "bytes": 220,
+        "estimatedTokens": 55
+      },
+      {
+        "name": "gitdiff",
+        "bytes": 438,
+        "estimatedTokens": 110
+      },
+      {
+        "name": "goal",
+        "bytes": 1564,
+        "estimatedTokens": 391
+      },
+      {
+        "name": "handoff",
+        "bytes": 1122,
+        "estimatedTokens": 281
+      },
+      {
+        "name": "health",
+        "bytes": 195,
+        "estimatedTokens": 49
+      },
+      {
+        "name": "help",
+        "bytes": 88,
+        "estimatedTokens": 22
+      },
+      {
+        "name": "image_route",
+        "bytes": 108,
+        "estimatedTokens": 27
+      },
+      {
+        "name": "imagegen",
+        "bytes": 111,
+        "estimatedTokens": 28
+      },
+      {
+        "name": "kick",
+        "bytes": 802,
+        "estimatedTokens": 201
+      },
+      {
+        "name": "moa",
+        "bytes": 80,
+        "estimatedTokens": 20
+      },
+      {
+        "name": "override",
+        "bytes": 619,
+        "estimatedTokens": 155
+      },
+      {
+        "name": "panic",
+        "bytes": 413,
+        "estimatedTokens": 104
+      },
+      {
+        "name": "pause",
+        "bytes": 323,
+        "estimatedTokens": 81
+      },
+      {
+        "name": "projectmap",
+        "bytes": 245,
+        "estimatedTokens": 62
+      },
+      {
+        "name": "propose",
+        "bytes": 286,
+        "estimatedTokens": 72
+      },
+      {
+        "name": "qualityreport",
+        "bytes": 284,
+        "estimatedTokens": 71
+      },
+      {
+        "name": "readsymbol",
+        "bytes": 482,
+        "estimatedTokens": 121
+      },
+      {
+        "name": "record",
+        "bytes": 529,
+        "estimatedTokens": 133
+      },
+      {
+        "name": "report",
+        "bytes": 287,
+        "estimatedTokens": 72
+      },
+      {
+        "name": "resume",
+        "bytes": 173,
+        "estimatedTokens": 44
+      },
+      {
+        "name": "review",
+        "bytes": 78,
+        "estimatedTokens": 20
+      },
+      {
+        "name": "self_heal",
+        "bytes": 51,
+        "estimatedTokens": 13
+      },
+      {
+        "name": "show_board",
+        "bytes": 180,
+        "estimatedTokens": 45
+      },
+      {
+        "name": "smartgrep",
+        "bytes": 315,
+        "estimatedTokens": 79
+      },
+      {
+        "name": "status",
+        "bytes": 73,
+        "estimatedTokens": 19
+      },
+      {
+        "name": "task_control",
+        "bytes": 556,
+        "estimatedTokens": 139
+      },
+      {
+        "name": "task_orchestrate",
+        "bytes": 81,
+        "estimatedTokens": 21
+      },
+      {
+        "name": "thread",
+        "bytes": 883,
+        "estimatedTokens": 221
+      },
+      {
+        "name": "timeline",
+        "bytes": 437,
+        "estimatedTokens": 110
+      },
+      {
+        "name": "vote",
+        "bytes": 241,
+        "estimatedTokens": 61
+      },
+      {
+        "name": "web",
+        "bytes": 256,
+        "estimatedTokens": 64
+      }
+    ]
+  },
+  "concordance": {
+    "bytes": 881,
+    "lines": 10,
+    "estimatedTokens": 221
+  },
+  "sessionDigest": {
+    "composition": [
+      "goal digest",
+      "top-10 importance-weighted records",
+      "handoffs"
+    ],
+    "emptyStateBytes": 0,
+    "note": "Grows with live session state; the empty scratch state is the recorded floor, not a published prompt size."
+  },
+  "i18n": {
+    "file": "src/i18n/en.json",
+    "bytes": 48089,
+    "contextWeightBytes": 0,
+    "note": "Runtime lookup table compiled into the bundle; never injected into the model prompt."
+  },
+  "registeredSkills": {
+    "count": 4,
+    "lines": [
+      {
+        "name": "tawassul-goal-review",
+        "bytes": 94,
+        "estimatedTokens": 24
+      },
+      {
+        "name": "tawassul-handoff-triage",
+        "bytes": 100,
+        "estimatedTokens": 25
+      },
+      {
+        "name": "tawassul-context-continue",
+        "bytes": 91,
+        "estimatedTokens": 23
+      },
+      {
+        "name": "tawassul-integration-engineer",
+        "bytes": 91,
+        "estimatedTokens": 23
+      }
+    ],
+    "totalBytes": 376,
+    "estimatedTokens": 94,
+    "note": "One description-text line per plugin-registered skill; a body loads only when the skill is invoked."
+  }
+}
