@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { DYNAMIC_MODEL_SENTINEL } from "../src/services/proxy-fallback-chains.ts";
 import { applyBootRepairs, repairProjectConfigBoot } from "../src/utils/opencode-config.ts";
 import { buildAgents } from "../src/scripts/gen-opencode-config.ts";
+import { BASH_READ_ONLY } from "../src/permissions.ts";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -22,6 +23,18 @@ function assert(cond: boolean, name: string): void {
 }
 
 type PermissionMap = Record<string, unknown>;
+
+function caseInsensitiveDuplicates(rules: Record<string, string>): string[] {
+  const seen = new Map<string, string>();
+  const duplicates: string[] = [];
+  for (const key of Object.keys(rules)) {
+    const lower = key.toLowerCase();
+    const first = seen.get(lower);
+    if (first === undefined) seen.set(lower, key);
+    else duplicates.push(`${first} / ${key}`);
+  }
+  return duplicates;
+}
 
 type AgentConfig = { model?: string; permission?: PermissionMap; [key: string]: unknown };
 
@@ -140,6 +153,19 @@ async function main(): Promise<void> {
 
   const repo = dirname(dirname(fileURLToPath(import.meta.url)));
   const generated = buildAgents(undefined, { projectRoot: resolve(repo) });
+  assert(
+    caseInsensitiveDuplicates(BASH_READ_ONLY).length === 0,
+    "the read-only bash map carries no case-insensitive duplicate keys",
+  );
+  for (const [name, cfg] of Object.entries(generated)) {
+    const bash = cfg.permission.bash;
+    if (typeof bash === "object" && bash !== null) {
+      assert(
+        caseInsensitiveDuplicates(bash).length === 0,
+        `${name} emits no case-insensitive duplicate bash keys`,
+      );
+    }
+  }
   const generatedRaw = JSON.stringify({ model: "opencode/big-pickle", agent: generated }, null, 2);
   const generatedRepair = applyBootRepairs(generatedRaw);
   assert(
