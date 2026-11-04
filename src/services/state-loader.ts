@@ -1,5 +1,6 @@
 
 import { RecordEntrySchema, HandoffEntrySchema, AgentRatingSchema } from "../validation.ts";
+import type { HandoffEntry, RecordEntry } from "../context/types.ts";
 import { isFreeOfPrototypePollution } from "../context/migration.ts";
 import { FeatureIndex } from "./feature-index.ts";
 import { isIsolationActiveSync } from "./isolation.ts";
@@ -45,7 +46,7 @@ export async function walReplay(stateDir: string, stateData: WalStateData): Prom
       stateData.records.length = 0;
       for (const r of wal.records) {
         const parsed = RecordEntrySchema.safeParse(r);
-        if (parsed.success) stateData.records.push(parsed.data);
+        if (parsed.success) stateData.records.push(parsed.data as unknown as RecordEntry);
         else logger.warn("WAL: skipping invalid record entry (schema mismatch)");
       }
     }
@@ -53,7 +54,7 @@ export async function walReplay(stateDir: string, stateData: WalStateData): Prom
       stateData.handoffs.length = 0;
       for (const h of wal.handoffs) {
         const parsed = HandoffEntrySchema.safeParse(h);
-        if (parsed.success) stateData.handoffs.push(parsed.data);
+        if (parsed.success) stateData.handoffs.push(parsed.data as unknown as HandoffEntry);
         else logger.warn("WAL: skipping invalid handoff entry (schema mismatch)");
       }
     }

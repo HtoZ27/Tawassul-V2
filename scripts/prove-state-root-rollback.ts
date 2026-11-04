@@ -5,6 +5,8 @@ import { join, resolve } from "node:path";
 import { resetHmacKeyCache, unwrapWithHmac } from "../src/utils/crypto.ts";
 import { projectRootFor, resolveProjectIdentity } from "../src/utils/project-identity.ts";
 import { prepareProjectState } from "../src/utils/project-state-migration.ts";
+import { StateManager } from "../src/context/managers/StateManager.ts";
+import { hmacWriteFile } from "../src/services/persist-utils.ts";
 import {
   bootPlugin,
   disposePlugin,
@@ -290,6 +292,133 @@ try {
   await disposePlugin(settled);
   const settledJournalLength = readFileSync(journalFile, "utf8").trim().split("\n").length;
   assert(settledJournalLength === journalAfterConflict, "a settled conflict appends nothing on the next boot");
+
+  const schemaDir = join(work, "schema-roundtrip");
+  mkdirSync(schemaDir, { recursive: true });
+  const schemaPath = join(schemaDir, "tawassul-state.json");
+  const schemaManager = new StateManager(schemaDir, () => schemaPath);
+  const schemaStamp = new Date().toISOString();
+  const a0Fields = {
+    implementer: { providerID: "opencode", modelID: "big-pickle" },
+    reviewer: { providerID: "google", modelID: "gemini-flash-lite-latest" },
+    sessionId: "ses-schema-roundtrip",
+    turn: 41,
+    acceptanceCriteria: ["first criterion", "second criterion"],
+    acknowledgedBy: "@tester",
+    acknowledgedAt: schemaStamp,
+    senderErrorCleared: true,
+    sourceDiscussionId: "D-900",
+    reroutedModel: "opencode/big-pickle",
+    credentialScope: "isolated",
+  };
+  const handoffSeed = {
+    id: "H-900",
+    from: "@dev",
+    to: "@tester",
+    task: "schema round trip",
+    context: "round trip context",
+    files: ["src/validation.ts"],
+    timestamp: schemaStamp,
+    status: "pending",
+    ...a0Fields,
+  };
+  const recordSeed = {
+    id: "R-900",
+    type: "decision",
+    timestamp: schemaStamp,
+    agent: "@dev",
+    title: "schema round trip",
+    detail: "keep every field",
+    provenance: "tool_observed",
+    decision_kind: "decision",
+  };
+  const firstPass = schemaManager.validateStateData({ version: 1, records: [recordSeed], handoffs: [handoffSeed] });
+  if (!firstPass.valid) fail(`the seeded state was rejected: ${firstPass.errors.join("; ")}`);
+  assert(firstPass.valid, "the seeded state passes validation");
+  const firstHandoff = (firstPass.sanitized.handoffs as Record<string, unknown>[])[0] ?? {};
+  const firstRecord = (firstPass.sanitized.records as Record<string, unknown>[])[0] ?? {};
+  for (const [field, value] of Object.entries(a0Fields)) {
+    assert(
+      JSON.stringify(firstHandoff[field]) === JSON.stringify(value),
+      `A0 keeps ${field} through validation`,
+    );
+  }
+  assert(firstRecord.provenance === "tool_observed", "A0b keeps provenance through validation");
+  assert(firstRecord.decision_kind === "decision", "A0b keeps decision_kind through validation");
+  await hmacWriteFile(schemaPath, firstPass.sanitized);
+  const reloaded = await schemaManager.tryLoadFile(schemaPath);
+  if (!reloaded) fail("the signed round-trip file did not load");
+  assert(reloaded !== null, "the signed round-trip file loads");
+  const reloadedHandoff = (reloaded.handoffs as Record<string, unknown>[])[0] ?? {};
+  const reloadedRecord = (reloaded.records as Record<string, unknown>[])[0] ?? {};
+  for (const [field, value] of Object.entries(a0Fields)) {
+    assert(
+      JSON.stringify(reloadedHandoff[field]) === JSON.stringify(value),
+      `A0 keeps ${field} after write and reload`,
+    );
+  }
+  assert(reloadedRecord.provenance === "tool_observed", "A0b keeps provenance after write and reload");
+  assert(reloadedRecord.decision_kind === "decision", "A0b keeps decision_kind after write and reload");
+  const secondPass = schemaManager.validateStateData(reloaded);
+  if (!secondPass.valid) fail(`the reloaded state was rejected: ${secondPass.errors.join("; ")}`);
+  assert(secondPass.valid, "the reloaded state re-validates");
+  const secondHandoff = (secondPass.sanitized.handoffs as Record<string, unknown>[])[0] ?? {};
+  assert(JSON.stringify(secondHandoff) === JSON.stringify(reloadedHandoff), "the reloaded handoff is a field fixpoint");
+
+  const hostileHandoff = {
+    id: "H-901",
+    from: "@dev",
+    to: "@tester",
+    task: "hostile fixture",
+    context: "hostile context",
+    files: [],
+    timestamp: schemaStamp,
+    status: "pending",
+    implementer: 42,
+    reviewer: null,
+    sessionId: null,
+    turn: "3",
+    acceptanceCriteria: [null],
+    acknowledgedBy: 42,
+    acknowledgedAt: null,
+    senderErrorCleared: "yes",
+    sourceDiscussionId: null,
+    reroutedModel: 42,
+    credentialScope: "bogus",
+  };
+  const hostileRecord = {
+    id: "R-901",
+    type: "decision",
+    timestamp: schemaStamp,
+    agent: "@dev",
+    title: "hostile record",
+    detail: "hostile detail",
+    provenance: 42,
+    decision_kind: null,
+  };
+  const hostile = schemaManager.validateStateData({ version: 1, records: [hostileRecord], handoffs: [hostileHandoff] });
+  if (!hostile.valid) fail(`the hostile fixture was rejected: ${hostile.errors.join("; ")}`);
+  assert(hostile.valid, "the hostile fixture still parses as a handoff");
+  const hostileParsed = (hostile.sanitized.handoffs as Record<string, unknown>[])[0] ?? {};
+  const hostileRecordParsed = (hostile.sanitized.records as Record<string, unknown>[])[0] ?? {};
+  for (const field of [
+    "implementer",
+    "reviewer",
+    "sessionId",
+    "turn",
+    "acceptanceCriteria",
+    "acknowledgedBy",
+    "acknowledgedAt",
+    "senderErrorCleared",
+    "sourceDiscussionId",
+    "reroutedModel",
+  ]) {
+    assert(hostileParsed[field] === undefined, `hostile ${field} falls back to undefined`);
+  }
+  assert(hostileParsed.credentialScope === "bogus", "hostile credentialScope survives as a string");
+  assert(hostileRecordParsed.provenance === undefined, "hostile provenance falls back to undefined");
+  assert(hostileRecordParsed.decision_kind === undefined, "hostile decision_kind falls back to undefined");
+  assert(hostileParsed.id === "H-901", "the hostile fixture keeps the required handoff fields");
 
   console.log(`INFO  project root ${root}, backup ${manifestFile}`);
   console.log(`PROOF PASS: the migration keeps signatures, backs up first, refreshes untouched artifacts, archives conflicts and rolls back cleanly (${passed} assertions)`);

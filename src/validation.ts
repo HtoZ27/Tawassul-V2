@@ -36,6 +36,13 @@ export const FileLocationSchema = z
     message: "lineEnd must be >= line when both are provided",
   });
 
+export const AgentModelRefSchema = z.object({
+  providerID: z.string(),
+  modelID: z.string(),
+});
+
+const lenient = <T extends z.ZodType>(schema: T) => schema.optional().catch(undefined);
+
 export const RecordEntrySchema = z.object({
   id: z.string(),
   type: z.enum(["decision", "fix", "incident", "note"]),
@@ -46,6 +53,8 @@ export const RecordEntrySchema = z.object({
   severity: z.enum(["critical", "severe", "moderate", "minor"]).optional(),
   specializations: z.array(z.string()).optional(),
   locations: z.array(FileLocationSchema).optional(),
+  provenance: lenient(z.string()),
+  decision_kind: lenient(z.string()),
 });
 
 export const CheckpointSchema = z
@@ -82,12 +91,23 @@ export const HandoffEntrySchema = z.object({
   status: z.enum(["pending", "accepted", "completed", "cancelled", "paused", "closed"]),
   checkpoint: CheckpointSchema,
   rescue: z.boolean().optional(),
+  senderErrorCleared: lenient(z.boolean()),
   result: z.string().optional(),
   parallelId: z.string().optional(),
   sourceLocations: z.array(FileLocationSchema).optional(),
   sourceRecordId: z.string().optional(),
+  sourceDiscussionId: lenient(z.string()),
+  credentialScope: lenient(z.string()),
+  implementer: lenient(AgentModelRefSchema),
+  reviewer: lenient(AgentModelRefSchema),
+  sessionId: lenient(z.string()),
+  turn: lenient(z.number()),
+  acceptanceCriteria: lenient(z.array(z.string())),
+  acknowledgedBy: lenient(z.string()),
+  acknowledgedAt: lenient(z.string()),
   decisionRuleId: z.string().optional(),
   decision: RuleDecisionSchema.optional(),
+  reroutedModel: lenient(z.string()),
   contextPackId: z.string().optional(),
   contextPackDigest: z.string().regex(/^[0-9a-f]{64}$/).optional(),
   contextPackActivatedAt: z.string().optional(),
