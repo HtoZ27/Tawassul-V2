@@ -177,7 +177,17 @@ minute sliding, returning to burst mode after 30 seconds of quiet.
 | `consensusBroker` | boolean | `false` | Enable the consensus broker in discussions |
 | `privacyGuardParanoid` | boolean | `false` | Apply the strictest privacy guard to outbound text |
 | `freeLimit` | object | `{}` | `notice` and `noRetry` for a free-tier provider |
-| `innovations` | object | `{}` | Experimental switches; `contextHandoff` is the only one |
+| `innovations` | object | `{}` | Experimental switches keyed by name; `contextHandoff` and `context.relevance-ranked` are the ones read today |
+
+### Continuity
+
+| Key | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `continuity.enabled` | boolean | `false` | Run the liveness probe and allow `handoff(resumeInterrupted)` |
+
+An explicit `TAWASSUL_CONTINUITY=0` or `TAWASSUL_CONTINUITY=1` wins over this
+key. Detection states and the action precedence are described in
+[continuity detection](continuity-detection.md).
 
 ### Example
 
