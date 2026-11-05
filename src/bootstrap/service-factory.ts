@@ -214,6 +214,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
     featureIndex: tawaCtx.featureIndex,
     projectRoot: projectIndex.projectRoot,
   });
+  tawaCtx.taskContext = taskContext;
 
   
   const handoffLedger = new HandoffLedger(tawaCtx.persistDir, tawaCtx.timerManager);

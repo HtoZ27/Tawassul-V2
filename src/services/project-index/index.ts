@@ -49,6 +49,16 @@ export class ProjectIndexService {
     return snapshotPath(this.baseDir);
   }
 
+  get loaded(): boolean {
+    return this.data !== null;
+  }
+
+  evictMemory(): number {
+    const bytes = this.data?.stats.bytes ?? 0;
+    this.data = null;
+    return bytes;
+  }
+
   snapshot(): IndexSnapshot {
     return this.load();
   }

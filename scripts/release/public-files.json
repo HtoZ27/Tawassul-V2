@@ -24,6 +24,7 @@
     "docs/permissions.md",
     "docs/state.md",
     "docs/architecture.md",
+    "docs/continuity-detection.md",
     "docs/database.md",
     "docs/dependencies.md",
     "docs/validation.md",

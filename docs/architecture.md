@@ -107,6 +107,15 @@ The context also exposes facades: small functions grouped by concern
 (`config`, `state`, `agent`, `rule`) so a service depends on a narrow surface
 instead of the whole context object.
 
+Three advisory services sit beside the managers: `ProjectIndexService` records
+files, symbols, and import edges; `ReadCacheService` reuses a read only while
+its file and directory stamps still match; `TaskContextService` builds a
+bounded bundle for orchestration. Each has a kill switch, none can block a tool,
+and all counters are derived on demand. `health` prints an `intelligence` block,
+`dashboard` adds one line, and `report` adds a block. A
+`CACHE_CLEANUP_REQUESTED` event clears the read cache only; `MEMORY_EMERGENCY`
+also drops the in-memory index, which reloads from disk on the next read.
+
 ## Persistence
 
 | Data | Location | Format |

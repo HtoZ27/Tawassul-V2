@@ -2,7 +2,7 @@
 import { resolve } from "node:path";
 import { mark, measure } from "./utils/perf.ts";
 import { logger } from "./utils/logger.ts";
-import type { TawaOrchestratorContext, SaveHealth } from "./core/service-context.ts";
+import type { TawaOrchestratorContext, SaveHealth, IntelligenceMetrics } from "./core/service-context.ts";
 import { ConflictLearner } from "./conflict-resolver/learner.ts";
 import { FileLockManager } from "./infra/file-lock.ts";
 import { RateLimiter } from "./context/rate-limit.ts";
@@ -140,6 +140,7 @@ export class TawassulContext implements TawaOrchestratorContext {
   projectIdentity?: import("./utils/project-identity.ts").ProjectIdentity;
   projectIndex?: import("./services/project-index/index.ts").ProjectIndexService;
   readCache?: import("./services/read-cache/index.ts").ReadCacheService;
+  taskContext?: import("./services/task-context/index.ts").TaskContextService;
   predictiveRouter?: import("./features/predictive-router.ts").PredictiveRouter;
   
   memoryRoutingIntegration?:
@@ -345,6 +346,23 @@ export class TawassulContext implements TawaOrchestratorContext {
   }
   get memoryWatchdog(): MemoryWatchdog {
     return this._memoryWatchdog();
+  }
+  get intelligence(): IntelligenceMetrics | undefined {
+    const cache = this.readCache?.stats();
+    const index = this.projectIndex?.stats();
+    const bundles = this.taskContext?.stats();
+    if (!cache?.enabled && !index?.enabled && !bundles?.enabled) return undefined;
+    return {
+      cacheHits: cache?.hits ?? 0,
+      cacheMisses: cache?.misses ?? 0,
+      cacheBytes: cache?.bytes ?? 0,
+      indexFiles: index?.files ?? 0,
+      indexSymbols: index?.symbols ?? 0,
+      indexEdges: index?.edges ?? 0,
+      indexBytes: index?.bytes ?? 0,
+      bundlesBuilt: bundles?.bundlesBuilt ?? 0,
+      bundleBytes: bundles?.bundleBytes ?? 0,
+    };
   }
   get agentAvailability(): AgentAvailabilityManager | null {
     return this._agentAvailability ?? null;

@@ -87,6 +87,7 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
       const routerFile = projectStatePath(ctx.persistDir, "predictive-router.json");
       const flushes = pendingFlushes();
       const failover = failoverSummary();
+      const intelligence = ctx.intelligence;
       const maintenance =
         process.platform === "win32" ? "unavailable" : process.platform === "darwin" ? "manual" : "automatic";
       const dbMaintenance = dbMaintenanceState();
@@ -113,6 +114,14 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
           `- Router file: ${routerFile} (${existsSync(routerFile) ? "exists" : "missing"})`,
           `- HMAC key: ${keyFile} (${keyPresent ? "present" : "missing"})`,
           `- Pending flushes: ${flushes}`,
+          ...(intelligence
+            ? [
+                `## Intelligence`,
+                `- Cache: ${intelligence.cacheHits} hit(s), ${intelligence.cacheMisses} miss(es), ${intelligence.cacheBytes} B`,
+                `- Index: ${intelligence.indexFiles} file(s), ${intelligence.indexSymbols} symbol(s), ${intelligence.indexEdges} edge(s), ${intelligence.indexBytes} B`,
+                `- Bundles: ${intelligence.bundlesBuilt} built, ${intelligence.bundleBytes} B`,
+              ]
+            : []),
           ...(expectedDb && dbMatches !== null ? [`- DB expected: ${expectedDb}`] : []),
           ...(dbMatches !== null ? [`- DB matches isolation: ${dbMatches ? "yes" : "no"}`] : []),
         ].join("\n"),

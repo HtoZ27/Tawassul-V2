@@ -176,7 +176,21 @@ export interface TawaOrchestratorContext
   projectIdentity?: import("../utils/project-identity.ts").ProjectIdentity;
   projectIndex?: import("../services/project-index/index.ts").ProjectIndexService;
   readCache?: import("../services/read-cache/index.ts").ReadCacheService;
+  taskContext?: import("../services/task-context/index.ts").TaskContextService;
+  readonly intelligence?: IntelligenceMetrics;
 }
+
+export type IntelligenceMetrics = {
+  cacheHits: number;
+  cacheMisses: number;
+  cacheBytes: number;
+  indexFiles: number;
+  indexSymbols: number;
+  indexEdges: number;
+  indexBytes: number;
+  bundlesBuilt: number;
+  bundleBytes: number;
+};
 
 export interface QueueDrainerPort {
   shouldDrain(agent: string): boolean;

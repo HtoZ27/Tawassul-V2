@@ -27,6 +27,12 @@ import { buildHandoffTool } from "../src/tools/handoff.ts";
 import { HandoffService } from "../src/services/handoff-service.ts";
 import { HealthTracker } from "../src/services/agent-health.ts";
 import { CircuitBreaker } from "../src/services/circuit-breaker.ts";
+import { registerMemoryEventIntegrations } from "../src/bootstrap/memory-integrations.ts";
+import { buildHealthTool } from "../src/tools/tawa/health.ts";
+import { buildDashboardTool } from "../src/tools/tawa/dashboard.ts";
+import { buildReportTool } from "../src/tools/diagnostics.ts";
+import { ServiceIndex } from "../src/services/service-index.ts";
+import { t } from "../src/translations.ts";
 import type { ToolContext } from "../src/tool.ts";
 
 let passed = 0;
@@ -56,11 +62,24 @@ function handoff(): HandoffEntry {
   };
 }
 
+function outputText(result: unknown): string {
+  return typeof result === "string" ? result : String((result as { output?: unknown })?.output ?? "");
+}
+
+async function waitFor(predicate: () => boolean, name: string): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  fail(name);
+}
+
 const dir = mkdtempSync(join(tmpdir(), "tawassul-intelligence-off-"));
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 
 try {
   process.env.TAWASSUL_CONTINUITY = "0";
+  process.env.TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT = "0";
   const ownersDir = join(dir, ".opencode", "continuity");
   mkdirSync(ownersDir, { recursive: true });
   const ownersFile = join(ownersDir, "owners.json");
@@ -120,9 +139,9 @@ try {
     return { output: "recomputed" };
   };
   const files = [{ path: cacheFile, mtimeMs: 1, size: 10 }];
-  await readCache.getOrCompute({ tool: "batchread", args: { paths: ["a.ts"] }, files, dirs: [], compute });
-  await readCache.getOrCompute({ tool: "batchread", args: { paths: ["a.ts"] }, files, dirs: [], compute });
-  assert(computed === 2, "a disabled cache recomputes on every call");
+  await readCache.getOrCompute({ tool: "depmap", args: { paths: ["a.ts"] }, files, dirs: [], compute });
+  await readCache.getOrCompute({ tool: "depmap", args: { paths: ["a.ts"] }, files, dirs: [], compute });
+  assert(computed === 2, "a disabled cache recomputes depmap on every call");
   assert(readCache.stats().entries === 0 && readCache.bytes === 0, "a disabled cache stores no entry and no byte");
   assert(readCache.stats().hits === 0, "a disabled cache records no hit");
   assert(readdirSync(cacheProject).length === 1, "a disabled cache writes no state file");
@@ -150,7 +169,7 @@ try {
   assert(readdirSync(taskProject).length === 1, "a disabled builder writes no bundle file");
 
   process.env.TAWASSUL_CONTEXT_HANDOFF = "0";
-  delete process.env.TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT;
+  process.env.TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT = "0";
   const handoffProject = join(dir, "handoff-off");
   mkdirSync(join(handoffProject, ".opencode", "agents"), { recursive: true });
   for (const agent of ["dev", "tester"]) {
@@ -158,6 +177,16 @@ try {
   }
   const handoffCtx = new TawassulContext(handoffProject);
   handoffCtx.ensureConfig();
+  const handoffIndex = new ProjectIndexService({ baseDir: handoffProject, projectKey: "off-key", enabled: false });
+  const handoffCache = new ReadCacheService({ projectKey: "off-key", enabled: false });
+  handoffCtx.projectIndex = handoffIndex;
+  handoffCtx.readCache = handoffCache;
+  handoffCtx.taskContext = new TaskContextService({
+    projectIndex: handoffIndex,
+    projectRoot: handoffProject,
+    enabled: false,
+  });
+  assert(handoffCtx.intelligence === undefined, "all five flags off leave intelligence undefined");
   handoffCtx.handoffService = new HandoffService(handoffCtx, new HealthTracker(), new CircuitBreaker());
   const handoffTool = buildHandoffTool(handoffCtx);
   const callerText = "the caller text stays exact with the accumulated context off";
@@ -171,6 +200,14 @@ try {
     abort: new AbortController().signal,
     metadata() {},
   };
+  const offHealth = outputText(
+    await buildHealthTool(handoffCtx, {
+      measureLag: async () => 0,
+      rssMb: () => 0,
+      pendingFlushes: () => 0,
+    }).execute({}, toolContext),
+  );
+  assert(!offHealth.includes("## Intelligence"), "health omits the intelligence block when every service is disabled");
   try {
     const created = (await handoffTool.execute(
       { to: "@dev", task: callerTask, context: callerText },
@@ -180,11 +217,111 @@ try {
     assert(stored !== undefined, "the off flag still creates a handoff");
     assert(stored?.context === callerText, "the off flag stores the caller text verbatim");
     assert(stored?.task === callerTask, "the off flag leaves the task unpadded");
+
+    const interrupted = handoff();
+    interrupted.id = "H-OFF-INTERRUPTED";
+    interrupted.runState = "interrupted";
+    interrupted.interruptedReason = "gone";
+    handoffCtx.handoffs.set(interrupted.id, interrupted);
+    const resumed = outputText(
+      await handoffTool.execute({ resumeInterrupted: interrupted.id }, toolContext),
+    );
+    assert(resumed === t("continuityDisabled"), "resumeInterrupted refuses while continuity is off");
+    assert(
+      interrupted.status === "accepted" && interrupted.runState === "interrupted",
+      "the refused resume leaves the interrupted handoff untouched",
+    );
   } finally {
     await handoffCtx.lifecycleManager.destroy();
   }
 
-  console.log(`PROOF PASS: continuity, project index, read cache, task context and handoff accumulated context off keep zero reads, writes and computations (${passed} assertions)`);
+  const memoryProject = join(dir, "memory-on");
+  mkdirSync(join(memoryProject, "src"), { recursive: true });
+  const memoryFile = join(memoryProject, "src", "a.ts");
+  writeFileSync(memoryFile, "export const a = 1;\n");
+  const memoryCtx = new TawassulContext(memoryProject);
+  memoryCtx.ensureConfig();
+  const memoryIndex = new ProjectIndexService({
+    baseDir: memoryProject,
+    projectKey: "mem-key",
+    projectRoot: memoryProject,
+    enabled: true,
+  });
+  await memoryIndex.recordFile(memoryFile);
+  const memoryCache = new ReadCacheService({ projectKey: "mem-key", enabled: true });
+  await memoryCache.getOrCompute({
+    tool: "depmap",
+    args: { dir: memoryProject },
+    files: [],
+    dirs: [],
+    compute: () => ({ nodes: [], cycles: [], fileCount: 1 }),
+  });
+  memoryCtx.projectIndex = memoryIndex;
+  memoryCtx.readCache = memoryCache;
+  memoryCtx.taskContext = new TaskContextService({
+    projectIndex: memoryIndex,
+    projectRoot: memoryProject,
+    enabled: true,
+  });
+  assert(memoryCtx.intelligence !== undefined, "the enabled services expose an intelligence snapshot");
+  assert((memoryCtx.intelligence?.cacheBytes ?? 0) > 0, "the intelligence snapshot counts cached bytes");
+  assert(memoryIndex.loaded, "the index is loaded in memory before the cleanup event");
+  const memoryToolContext: ToolContext = {
+    ...toolContext,
+    sessionID: "ses-memory",
+    messageID: "msg-memory",
+    directory: memoryProject,
+    worktree: memoryProject,
+  };
+  const healthOutput = outputText(
+    await buildHealthTool(memoryCtx, {
+      measureLag: async () => 0,
+      rssMb: () => 0,
+      pendingFlushes: () => 0,
+    }).execute({}, memoryToolContext),
+  );
+  assert(
+    healthOutput.includes("## Intelligence") && healthOutput.includes("- Cache:"),
+    "health prints the intelligence block when a service is enabled",
+  );
+  const dashboardOutput = outputText(
+    await buildDashboardTool(
+      new ServiceIndex(memoryCtx.eventHub, { storageDir: memoryCtx.persistDir }),
+      memoryCtx,
+    ).execute({ section: "status" }, memoryToolContext),
+  );
+  assert(dashboardOutput.includes("**Intelligence:**"), "dashboard prints the intelligence line");
+  const reportOutput = outputText(await buildReportTool(memoryCtx).execute({}, memoryToolContext));
+  assert(reportOutput.includes("## Intelligence"), "report prints the intelligence block");
+  const stopMemory = registerMemoryEventIntegrations({
+    tawaCtx: memoryCtx,
+    eventHub: memoryCtx.eventHub,
+    cacheClear: async () => 0,
+    codeState: { reset: () => {} },
+  });
+  try {
+    memoryCtx.eventHub.emit({ type: "CACHE_CLEANUP_REQUESTED", agent: "proof", metric: "rss", value: 1 });
+    await waitFor(() => memoryCache.bytes === 0, "the cleanup event never clears the cache");
+    assert(memoryCache.bytes === 0, "the cleanup event drops cacheBytes to zero");
+    assert(memoryIndex.loaded, "the cleanup event leaves the index in memory");
+    assert(memoryIndex.snapshot().stats.files > 0, "the cleanup event leaves the index readable");
+
+    memoryCtx.eventHub.emit({
+      type: "MEMORY_EMERGENCY",
+      agent: "proof",
+      metric: "rss",
+      value: 2,
+      thresholdMB: 1,
+    });
+    await waitFor(() => !memoryIndex.loaded, "the emergency event never evicts the index memory");
+    assert(!memoryIndex.loaded, "the emergency event evicts the in-memory index");
+    assert(memoryIndex.snapshot().stats.files > 0, "the evicted index is still readable from disk");
+  } finally {
+    stopMemory.stop();
+    await memoryCtx.lifecycleManager.destroy();
+  }
+
+  console.log(`PROOF PASS: the five intelligence flags off leave the surface inert and the memory events split (${passed} assertions)`);
 } finally {
   delete process.env.TAWASSUL_CONTINUITY;
   delete process.env.TAWASSUL_PROJECT_INDEX;

@@ -35,6 +35,12 @@ function sectionStatus(ctx: TawassulContext, status: import("../../services/serv
     lines.push("**Pause:** not enabled");
   }
   lines.push(`**Mode:** ${ctx.detectedMode ?? "unspecified"}`, `**Uptime:** ${Math.floor(status.uptime / 1000)}s`);
+  const intelligence = ctx.intelligence;
+  if (intelligence) {
+    lines.push(
+      `**Intelligence:** cache ${intelligence.cacheHits}/${intelligence.cacheMisses} hit/miss (${intelligence.cacheBytes} B) · index ${intelligence.indexFiles} files / ${intelligence.indexSymbols} symbols (${intelligence.indexBytes} B) · bundles ${intelligence.bundlesBuilt} (${intelligence.bundleBytes} B)`,
+    );
+  }
   return lines;
 }
 

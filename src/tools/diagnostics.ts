@@ -85,6 +85,18 @@ export function buildStatusTool(ctx: TawassulContext): ToolDefinition {
 
 
 export function buildReportTool(ctx: TawassulContext): ToolDefinition {
+  const intelligenceLines = (): string[] => {
+    const m = ctx.intelligence;
+    if (!m) return [];
+    return [
+      "",
+      "## Intelligence",
+      "",
+      `- Cache: ${m.cacheHits} hit(s), ${m.cacheMisses} miss(es), ${m.cacheBytes} B`,
+      `- Index: ${m.indexFiles} file(s), ${m.indexSymbols} symbol(s), ${m.indexEdges} edge(s), ${m.indexBytes} B`,
+      `- Bundles: ${m.bundlesBuilt} built, ${m.bundleBytes} B`,
+    ];
+  };
   return tool({
     description: [
       "Generate agent performance report — health scores, flags, dropped tasks, completion ratio.",
@@ -113,8 +125,9 @@ export function buildReportTool(ctx: TawassulContext): ToolDefinition {
         .filter(({ rating: r }) => r.handoffsInitiated > 0 || r.handoffsAccepted > 0 || r.recordsCreated > 0);
 
       if (ratings.length === 0) {
-        if (args.agent) return { output: t("reportNoActivityAgent", { agent: String(args.agent) }) };
-        return { output: t("reportNoActivity") };
+        const suffix = intelligenceLines();
+        if (args.agent) return { output: [t("reportNoActivityAgent", { agent: String(args.agent) }), ...suffix].join("\n") };
+        return { output: [t("reportNoActivity"), ...suffix].join("\n") };
       }
 
       const barWidth = 20;
@@ -160,7 +173,7 @@ export function buildReportTool(ctx: TawassulContext): ToolDefinition {
             out.push("");
           }
         }
-        return { title: "📊 Detailed Agent Report", output: out.join("\n") };
+        return { title: "📊 Detailed Agent Report", output: [...out, ...intelligenceLines()].join("\n") };
       }
 
       const out: string[] = ["## 📊 Agent Performance Report", ""];
@@ -211,7 +224,7 @@ export function buildReportTool(ctx: TawassulContext): ToolDefinition {
         }
       }
 
-      return { title: "📊 Agent Performance Report", output: out.join("\n") };
+      return { title: "📊 Agent Performance Report", output: [...out, ...intelligenceLines()].join("\n") };
     },
   });
 }

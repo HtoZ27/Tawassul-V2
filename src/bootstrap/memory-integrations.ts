@@ -55,6 +55,7 @@ export function registerMemoryEventIntegrations(deps: MemoryEventIntegrationDeps
     
     void (async () => {
       await runCleanup();
+      tawaCtx.projectIndex?.evictMemory();
       if (!tawaCtx.pauseState?.active) {
         setSystemPause(`${SYSTEM_PAUSE_PREFIX} — emergency (rss ${Math.round(e.value)}MB)`);
       }

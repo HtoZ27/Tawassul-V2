@@ -24,6 +24,7 @@ and how it protects your work.
 | [Permissions](permissions.md) | You need the guard, consent words, or path rules |
 | [State](state.md) | You need the state topology, retention, backup, or deletion |
 | [Architecture](architecture.md) | You are maintaining the plugin and need the layer boundaries |
+| [Continuity detection](continuity-detection.md) | You need to know how an interrupted handoff is detected and which resume action to use |
 | [Database](database.md) | You operate the maintenance lane, pruning, or the generation guard |
 | [Dependencies](dependencies.md) | You need the runtime requirements, licences, or the bundle inventory |
 | [Monitoring](monitoring.md) | You need health, logs, and the operational thresholds |

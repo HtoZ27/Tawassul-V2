@@ -38,6 +38,7 @@ A read-only snapshot:
 | HMAC key | Whether the key file exists at the resolved path |
 | Pending flushes | Saves queued but not yet written |
 | Model failover | Switches, live claims, and tracked sessions |
+| Intelligence | Cache hits, misses, and bytes; index files, symbols, edges, and bytes; bundles built and bytes. Absent when every intelligence service is disabled |
 
 `health` changes nothing. If it reports a path you did not expect, that is the
 first thing to investigate.
@@ -45,9 +46,10 @@ first thing to investigate.
 ### `status` and `dashboard`
 
 `status` is the short form: records, handoffs, errors, and current state.
-`dashboard` adds agent performance, discussions, and training statistics.
-`report` focuses on one agent's health score, flags, dropped tasks, and
-completion ratio.
+`dashboard` adds agent performance, discussions, training statistics, and one
+intelligence line. `report` focuses on one agent's health score, flags, dropped
+tasks, and completion ratio, and ends with the same intelligence fields as
+`health`.
 
 ## Outside a session
 
