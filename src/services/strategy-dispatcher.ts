@@ -22,7 +22,8 @@ export class StrategyDispatcher {
 
   selectMode(task: SubTask, preferred?: DispatchMode): DispatchMode {
     if (preferred && preferred !== "auto") return preferred;
-    const isComplex = task.dependencies.length > 3 || task.files.length > 5;
+    const files = task.declaredFiles ?? task.files;
+    const isComplex = task.dependencies.length > 3 || files.length > 5;
     const needsAccuracy = task.successCriteria.length > 5;
     if (needsAccuracy) return "moa";
     if (isComplex) return "swarm";
@@ -49,8 +50,9 @@ export class StrategyDispatcher {
     return {
       id: task.id,
       description: task.description,
-      context: "",
+      context: task.context ?? "",
       files: task.files,
+      declaredFiles: task.declaredFiles,
       dependencies: task.dependencies,
       preferredRole: normalizedRole,
       specializations: [],
@@ -74,6 +76,7 @@ export class StrategyDispatcher {
       ...this.singleTaskToDispatchTask(task),
       id: `${task.id}-${kind}-${i}`,
       preferredRole: role,
+      copyOf: task.id,
     }));
     const plan = this.parallelDispatcher.buildPlan(dispatchTasks);
     const results = await this.parallelDispatcher.executePlan(plan);

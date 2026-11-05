@@ -10,6 +10,8 @@ export interface DispatchTask {
   description: string;
   context: string;
   files: string[];
+  declaredFiles?: string[];
+  copyOf?: string;
   dependencies: string[];
   preferredRole?: string;
   specializations: string[];
@@ -53,18 +55,19 @@ export class ParallelDispatcher {
   ) {}
 
   buildPlan(tasks: DispatchTask[]): DispatchPlan {
-    const fileMap = new Map<string, string[]>();
+    const fileMap = new Map<string, DispatchTask[]>();
     for (const task of tasks) {
-      for (const file of task.files) {
+      for (const file of new Set(task.declaredFiles ?? task.files)) {
         const existing = fileMap.get(file) ?? [];
-        existing.push(task.id);
+        existing.push(task);
         fileMap.set(file, existing);
       }
     }
     const fileConflicts = new Map<string, string[]>();
-    for (const [file, taskIds] of fileMap) {
-      if (taskIds.length > 1) {
-        fileConflicts.set(file, taskIds);
+    for (const [file, owners] of fileMap) {
+      const groups = new Set(owners.map((task) => task.copyOf ?? task.id));
+      if (groups.size > 1) {
+        fileConflicts.set(file, owners.map((task) => task.id));
       }
     }
 

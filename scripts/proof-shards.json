@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "totalEstimateMs": 373841,
+  "totalEstimateMs": 382841,
   "shards": [
     {
       "name": "1",
@@ -50,7 +50,7 @@
     },
     {
       "name": "2",
-      "estimateMs": 93533,
+      "estimateMs": 96533,
       "steps": [
         "gen-guard-wal",
         "first-boot",
@@ -84,6 +84,7 @@
         "context-hook-idempotent",
         "context-kill-switch",
         "thread-tool",
+        "task-context-bundle",
         "task-control",
         "db-scheduler",
         "dispatch-model",
@@ -99,7 +100,7 @@
     },
     {
       "name": "3",
-      "estimateMs": 93302,
+      "estimateMs": 96302,
       "steps": [
         "event-trust",
         "s017",
@@ -144,12 +145,13 @@
         "goal-migration",
         "goal-stale-lifecycle",
         "project-index-corrupt",
-        "read-cache-bypass"
+        "read-cache-bypass",
+        "task-context-budget"
       ]
     },
     {
       "name": "4",
-      "estimateMs": 89937,
+      "estimateMs": 92937,
       "steps": [
         "gen-merge",
         "roster-boundary",
@@ -190,7 +192,8 @@
         "constraint-retention",
         "state-root-rollback",
         "gate-budget",
-        "read-cache-byte-cap"
+        "read-cache-byte-cap",
+        "task-context-distinct"
       ]
     }
   ]

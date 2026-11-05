@@ -19,6 +19,8 @@ import { ProjectIndexService } from "../src/services/project-index/index.ts";
 import { snapshotPath } from "../src/services/project-index/store.ts";
 import { ReadCacheService } from "../src/services/read-cache/index.ts";
 import { readCacheEnabled } from "../src/services/read-cache/policy.ts";
+import { TaskContextService, taskContextEnabled } from "../src/services/task-context/index.ts";
+import { TaskOrchestrator } from "../src/services/task-orchestrator.ts";
 
 let passed = 0;
 
@@ -117,11 +119,34 @@ try {
   assert(readCache.stats().hits === 0, "a disabled cache records no hit");
   assert(readdirSync(cacheProject).length === 1, "a disabled cache writes no state file");
 
-  console.log(`PROOF PASS: continuity, project index and read cache off keep zero reads, writes and computations (${passed} assertions)`);
+  process.env.TAWASSUL_TASK_CONTEXT = "0";
+  const taskProject = join(dir, "task-context-off");
+  const taskFile = join(taskProject, "src", "a.ts");
+  mkdirSync(join(taskProject, "src"), { recursive: true });
+  writeFileSync(taskFile, "export const off = 1;\n");
+  const taskIndex = new ProjectIndexService({ baseDir: taskProject, projectKey: "off-key" });
+  const taskContext = new TaskContextService({ projectIndex: taskIndex, projectRoot: taskProject });
+  assert(!taskContextEnabled(), "the task-context kill switch reports the bundle disabled");
+  assert(!taskContext.enabled, "the task-context kill switch disables the bundle builder");
+  assert(
+    taskContext.build({ taskId: "T-OFF", task: "update src/a.ts", declaredFiles: ["src/a.ts"] }) === null,
+    "a disabled builder produces no bundle",
+  );
+  const taskOrchestrator = new TaskOrchestrator(undefined, undefined, undefined, taskContext);
+  const taskOff = taskOrchestrator.decompose("update src/a.ts")[0]!;
+  assert(taskOff.context === "" && taskOff.files.length === 0, "a disabled bundle leaves the path C context empty");
+  assert(
+    JSON.stringify(taskOff.declaredFiles) === JSON.stringify(["src/a.ts"]),
+    "the disabled builder still records the declared file",
+  );
+  assert(readdirSync(taskProject).length === 1, "a disabled builder writes no bundle file");
+
+  console.log(`PROOF PASS: continuity, project index, read cache and task context off keep zero reads, writes and computations (${passed} assertions)`);
 } finally {
   delete process.env.TAWASSUL_CONTINUITY;
   delete process.env.TAWASSUL_PROJECT_INDEX;
   delete process.env.TAWASSUL_READ_CACHE;
+  delete process.env.TAWASSUL_TASK_CONTEXT;
   resetContinuity();
   rmSync(dir, { recursive: true, force: true });
 }

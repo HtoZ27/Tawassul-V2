@@ -6,6 +6,8 @@ export interface SubTask {
   dependencies: string[]
   successCriteria: string[]
   status: 'pending' | 'running' | 'done' | 'failed' | 'blocked'
+  context?: string
+  declaredFiles?: string[]
 }
 
 export interface ExecutionReport {

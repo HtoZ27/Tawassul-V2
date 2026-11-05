@@ -6,7 +6,33 @@ import type { TawaOrchestratorContext } from "../core/service-context.ts";
 import type { SubTask, ExecutionReport, AgentResult } from "../types/plan.types.ts";
 import type { EventHub } from "./event-hub.ts";
 import type { SpecDrivenManager } from "./spec-driven/manager.ts";
+import type { TaskContextService } from "./task-context/index.ts";
+import { MAX_DECLARED_FILES } from "./task-context/types.ts";
 import crypto from "node:crypto";
+
+const PATH_TOKEN = /^(?:\.\/)?[\w.@-]+(?:\/[\w.@-]+)+$/;
+const FILE_TOKEN = /^[\w.@-]+(?:\.[A-Za-z0-9]+)+$/;
+const DECLARED_EXTENSION = /\.(ts|tsx|js|jsx|mjs|cjs|json|md|css|html|py|go|rs|java|c|h|cpp|hpp|sh|yml|yaml|toml)$/i;
+const TOKEN_HEAD = /^[("'`[{<]+/;
+const TOKEN_TAIL = /[)"'`\]}>.,;:!?]+$/;
+
+export function extractDeclaredFiles(text: string): string[] {
+  const files: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of text.split(/\s+/)) {
+    const token = raw.replace(TOKEN_HEAD, "").replace(TOKEN_TAIL, "");
+    if (token.length === 0) continue;
+    const pathLike = PATH_TOKEN.test(token);
+    const bareFile = !token.includes("/") && DECLARED_EXTENSION.test(token) && FILE_TOKEN.test(token);
+    if (!pathLike && !bareFile) continue;
+    const normalized = token.replace(/^\.\//, "");
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    files.push(normalized);
+    if (files.length >= MAX_DECLARED_FILES) break;
+  }
+  return files;
+}
 
 export class TaskOrchestrator {
   private static readonly MAX_PROGRESS_ENTRIES = 50;
@@ -20,6 +46,7 @@ export class TaskOrchestrator {
     private eventHub?: EventHub,
     dispatcher?: ParallelDispatcher,
     private specDriven?: SpecDrivenManager,
+    private taskContext?: TaskContextService,
   ) {
     this.dispatcher = dispatcher ?? new ParallelDispatcher(() => crypto.randomUUID(), defaultFindBestAgent);
     this.tracker = new TaskTracker();
@@ -32,6 +59,28 @@ export class TaskOrchestrator {
     } catch {
       return [];
     }
+  }
+
+  private toSubTask(dispatchTask: DispatchTask, dependencies: string[]): SubTask {
+    const declaredFiles = extractDeclaredFiles(dispatchTask.description);
+    const taskContext = this.taskContext;
+    const bundle =
+      taskContext?.build({
+        taskId: dispatchTask.id,
+        task: dispatchTask.description,
+        declaredFiles,
+      }) ?? null;
+    return {
+      id: dispatchTask.id,
+      description: dispatchTask.description,
+      files: bundle ? bundle.items.filter((item) => item.kind === "file").map((item) => item.path) : [],
+      agent: dispatchTask.preferredRole ?? "dev",
+      dependencies,
+      successCriteria: this.acceptanceCriteriaFor(dispatchTask.description),
+      status: "pending" as const,
+      context: bundle && taskContext ? taskContext.render(bundle) : "",
+      declaredFiles,
+    };
   }
 
   decompose(task: string, _context?: TawaOrchestratorContext): SubTask[] {
@@ -56,15 +105,7 @@ export class TaskOrchestrator {
       if (this.eventHub) {
         this.eventHub.emit({ type: "TASK_DECOMPOSED", taskId: task, subtaskCount: dispatchTasks.length });
       }
-      return dispatchTasks.map((dt) => ({
-        id: dt.id,
-        description: dt.description,
-        files: dt.files,
-        agent: dt.preferredRole ?? "dev",
-        dependencies: dt.dependencies,
-        successCriteria: this.acceptanceCriteriaFor(dt.description),
-        status: "pending" as const,
-      }));
+      return [this.toSubTask(dispatchTasks[0]!, [])];
     }
     const dispatchTasks: DispatchTask[] = parts.map((part, _i) => ({
       id: `sub-${crypto.randomUUID().slice(0, 8)}`,
@@ -79,15 +120,7 @@ export class TaskOrchestrator {
     if (this.eventHub) {
       this.eventHub.emit({ type: "TASK_DECOMPOSED", taskId: task, subtaskCount: dispatchTasks.length });
     }
-    return dispatchTasks.map((dt, i) => ({
-      id: dt.id,
-      description: dt.description,
-      files: dt.files,
-      agent: dt.preferredRole ?? "dev",
-      dependencies: i > 0 ? [dispatchTasks[i - 1]!.id] : [],
-      successCriteria: this.acceptanceCriteriaFor(dt.description),
-      status: "pending" as const,
-    }));
+    return dispatchTasks.map((dt, i) => this.toSubTask(dt, i > 0 ? [dispatchTasks[i - 1]!.id] : []));
   }
 
   async execute(subtasks: SubTask[], signal?: AbortSignal): Promise<ExecutionReport> {

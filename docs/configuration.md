@@ -252,6 +252,7 @@ is not here is either internal to a proof or has no documented contract.
 | `TAWASSUL_PROJECT_INDEX=0` | Disable the incremental project index recorded by the read tools |
 | `TAWASSUL_READ_CACHE=0` | Disable the stamp-validated read cache for `depmap` and `batchread` |
 | `TAWASSUL_READ_CACHE_MB=<n>` | Byte budget of the read cache in megabytes (default 48) |
+| `TAWASSUL_TASK_CONTEXT=0` | Disable the task context bundle attached to `task_orchestrate` handoffs |
 | `TAWASSUL_CODE_STATE_AUTO` | Let code-state snapshots run without an explicit call |
 | `TAWASSUL_GOAL_AUTOCLOSE=1` | Auto-close finished goals and mark old unfinished goals stale in the background sweep |
 

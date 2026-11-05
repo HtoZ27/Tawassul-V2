@@ -1012,6 +1012,27 @@
       ]
     },
     {
+      "name": "task-context-bundle",
+      "cmd": [
+        "bun",
+        "scripts/prove-task-context-bundle.ts"
+      ]
+    },
+    {
+      "name": "task-context-budget",
+      "cmd": [
+        "bun",
+        "scripts/prove-task-context-budget.ts"
+      ]
+    },
+    {
+      "name": "task-context-distinct",
+      "cmd": [
+        "bun",
+        "scripts/prove-task-context-distinct.ts"
+      ]
+    },
+    {
       "name": "task-control",
       "cmd": [
         "bun",

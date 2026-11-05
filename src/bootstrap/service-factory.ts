@@ -57,6 +57,7 @@ import { CheckpointManager } from "../services/checkpoint-manager.ts";
 import { CodeStateService } from "../services/code-state.ts";
 import type { ICodeStateService } from "../services/code-state.ts";
 import { TaskOrchestrator } from "../services/task-orchestrator.ts";
+import { TaskContextService } from "../services/task-context/index.ts";
 import { ResultEngine } from "../services/result-engine.ts";
 import { MissionBoard } from "../services/mission-board.ts";
 import { StrategyDispatcher } from "../services/strategy-dispatcher.ts";
@@ -208,6 +209,11 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   tawaCtx.projectIndex = projectIndex;
   const readCache = new ReadCacheService({ projectKey: projectIndex.projectKey });
   tawaCtx.readCache = readCache;
+  const taskContext = new TaskContextService({
+    projectIndex,
+    featureIndex: tawaCtx.featureIndex,
+    projectRoot: projectIndex.projectRoot,
+  });
 
   
   const handoffLedger = new HandoffLedger(tawaCtx.persistDir, tawaCtx.timerManager);
@@ -755,7 +761,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   
   
   
-  const taskOrchestrator = new TaskOrchestrator(tawaCtx.eventHub, parallelDispatcher, specDriven);
+  const taskOrchestrator = new TaskOrchestrator(tawaCtx.eventHub, parallelDispatcher, specDriven, taskContext);
   const resultEngine = new ResultEngine(tawaCtx.eventHub);
   const missionBoard = new MissionBoard(tawaCtx.eventHub, undefined, tawaCtx.persistDir);
   const strategyDispatcher = new StrategyDispatcher(parallelDispatcher);
