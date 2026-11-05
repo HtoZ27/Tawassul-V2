@@ -76,6 +76,8 @@ report before sharing it: see [troubleshooting](troubleshooting.md).
 | `TAWASSUL_CONTEXT_HANDOFF` | Enable session handoff independently of the config file |
 | `TAWASSUL_CONTINUITY=1` | Enable the cross-platform liveness probe and interrupted-run detection |
 | `TAWASSUL_PROJECT_INDEX=0` | Disable the incremental project index recorded by the read tools |
+| `TAWASSUL_READ_CACHE=0` | Disable the stamp-validated read cache for `depmap` and `batchread` |
+| `TAWASSUL_READ_CACHE_MB=<n>` | Byte budget of the read cache in megabytes (default 48) |
 | `TAWASSUL_CODE_STATE_AUTO` | Let code-state snapshots run without an explicit call |
 | `TAWASSUL_GOAL_AUTOCLOSE=1` | Auto-close finished goals and mark old unfinished goals stale in the background sweep |
 

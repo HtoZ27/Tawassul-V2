@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "totalEstimateMs": 358841,
+  "totalEstimateMs": 373841,
   "shards": [
     {
       "name": "1",
-      "estimateMs": 91069,
+      "estimateMs": 97069,
       "steps": [
         "gen-lock",
         "web-ssrf",
@@ -43,12 +43,14 @@
         "host-floor",
         "state-paths",
         "intelligence-off",
-        "project-index-byproduct"
+        "project-index-byproduct",
+        "read-cache-hit",
+        "read-cache-stamp-miss"
       ]
     },
     {
       "name": "2",
-      "estimateMs": 90533,
+      "estimateMs": 93533,
       "steps": [
         "gen-guard-wal",
         "first-boot",
@@ -91,12 +93,13 @@
         "snapshot-boundary",
         "goal-board-truth",
         "run-interrupt",
-        "project-index-incremental"
+        "project-index-incremental",
+        "read-cache-unrelated-edit"
       ]
     },
     {
       "name": "3",
-      "estimateMs": 90302,
+      "estimateMs": 93302,
       "steps": [
         "event-trust",
         "s017",
@@ -140,12 +143,13 @@
         "no-git-init",
         "goal-migration",
         "goal-stale-lifecycle",
-        "project-index-corrupt"
+        "project-index-corrupt",
+        "read-cache-bypass"
       ]
     },
     {
       "name": "4",
-      "estimateMs": 86937,
+      "estimateMs": 89937,
       "steps": [
         "gen-merge",
         "roster-boundary",
@@ -185,7 +189,8 @@
         "pilot-eval",
         "constraint-retention",
         "state-root-rollback",
-        "gate-budget"
+        "gate-budget",
+        "read-cache-byte-cap"
       ]
     }
   ]

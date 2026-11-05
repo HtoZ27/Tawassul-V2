@@ -1255,6 +1255,41 @@
         "bun",
         "scripts/prove-project-index-corrupt.ts"
       ]
+    },
+    {
+      "name": "read-cache-hit",
+      "cmd": [
+        "bun",
+        "scripts/prove-read-cache-hit.ts"
+      ]
+    },
+    {
+      "name": "read-cache-stamp-miss",
+      "cmd": [
+        "bun",
+        "scripts/prove-read-cache-stamp-miss.ts"
+      ]
+    },
+    {
+      "name": "read-cache-unrelated-edit",
+      "cmd": [
+        "bun",
+        "scripts/prove-read-cache-unrelated-edit.ts"
+      ]
+    },
+    {
+      "name": "read-cache-bypass",
+      "cmd": [
+        "bun",
+        "scripts/prove-read-cache-bypass.ts"
+      ]
+    },
+    {
+      "name": "read-cache-byte-cap",
+      "cmd": [
+        "bun",
+        "scripts/prove-read-cache-byte-cap.ts"
+      ]
     }
   ],
   "smoke": [

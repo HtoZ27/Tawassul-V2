@@ -15,6 +15,7 @@ export function registerMemoryEventIntegrations(deps: MemoryEventIntegrationDeps
   const { tawaCtx, eventHub, cacheClear, codeState } = deps;
 
   const runCleanup = async (): Promise<void> => {
+    tawaCtx.readCache?.evictAll();
     try {
       await cacheClear();
     } catch {

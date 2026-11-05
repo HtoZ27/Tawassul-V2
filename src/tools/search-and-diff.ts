@@ -1,4 +1,6 @@
 import { readFile } from "node:fs/promises";
+import { statSync } from "node:fs";
+import type { FileStamp } from "../services/project-index/types.ts";
 import { smartTruncate } from "../utils/smart-truncate.ts";
 import type { TawassulContext } from "../context.ts";
 import type { ToolDefinition, ToolContext } from "../tool.ts";
@@ -239,51 +241,97 @@ export function buildBatchReadTool(ctx: TawassulContext): ToolDefinition {
         return { output: t("batchReadMaxFiles") };
       }
 
-      const results: string[] = [];
-      const indexed: string[] = [];
-      let errors = 0;
+      type BatchSlot = { file: string; resolved?: string; error?: string };
+      type BatchValue = { output: string; indexed: string[] };
 
+      const slots: BatchSlot[] = [];
       for (const filePath of paths) {
         const safe = await resolveSafe(cctx.directory, filePath);
-        if (safe.error) {
-          errors++;
-          results.push(`━━━ ⚠️ ${filePath} ━━━`);
-          results.push(safe.error);
+        slots.push(
+          safe.error ? { file: filePath, error: safe.error } : { file: filePath, resolved: safe.resolved },
+        );
+      }
+
+      const render = async (): Promise<BatchValue> => {
+        const results: string[] = [];
+        const indexed: string[] = [];
+        let errors = 0;
+
+        for (const slot of slots) {
+          if (slot.resolved === undefined) {
+            errors++;
+            results.push(`━━━ ⚠️ ${slot.file} ━━━`);
+            results.push(slot.error ?? "");
+            continue;
+          }
+          try {
+            const content = await readFile(slot.resolved, "utf-8");
+            indexed.push(slot.resolved);
+            const lines = content.split("\n");
+            const totalLines = lines.length;
+            const displayedLines = limit ? lines.slice(0, limit) : lines;
+            const suffix =
+              limit && totalLines > limit ? `\n${t("batchReadTruncated", { count: String(totalLines - limit) })}` : "";
+
+            results.push(t("batchReadLines", { file: slot.file, count: String(totalLines) }));
+            results.push(displayedLines.join("\n") + suffix);
+          } catch (e: unknown) {
+            errors++;
+            results.push(`━━━ ⚠️ ${slot.file} ━━━`);
+            results.push(t("batchReadError", { error: toErrorMessage(e, t("batchReadReadError")) }));
+          }
+        }
+
+        const summary =
+          errors === 0
+            ? t("batchReadSuccess", { count: String(paths.length) })
+            : t("batchReadPartial", {
+                success: String(paths.length - errors),
+                total: String(paths.length),
+                failed: String(errors),
+              });
+
+        results.push("");
+        results.push(summary);
+        return { output: results.join("\n"), indexed };
+      };
+
+      const stamps: FileStamp[] = [];
+      let allStamped = slots.length > 0;
+      for (const slot of slots) {
+        if (slot.resolved === undefined) {
+          allStamped = false;
           continue;
         }
         try {
-          const content = await readFile(safe.resolved, "utf-8");
-          indexed.push(safe.resolved);
-          const lines = content.split("\n");
-          const totalLines = lines.length;
-          const displayedLines = limit ? lines.slice(0, limit) : lines;
-          const suffix =
-            limit && totalLines > limit ? `\n${t("batchReadTruncated", { count: String(totalLines - limit) })}` : "";
-
-          results.push(t("batchReadLines", { file: filePath, count: String(totalLines) }));
-          results.push(displayedLines.join("\n") + suffix);
-        } catch (e: unknown) {
-          errors++;
-          results.push(`━━━ ⚠️ ${filePath} ━━━`);
-          results.push(t("batchReadError", { error: toErrorMessage(e, t("batchReadReadError")) }));
+          const info = statSync(slot.resolved);
+          if (!info.isFile()) {
+            allStamped = false;
+            continue;
+          }
+          stamps.push({ path: slot.resolved, mtimeMs: info.mtimeMs, size: info.size });
+        } catch {
+          allStamped = false;
         }
       }
 
-      ctx.projectIndex?.recordStamps(indexed);
+      const cache = ctx.readCache;
+      const value: BatchValue =
+        cache && allStamped
+          ? (
+              await cache.getOrCompute<BatchValue>({
+                tool: "batchread",
+                args: { paths: [...paths], limit: limit ?? null },
+                files: stamps,
+                dirs: [],
+                compute: render,
+              })
+            ).value
+          : await render();
 
-      const summary =
-        errors === 0
-          ? t("batchReadSuccess", { count: String(paths.length) })
-          : t("batchReadPartial", {
-              success: String(paths.length - errors),
-              total: String(paths.length),
-              failed: String(errors),
-            });
+      ctx.projectIndex?.recordStamps(value.indexed);
 
-      results.push("");
-      results.push(summary);
-
-      return { output: results.join("\n") };
+      return { output: value.output };
     },
   });
 }

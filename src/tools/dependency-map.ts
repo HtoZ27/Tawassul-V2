@@ -6,52 +6,16 @@ import { tool } from "../tool.ts";
 import { resolveSafe, toErrorMessage } from "../utils/path.ts";
 import { t } from "../translations.ts";
 import { getAstService } from "../services/ast-service.ts";
-import type { ImportEdge } from "../services/project-index/types.ts";
+import type { DirStamp, FileStamp, ImportEdge } from "../services/project-index/types.ts";
 
 const IMPORT_REGEX = /import\s+(?:type\s+)?(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+['"]([^'"]+)['"]/g;
 const REQUIRE_REGEX = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 const IMPORT_REGEX_LAZY = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 const MAX_FILES = 300;
 const MAX_CYCLES_REPORTED = 10;
-const CACHE_TTL = 30_000;
-const CACHE_MAX_SIZE = 5;
 
-interface CacheEntry {
-  files: string[];
-  graph: { nodes: DepNode[]; cycles: Cycle[] };
-  timestamp: number;
-}
-
-const depCache = new Map<string, CacheEntry>();
-
-function cacheKey(dir: string, depth: number, useAst?: boolean): string {
-  return `${dir}::${depth}::${!!useAst}`;
-}
-
-function getCached(dir: string, depth: number, useAst?: boolean): CacheEntry | undefined {
-  const key = cacheKey(dir, depth, useAst);
-  const entry = depCache.get(key);
-  if (!entry) return undefined;
-  if (Date.now() - entry.timestamp > CACHE_TTL) {
-    depCache.delete(key);
-    return undefined;
-  }
-  return entry;
-}
-
-function setCached(
-  dir: string,
-  depth: number,
-  files: string[],
-  graph: { nodes: DepNode[]; cycles: Cycle[] },
-  useAst?: boolean,
-): void {
-  if (depCache.size >= CACHE_MAX_SIZE) {
-    const oldest = depCache.entries().next().value;
-    if (oldest) depCache.delete(oldest[0]);
-  }
-  depCache.set(cacheKey(dir, depth, useAst), { files, graph, timestamp: Date.now() });
-}
+type DepStamps = { files: FileStamp[]; dirs: DirStamp[] };
+type DepGraphValue = { nodes: DepNode[]; cycles: Cycle[]; fileCount: number };
 
 interface DepNode {
   path: string;
@@ -96,6 +60,7 @@ async function collectTsFiles(
   depth: number,
   maxDepth: number,
   collected: string[],
+  stamps: DepStamps,
   visited?: Set<string>,
 ): Promise<void> {
   if (depth > maxDepth || collected.length >= MAX_FILES) return;
@@ -121,7 +86,8 @@ async function collectTsFiles(
 
       const entryStat = await stat(fullPath);
       if (entryStat.isDirectory()) {
-        await collectTsFiles(fullPath, depth + 1, maxDepth, collected, visited);
+        stamps.dirs.push({ path: fullPath, mtimeMs: entryStat.mtimeMs });
+        await collectTsFiles(fullPath, depth + 1, maxDepth, collected, stamps, visited);
       } else {
         const ext = extname(entry);
         if (
@@ -129,6 +95,7 @@ async function collectTsFiles(
           collected.length < MAX_FILES
         ) {
           collected.push(fullPath);
+          stamps.files.push({ path: fullPath, mtimeMs: entryStat.mtimeMs, size: entryStat.size });
         }
       }
     } catch {
@@ -327,29 +294,43 @@ export function buildDependencyMapTool(ctx: TawassulContext): ToolDefinition {
       }
 
       try {
-        const cached = getCached(cctx.directory, maxDepth, ast);
-        let collected: string[];
-        let nodes: DepNode[];
-        let cycles: Cycle[];
-
-        if (cached) {
-          collected = cached.files;
-          nodes = cached.graph.nodes;
-          cycles = cached.graph.cycles;
-        } else {
-          collected = [];
-          await collectTsFiles(cctx.directory, 0, maxDepth, collected);
-
-          if (collected.length === 0) {
-            return { output: t("depMapNoTsFiles") };
-          }
-
-          const graph = await buildDepGraph(collected, cctx.directory, ast);
-          nodes = graph.nodes;
-          cycles = graph.cycles;
-          ctx.projectIndex?.recordImportBatch(nodes.map((node) => ({ path: node.path, edges: node.edges })));
-          setCached(cctx.directory, maxDepth, collected, graph, ast);
+        const collected: string[] = [];
+        const stamps: DepStamps = { files: [], dirs: [] };
+        try {
+          const rootStat = await stat(cctx.directory);
+          stamps.dirs.push({ path: cctx.directory, mtimeMs: rootStat.mtimeMs });
+        } catch {
+          void 0;
         }
+        await collectTsFiles(cctx.directory, 0, maxDepth, collected, stamps);
+
+        if (collected.length === 0) {
+          return { output: t("depMapNoTsFiles") };
+        }
+
+        const build = async (): Promise<DepGraphValue> => {
+          const graph = await buildDepGraph(collected, cctx.directory, ast);
+          ctx.projectIndex?.recordImportBatch(
+            graph.nodes.map((node) => ({ path: node.path, edges: node.edges })),
+          );
+          return { nodes: graph.nodes, cycles: graph.cycles, fileCount: collected.length };
+        };
+
+        const cache = ctx.readCache;
+        const graphValue: DepGraphValue = cache
+          ? (
+              await cache.getOrCompute<DepGraphValue>({
+                tool: "depmap",
+                args: { dir: cctx.directory, depth: maxDepth, useAst: !!ast },
+                files: stamps.files,
+                dirs: stamps.dirs,
+                compute: build,
+              })
+            ).value
+          : await build();
+
+        const nodes = graphValue.nodes;
+        const cycles = graphValue.cycles;
         const relNodes = relativePaths(nodes, cctx.directory);
 
         if (circular) {
@@ -372,7 +353,7 @@ export function buildDependencyMapTool(ctx: TawassulContext): ToolDefinition {
 
         const totalImports = relNodes.reduce((s, n) => s + n.resolved.length, 0);
         const filesWithDeps = relNodes.filter((n) => n.resolved.length > 0).length;
-        const typeCount = collected.length;
+        const typeCount = graphValue.fileCount;
 
         const depCount = new Map<string, number>();
         for (const node of relNodes) {

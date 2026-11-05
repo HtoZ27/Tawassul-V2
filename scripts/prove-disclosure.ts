@@ -59,7 +59,7 @@ const SILENT_CATCH_INVENTORY: Record<string, number> = {
   "services/tool-run-log.ts": 2,
   "services/vector-retrieval.ts": 2,
   "tools/agent-management.ts": 6,
-  "tools/dependency-map.ts": 4,
+  "tools/dependency-map.ts": 5,
   "tools/handoff.ts": 1,
   "tools/image-gen.ts": 1,
   "tools/project-map.ts": 3,

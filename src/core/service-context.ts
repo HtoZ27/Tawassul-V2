@@ -175,6 +175,7 @@ export interface TawaOrchestratorContext
   stateReadOnly?: boolean;
   projectIdentity?: import("../utils/project-identity.ts").ProjectIdentity;
   projectIndex?: import("../services/project-index/index.ts").ProjectIndexService;
+  readCache?: import("../services/read-cache/index.ts").ReadCacheService;
 }
 
 export interface QueueDrainerPort {

@@ -5,6 +5,7 @@ import { SelfHealEngine } from "../services/self-heal-engine.ts";
 import { resolveFallbackAgent } from "../services/proxy-fallback-chains.ts";
 import { HandoffService } from "../services/handoff-service.ts";
 import { ProjectIndexService } from "../services/project-index/index.ts";
+import { ReadCacheService } from "../services/read-cache/index.ts";
 import { resolveProjectIdentity } from "../utils/project-identity.ts";
 
 import { HandoffLedger } from "../services/handoff-ledger.ts";
@@ -123,6 +124,7 @@ export interface ServiceFactoryResult {
   selfHealEngine: SelfHealEngine;
   handoffService: HandoffService;
   projectIndex: ProjectIndexService;
+  readCache: ReadCacheService;
   handoffLedger: HandoffLedger;
   queueDrainer: QueueDrainer;
   agentValidator: AgentValidator;
@@ -204,6 +206,8 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
     projectRoot: tawaCtx.projectIdentity?.canonical ?? tawaCtx.persistDir,
   });
   tawaCtx.projectIndex = projectIndex;
+  const readCache = new ReadCacheService({ projectKey: projectIndex.projectKey });
+  tawaCtx.readCache = readCache;
 
   
   const handoffLedger = new HandoffLedger(tawaCtx.persistDir, tawaCtx.timerManager);
@@ -797,6 +801,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
     selfHealEngine,
     handoffService,
     projectIndex,
+    readCache,
     agentMatcher,
     parallelDispatcher,
     predictiveRouter,

@@ -139,6 +139,7 @@ export class TawassulContext implements TawaOrchestratorContext {
   handoffService?: import("./services/handoff-service.ts").HandoffService;
   projectIdentity?: import("./utils/project-identity.ts").ProjectIdentity;
   projectIndex?: import("./services/project-index/index.ts").ProjectIndexService;
+  readCache?: import("./services/read-cache/index.ts").ReadCacheService;
   predictiveRouter?: import("./features/predictive-router.ts").PredictiveRouter;
   
   memoryRoutingIntegration?:

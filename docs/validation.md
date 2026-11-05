@@ -10,7 +10,7 @@ without weakening it.
 | Stage | Command | Steps | Purpose |
 | --- | --- | --- | --- |
 | Fast | `npm run gate:fast` | 16 | Rules, docs, public tree, SBOM, types, config, facts, pins, parity, release, catalog, counts |
-| Proofs | `npm run gate:proofs` | 162 | One isolated proof per invariant |
+| Proofs | `npm run gate:proofs` | 167 | One isolated proof per invariant |
 | Smoke | `npm run gate:smoke` | 6 | Build, release artifacts, release smoke, global boot, independence boot |
 | Evals | `npm run gate:evals` | 1 | Pilot evaluation of agent behaviour |
 
@@ -56,7 +56,7 @@ private address, a torn ledger tail is skipped, an uninstall removes exactly the
 files in its marker. The host-floor proof asserts that the installer and both
 plugin entry paths refuse `2.2.0` and accept `2.2.1`.
 
-At this release the tree holds <!-- generated:proof-files -->165<!-- /generated --> proof files and the proofs stage runs <!-- generated:proof-steps -->162<!-- /generated --> of
+At this release the tree holds <!-- generated:proof-files -->170<!-- /generated --> proof files and the proofs stage runs <!-- generated:proof-steps -->167<!-- /generated --> of
 them. The remaining proofs run where they belong: <!-- generated:fast-proof-steps -->1<!-- /generated --> in the fast stage
 and <!-- generated:smoke-proof-steps -->2<!-- /generated --> in the smoke stage. A file that runs nowhere fails the catalog check.
 
@@ -83,9 +83,9 @@ npm run gate:proofs:3
 npm run gate:proofs:4
 ```
 
-The four shards are balanced and take about <!-- generated:shard-seconds -->89.7<!-- /generated --> seconds each. They are the same
+The four shards are balanced and take about <!-- generated:shard-seconds -->93.5<!-- /generated --> seconds each. They are the same
 proofs, split; a shard is a convenience, not a weaker gate. The full stage takes
-about <!-- generated:proof-seconds -->359<!-- /generated --> seconds. The detached runner
+about <!-- generated:proof-seconds -->374<!-- /generated --> seconds. The detached runner
 is `npm run gate:proofs:bg` with `:status`, `:wait`, and `:stop`.
 
 ## Smoke

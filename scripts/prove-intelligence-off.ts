@@ -17,6 +17,8 @@ import {
 import type { HandoffEntry } from "../src/context/types.ts";
 import { ProjectIndexService } from "../src/services/project-index/index.ts";
 import { snapshotPath } from "../src/services/project-index/store.ts";
+import { ReadCacheService } from "../src/services/read-cache/index.ts";
+import { readCacheEnabled } from "../src/services/read-cache/policy.ts";
 
 let passed = 0;
 
@@ -94,10 +96,32 @@ try {
   assert(!existsSync(snapshotPath(indexProject)), "a disabled index writes no snapshot and reads none");
   assert(readdirSync(indexProject).length === 1, "a disabled index creates no state directory");
 
-  console.log(`PROOF PASS: continuity off keeps zero reads, writes and probes, and the project index off keeps zero reads, parses and writes (${passed} assertions)`);
+  process.env.TAWASSUL_READ_CACHE = "0";
+  const cacheProject = join(dir, "cache-off");
+  const cacheFile = join(cacheProject, "a.ts");
+  mkdirSync(cacheProject, { recursive: true });
+  writeFileSync(cacheFile, "export const off = 1;\n");
+  const readCache = new ReadCacheService({ projectKey: "off-key" });
+  assert(!readCacheEnabled(), "the read-cache kill switch reports the cache disabled");
+  assert(!readCache.enabled, "the read-cache kill switch disables the cache");
+  let computed = 0;
+  const compute = (): { output: string } => {
+    computed += 1;
+    return { output: "recomputed" };
+  };
+  const files = [{ path: cacheFile, mtimeMs: 1, size: 10 }];
+  await readCache.getOrCompute({ tool: "batchread", args: { paths: ["a.ts"] }, files, dirs: [], compute });
+  await readCache.getOrCompute({ tool: "batchread", args: { paths: ["a.ts"] }, files, dirs: [], compute });
+  assert(computed === 2, "a disabled cache recomputes on every call");
+  assert(readCache.stats().entries === 0 && readCache.bytes === 0, "a disabled cache stores no entry and no byte");
+  assert(readCache.stats().hits === 0, "a disabled cache records no hit");
+  assert(readdirSync(cacheProject).length === 1, "a disabled cache writes no state file");
+
+  console.log(`PROOF PASS: continuity, project index and read cache off keep zero reads, writes and computations (${passed} assertions)`);
 } finally {
   delete process.env.TAWASSUL_CONTINUITY;
   delete process.env.TAWASSUL_PROJECT_INDEX;
+  delete process.env.TAWASSUL_READ_CACHE;
   resetContinuity();
   rmSync(dir, { recursive: true, force: true });
 }
