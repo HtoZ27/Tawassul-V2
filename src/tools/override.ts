@@ -32,7 +32,7 @@ export function buildOverrideTool(ctx: TawassulContext, handoffService?: Handoff
         const targetAgent = normalizeName(to);
         if (targetAgent === "tawa" && normalizeName(cctx.agent) !== "tawa") {
           return {
-            output: `🚫 Redirecting to @tawa is forbidden. Complete the task yourself or use override(handoffId: "${handoffId}", to: "@dev") for another agent.`,
+            output: `🚫 Redirecting a handoff to @tawa is forbidden. Results return to the caller. Redirect it to a registered agent, or complete your work and return the result.`,
           };
         }
 
@@ -72,7 +72,7 @@ export function buildOverrideTool(ctx: TawassulContext, handoffService?: Handoff
             output:
               '⛔ @tawa is not allowed to force-complete. Use override(handoffId: "' +
               handoffId +
-              '", to: "@dev") to redirect instead.',
+              '", to: "<a registered agent>") to redirect instead.',
           };
         }
         const h = ctx.handoffs.get(handoffId);
@@ -142,7 +142,7 @@ export function buildOverrideTool(ctx: TawassulContext, handoffService?: Handoff
       if (!handoffId && to) {
         const targetAgent = normalizeName(to);
         if (targetAgent === "tawa" && normalizeName(cctx.agent) !== "tawa") {
-          return { output: `🚫 Preferred reroute to @tawa is forbidden. Use override(to: "@dev") for another agent.` };
+          return { output: `🚫 Preferred reroute to @tawa is forbidden. Name a registered agent instead.` };
         }
         ctx.directRoutingAgent = targetAgent;
         ctx.updateLastActive(cctx.agent);

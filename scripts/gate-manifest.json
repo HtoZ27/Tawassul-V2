@@ -1339,6 +1339,13 @@
         "bun",
         "scripts/prove-read-cache-byte-cap.ts"
       ]
+    },
+    {
+      "name": "guard-routing",
+      "cmd": [
+        "bun",
+        "scripts/prove-guard-routing.ts"
+      ]
     }
   ],
   "smoke": [

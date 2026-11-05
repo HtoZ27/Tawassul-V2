@@ -673,7 +673,7 @@ export class HandoffService {
       const targetAgent = normalizeName(newTo);
       const callerAgent = normalizeName(redirectedBy);
       if (targetAgent === "tawa" && callerAgent !== "tawa") {
-        return { success: false, message: `Redirecting to @tawa is forbidden.`, handoff: null };
+        return { success: false, message: `Redirecting a handoff to @tawa is forbidden. Results return to the caller.`, handoff: null };
       }
       const found = findHandoffOrError(this.ctx.handoffs, handoffId, new Set(["pending"]));
       if (found.error) {

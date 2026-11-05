@@ -25,6 +25,7 @@ import { TASK_TOOL_NAMES, GENERAL_REPORT_ONLY_CALLERS } from "../../security-pol
 import { t } from "../../translations.ts";
 import { logger } from "../../utils/logger.ts";
 import { resolveRole } from "../../utils/agent.ts";
+import { allowedTaskTargetsText } from "./shared/task-targets.ts";
 
 export const callDepthGuard = guard("call-depth", (ctx, input, output) => {
   if (input.tool !== "task" || !input.sessionID) return null;
@@ -35,7 +36,7 @@ export const callDepthGuard = guard("call-depth", (ctx, input, output) => {
   }
   const currentDepth = (ps(ctx).callDepth.get(input.sessionID) ?? 0) + 1;
   if (currentDepth > MAX_CALL_DEPTH) {
-    return `🚫 Call depth exceeded: cannot exceed ${MAX_CALL_DEPTH} levels of nested calls. Try: use handoff instead of nested task(), or split the task into smaller parts.`;
+    return `🚫 Call depth exceeded: cannot exceed ${MAX_CALL_DEPTH} levels of nested calls. Return your result to your caller so it can decide the next step.`;
   }
   return checkCap(input.agent ?? "", currentDepth, 0, 0);
 });
@@ -72,7 +73,11 @@ export const tawaRedirectGuard = guard("tawa-redirect", (ctx, input, output) => 
   logger.warn(
     `[tawassul] 🚨 Tawa redirect blocked: agent="${input.agent}" tool="${input.tool}" fields=${JSON.stringify([...new Set(foundFields)])} session="${input.sessionID}"`,
   );
-  return `🚫 Agent "${input.agent}" cannot redirect to @tawa. Complete the task yourself or use task() to another agent.`;
+  const allowedTargets = allowedTaskTargetsText(input.agent);
+  const advice = allowedTargets
+    ? `@tawa reads results and decides the next dispatch. Complete what you can, call ${allowedTargets} with task(), and return your result to your caller.`
+    : `@tawa reads results and decides the next dispatch. Complete what you can, and return your result to your caller.`;
+  return `🚫 Agent "${input.agent}" cannot invoke @tawa. ${advice}`;
 });
 
 export const sessionRequiredGuard = guard("session-required", (_ctx, input) => {
@@ -100,7 +105,7 @@ export const crossCallDuplicateGuard = guard("cross-call-duplicate", (ctx, input
   for (const agent of agents) {
     const p = ps(ctx);
     if (isNonRootCycle(input.sessionID, agent, p))
-      return `🚫 Call loop: agent "${agent}" was called twice in the same chain. Try: use different agents in the chain, or start a new task for the user.`;
+      return `🚫 Call loop: agent "${agent}" was called twice in the same chain. Return your result to your caller instead of repeating the call.`;
     if (agent && !p.acquireAgentLock(input.sessionID, agent))
       return `🚫 Concurrent call: agent "${agent}" is currently being called in another request.`;
   }
@@ -113,7 +118,7 @@ export const handoffDuplicateGuard = guard("handoff-duplicate", (ctx, input, out
   if (typeof to === "string" && to.trim()) {
     const target = normalizeName(to);
     if (isNonRootCycle(input.sessionID, target, ps(ctx)))
-      return `🚫 Call loop: agent "${target}" was called twice in the same chain (via handoff). Try: use different agents, or start a new task for the user.`;
+      return `🚫 Call loop: agent "${target}" was called twice in the same chain (via handoff). Return your result to your caller instead of repeating the handoff.`;
   }
   return null;
 });
@@ -126,7 +131,7 @@ export const totalTaskLimitGuard = guard("total-task-limit", (ctx, input, output
   }
   const count = (ps(ctx).totalTaskCalls.get(input.sessionID) ?? 0) + 1;
   return count > MAX_TOTAL_TASKS
-    ? `🚫 Exceeded the maximum number of task() calls: ${MAX_TOTAL_TASKS}. Try: use handoff for distribution, merge tasks, or start a new task for the user.`
+    ? `🚫 Exceeded the maximum number of task() calls: ${MAX_TOTAL_TASKS}. Return your result to your caller instead of opening another branch.`
     : null;
 });
 
@@ -141,7 +146,7 @@ export const sameRoleDistributionGuard = guard("same-role-distribution", (_ctx, 
     if (SecurityPolicy.checkDeletedAgent(target)) continue;
     const targetRole = resolveRole(target) ?? target;
     if (callerRole && callerRole === targetRole)
-      return `🚫 Agent "${input.agent}" cannot dispatch to "${target}" — same specialty "${callerRole}". Use @tawa for distribution.`;
+      return `🚫 Agent "${input.agent}" cannot dispatch to "${target}" — same specialty "${callerRole}". Return your result to your caller for distribution.`;
   }
   return null;
 });
@@ -151,14 +156,18 @@ export const taskToolAuthorizationGuard = guard("task-tool-authorization", (_ctx
   const caller = getCurrentAgent(input);
   if (isRootLikeAgent(input.agent) || caller === TAWA_AGENT) return null;
   const callerRole = resolveRole(caller) ?? caller;
-  if (!TAWASSUL_ROLES.includes(callerRole))
-    return `🚫 Agent "${input.agent}" cannot use task(). Distribution is via @tawa only.`;
   const targets = extractTaskTargets(output.args);
-  if (targets.length === 0) return `🚫 Agent "${input.agent}" cannot use task(). Distribution is via @tawa only.`;
   const allowed = TASK_PERMISSIONS[callerRole];
-  if (!allowed) return `🚫 Agent "${input.agent}" cannot use task(). Distribution is via @tawa only.`;
-  if (!targets.every((t) => allowed.includes(t)))
-    return `🚫 Agent "${input.agent}" cannot use task(). Distribution is via @tawa only.`;
+  const allowedText = allowed ? allowed.map((target) => `@${target}`).join(" or ") : "";
+  if (!TAWASSUL_ROLES.includes(callerRole) || !allowed) {
+    return `🚫 Agent "${input.agent}" cannot use task() in this session. Return your result to your caller for any other agent.`;
+  }
+  if (targets.length === 0) {
+    return `🚫 Agent "${input.agent}" must name a target: ${allowedText}.`;
+  }
+  if (!targets.every((t) => allowed.includes(t))) {
+    return `🚫 Agent "${input.agent}" may only call ${allowedText} with task(). Return your result to your caller for any other agent.`;
+  }
 
   if (GENERAL_REPORT_ONLY_CALLERS.has(callerRole) && targets.includes("general")) {
     const CAVEAT = t("generalReportOnlyCaveat") + " [report-only]";
@@ -179,7 +188,7 @@ export const deletedAgentGuard = guard("deleted-agent", (_ctx, input, output) =>
   if (!TASK_TOOL_NAMES.includes(input.tool) || !input.agent) return null;
   for (const agent of getDispatchTargets(input, output)) {
     if (SecurityPolicy.checkDeletedAgent(agent))
-      return `🚫 Forbidden: agent "${agent}" is deleted from the system. Try: use another agent from the same role (e.g. dev-pickle or dev-mimo).`;
+      return `🚫 Forbidden: agent "${agent}" is deleted from the system. Return what you have to your caller; it will choose a live agent.`;
   }
   return null;
 });
@@ -188,14 +197,7 @@ export const circuitBreakerGuard = guard("circuit-breaker", (ctx, input, output)
   if (!TASK_TOOL_NAMES.includes(input.tool) || !input.agent) return null;
   for (const agent of getDispatchTargets(input, output)) {
     if (ctx.circuitBreaker?.evaluate(agent) === "OPEN") {
-      const available = ctx.circuitBreaker
-        .getAllStates()
-        .filter((s) => s.state !== "OPEN")
-        .map((s) => s.agent);
-      return msg("agentUnavailable", "en", {
-        agent,
-        fallback: available.length > 0 ? available.join(", ") : "try again later",
-      });
+      return msg("agentUnavailable", "en", { agent });
     }
   }
   return null;
@@ -211,7 +213,7 @@ export const budgetGuard = guard("iteration-budget", (_ctx, input, output) => {
   }
   for (const agent of targets) {
     if (remaining(agent, input.sessionID) <= 0) {
-      return `🚫 Agent "${agent}" is out of budget. Try again later or use another agent.`;
+      return `🚫 Agent "${agent}" is out of budget. Return your result to your caller so it can decide the next step.`;
     }
   }
   return null;

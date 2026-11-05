@@ -12,6 +12,7 @@ import {
   isRootLikeAgent,
 } from "./shared.ts";
 import { TASK_TOOL_NAMES } from "../../security-policy.ts";
+import { allowedTaskTargetsText } from "./shared/task-targets.ts";
 
 export const firstResponseGuard = guard("first-response-guard", (ctx, input) => {
   if (!input.agent || !input.sessionID) return null;
@@ -19,7 +20,7 @@ export const firstResponseGuard = guard("first-response-guard", (ctx, input) => 
   if (!agent || agent === "tawa") return null;
   if (ctx.directRoutingAgent && normalizeName(agent) === normalizeName(ctx.directRoutingAgent)) return null;
   if (TASK_TOOL_NAMES.includes(input.tool) && !ps(ctx).hasAgentResponded(input.sessionID, agent))
-    return `🚫 Agent "${input.agent}" has not produced their analysis yet. You must produce your analysis first before using ${input.tool}().`;
+    return `🚫 Agent "${input.agent}" has not produced their analysis yet. Produce your analysis first, then dispatch.`;
   return null;
 });
 
@@ -82,10 +83,10 @@ export const riskGatingGuard = guard("risk-gating", (ctx, input) => {
 export const tawaRoutingEnforcementGuard = guard("tawa-routing-enforcement", (ctx, input) => {
   const routed = ctx.userMentionedTawa || ctx.userExplicitDispatch === true;
   if (!routed || isTawaAgent(input.agent) || (ps(ctx).callDepth.get(input.sessionID ?? "") ?? 0) !== 0) return null;
-  const why = ctx.userMentionedTawa ? "@tawa" : "dispatch command";
-  return input.tool === "edit" || input.tool === "write" || input.tool === "bash"
-    ? `🚫 The user mentioned ${why} — use task(desc: 'tawa') for dispatch instead of using this tool directly.`
-    : null;
+  if (input.tool !== "edit" && input.tool !== "write" && input.tool !== "bash") return null;
+  const targets = allowedTaskTargetsText(input.agent);
+  const hint = targets ? ` You may call ${targets} for reconnaissance.` : "";
+  return `🚫 bash, edit, and write are blocked while this request is routed. Use your read tools first.${hint}`;
 });
 
 export const speculativeDispatchGuard = guard("speculative-dispatch", (ctx, input) => {
