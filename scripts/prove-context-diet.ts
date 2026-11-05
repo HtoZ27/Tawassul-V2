@@ -105,6 +105,10 @@ try {
     measured.bytes <= TARGET_BYTES,
     `the description text is at or below the frozen target (${measured.bytes} <= ${TARGET_BYTES})`,
   );
+  assert(
+    measured.bytes === 16163,
+    `the description surface measures the Phase 5 target (${measured.bytes} === 16163)`,
+  );
   assert(cut >= MIN_CUT, `the cut reaches the frozen floor (${cut} >= ${MIN_CUT})`);
   assert(
     cut / FROZEN_BASELINE_BYTES >= 0.2,

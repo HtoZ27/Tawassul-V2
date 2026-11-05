@@ -17,7 +17,8 @@ import { resolveRole } from "../utils/agent.ts";
 import { MAX_PARALLEL_COPIES } from "../context/constants.ts";
 import { attachPackToHandoff } from "../services/context-pack/index.ts";
 import { resolveAgentModelRef } from "../services/model-refs.ts";
-import { clearOwner, clearRunFlags } from "../services/continuity/owner.ts";
+import { clearOwner, clearRunFlags, continuityEnabled, stampOwner } from "../services/continuity/owner.ts";
+import { appendResumeRecord } from "../services/handoff-service.ts";
 
 function buildAccumulatedContext(
   ctx: TawassulContext,
@@ -187,9 +188,22 @@ function isCheckpoint(value: unknown): value is Checkpoint {
   );
 }
 
-function asCheckpoint(value: unknown): Checkpoint | undefined {
-  if (isCheckpoint(value)) return value;
-  return undefined;
+export const CHECKPOINT_UNVERIFIED_MAX = 5;
+
+export function asCheckpoint(value: unknown): Checkpoint | undefined {
+  if (!isCheckpoint(value)) return undefined;
+  const checkpoint: Checkpoint = {
+    completed: value.completed,
+    remaining: value.remaining,
+    filesChanged: value.filesChanged,
+    decisions: value.decisions,
+  };
+  if (Array.isArray(value.unverified)) {
+    checkpoint.unverified = value.unverified
+      .filter((item): item is string => typeof item === "string")
+      .slice(0, CHECKPOINT_UNVERIFIED_MAX);
+  }
+  return checkpoint;
 }
 
 export function resolveRerouteModel(callerRole: string, currentModel?: string): string | undefined {
@@ -205,13 +219,14 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
       "",
       "Exactly ONE action per call:",
       "• create — Required: to, task, context. Optional: files[], checkpoint, parallelCopies.",
-      "  parallelCopies creates N copies to N different agents with the same task; each completes independently, results shown side by side.",
-      "• completeHandoff — Required: completeHandoff (the handoff ID). Optional: result (summary of what was accomplished).",
-      "• undo — Required: undo (the handoff ID); reverts an accepted handoff back to pending.",
+      "  parallelCopies — N copies to N different agents with the same task; results side by side.",
+      "• completeHandoff — Required: completeHandoff (the handoff ID). Optional: result (summary).",
+      "• undo — Required: undo (the handoff ID); reverts accepted to pending.",
       "• rescue — Required: rescue (handoff ID), to (new agent), context (reason); @analyst only.",
+      "• resumeInterrupted — Required: resumeInterrupted (handoff ID); reopens an interrupted handoff.",
       "• helpRequest — Required: to, task, context, helpRequest: true.",
       "",
-      "checkpoint (create only, when your context runs low): completed[], remaining[], filesChanged[], decisions[{title, detail}].",
+      "checkpoint (create only, low context): completed[], remaining[], filesChanged[], decisions[{title, detail}].",
       "",
       "RULES: context ≥ 5 words (required), ≥ 10 words (recommended). task ≥ 3 words (required), ≥ 5 words (recommended). files optional but recommended. DO NOT mix actions in one call.",
     ].join("\n"),
@@ -242,12 +257,17 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
               }),
             )
             .describe("Decisions made along the way"),
+          unverified: tool.schema.array(tool.schema.string()).optional().describe("What is not yet verified"),
         })
         .optional()
         .describe("Checkpoint for continuation — use when your context runs low"),
       completeHandoff: tool.schema.string().optional().describe("Handoff ID to mark completed (e.g. H-001)"),
       undo: tool.schema.string().optional().describe("Handoff ID to revert to pending"),
       rescue: tool.schema.string().optional().describe("Stalled handoff ID to force-reassign (e.g. H-003)"),
+      resumeInterrupted: tool.schema
+        .string()
+        .optional()
+        .describe("Interrupted handoff ID to reopen (e.g. H-001)"),
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
       if (args.completeHandoff) {
@@ -447,6 +467,59 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
             .filter(Boolean)
             .join("\n"),
           metadata: { handoff: rescueEntry, rescued: rescueId },
+        };
+      }
+
+      if (args.resumeInterrupted) {
+        const id = args.resumeInterrupted as string;
+        if (!continuityEnabled()) return { output: t("continuityDisabled") };
+        const h = ctx.handoffs.get(id);
+        if (!h) return { output: t("handoffNotFound", { id }) };
+        const caller = normalizeName(cctx.agent);
+        if (caller !== normalizeName(h.from) && caller !== "analyst") {
+          return { output: t("handoffResumeNoPermission", { id, from: h.from }) };
+        }
+        if (h.status === "completed" || h.status === "cancelled" || h.status === "closed") {
+          return { output: t("handoffResumeTerminal", { id, status: h.status }) };
+        }
+        if (h.runState === "stale") return { output: t("handoffResumeStale", { id }) };
+        if (h.runState !== "interrupted") {
+          return { output: t("handoffResumeNotInterrupted", { id, state: h.runState ?? "none" }) };
+        }
+        const reason = h.interruptedReason ?? "unknown";
+        const extra = asCheckpoint(args.checkpoint)?.unverified;
+        if (ctx.handoffService) {
+          const result = await ctx.handoffService.resumeInterrupted(id, cctx.agent, cctx.sessionID, extra);
+          if (!result.success) return { output: result.message };
+        } else {
+          clearRunFlags(h);
+          await stampOwner(h, cctx.sessionID);
+          h.status = "pending";
+          h.resumedAt = new Date().toISOString();
+          if (extra && extra.length > 0) {
+            const checkpoint = h.checkpoint ?? { completed: [], remaining: [], filesChanged: [], decisions: [] };
+            checkpoint.unverified = [...(checkpoint.unverified ?? []), ...extra].slice(0, CHECKPOINT_UNVERIFIED_MAX);
+            h.checkpoint = checkpoint;
+          }
+          appendResumeRecord(ctx, h, cctx.agent, reason);
+          ctx.updateLastActive(cctx.agent);
+          await ctx.saveState();
+        }
+        const checkpoint = h.checkpoint;
+        const remaining = checkpoint?.remaining ?? [];
+        const filesChanged = checkpoint?.filesChanged ?? [];
+        const unverified = checkpoint?.unverified ?? [];
+        return {
+          title: `▶️ ${id} resumed`,
+          output: [
+            t("handoffResumed", { id, agent: cctx.agent }),
+            remaining.length > 0 ? `${t("checkpointRemaining")} ${remaining.join(", ")}` : "",
+            filesChanged.length > 0 ? `${t("checkpointFilesChanged")} ${filesChanged.join(", ")}` : "",
+            unverified.length > 0 ? t("handoffResumeUnverified", { items: unverified.join(", ") }) : "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          metadata: { handoff: h, nextAction: remaining[0] ?? "", remaining, filesChanged, unverified },
         };
       }
 

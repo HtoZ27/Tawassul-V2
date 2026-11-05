@@ -1061,6 +1061,13 @@
       ]
     },
     {
+      "name": "record-search",
+      "cmd": [
+        "bun",
+        "scripts/prove-record-search.ts"
+      ]
+    },
+    {
       "name": "dispatch-model",
       "cmd": [
         "bun",
@@ -1254,6 +1261,13 @@
       "cmd": [
         "bun",
         "scripts/prove-run-interrupt.ts"
+      ]
+    },
+    {
+      "name": "continuity-resume",
+      "cmd": [
+        "bun",
+        "scripts/prove-continuity-resume.ts"
       ]
     },
     {

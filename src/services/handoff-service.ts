@@ -6,7 +6,30 @@ import { effect, type SagaEffect } from "../core/saga-effects.ts";
 import { logRuleAdjustments } from "../core/rule-utils.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 import { logger } from "../utils/logger.ts";
-import { clearOwner, clearRunFlags } from "./continuity/owner.ts";
+import { clearOwner, clearRunFlags, continuityEnabled, stampOwner } from "./continuity/owner.ts";
+
+const RESUME_UNVERIFIED_MAX = 5;
+
+export function appendResumeRecord(
+  ctx: TawaOrchestratorContext,
+  handoff: HandoffEntry,
+  agent: string,
+  reason: string,
+): void {
+  const resumedBy = normalizeName(agent);
+  ctx.recSeq += 1;
+  ctx.records.push({
+    id: `R-${String(ctx.recSeq).padStart(3, "0")}`,
+    timestamp: new Date().toISOString(),
+    agent: resumedBy,
+    type: "fix",
+    title: `Resumed interrupted handoff ${handoff.id}`,
+    detail: `Handoff ${handoff.id} (${handoff.from} → ${handoff.to}) was reopened by ${resumedBy} after run state interrupted (${reason}); status is pending and the owner was re-stamped.`,
+    severity: "minor",
+    provenance: "tool_observed",
+  });
+  ctx.recordRecordCreated(agent);
+}
 
 interface HandoffCompletionResult {
   success: boolean;
@@ -322,6 +345,69 @@ export class HandoffService {
       logger.warn("[tawassul] P2.3: resumeInterruptedSagas failed:", e);
       return resumed;
     }
+  }
+
+  async resumeInterrupted(
+    handoffId: string,
+    resumedBy: string,
+    sessionId = "",
+    unverified?: string[],
+  ): Promise<HandoffCompletionResult> {
+    return this._withLock(handoffId, async (_signal) => {
+      if (!continuityEnabled()) {
+        return { success: false, message: "Continuity is disabled — resume is unavailable", handoff: null };
+      }
+      const h = this.ctx.handoffs.get(handoffId);
+      if (!h) {
+        return { success: false, message: `Handoff ${handoffId} not found`, handoff: null };
+      }
+      const caller = normalizeName(resumedBy);
+      if (caller !== normalizeName(h.from) && caller !== "analyst") {
+        return {
+          success: false,
+          message: `Only ${h.from} or @analyst can resume ${handoffId}`,
+          handoff: h,
+        };
+      }
+      if (h.status === "completed" || h.status === "cancelled" || h.status === "closed") {
+        return {
+          success: false,
+          message: `Handoff ${handoffId} is ${h.status} — only pending, accepted, or paused can be resumed`,
+          handoff: h,
+        };
+      }
+      if (h.runState === "stale") {
+        return {
+          success: false,
+          message: `Handoff ${handoffId} has a live but stale owner — use rescue instead`,
+          handoff: h,
+        };
+      }
+      if (h.runState !== "interrupted") {
+        return {
+          success: false,
+          message: `Handoff ${handoffId} is not interrupted (runState: ${h.runState ?? "none"})`,
+          handoff: h,
+        };
+      }
+      const reason = h.interruptedReason ?? "unknown";
+      const extra = Array.isArray(unverified)
+        ? unverified.filter((item): item is string => typeof item === "string")
+        : [];
+      clearRunFlags(h);
+      await stampOwner(h, sessionId);
+      h.status = "pending";
+      h.resumedAt = new Date().toISOString();
+      if (extra.length > 0) {
+        const checkpoint = h.checkpoint ?? { completed: [], remaining: [], filesChanged: [], decisions: [] };
+        checkpoint.unverified = [...(checkpoint.unverified ?? []), ...extra].slice(0, RESUME_UNVERIFIED_MAX);
+        h.checkpoint = checkpoint;
+      }
+      appendResumeRecord(this.ctx, h, resumedBy, reason);
+      this.ctx.updateLastActive(resumedBy);
+      await this.ctx.saveState();
+      return { success: true, message: `Handoff ${handoffId} resumed`, handoff: h };
+    });
   }
 
   constructor(

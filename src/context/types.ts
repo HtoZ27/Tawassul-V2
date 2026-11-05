@@ -37,6 +37,7 @@ export type Checkpoint = {
   remaining: string[];
   filesChanged: string[];
   decisions: { title: string; detail: string }[];
+  unverified?: string[];
 };
 
 export type HandoffEntry = {

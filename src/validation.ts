@@ -68,6 +68,7 @@ export const CheckpointSchema = z
         detail: z.string(),
       }),
     ),
+    unverified: z.array(z.string()).optional(),
   })
   .optional();
 
