@@ -1,0 +1,235 @@
+{
+  "version": 1,
+  "date": "2026-11-05",
+  "commit": "388972d",
+  "phase": "0",
+  "method": "read-only parse of the live tool-run-log; aggregates only, with no raw arguments or file paths in the receipt, and repeated runs identified by a short SHA-256 fingerprint of the recorded repetition key",
+  "source": {
+    "file": "tool-run-log.json",
+    "location": "<stateDir>/.opencode",
+    "readOnly": true,
+    "bytes": 3186172
+  },
+  "window": {
+    "entries": 1500,
+    "firstTimestamp": 1793450891136,
+    "lastTimestamp": 1793501171995,
+    "spanDays": 0.58,
+    "memoryCap": 2000,
+    "pruneFloor": 1500,
+    "truncated": true,
+    "label": "at or above the 1500-entry prune floor; earlier runs may be absent"
+  },
+  "totals": {
+    "calls": 1500,
+    "errors": 7,
+    "sessions": 2,
+    "agents": 2,
+    "tools": 13,
+    "uniqueArgsHashes": 1469,
+    "repeatedArgsHashes": 16,
+    "withinSessionRepetitions": 28,
+    "crossSessionRepetitions": 3,
+    "repeatRate": 0.0207,
+    "inputBytes": 889202
+  },
+  "files": {
+    "unique": 134,
+    "mentions": 317,
+    "inputBytes": 452791
+  },
+  "perTool": [
+    {
+      "tool": "bash",
+      "calls": 1124,
+      "errors": 0,
+      "sessions": 2,
+      "agents": 2,
+      "argsHashes": 1117,
+      "files": 0,
+      "inputBytes": 414933
+    },
+    {
+      "tool": "edit",
+      "calls": 203,
+      "errors": 6,
+      "sessions": 1,
+      "agents": 1,
+      "argsHashes": 199,
+      "files": 73,
+      "inputBytes": 167142
+    },
+    {
+      "tool": "write",
+      "calls": 51,
+      "errors": 0,
+      "sessions": 1,
+      "agents": 1,
+      "argsHashes": 50,
+      "files": 47,
+      "inputBytes": 281328
+    },
+    {
+      "tool": "read",
+      "calls": 46,
+      "errors": 1,
+      "sessions": 2,
+      "agents": 2,
+      "argsHashes": 45,
+      "files": 38,
+      "inputBytes": 3076
+    },
+    {
+      "tool": "goal",
+      "calls": 41,
+      "errors": 0,
+      "sessions": 2,
+      "agents": 2,
+      "argsHashes": 26,
+      "files": 0,
+      "inputBytes": 9452
+    },
+    {
+      "tool": "record",
+      "calls": 21,
+      "errors": 0,
+      "sessions": 2,
+      "agents": 2,
+      "argsHashes": 18,
+      "files": 0,
+      "inputBytes": 11775
+    },
+    {
+      "tool": "batchread",
+      "calls": 5,
+      "errors": 0,
+      "sessions": 1,
+      "agents": 1,
+      "argsHashes": 5,
+      "files": 18,
+      "inputBytes": 760
+    },
+    {
+      "tool": "grep",
+      "calls": 3,
+      "errors": 0,
+      "sessions": 1,
+      "agents": 1,
+      "argsHashes": 3,
+      "files": 3,
+      "inputBytes": 273
+    },
+    {
+      "tool": "smartgrep",
+      "calls": 2,
+      "errors": 0,
+      "sessions": 1,
+      "agents": 1,
+      "argsHashes": 2,
+      "files": 2,
+      "inputBytes": 188
+    },
+    {
+      "tool": "codestate",
+      "calls": 1,
+      "errors": 0,
+      "sessions": 1,
+      "agents": 1,
+      "argsHashes": 1,
+      "files": 0,
+      "inputBytes": 52
+    },
+    {
+      "tool": "execute",
+      "calls": 1,
+      "errors": 0,
+      "sessions": 1,
+      "agents": 1,
+      "argsHashes": 1,
+      "files": 0,
+      "inputBytes": 155
+    },
+    {
+      "tool": "opencode_models",
+      "calls": 1,
+      "errors": 0,
+      "sessions": 1,
+      "agents": 1,
+      "argsHashes": 1,
+      "files": 0,
+      "inputBytes": 44
+    },
+    {
+      "tool": "projectmap",
+      "calls": 1,
+      "errors": 0,
+      "sessions": 1,
+      "agents": 1,
+      "argsHashes": 1,
+      "files": 1,
+      "inputBytes": 24
+    }
+  ],
+  "topRepeated": [
+    {
+      "tool": "goal",
+      "fingerprint": "1b26ecad4505",
+      "calls": 12,
+      "sessions": 1
+    },
+    {
+      "tool": "goal",
+      "fingerprint": "bbc373aa96e4",
+      "calls": 5,
+      "sessions": 2
+    },
+    {
+      "tool": "record",
+      "fingerprint": "e539f134d987",
+      "calls": 4,
+      "sessions": 2
+    },
+    {
+      "tool": "bash",
+      "fingerprint": "7831a5c4ad52",
+      "calls": 2,
+      "sessions": 1
+    },
+    {
+      "tool": "bash",
+      "fingerprint": "266e14ce7894",
+      "calls": 2,
+      "sessions": 1
+    },
+    {
+      "tool": "bash",
+      "fingerprint": "3d8b1b705c5e",
+      "calls": 2,
+      "sessions": 1
+    },
+    {
+      "tool": "bash",
+      "fingerprint": "3723fc492cb3",
+      "calls": 2,
+      "sessions": 1
+    },
+    {
+      "tool": "bash",
+      "fingerprint": "1216727e5fef",
+      "calls": 2,
+      "sessions": 1
+    },
+    {
+      "tool": "bash",
+      "fingerprint": "2a23314cd580",
+      "calls": 2,
+      "sessions": 1
+    },
+    {
+      "tool": "bash",
+      "fingerprint": "14bb151f5b6e",
+      "calls": 2,
+      "sessions": 1
+    }
+  ]
+}
