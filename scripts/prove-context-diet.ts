@@ -7,7 +7,7 @@ import { getInitReady, initPlugin } from "../src/bootstrap/plugin-init.ts";
 import { TOOL_COUNT, TOOL_NAME_SET_HASH } from "../src/generated/tool-tripwire.ts";
 import { toolNameSetHash } from "../src/services/tool-tripwire.ts";
 import type { ToolDefinition } from "../src/tool.ts";
-import { measureDescriptionText } from "../src/v2/adapters.ts";
+import { measureDescriptionText, collectToolSchemas, measureSchemaPayload } from "../src/v2/adapters.ts";
 
 let passed = 0;
 
@@ -41,8 +41,16 @@ type RetryReceipt = {
   closure: { source: string; tools: RetryRow[] };
 };
 
+type PayloadReceipt = {
+  toolCount: number;
+  toolNameSetHash: string;
+  schemaPayload: { bytes: number; estimatedTokens: number };
+  archivedBaseline: { file: string; bytes: number };
+};
+
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const BASELINE_FILE = "2026-10-31-context-baseline.json";
+const PAYLOAD_RECEIPT = join(repo, "docs", "experiments", "receipts", "2026-11-05-schema-payload.json");
 const FROZEN_BASELINE_BYTES = 20267;
 const TARGET_BYTES = 16213;
 const MIN_CUT = FROZEN_BASELINE_BYTES - TARGET_BYTES;
@@ -59,6 +67,25 @@ assert(
 assert(
   baseline.descriptionText.lines.reduce((sum, line) => sum + line.bytes, 0) === FROZEN_BASELINE_BYTES,
   "the frozen baseline lines sum to the recorded total",
+);
+
+assert(existsSync(PAYLOAD_RECEIPT), "the schema payload receipt exists");
+const payloadReceipt = JSON.parse(readFileSync(PAYLOAD_RECEIPT, "utf8")) as PayloadReceipt;
+assert(
+  payloadReceipt.archivedBaseline.bytes === baseline.schemaPayload.bytes,
+  `the receipt pins the archived baseline (${payloadReceipt.archivedBaseline.bytes} === ${baseline.schemaPayload.bytes})`,
+);
+assert(
+  payloadReceipt.archivedBaseline.file === "docs/experiments/baselines/2026-10-31-context-baseline.json",
+  "the receipt names the archived baseline it supersedes for the gate",
+);
+assert(
+  payloadReceipt.schemaPayload.bytes > payloadReceipt.archivedBaseline.bytes,
+  "the live-method receipt counts the description fields the archived cross-instance measurement missed",
+);
+assert(
+  payloadReceipt.schemaPayload.estimatedTokens === Math.ceil(payloadReceipt.schemaPayload.bytes / 4),
+  "the schema-payload receipt token estimate follows its bytes",
 );
 
 const work = mkdtempSync(join(tmpdir(), "tawassul-context-diet-"));
@@ -89,8 +116,26 @@ try {
     hash === TOOL_NAME_SET_HASH,
     `the name-set tripwire is unchanged (${hash.slice(0, 12)}/${TOOL_NAME_SET_HASH.slice(0, 12)})`,
   );
+  assert(
+    payloadReceipt.toolNameSetHash === hash,
+    "the schema-payload receipt records the same tool-name set",
+  );
 
   const measured = measureDescriptionText(tools);
+  const liveSchemas = await collectToolSchemas(tools);
+  const livePayload = measureSchemaPayload(liveSchemas);
+  assert(
+    liveSchemas.size === payloadReceipt.toolCount,
+    `the live schema collection covers every tool (${liveSchemas.size}/${payloadReceipt.toolCount})`,
+  );
+  assert(
+    livePayload.bytes === payloadReceipt.schemaPayload.bytes,
+    `the live schema payload matches the recorded golden (${livePayload.bytes} === ${payloadReceipt.schemaPayload.bytes})`,
+  );
+  assert(
+    livePayload.estimatedTokens === Math.ceil(livePayload.bytes / 4),
+    "the live schema payload token estimate follows its bytes",
+  );
   assert(
     measured.lines.length === baseline.descriptionText.lines.length,
     `the measurement covers every baseline tool (${measured.lines.length}/${baseline.descriptionText.lines.length})`,
@@ -152,9 +197,9 @@ try {
   }
 
   console.log(
-    `INFO  description text ${FROZEN_BASELINE_BYTES} -> ${measured.bytes} bytes, cut ${cut} (${((cut / FROZEN_BASELINE_BYTES) * 100).toFixed(3)}%), schema ${baseline.schemaPayload.bytes} unchanged`,
+    `INFO  description text ${FROZEN_BASELINE_BYTES} -> ${measured.bytes} bytes, cut ${cut} (${((cut / FROZEN_BASELINE_BYTES) * 100).toFixed(3)}%), schema ${livePayload.bytes} matches the ${payloadReceipt.schemaPayload.bytes} golden`,
   );
-  console.log(`PROOF PASS: the description diet meets the frozen target without a retry increase (${passed} assertions)`);
+  console.log(`PROOF PASS: the description diet meets the frozen target, the schema payload matches its golden, and hot-tool retries do not increase (${passed} assertions)`);
 } finally {
   rmSync(work, { recursive: true, force: true });
 }
