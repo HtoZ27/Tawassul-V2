@@ -79,6 +79,7 @@ report before sharing it: see [troubleshooting](troubleshooting.md).
 | `TAWASSUL_READ_CACHE=0` | Disable the stamp-validated read cache for `depmap` and `batchread` |
 | `TAWASSUL_READ_CACHE_MB=<n>` | Byte budget of the read cache in megabytes (default 48) |
 | `TAWASSUL_TASK_CONTEXT=0` | Disable the task context bundle attached to `task_orchestrate` handoffs |
+| `TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT=1` | Append the scoped historical background to a new handoff context (default off) |
 | `TAWASSUL_CODE_STATE_AUTO` | Let code-state snapshots run without an explicit call |
 | `TAWASSUL_GOAL_AUTOCLOSE=1` | Auto-close finished goals and mark old unfinished goals stale in the background sweep |
 

@@ -6,6 +6,8 @@ import { TawassulContext } from "../src/context-class.ts";
 import { HandoffService } from "../src/services/handoff-service.ts";
 import { HealthTracker } from "../src/services/agent-health.ts";
 import { CircuitBreaker } from "../src/services/circuit-breaker.ts";
+import { buildHandoffTool } from "../src/tools/handoff.ts";
+import type { ToolContext } from "../src/tool.ts";
 import type { HandoffEntry } from "../src/context/types.ts";
 
 let passed = 0;
@@ -39,6 +41,8 @@ function makeHandoff(id: string, from: string, to: string): HandoffEntry {
 }
 
 async function main(): Promise<void> {
+  process.env.TAWASSUL_CONTEXT_HANDOFF = "0";
+  delete process.env.TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT;
   const dir = join(work, "project");
   mkdirSync(join(dir, ".opencode", "agents"), { recursive: true });
   copyFileSync(join(repo, ".opencode", "agents", "dev.md"), join(dir, ".opencode", "agents", "dev.md"));
@@ -185,8 +189,35 @@ async function main(): Promise<void> {
       "undo removes the rescued recipient failure",
     );
 
+    const tool = buildHandoffTool(ctx);
+    const callerContext: ToolContext = {
+      sessionID: "sess-undo",
+      messageID: "msg-undo",
+      agent: "@tawa",
+      directory: dir,
+      worktree: dir,
+      abort: new AbortController().signal,
+      metadata() {},
+    };
+    const callerTask = "a task that must survive completion and undo";
+    const callerBody = "a context that must survive completion and undo";
+    const createdResult = (await tool.execute(
+      { to: "@dev", task: callerTask, context: callerBody },
+      callerContext,
+    )) as { metadata?: { handoff?: HandoffEntry } };
+    const createdEntry = createdResult.metadata?.handoff;
+    assert(createdEntry !== undefined, "the tool creates a normal handoff for the undo probe");
+    const toolComplete = await service.completeHandoff(createdEntry?.id as string, "dev");
+    assert(toolComplete.success, "the tool-created handoff completes");
+    const toolUndo = await service.undoHandoff(createdEntry?.id as string, "@tawa");
+    assert(toolUndo.success, "the tool-created handoff reverts");
+    assert(createdEntry?.task === callerTask, "completion and undo leave the task unchanged");
+    assert(createdEntry?.context === callerBody, "completion and undo leave the context unchanged");
+
     console.log(`PROOF PASS: handoff undo reverses completion credits and restores the sender error (${passed} assertions)`);
   } finally {
+    delete process.env.TAWASSUL_CONTEXT_HANDOFF;
+    delete process.env.TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT;
     await ctx.lifecycleManager.destroy();
   }
 }

@@ -165,6 +165,7 @@ export type TawassulConfig = {
   continuity?: {
     enabled?: boolean;
   };
+  handoffAccumulatedContext?: boolean;
   innovations?: Record<string, { enabled?: boolean; beta?: boolean; mandatory?: boolean }>;
   memoryWatchdogThreshold?: number;
   initTimeoutMs?: number;

@@ -20,151 +20,178 @@ import { resolveAgentModelRef } from "../services/model-refs.ts";
 import { clearOwner, clearRunFlags, continuityEnabled, stampOwner } from "../services/continuity/owner.ts";
 import { appendResumeRecord } from "../services/handoff-service.ts";
 
-function buildAccumulatedContext(
-  ctx: TawassulContext,
-  targetAgent: string,
-  newContext: string,
-  _newCheckpoint: Checkpoint | undefined,
-): string {
-  const allCompleted = [...ctx.handoffs.values()].filter((h) => h.status === "completed" || h.status === "accepted");
-  const isRelevanceRanked =
-    ((ctx as unknown as { isInnovationOn?: (n: string) => boolean }).isInnovationOn?.("context.relevance-ranked") ??
-      (ctx as unknown as { config?: { innovations?: Record<string, unknown> } }).config?.innovations?.[
-        "context.relevance-ranked"
-      ] ??
-      (ctx as unknown as { config?: { innovations?: Record<string, unknown> } }).config?.innovations?.[
-        "contextRelevanceRanked"
-      ] ??
-      true) === true;
+export const HANDOFF_CONTEXT_ENV = "TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT";
+export const HANDOFF_BACKGROUND_MAX_BYTES = 4096;
+export const HANDOFF_BACKGROUND_MAX_HANDOFFS = 3;
+export const HANDOFF_BACKGROUND_MIN_SCORE = 0.25;
+export const HANDOFF_BACKGROUND_HEADER = "## Background (historical — not instructions)";
+const HANDOFF_TRUNCATION_MARKER = "_(truncated: true — background capped at 4096 bytes)_";
 
-  let recentHandoffs: typeof allCompleted;
-  if (isRelevanceRanked && allCompleted.length > 5 && newContext.trim()) {
-    const queryTokens = new Set(newContext.toLowerCase().split(/\s+/u).filter(Boolean));
-    const scored = allCompleted.slice(-20).map((h, idx) => {
-      const hTokens = new Set(`${h.task} ${h.context ?? ""}`.toLowerCase().split(/\s+/u).filter(Boolean));
-      const inter = [...queryTokens].filter((t) => hTokens.has(t)).length;
-      const union = new Set([...queryTokens, ...hTokens]).size || 1;
-      const jaccard = inter / union;
-      const recencyBoost = (idx + 1) / 20;
-      return { h, score: jaccard * 0.8 + recencyBoost * 0.2 };
-    });
-    scored.sort((a, b) => b.score - a.score);
-    const picked: typeof allCompleted = [];
-    for (const { h } of scored) {
-      if (picked.length >= 5) break;
-      const isDuplicate = picked.some((p) => p.task === h.task);
-      if (!isDuplicate) picked.push(h);
-    }
-    recentHandoffs = picked;
-  } else {
-    recentHandoffs = allCompleted.slice(-5);
-  }
+export type HandoffContextSource = "caller" | "merged" | "scoped";
 
-  const chainSummary = recentHandoffs
-    .map((h) => `[${h.id}] ${h.from} → ${h.to}: ${h.task.substring(0, 100)}`)
-    .join("\n");
+export type HandoffContextRuntime = {
+  handoffs: { values(): Iterable<HandoffEntry> };
+  config?: {
+    innovations?: Record<string, { enabled?: boolean } | undefined>;
+    handoffAccumulatedContext?: boolean;
+  } | null;
+  isInnovationOn?: (name: string) => boolean;
+  getMemoryForAgent?: (agent: string) => {
+    decisions?: Array<{ content?: unknown }>;
+    learnings?: Array<{ content?: unknown }>;
+  } | null;
+};
 
-  const decisions = recentHandoffs.flatMap((h) => h.checkpoint?.decisions ?? []).slice(-10);
-  const decisionsText =
-    decisions.length > 0
-      ? `\n## Previous Decisions\n${decisions.map((d) => `- **${d.title}**: ${d.detail}`).join("\n")}`
-      : "";
+export type HandoffContextBuild = {
+  context: string;
+  source: HandoffContextSource;
+  backgroundBytes: number;
+  handoffs: number;
+  truncated: boolean;
+};
 
-  const filesChanged = recentHandoffs.flatMap((h) => h.checkpoint?.filesChanged ?? []).slice(-15);
-  const filesText =
-    filesChanged.length > 0 ? `\n## Changed Files\n${filesChanged.map((f) => `- \`${f}\``).join("\n")}` : "";
+export function handoffAccumulatedContextEnabled(config?: HandoffContextRuntime["config"]): boolean {
+  const raw = process.env[HANDOFF_CONTEXT_ENV]?.trim().toLowerCase();
+  if (raw === "1" || raw === "true" || raw === "on" || raw === "yes") return true;
+  if (raw === "0" || raw === "false" || raw === "off" || raw === "no") return false;
+  if (raw) return false;
+  return config?.handoffAccumulatedContext === true;
+}
 
-  let evalText = "";
-  try {
-    const features = ctx.featureIndex.getAll();
-    const evalSections: string[] = [];
-
-    for (const feat of features.slice(-3)) {
-      const reports = ctx.featureIndex.getEvaluationReports(feat.id);
-      if (reports.length === 0) continue;
-
-      const allIssues = reports.flatMap((r) => r.issues);
-      const openIssues = allIssues.filter(
-        (i) => i.status !== "resolved" && i.status !== "wont_fix" && i.status !== "duplicate",
-      );
-      const resolvedCount = allIssues.filter((i) => i.status === "resolved").length;
-
-      const recentReports = reports.slice(-3);
-      const evalSummary = recentReports
-        .map((r) => `- round ${r.round}: ${r.issues.length} issues, ${r.recommendations.length} recommendations`)
-        .join("\n");
-
-      const coverageSummary =
-        Object.keys(reports[reports.length - 1]?.coverageMap ?? {}).length > 0
-          ? `${Object.keys(reports[reports.length - 1]!.coverageMap).length} areas covered`
-          : "No coverage recorded";
-
-      evalSections.push(
-        `### ${feat.name} (${feat.id})`,
-        `- **Open issues:** ${openIssues.length}`,
-        `- **Resolved issues:** ${resolvedCount}`,
-        `- **Latest evaluations:**`,
-        evalSummary,
-        `- **Coverage:** ${coverageSummary}`,
-        openIssues.length > 0
-          ? `- **Top open issues:**\n${openIssues
-              .slice(0, 5)
-              .map((i) => `  - [${i.severity}] ${i.description} (${i.category})`)
-              .join("\n")}`
-          : "",
-      );
-    }
-
-    if (evalSections.length > 0) {
-      evalText = `\n## 📋 Evaluations\n${evalSections.join("\n")}`;
-    }
-  } catch (e) {
-    logger.warn(`handoff context: evaluations section dropped:`, e);
-  }
-
-  const sections: string[] = [];
-
-  sections.push(
-    ``,
-    `## 🎯 Goals (live)`,
-    `Project goals, items and DoD live behind the \`goal\` tool — read via \`goal(list: true)\` / \`goal(get: "G-xxx")\`. Never grep plugin files for goals.`,
+function relevanceRanked(runtime: HandoffContextRuntime): boolean {
+  return (
+    (runtime.isInnovationOn?.("context.relevance-ranked") ??
+      runtime.config?.innovations?.["context.relevance-ranked"] ??
+      runtime.config?.innovations?.["contextRelevanceRanked"] ??
+      true) === true
   );
+}
 
-  if (recentHandoffs.length > 0) {
-    sections.push(`## ⛓️ Chain Context (accumulated)`, ``, `**Previous deliveries:**`, chainSummary, decisionsText, filesText);
+function scopedHandoffs(
+  runtime: HandoffContextRuntime,
+  fromAgent: string,
+  targetAgent: string,
+  sessionId: string,
+  newContext: string,
+): HandoffEntry[] {
+  const fromName = normalizeName(fromAgent);
+  const toName = normalizeName(targetAgent);
+  const session = sessionId.trim();
+  const candidates: HandoffEntry[] = [];
+  for (const handoff of runtime.handoffs.values()) {
+    if (handoff.status !== "completed" && handoff.status !== "accepted") continue;
+    const handoffSession = (handoff.sessionId ?? "").trim();
+    const sameSession = session !== "" && handoffSession !== "" && handoffSession === session;
+    const sameChain = normalizeName(handoff.to) === fromName || normalizeName(handoff.from) === toName;
+    if (sameSession || sameChain) candidates.push(handoff);
   }
+  if (!relevanceRanked(runtime)) return candidates.slice(-HANDOFF_BACKGROUND_MAX_HANDOFFS);
+  const windowed = candidates.slice(-20);
+  const queryTokens = new Set(newContext.toLowerCase().split(/\s+/u).filter(Boolean));
+  const scored = windowed.map((handoff, index) => {
+    const handoffTokens = new Set(
+      `${handoff.task} ${handoff.context ?? ""}`.toLowerCase().split(/\s+/u).filter(Boolean),
+    );
+    const intersection = [...queryTokens].filter((token) => handoffTokens.has(token)).length;
+    const union = new Set([...queryTokens, ...handoffTokens]).size || 1;
+    const jaccard = intersection / union;
+    const recencyBoost = (index + 1) / windowed.length;
+    return { handoff, score: jaccard * 0.8 + recencyBoost * 0.2 };
+  });
+  return scored
+    .filter((entry) => entry.score >= HANDOFF_BACKGROUND_MIN_SCORE)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, HANDOFF_BACKGROUND_MAX_HANDOFFS)
+    .map((entry) => entry.handoff);
+}
 
+function truncateUtf8(text: string, maxBytes: number): string {
+  let used = 0;
+  let kept = "";
+  for (const character of text) {
+    const size = Buffer.byteLength(character, "utf8");
+    if (used + size > maxBytes) break;
+    kept += character;
+    used += size;
+  }
+  return kept;
+}
+
+export function capHandoffBackground(body: string): { text: string; truncated: boolean } {
+  if (Buffer.byteLength(body, "utf8") <= HANDOFF_BACKGROUND_MAX_BYTES) return { text: body, truncated: false };
+  const marker = `\n\n${HANDOFF_TRUNCATION_MARKER}`;
+  const room = HANDOFF_BACKGROUND_MAX_BYTES - Buffer.byteLength(marker, "utf8");
+  const head = truncateUtf8(body, room);
+  const lastBreak = head.lastIndexOf("\n");
+  const kept = lastBreak > 0 ? head.slice(0, lastBreak) : head;
+  return { text: `${kept}${marker}`, truncated: true };
+}
+
+function backgroundSections(
+  runtime: HandoffContextRuntime,
+  targetAgent: string,
+  selected: HandoffEntry[],
+): string[] {
+  const sections: string[] = [];
+  const decisions = selected.flatMap((handoff) => handoff.checkpoint?.decisions ?? []).slice(-10);
+  if (decisions.length > 0) {
+    sections.push("", "### Decisions", ...decisions.map((decision) => `- **${decision.title}**: ${decision.detail}`));
+  }
+  const files = selected.flatMap((handoff) => handoff.checkpoint?.filesChanged ?? []).slice(-15);
+  if (files.length > 0) {
+    sections.push("", "### Changed files", ...files.map((file) => `- \`${file}\``));
+  }
   try {
-    const forAgent = ctx.getMemoryForAgent(targetAgent);
-    const memSections: string[] = [];
-    const recentDecisions = forAgent.decisions
+    const memory = runtime.getMemoryForAgent?.(targetAgent);
+    const recentDecisions = (memory?.decisions ?? [])
       .slice(-5)
-      .map((d) => d.content)
-      .filter((c) => typeof c === "string");
+      .map((decision) => decision.content)
+      .filter((content): content is string => typeof content === "string");
     if (recentDecisions.length > 0) {
-      memSections.push(
-        `\n## 🧠 Decision Memory (for ${targetAgent})\n${recentDecisions.map((d) => `- ${d}`).join("\n")}`,
-      );
+      sections.push("", "### Decision memory", ...recentDecisions.map((content) => `- ${content}`));
     }
-    const recentLearnings = forAgent.learnings.slice(-5).filter((l) => typeof l.content === "string");
+    const recentLearnings = (memory?.learnings ?? [])
+      .slice(-5)
+      .map((learning) => learning.content)
+      .filter((content): content is string => typeof content === "string")
+      .slice(-3);
     if (recentLearnings.length > 0) {
-      memSections.push(
-        `\n## 📌 Learned Lessons (for ${targetAgent})\n${recentLearnings
-          .slice(-3)
-          .map((l) => `- ${String(l.content)}`)
-          .join("\n")}`,
-      );
+      sections.push("", "### Learned lessons", ...recentLearnings.map((content) => `- ${content}`));
     }
-    if (memSections.length > 0) sections.push(...memSections);
   } catch (e) {
     logger.warn(`handoff context: memory sections dropped for ${targetAgent}:`, e);
   }
+  return sections;
+}
 
-  if (evalText) sections.push(evalText);
-
-  sections.push(``, `---`, `## 🆕 New Context (for ${targetAgent})`, newContext);
-
-  return sections.join("\n");
+export function buildAccumulatedContext(
+  runtime: HandoffContextRuntime,
+  fromAgent: string,
+  targetAgent: string,
+  newContext: string,
+  sessionId: string,
+): HandoffContextBuild {
+  const selected = scopedHandoffs(runtime, fromAgent, targetAgent, sessionId, newContext);
+  const sections = [HANDOFF_BACKGROUND_HEADER, ...backgroundSections(runtime, targetAgent, selected)];
+  const rawBackground = sections.join("\n");
+  const capped = capHandoffBackground(rawBackground);
+  const hasBackground = selected.length > 0 || sections.length > 1;
+  if (!hasBackground) {
+    return {
+      context: newContext,
+      source: "caller",
+      backgroundBytes: 0,
+      handoffs: 0,
+      truncated: false,
+    };
+  }
+  return {
+    context: `${newContext}\n\n${capped.text}`,
+    source: "scoped",
+    backgroundBytes: Buffer.byteLength(capped.text, "utf8"),
+    handoffs: selected.length,
+    truncated: capped.truncated,
+  };
 }
 
 function isCheckpoint(value: unknown): value is Checkpoint {
@@ -573,12 +600,15 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
       if (String(args.to) !== rawTo) autoFixed.push("to");
       args.task = String(args.task ?? "").trim();
       let contextToUse = String(args.context ?? "").trim();
+      const accumulatedEnabled = handoffAccumulatedContextEnabled(ctx.config);
       let contextMerged = false;
-      if (contextToUse.split(/\s+/u).filter(Boolean).length < 5) {
-        const merged = buildAccumulatedContext(ctx, normalizedTo, contextToUse, asCheckpoint(args.checkpoint));
-        if (merged.split(/\s+/u).filter(Boolean).length >= 10) {
-          contextToUse = merged;
+      let mergedHandoffs = 0;
+      if (accumulatedEnabled && contextToUse.split(/\s+/u).filter(Boolean).length < 5) {
+        const merged = buildAccumulatedContext(ctx, normalizedFrom, normalizedTo, contextToUse, cctx.sessionID);
+        if (merged.context.split(/\s+/u).filter(Boolean).length >= 10) {
+          contextToUse = merged.context;
           contextMerged = true;
+          mergedHandoffs = merged.handoffs;
           autoFixed.push("context");
         }
       }
@@ -747,11 +777,27 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
         }
       }
 
-      const accumulatedContext = args.context
-        ? contextMerged
-          ? (args.context as string)
-          : buildAccumulatedContext(ctx, args.to as string, args.context as string, asCheckpoint(args.checkpoint))
-        : (args.context as string);
+      let accumulatedContext = args.context as string;
+      let contextSource: HandoffContextSource = "caller";
+      let contextHandoffs = 0;
+      if (contextMerged) {
+        contextSource = "merged";
+        contextHandoffs = mergedHandoffs;
+      } else if (accumulatedEnabled && args.context) {
+        const built = buildAccumulatedContext(
+          ctx,
+          normalizedFrom,
+          normalizedTo,
+          args.context as string,
+          cctx.sessionID,
+        );
+        accumulatedContext = built.context;
+        contextSource = built.source;
+        contextHandoffs = built.handoffs;
+      }
+      logger.info(
+        `handoff context: source=${contextSource} bytes=${Buffer.byteLength(accumulatedContext, "utf8")} handoffs=${contextHandoffs}`,
+      );
 
       const agentModelMap = ctx.modelManager.agentModelMap;
       const implementer = resolveAgentModelRef(cctx.agent, agentModelMap);
@@ -882,7 +928,7 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
             from: normalizeName(cctx.agent),
             to: normalizeName(agent),
             task: args.task as string,
-            context: args.context as string,
+            context: accumulatedContext,
             files: (args.files as string[]) || [],
             checkpoint: asCheckpoint(args.checkpoint),
             timestamp: new Date().toISOString(),

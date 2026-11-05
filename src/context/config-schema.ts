@@ -107,6 +107,7 @@ export const configSchema = tool.schema.object({
       enabled: tool.schema.boolean().optional(),
     })
     .optional(),
+  handoffAccumulatedContext: tool.schema.boolean().optional(),
   
   
   

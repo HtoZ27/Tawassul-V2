@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "totalEstimateMs": 387341,
+  "totalEstimateMs": 388941,
   "shards": [
     {
       "name": "1",
-      "estimateMs": 97069,
+      "estimateMs": 97869,
       "steps": [
         "gen-lock",
         "web-ssrf",
@@ -45,7 +45,8 @@
         "intelligence-off",
         "project-index-byproduct",
         "read-cache-hit",
-        "read-cache-stamp-miss"
+        "read-cache-stamp-miss",
+        "handoff-context-shape"
       ]
     },
     {
@@ -152,7 +153,7 @@
     },
     {
       "name": "4",
-      "estimateMs": 94437,
+      "estimateMs": 95237,
       "steps": [
         "gen-merge",
         "roster-boundary",
@@ -195,7 +196,8 @@
         "gate-budget",
         "read-cache-byte-cap",
         "task-context-distinct",
-        "record-search"
+        "record-search",
+        "handoff-context-parity"
       ]
     }
   ]

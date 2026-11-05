@@ -39,7 +39,11 @@ minimum length and is deduplicated, so "done" is a record, not an opinion.
 Work moves by handoff (`H-###`), not by a sentence in the transcript. A handoff
 carries context, files, a checkpoint, and a result. The board shows task state
 and agent health; the timeline shows what happened, by time or by agent;
-records (`R-###`) keep decisions, fixes, incidents, and notes.
+records (`R-###`) keep decisions, fixes, incidents, and notes. New handoffs store
+the caller's context verbatim by default; the opt-in scoped background
+(`TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT=1` or `handoffAccumulatedContext`) adds at
+most 4 KiB of decisions, changed files, and lessons from the same session or
+chain.
 
 ### Long sessions survive
 
@@ -129,9 +133,9 @@ ACLs, Defender, long paths, and file locking.
 | Check | Result at this release |
 | --- | --- |
 | Fast gate | 16 steps |
-| Proofs | 172 steps, one child process each |
+| Proofs | 174 steps, one child process each |
 | Smoke | 6 steps, including the release artifacts, global boot, and independence boot |
-| Proof files | 175, all catalogued across the stages |
+| Proof files | 177, all catalogued across the stages |
 | Public docs | 45 files, 44 tools, 8 agents, 4 skills |
 | Native Windows | Native receipts for the bundle and wasm lane; database lane unavailable |
 

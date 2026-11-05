@@ -80,6 +80,20 @@ Both limits exist to stop a delegation loop from consuming a session budget.
 The refusal is explained in the tool result, with the alternative (use a
 handoff, or split the task) named.
 
+### Handoff context
+
+| Key | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `handoffAccumulatedContext` | boolean | `false` | Append a scoped historical background to `handoff(create)` context |
+
+The caller's text always comes first. When enabled, the background is capped at
+4 KiB and carries at most three handoffs from the same session or the same
+chain (sender and recipient), with a relevance floor and no previous task text.
+Handoffs without a `sessionId` fall back to the chain match. The
+`TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT` environment variable wins over this key.
+`context.relevance-ranked` only affects which handoffs feed the background while
+this switch is on.
+
 ### Iteration budgets
 
 An iteration budget is the number of model turns an agent may spend on one
@@ -253,6 +267,7 @@ is not here is either internal to a proof or has no documented contract.
 | `TAWASSUL_READ_CACHE=0` | Disable the stamp-validated read cache for `depmap` and `batchread` |
 | `TAWASSUL_READ_CACHE_MB=<n>` | Byte budget of the read cache in megabytes (default 48) |
 | `TAWASSUL_TASK_CONTEXT=0` | Disable the task context bundle attached to `task_orchestrate` handoffs |
+| `TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT=1` | Append the scoped historical background to a new handoff context (default off; an explicit value wins over `handoffAccumulatedContext`) |
 | `TAWASSUL_CODE_STATE_AUTO` | Let code-state snapshots run without an explicit call |
 | `TAWASSUL_GOAL_AUTOCLOSE=1` | Auto-close finished goals and mark old unfinished goals stale in the background sweep |
 

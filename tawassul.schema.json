@@ -330,6 +330,9 @@
       },
       "additionalProperties": false
     },
+    "handoffAccumulatedContext": {
+      "type": "boolean"
+    },
     "innovations": {
       "type": "object",
       "properties": {

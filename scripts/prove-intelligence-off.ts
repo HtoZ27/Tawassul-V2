@@ -1,6 +1,8 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { TawassulContext } from "../src/context-class.ts";
 import { TOOL_COUNT } from "../src/generated/tool-tripwire.ts";
 import { TAWASSUL_TOOL_NAMES } from "../src/tool-names.ts";
 import { detectInterrupted, noteIdle, resetContinuity } from "../src/services/continuity/detect.ts";
@@ -21,6 +23,11 @@ import { ReadCacheService } from "../src/services/read-cache/index.ts";
 import { readCacheEnabled } from "../src/services/read-cache/policy.ts";
 import { TaskContextService, taskContextEnabled } from "../src/services/task-context/index.ts";
 import { TaskOrchestrator } from "../src/services/task-orchestrator.ts";
+import { buildHandoffTool } from "../src/tools/handoff.ts";
+import { HandoffService } from "../src/services/handoff-service.ts";
+import { HealthTracker } from "../src/services/agent-health.ts";
+import { CircuitBreaker } from "../src/services/circuit-breaker.ts";
+import type { ToolContext } from "../src/tool.ts";
 
 let passed = 0;
 
@@ -50,6 +57,7 @@ function handoff(): HandoffEntry {
 }
 
 const dir = mkdtempSync(join(tmpdir(), "tawassul-intelligence-off-"));
+const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 
 try {
   process.env.TAWASSUL_CONTINUITY = "0";
@@ -141,12 +149,49 @@ try {
   );
   assert(readdirSync(taskProject).length === 1, "a disabled builder writes no bundle file");
 
-  console.log(`PROOF PASS: continuity, project index, read cache and task context off keep zero reads, writes and computations (${passed} assertions)`);
+  process.env.TAWASSUL_CONTEXT_HANDOFF = "0";
+  delete process.env.TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT;
+  const handoffProject = join(dir, "handoff-off");
+  mkdirSync(join(handoffProject, ".opencode", "agents"), { recursive: true });
+  for (const agent of ["dev", "tester"]) {
+    copyFileSync(join(repo, ".opencode", "agents", "dev.md"), join(handoffProject, ".opencode", "agents", `${agent}.md`));
+  }
+  const handoffCtx = new TawassulContext(handoffProject);
+  handoffCtx.ensureConfig();
+  handoffCtx.handoffService = new HandoffService(handoffCtx, new HealthTracker(), new CircuitBreaker());
+  const handoffTool = buildHandoffTool(handoffCtx);
+  const callerText = "the caller text stays exact with the accumulated context off";
+  const callerTask = "a task that the off flag must not prefix";
+  const toolContext: ToolContext = {
+    sessionID: "ses-off",
+    messageID: "msg-off",
+    agent: "@tawa",
+    directory: handoffProject,
+    worktree: handoffProject,
+    abort: new AbortController().signal,
+    metadata() {},
+  };
+  try {
+    const created = (await handoffTool.execute(
+      { to: "@dev", task: callerTask, context: callerText },
+      toolContext,
+    )) as { metadata?: { handoff?: HandoffEntry } };
+    const stored = created.metadata?.handoff;
+    assert(stored !== undefined, "the off flag still creates a handoff");
+    assert(stored?.context === callerText, "the off flag stores the caller text verbatim");
+    assert(stored?.task === callerTask, "the off flag leaves the task unpadded");
+  } finally {
+    await handoffCtx.lifecycleManager.destroy();
+  }
+
+  console.log(`PROOF PASS: continuity, project index, read cache, task context and handoff accumulated context off keep zero reads, writes and computations (${passed} assertions)`);
 } finally {
   delete process.env.TAWASSUL_CONTINUITY;
   delete process.env.TAWASSUL_PROJECT_INDEX;
   delete process.env.TAWASSUL_READ_CACHE;
   delete process.env.TAWASSUL_TASK_CONTEXT;
+  delete process.env.TAWASSUL_CONTEXT_HANDOFF;
+  delete process.env.TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT;
   resetContinuity();
   rmSync(dir, { recursive: true, force: true });
 }

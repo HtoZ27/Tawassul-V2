@@ -844,6 +844,20 @@
       ]
     },
     {
+      "name": "handoff-context-shape",
+      "cmd": [
+        "bun",
+        "scripts/prove-handoff-context-shape.ts"
+      ]
+    },
+    {
+      "name": "handoff-context-parity",
+      "cmd": [
+        "bun",
+        "scripts/prove-handoff-context-parity.ts"
+      ]
+    },
+    {
       "name": "feature-index-english",
       "cmd": [
         "bun",

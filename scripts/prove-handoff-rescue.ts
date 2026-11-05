@@ -7,6 +7,7 @@ import { HandoffService } from "../src/services/handoff-service.ts";
 import { HealthTracker } from "../src/services/agent-health.ts";
 import { CircuitBreaker } from "../src/services/circuit-breaker.ts";
 import { buildHandoffTool } from "../src/tools/handoff.ts";
+import { t } from "../src/translations.ts";
 import type { ToolContext } from "../src/tool.ts";
 import type { HandoffEntry } from "../src/context/types.ts";
 
@@ -45,6 +46,8 @@ function makeHandoff(id: string, from: string, to: string, status: HandoffEntry[
 }
 
 async function main(): Promise<void> {
+  process.env.TAWASSUL_CONTEXT_HANDOFF = "0";
+  delete process.env.TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT;
   const dir = join(work, "project");
   mkdirSync(join(dir, ".opencode", "agents"), { recursive: true });
   copyFileSync(join(repo, ".opencode", "agents", "dev.md"), join(dir, ".opencode", "agents", "dev.md"));
@@ -113,8 +116,34 @@ async function main(): Promise<void> {
     assert(rescueEntry !== undefined, "a rescue handoff is created");
     assert(rescueEntry?.status === "pending", "the rescue handoff starts pending");
     assert(rescueEntry?.to === "reviewer", "the rescue handoff targets the requested agent");
-    assert(rescueEntry?.task.includes("RESCUE") === true, "the rescue handoff keeps the rescue marker");
+    assert(
+      rescueEntry?.task === `🚑 RESCUE: ${original.task}`,
+      "the rescue prefix is the only task change",
+    );
     assert(rescueEntry?.checkpoint === undefined, "a missing checkpoint is not invented");
+
+    const plainContext = "a plain caller context for the prefix probe";
+    const plain = (await tool.execute(
+      { to: "@dev", task: "a plain task without a prefix", context: plainContext },
+      analyst,
+    )) as { metadata?: { handoff?: HandoffEntry } };
+    const plainEntry = plain.metadata?.handoff;
+    assert(plainEntry !== undefined, "a normal create returns its handoff");
+    assert(plainEntry?.task === "a plain task without a prefix", "a normal create leaves the task unchanged");
+    assert(plainEntry?.context === plainContext, "a normal create leaves the context unchanged");
+
+    const helpContext = "the help caller context stays exact";
+    const help = (await tool.execute(
+      { to: "@dev", task: "probe the help prefix", context: helpContext, helpRequest: true },
+      analyst,
+    )) as { metadata?: { handoff?: HandoffEntry } };
+    const helpEntry = help.metadata?.handoff;
+    assert(helpEntry !== undefined, "a help request returns its handoff");
+    assert(
+      helpEntry?.task === t("helpRequestPrefix", { task: "probe the help prefix" }),
+      "the help prefix is the only task change",
+    );
+    assert(helpEntry?.context === helpContext, "a help request leaves the context unchanged");
 
     const again = outputText(
       await tool.execute({ rescue: original.id, to: "@reviewer", context: "trying to rescue the closed handoff again" }, analyst),
@@ -155,6 +184,8 @@ async function main(): Promise<void> {
 
     console.log(`PROOF PASS: rescue closes the stalled original without a completion credit (${passed} assertions)`);
   } finally {
+    delete process.env.TAWASSUL_CONTEXT_HANDOFF;
+    delete process.env.TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT;
     await ctx.lifecycleManager.destroy();
   }
 }
