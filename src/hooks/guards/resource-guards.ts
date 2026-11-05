@@ -13,12 +13,15 @@ import {
 } from "./shared.ts";
 import { TASK_TOOL_NAMES } from "../../security-policy.ts";
 import { allowedTaskTargetsText } from "./shared/task-targets.ts";
+import { defaultRoutingRecord } from "../routing.ts";
 
 export const firstResponseGuard = guard("first-response-guard", (ctx, input) => {
   if (!input.agent || !input.sessionID) return null;
   const agent = getCurrentAgent(input);
   if (!agent || agent === "tawa") return null;
-  if (ctx.directRoutingAgent && normalizeName(agent) === normalizeName(ctx.directRoutingAgent)) return null;
+  const record = ctx.pipelineState?.routing.get(input.sessionID);
+  const preferred = record?.preferredAgent ?? record?.directAgent ?? null;
+  if (preferred && normalizeName(agent) === normalizeName(preferred)) return null;
   if (TASK_TOOL_NAMES.includes(input.tool) && !ps(ctx).hasAgentResponded(input.sessionID, agent))
     return `🚫 Agent "${input.agent}" has not produced their analysis yet. Produce your analysis first, then dispatch.`;
   return null;
@@ -81,7 +84,8 @@ export const riskGatingGuard = guard("risk-gating", (ctx, input) => {
 });
 
 export const tawaRoutingEnforcementGuard = guard("tawa-routing-enforcement", (ctx, input) => {
-  const routed = ctx.userMentionedTawa || ctx.userExplicitDispatch === true;
+  const record = ctx.pipelineState?.routing.get(input.sessionID ?? "") ?? defaultRoutingRecord();
+  const routed = record.source === "classified" && (record.mode === "tawa" || record.mode === "explicit");
   if (!routed || isTawaAgent(input.agent) || (ps(ctx).callDepth.get(input.sessionID ?? "") ?? 0) !== 0) return null;
   if (input.tool !== "edit" && input.tool !== "write" && input.tool !== "bash") return null;
   const targets = allowedTaskTargetsText(input.agent);
@@ -92,13 +96,15 @@ export const tawaRoutingEnforcementGuard = guard("tawa-routing-enforcement", (ct
 export const speculativeDispatchGuard = guard("speculative-dispatch", (ctx, input) => {
   const agentName = normalizeName(input.agent);
   if (isRootLikeAgent(input.agent) || (ps(ctx).callDepth.get(input.sessionID ?? "") ?? 0) !== 0) return null;
-  if (ctx.directRoutingAgent) {
-    if (agentName === ctx.directRoutingAgent) return null;
+  const record = ctx.pipelineState?.routing.get(input.sessionID ?? "") ?? defaultRoutingRecord();
+  const preferred = record.preferredAgent ?? record.directAgent ?? null;
+  if (preferred) {
+    if (agentName === preferred) return null;
     return input.tool === "edit" || input.tool === "write" || input.tool === "bash"
-      ? `🚫 This routing is for @${ctx.directRoutingAgent} — use task(desc: '${ctx.directRoutingAgent}') instead of using this tool directly.`
+      ? `🚫 This routing is for @${preferred} — use task(desc: '${preferred}') instead of using this tool directly.`
       : null;
   }
-  if (ctx.userExplicitDispatch === true) {
+  if (record.source === "classified" && record.mode === "explicit") {
     return input.tool === "edit" || input.tool === "write" || input.tool === "bash"
       ? "🚫 You requested dispatch via agents — use task() instead of using this tool directly."
       : null;

@@ -1346,6 +1346,13 @@
         "bun",
         "scripts/prove-guard-routing.ts"
       ]
+    },
+    {
+      "name": "report-path",
+      "cmd": [
+        "bun",
+        "scripts/prove-report-path.ts"
+      ]
     }
   ],
   "smoke": [

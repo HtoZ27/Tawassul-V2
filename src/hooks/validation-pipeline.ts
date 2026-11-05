@@ -56,6 +56,7 @@ import {
   budgetGuard,
   rateLimitGuard,
   commitCallDepthEffect,
+  recordDispatchPromptEffect,
 } from "./guards/dispatch-guards.ts";
 import {
   proxyRoutingEffect,
@@ -131,6 +132,7 @@ export const VALIDATION_PIPELINE = [
   combinedStage("agent-guards", [deletedAgentGuard, circuitBreakerGuard]),
   combinedStage("rate-checks", [budgetGuard, rateLimitGuard]),
   commitCallDepthEffect,
+  recordDispatchPromptEffect,
 ];
 
 

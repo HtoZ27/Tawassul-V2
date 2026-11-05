@@ -94,16 +94,20 @@ assert(
   "the reconnaissance exemption stops after twenty calls",
 );
 
+const routedCtx = ctxOf();
+(routedCtx["pipelineState"] as PipelineState).recordUserMessage("s1", "Please handle this @tawa");
 const routedOut: Out = { args: {} };
-const routedBlocked = !(await allows(tawaRoutingEnforcementGuard, ctxOf({ userMentionedTawa: true }), { tool: "bash", agent: "analyst", sessionID: "s1" }, routedOut));
+const routedBlocked = !(await allows(tawaRoutingEnforcementGuard, routedCtx, { tool: "bash", agent: "analyst", sessionID: "s1" }, routedOut));
 assert(routedBlocked, "a routed turn blocks shell for an analyst");
 const routedMessage = routedOut.error ?? "";
 assert(routedMessage.includes("@explore") && routedMessage.includes("@general"), "the message offers both allowed targets");
 assert(!routedMessage.includes("task("), "the message names no blocked call form");
 assert(!routedMessage.includes("@tawa"), "the message never points at the blocked target");
 
+const designerCtx = ctxOf();
+(designerCtx["pipelineState"] as PipelineState).recordUserMessage("s1", "Please dispatch this to agents");
 const designerOut: Out = { args: {} };
-await allows(tawaRoutingEnforcementGuard, ctxOf({ userExplicitDispatch: true }), { tool: "edit", agent: "designer", sessionID: "s1" }, designerOut);
+await allows(tawaRoutingEnforcementGuard, designerCtx, { tool: "edit", agent: "designer", sessionID: "s1" }, designerOut);
 const designerMessage = designerOut.error ?? "";
 assert(designerMessage.includes("@explore") && !designerMessage.includes("@general"), "the message never offers a target the role cannot call");
 

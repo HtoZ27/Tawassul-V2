@@ -36,6 +36,8 @@ import type { DispatchTask } from "../services/parallel-dispatcher.ts";
 import type { MessageUpdatedContext } from "./message-updated-types.ts";
 import type { MessageUpdatedServiceClients } from "./message-updated-types.ts";
 import { getRole } from "./get-role.ts";
+import { EXPLICIT_DISPATCH_REGEX, TAWA_MENTION_REGEX } from "./routing.ts";
+export { EXPLICIT_DISPATCH_REGEX, TAWA_MENTION_REGEX } from "./routing.ts";
 import { injectTawaGuidance } from "./message-updated-tawa.ts";
 import { injectAutoStatus, injectPerformanceAlerts } from "./message-updated-status.ts";
 import {
@@ -49,11 +51,6 @@ import type { ElicitationAsk } from "../services/elicitation-gate.ts";
 import { isValidMessageId } from "../lib/tool-schema-injection.ts";
 import { DEFAULT_PRICING_MODELS } from "../services/cost-transparency/types.ts";
 import type { ScoredContextEntry } from "../context/priority-types.ts";
-
-export const TAWA_MENTION_REGEX = /(?:^|\s|[\W])@tawa\b|(?<![\p{L}])tawa(?![\p{L}])/iu;
-
-export const EXPLICIT_DISPATCH_REGEX =
-  /\bdispatch\b|\bdistribute\b|\bdelegate\b|\bhand[ -]?off\b|send[\s\S]{0,25}to agents|assign[\s\S]{0,25}to agents|route[\s\S]{0,25}to agents/iu;
 
 export const DISPATCH_QA_IN_ROOT = false;
 
@@ -613,6 +610,9 @@ export function createMessageUpdatedHook(ctx: MessageUpdatedContext) {
 
         detectTawaMention(ctx, content);
         detectDirectRouting(ctx, content);
+        if (input.sessionID) {
+          ctx.pipelineState?.recordUserMessage(input.sessionID, content, ctx.directRoutingAgent);
+        }
         effort = svc.analyzeEffort(content);
         const elicitationAsk = (ctx as MessageUpdatedContext & { elicitationAsk?: ElicitationAsk }).elicitationAsk;
         const elicitationEmit = (ctx as MessageUpdatedContext & { elicitationEmit?: (e: unknown) => void })

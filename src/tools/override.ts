@@ -145,6 +145,7 @@ export function buildOverrideTool(ctx: TawassulContext, handoffService?: Handoff
           return { output: `🚫 Preferred reroute to @tawa is forbidden. Name a registered agent instead.` };
         }
         ctx.directRoutingAgent = targetAgent;
+        ctx.pipelineState.recordOverridePreference(cctx.sessionID, targetAgent);
         ctx.updateLastActive(cctx.agent);
         ctx.saveState();
 
