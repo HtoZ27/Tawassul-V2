@@ -1,9 +1,13 @@
 # Report Path to the Coordinator — Design Plan
 
-Revision: 6. Revision 5 was the reviewed design (see Section 12); revision 6 records the P2 trial
+Revision: 7. Revision 5 was the reviewed design (see Section 12); revision 6 recorded the P2 trial
 findings: the host prefixes native subagent prompts, so ring matching is containment, and the v2
-bridge moves the host `agent` field into `subagent` instead of copying it.
-Status: P0, the P0 amendment, P0b, P1, and P2 are implemented in this tree as of 2026-11-05.
+bridge moves the host `agent` field into `subagent` instead of copying it. Revision 7 closes every
+question in Section 10 by ballot and records the P3 probes: the host requires `prompt` on the
+`subagent` tool, `description` is never promoted to the delivered text, and `input.agent` names
+the running agent rather than the dispatcher.
+Status: P0, the P0 amendment, P0b, P1, P2, and P3 are closed in this tree as of 2026-11-05. P3 is
+a decision, not code: lineage exists, but R2 stays unimplemented because K10 binds.
 The phase table below remains the design record.
 Date: 2026-11-05
 Scope: Tawassul V2, this tree, OpenCode host >= 2.2.0
@@ -124,27 +128,30 @@ applied to the wrong session.
 `directRoutingAgent` has three write sites, not one: `message-updated.ts:161`, `override.ts:147`,
 and the reset at `message-updated.ts:133`. Any migration must enumerate all of them.
 
-### 2.4 No session lineage
+### 2.4 Session lineage exists and was unused
 
 - `task` is a host tool. The plugin never implements it and never sees the child session id at
-  dispatch time.
-- There is no consumer for `session.created`, and no session event the plugin reads carries a
-  parent id. The `parentID` field at `src/validation.ts:115` belongs to `HandoffEntrySchema`
+  dispatch time. That part of the original premise holds.
+- The stronger premise was wrong: `session.created` carries an optional `parentID`
+  (`@opencode/schema/dist/event-manifest.d.ts:277-330`, `session.d.ts:36`), and `setup.ts:766`
+  subscribes to raw events, so lineage is available to the plugin.
+- The `parentID` field at `src/validation.ts:115` belongs to `HandoffEntrySchema`
   (`src/validation.ts:84-124`), not to a session. The goal record uses `parentId` at
-  `src/validation.ts:491`, which is a different field in a different schema.
+  `src/validation.ts:491`, a different field in a different schema.
 - `callDepth` counts dispatches inside one session (`dispatch-guards.ts:233-249`). A child starts
-  at zero, so it cannot infer that it belongs to a tawa tree.
+  at zero, so it cannot infer that it belongs to a tawa tree from the counter.
 - `getCurrentAgent` at `src/hooks/guards/shared/normalize.ts:28` returns `input.agent`, the agent
-  that is running, not the agent that called it. The caller's identity is not available to the
-  plugin.
-- A partial post-hoc channel exists but is too late: the `experimental.idle` hook at
-  `setup.ts:720-725` feeds `noteExperimentalIdle`, and the background list it stores carries
-  `childSessionID` per live subagent (`src/tools/task-control.ts:18`). It arrives after dispatch
-  and does not identify the parent of a child prompt at its first message, so it cannot replace
-  the ring.
+  that is running, not the agent that called it. The dispatcher's identity is derivable only from
+  `session_v2.parent_id`, which the dispatch-time guard does not read.
+- A post-hoc channel also exists: the `experimental.idle` hook at `setup.ts:720-725` feeds
+  `noteExperimentalIdle`, and the background list it stores carries `childSessionID` per live
+  subagent (`src/tools/task-control.ts:18`). It arrives after dispatch and does not identify the
+  parent of a child prompt at its first message, so it cannot replace the ring.
 
-Consequence: a child session cannot know it is a tawa child, and no guard can address tawa by
-name without leaking.
+Consequence: lineage could replace the ring as the inheritance channel, but R2 remains
+unimplemented because K10 forbids returning or re-dispatching to `@tawa`, not because the host
+withholds the parent id. The sentinel remains the only channel, and the ring remains the only
+dispatch-time match.
 
 ### 2.5 The root-turn gate cannot identify a root
 
@@ -304,8 +311,9 @@ It never names tawa, so it cannot leak. It never names a role, so it cannot pres
 unreachable target. It also removes the reason for `circuitBreakerGuard` to enumerate fallbacks
 and for `deletedAgentGuard` to hardcode `dev-pickle` and `dev-mimo`.
 
-The word "caller" is deliberate. As recorded in 2.4, the plugin does not know the caller's name,
-so any name it printed would be a guess.
+The word "caller" is deliberate. The plugin does not read the caller's name at dispatch time:
+`input.agent` names the running agent, so any name it printed would be a guess. The probe in 10.1
+shows that failure mode directly.
 
 ### 4.3 A prompt clause, only in routed mode
 
@@ -481,16 +489,17 @@ eviction also clears it.
 | --- | --- | --- | --- | --- |
 | R0 | Rewrite the messages to "return to your caller"; no new state | yes | S | safe, but silent in routed mode |
 | R1 | R0 + per-session routing record + prompt clause | yes | M | recommended |
-| R2 | `handoff(to: "@tawa", report: true)` | no | M | blocked twice: no lineage, and a standing owner prohibition on handoff to tawa would have to be lifted |
-| R3 | Dedicated `report` tool | no | M | needs lineage; also duplicates the `task()` return value |
+| R2 | `handoff(to: "@tawa", report: true)` | no | M | blocked by the standing owner prohibition on handoff to tawa; lineage exists (`session.created.parentID`) but does not lift it |
+| R3 | Dedicated `report` tool | no | M | lineage exists, but a tool that pushes to tawa is a re-dispatch route and K10 forbids it; it also duplicates the `task()` return value |
 | R4 | Structured `blocker`/`needs` fields on the tool result | partly | L | the `task` result shape belongs to the host; the plugin authors handoff results itself, so a structured field is feasible there only |
 | R5 | `record` entry tagged with the root session, read by tawa later | no | M | there is no host session key: `ctx.sessionId` is generated locally as `session-<timestamp>-<uuid>` (`session-manager.ts:44-46`, passed at `hooks-registration.ts:188`); the channel is also pull, not push |
 
-R2, R3, and R5 are not wrong in principle. They are blocked by the absence of lineage recorded in
-2.4. The `experimental.idle` snapshot is post-hoc — it lists live children after dispatch, not the
-parent of a child at its first message — so it does not change this verdict. If the host later
-exposes a parent session id, R2 becomes the cleanest formal channel and should be re-evaluated.
-Until then, R1 is the only design that satisfies K10 without guessing.
+R2, R3, and R5 are not wrong in principle. R2 and R3 are blocked by K10's prohibition on
+returning or re-dispatching to tawa; R5 is blocked because there is no host session key. The
+`experimental.idle` snapshot is post-hoc — it lists live children after dispatch, not the parent
+of a child at its first message — so it does not change the verdict. Lineage is available (2.4),
+but it only changes the verdict if the owner lifts K10; until then, R1 is the only design that
+satisfies K10 without guessing.
 
 ---
 
@@ -571,7 +580,7 @@ trade-off is one untranslated string.
 | P0b | Rewrite the eight role prompts and the `AgentManager` template, rows 19-26 and 30 | the same erasure scan applied to `src/core/agent-data.ts` and `src/context/managers/AgentManager.ts`, whose roles allow `@explore` only where `TASK_PERMISSIONS` does | revert the commit |
 | P1 | Add `routing` and the prompt ring to `PipelineState`, classify by content, inherit on a ring hit or a sentinel-only message, latch only a ring-derived dispatch record, keep `preferredAgent` for the turn that wrote it, wire both maps into all three reset sites, migrate the three guards in 4.6, and rewrite `prove-guard-routing.ts:97-108` to seed a record | a two-session concurrency proof shows no bleed for messages and for permissions; a dispatch prompt that quotes tawa keeps its normal parent's mode; a root message that quotes tawa classifies as routed; a `dispatch` record never blocks tools; a REROUTE preference is honoured for the rest of its turn and cleared by the next user message; a routing-only session is evicted by the sweep | record absent = normal mode |
 | P2 | Inject the report-path clause and its trailing sentinel from an effect beside `commitCallDepthEffect`, and record the pre-injection prompt in the ring | the clause appears once, only in routed mode, contains no standalone tawa token, trips neither detector, and the emitted prompt ends with the sentinel | clause off |
-| P3 | Re-evaluate R2 if the host exposes lineage | decision recorded, not code | n/a |
+| P3 | Probe the host and record the R2 decision: lineage is available through `session.created.parentID`, the `subagent` tool requires `prompt`, and `input.agent` is the running agent | decision recorded in 10.1 and 10.5 and in the Section 11 probes; no code change; `prove-report-path` stays green | n/a |
 
 P0 is valuable on its own and should land first. It fixes the death-by-substitution pattern even if
 P1 and P2 are never built.
@@ -692,45 +701,71 @@ Without them the constraint is documentation, not a gate.
 | Prompt growth per dispatch | low | about 40 tokens plus the sentinel, one per dispatch |
 | The routing record grows without bound | high before wiring, low after | list `routing` in `PipelineState.ts:165-171` and `:179-189`, then prove a routing-only session is evicted; until both loops change, the map is unowned |
 | The ring is not swept, so expired entries hold slots and can evict a live entry | low | entries are purged on every write and match, the ring holds 64, and an eviction inside the ten-minute window is a logged miss rather than a silent one |
-| The sweep evicts a live session mid-tree and drops its `preferredAgent` | low | accepted consequence: the ring can re-inherit routing for a child, but a preference is not re-derivable; §10 Q3 records the trade-off |
+| The sweep evicts a live session mid-tree and drops its `preferredAgent` | low | accepted consequence: the ring can re-inherit routing for a child, but a preference is not re-derivable; the D7 decision records the trade-off |
 | The global flags and the record disagree | medium | after P1 the three guards in 4.6 read only the record; a proof asserts the migration |
 | The child cannot prove it relays the clause | high | accepted; depth 2-3 depends on the instruction text, not on enforcement |
 
 ---
 
-## 10. Open questions
+## 10. Decisions (revision 7)
 
-1. Is "caller" acceptable as the only addressee in guard text, given that the plugin cannot print
-   the caller's name?
-2. Should direct routing to a single non-tawa agent count as routed mode? The recommendation is no.
-3. Should `preferredAgent` expire on the next user message, or persist until a new override?
-   The recommendation is the next user message: that is today's behaviour
-   (`message-updated.ts:133` resets the global on every user message), and persisting it would make
-   a one-turn override permanent and let a stale preference shadow a later direct classification.
-4. Should the clause be compressed further? The current text is about 40 tokens plus the sentinel.
-5. If the host exposes a parent session id, should the sentinel become a fallback and lineage the
-   channel, or the reverse?
-6. Which hook is authoritative for clearing the record: `sweepStaleSessions` alone, or a dispose
-   hook at `hooks-registration.ts:448-454`?
-7. Is a handoff-specific completion message enough, or should `handoff` gain a `result` push to
-   `from` in a later change?
-8. Ring size: 64 entries is a guess. What is the realistic concurrent-dispatch ceiling in a routed
-   tree? The ring must be wired into both sweep loops either way.
+Every question below stayed open through revision 6. A five-agent ballot closed all eight items;
+the tally is written per item, with a unanimous item shown as A x 5. The decisions are the design
+record; 10.1 and 10.3 carry the isolated evidence.
+
+| Ballot | Question | Decision | Vote |
+| --- | --- | --- | --- |
+| D3 | Is "caller" acceptable as the only addressee in guard text, given that the plugin cannot print the caller's name? | Keep "caller" everywhere. `input.agent` is the running agent, so naming it would tell a child to return to itself. | A x 3, B x 2 |
+| D7 | Should direct routing to a single non-tawa agent count as routed mode? | No. A direct route stays a direct route and never injects the clause or the sentinel. Implemented in P1. | A x 5 |
+| D7 | Should `preferredAgent` expire on the next user message, or persist until a new override? | The next user message, which is today's reset at `message-updated.ts:133`. Persisting would make a one-turn override permanent and let a stale preference shadow a later classification. Implemented in P1. | A x 5 |
+| D4 | Should the clause be compressed further? | No. Keep the current 190-character, 35-word clause (about 40 tokens) plus the sentinel. Compression saved a few tokens and cost the addressee wording that the tests in 10.1 depend on. | A x 5 |
+| D1 | If the host exposes a parent session id, should the sentinel become a fallback and lineage the channel, or the reverse? | The sentinel stays the channel (R1); R2 is not implemented. Lineage is available, but K10 forbids returning or re-dispatching to `@tawa`, so lineage would buy a better log line, not a legal route. | A x 4, B x 1 |
+| D7 | Which hook is authoritative for clearing the record: `sweepStaleSessions` alone, or a dispose hook at `hooks-registration.ts:448-454`? | `sweepStaleSessions` alone, plus the ring purge on write and `resetAll`. A dispose hook fires per host session teardown and cannot be ordered against the sweep. Implemented in P1. | A x 5 |
+| D5 | Is a handoff-specific completion message enough, or should `handoff` gain a `result` push to `from` in a later change? | The completion message is enough. `completeHandoff` stays completion-result-only, with no push to `from` (`handoff-service.ts:472-508`). | A x 5 |
+| D6 | Ring size: 64 entries is a guess. What is the realistic concurrent-dispatch ceiling in a routed tree? | 64 stays. The ceiling is 5 parallel copies x depth 3 = 15 live dispatches, so 64 leaves headroom for diagnostics without a purge on every write. | A x 5 |
+
+### 10.1 The addressee, tested
+
+Policy A (kept): `Return your result to your caller so it can decide the next step.`
+
+Policy B (rejected): `Return your result to tester so it can decide the next step.`
+
+The isolated probe spawned a `tawa` session, dispatched once to `tester`, and had the child
+attempt a self-dispatch. The child session ran as `tester`; its parent ran as `tawa`. The guard
+that fired named `tester`, the running agent. Policy B would put a child's own name in every
+non-tawa session, which is false in the one case the message exists for. Policy A stays true
+without reading lineage.
+
+### 10.2 Containment, ratified
+
+Revision 6 found that the host prefixes a native subagent prompt with its own preamble, so a
+prefix match on the recorded prompt can never fire. Revision 7 ratifies the revision 6 fix:
+`matchPromptRing` normalizes whitespace and case and matches by containment (`includes`), and a
+`tawa`-mode entry still requires the sentinel. No further change.
+
+### 10.3 Lineage versus the sentinel
+
+The ballot's minority position was to make lineage the channel and keep the sentinel as a
+fallback. It is recorded because the schema supports it and a later owner may lift K10. Until
+then, reading `session.created.parentID` would add a subscription the design does not need and a
+second source of truth for the same fact.
 
 ---
 
 ## 11. Runtime probes
 
-These are facts the tree cannot answer and that change the design. Revision 5 keeps the removal of
-the gate that revision 2 wanted to probe: the two questions about `input.agent` are answered by `setup.ts:259` and
-by the per-session registration at `setup.ts:708-711`, and the design no longer reads the field.
+These are facts the tree cannot answer and that change the design. Revision 5 removed the gate
+that revision 2 wanted to probe: the two questions about `input.agent` are answered by
+`setup.ts:259` and by the per-session registration at `setup.ts:708-711`, and the design no longer
+reads the field. Revision 7 ran the two probes that were still open; both receipts are under
+`docs/experiments/receipts/`.
 
-| Probe | Why it matters | Safe default if unknown |
+| Probe | Result | Consequence |
 | --- | --- | --- |
-| Does a child task prompt reach `chat.message` at all? | If it does not, inheritance never fires and the closing sentence is the only carrier | The sentence stays in the clause; no state is written |
-| Is `completeHandoff` ever followed by a push to `from` outside this service? | Determines whether handoff can ever carry the report clause | Keep handoff excluded |
-| Does the host emit `session.created` with a parent id? | Would turn the sentinel into a fallback and unlock R2 | Keep the sentinel as the channel |
-| Which `task` arg (`prompt`, `desc`, `description`) becomes the child's user message? | The ring match and the sentinel both depend on the mutated field being the delivered text | Mutate all three shapes by precedence (4.3) and probe that the child receives the clause exactly once |
+| Does a child task prompt reach `chat.message` at all? | Yes. The P2 trial found the host prefixes the dispatcher's prompt with `You are a subagent spawned by another session.` The P3 trial reconfirms it: the routed child's stored first user message carries the clause and one trailing sentinel. | Inheritance fires; the ring match is containment, not a prefix match |
+| Is `completeHandoff` ever followed by a push to `from` outside this service? | No. `handoff-service.ts:472-508` ends at the completion record, and decision D5 keeps it that way. | Handoff stays excluded from the clause |
+| Does the host emit `session.created` with a parent id? | Yes. `parentID` is optional on the event (`@opencode/schema/dist/event-manifest.d.ts:277-330`, `session.d.ts:36`), and `setup.ts:766` already subscribes to raw events. | §2.4's original premise was wrong; decision D1 still keeps R2 out because K10 binds |
+| Which `task` arg (`prompt`, `desc`, `description`) becomes the child's user message? | `prompt`. It is a required host argument: a dispatch that carries only `description` fails with `Invalid arguments for tool "subagent": prompt: Missing key` and no child session is created. `description` is a label and is never promoted to the delivered text. The effect still appends to whichever key it finds, so `description` is mutated for hosts and shims that read it. | Mutate all three by precedence (4.3); the delivered prompt is the one that must carry the clause and the sentinel exactly once |
 
 Answered during review, no longer open:
 
@@ -738,6 +773,7 @@ Answered during review, no longer open:
 | --- | --- |
 | Does a user-role message ever carry `input.agent`? | No: the bridge forwards it for the assistant role only (`setup.ts:259`) |
 | Can `ctx.sessionId` stand in for the host session? | No: it is local and synthetic (`session-manager.ts:44-46`) |
+| Does `input.agent` name the dispatcher? | No: it names the running agent. The isolated probe in 10.1 shows a `tester` child under a `tawa` parent, and the guard that fired named `tester` |
 
 ---
 
@@ -813,6 +849,12 @@ Answered during review, no longer open:
 | 66 | Section 2 and the applied Section 6 rows re-cited to HEAD; rows 7-8 replaced with the real pre-P0 sentence ("cannot use task(). Distribution is via @tawa only." at `:155/:157` and `:159/:161`), which revision 5 had misquoted; Appendix A declared working-tree; proof 18's record count corrected | deepseek, verified in the tree |
 | 67 | Row 2's Current text restored to the real pre-P0 sentence at `:75`; row 14 moved to pre-P0 `:22` with its real sentence; §2.2 now lists ten messages, including `:75`; the count surface includes `docs/validation.md:13` as plain text | deepseek, verified in the tree |
 | 68 | Citation audit against both trees: row 7 corrected to pre-P0 `:155/:157`; the circuit-breaker guard restored to pre-P0 `:187-202`; §2.5's depth check set to pre-P0 `:84`; §4.1's depth read set to working-tree `:37`; §4.3's prompt mutation re-cited to working-tree `:178-181` inside `:172-183`; Appendix A's circuit-breaker, prompt, and depth rows re-read from the working tree, and its substitute-agent label renamed to guard message sites | deepseek, verified in the tree |
+| 69 | Revision 7 closes all eight ballot items in §10: D3 A x 3 / B x 2, D1 A x 4 / B x 1, all others A x 5 | five-agent ballot, 2026-11-05 |
+| 70 | §2.4 corrected: `session.created.parentID` exists and `setup.ts:766` subscribes to raw events; R2 stays out because K10 binds, not because lineage is missing | deepseek, verified against the host schema |
+| 71 | §7 P3 is a recorded decision, not a code phase; the exit criterion is the decision plus a green proof | ballot D1 |
+| 72 | §10.1 records the addressee probe: a `tester` child under a `tawa` parent, the guard naming the running agent, and policy B rejected | isolated P3 trial, 2026-11-05 |
+| 73 | §11 records the argument probe: `prompt` is required, a `description`-only dispatch is refused before a child exists, and `description` is never promoted to the delivered text | isolated P3 trial, 2026-11-05 |
+| 74 | §10.2 ratifies revision 6's normalized containment and keeps the sentinel requirement on a tawa-mode ring hit | ballot D2 |
 
 Every claim added in revision 5 was re-read in this tree before it was accepted. The review behind
 revision 2 recorded only two evaluations for five agents; revisions 3-5 findings that could not be
