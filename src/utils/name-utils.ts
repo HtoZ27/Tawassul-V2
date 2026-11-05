@@ -41,7 +41,7 @@ export function normalizeName(v: unknown): string {
 
 
 
-const TOOL_ALIASES: Record<string, string> = { shell: "bash" };
+const TOOL_ALIASES: Record<string, string> = { shell: "bash", subagent: "task" };
 
 export function normalizeToolName(name: string): string {
   const n = normalizeName(name);

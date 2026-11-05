@@ -483,6 +483,7 @@ export async function ensureMinimalProjectContract(
     }
     const doc: Record<string, unknown> = {
       $schema: "https://opencode.ai/config.json",
+      experimental: { subagent_depth: 3 },
       agent: {},
     };
     const configPath = resolve(projectDir, "opencode.json");

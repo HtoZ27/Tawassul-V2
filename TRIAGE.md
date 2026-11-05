@@ -113,6 +113,17 @@ evidence.
 | v2 program itself | v1-only | Covered by S-042…S-048, S-053, S-056. |
 | Dead-since-written sections, dead links, orphan test comment | dead | No functional break; do not re-open. |
 
+## Known constraints (v2)
+
+| Constraint | Evidence | Consequence |
+| --- | --- | --- |
+| `callDepth` counts dispatches per session, never per nesting level | `src/hooks/guards/dispatch-guards.ts:235–251` increments the parent session only | A child session starts at 0, so the `callDepth !== 0` test cannot tell a child from a root session |
+| Exempt reconnaissance does not increment the depth counter | `src/hooks/guards/dispatch-guards.ts:243–247` | A session that only calls `@explore`/`@general` keeps `callDepth = 0` and stays subject to the routed-turn shell block |
+| The exemption has a cliff | `src/hooks/PipelineState.ts:31` (`MAX_EXEMPT_CALLS = 20`) | The twenty-first exempt call counts toward the three-dispatch budget |
+| Host nesting is a config value, not plugin code | `experimental.subagent_depth` in the project config; the host default is 1 | The plugin cannot raise or lower it; the seed writes 3 for new projects, and existing projects must set it once |
+| The depth ceiling has a config knob | `src/context/config-schema.ts:14` (`maxCallDepth` 1..20) | 3 is the default, not an immutable constant; the owner chose to leave the upper bound open |
+| `callDepthGuard` skips unnamed callers | `src/hooks/guards/dispatch-guards.ts:32` | A host that omits the agent name bypasses the plugin ceiling entirely |
+
 ## Day 4 outcome
 
 - Applied: release smoke (`scripts/release-smoke.sh`), catch discipline

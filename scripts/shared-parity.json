@@ -397,7 +397,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/utils/opencode-config.ts",
-            "line": 506,
+            "line": 507,
             "marker": "ensureGlobalRosterSeed"
           },
           "proofs": [
@@ -1029,7 +1029,7 @@
             "scripts/prove-e02.ts"
           ],
           "issue": null,
-          "note": "subagent_depth and compaction.prune are absent from opencode.json and boot repair does not re-add them.",
+          "note": "top-level subagent_depth stays absent from opencode.json; the live config pins experimental.subagent_depth to 3 so the host nesting limit matches the plugin ceiling, and boot repair never re-adds either key.",
           "hostNote": null
         }
       ],

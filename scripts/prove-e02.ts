@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DYNAMIC_MODEL_SENTINEL } from "../src/services/proxy-fallback-chains.ts";
@@ -173,11 +173,27 @@ async function main(): Promise<void> {
     "a freshly generated config already satisfies the permission repair",
   );
 
-  const liveConfig = readFileSync(join(repo, "opencode.json"), "utf8");
-  assert(!liveConfig.includes("subagent_depth"), "the live config carries no subagent_depth key");
-  assert(!liveConfig.includes('"compaction"'), "the live config carries no compaction block");
-  assert(!generatedRaw.includes("subagent_depth"), "generated config never emits subagent_depth");
+  const livePath = join(repo, "opencode.json");
+  const liveConfig = existsSync(livePath) ? readFileSync(livePath, "utf8") : "";
+  if (liveConfig) {
+    const liveDoc = JSON.parse(liveConfig) as Record<string, unknown>;
+    assert(!("subagent_depth" in liveDoc), "the live config carries no top-level subagent_depth key");
+    assert(
+      (liveDoc["experimental"] as Record<string, unknown> | undefined)?.["subagent_depth"] === 3,
+      "the live config pins experimental.subagent_depth to 3",
+    );
+    assert(!liveConfig.includes('"compaction"'), "the live config carries no compaction block");
+  } else {
+    console.log("skip live config checks: the checkout has no opencode.json (gitignored by design)");
+  }
+  assert(!generatedRaw.includes("subagent_depth"), "the generated agent roster never emits subagent_depth");
   assert(!generatedRaw.includes('"compaction"'), "generated config never emits compaction");
+
+  const bare = JSON.stringify({ model: "opencode/big-pickle", agent: {} }, null, 2);
+  assert(
+    !("subagent_depth" in (JSON.parse(applyBootRepairs(bare).next) as Record<string, unknown>)),
+    "boot repair never adds a depth key",
+  );
 
   const legacyRaw = JSON.stringify(
     {
@@ -197,8 +213,12 @@ async function main(): Promise<void> {
     "boot repair leaves compaction.prune untouched",
   );
   const repairSource = readFileSync(join(repo, "src", "utils", "opencode-config.ts"), "utf8");
-  assert(!repairSource.includes("subagent_depth"), "the repair source names no subagent_depth key");
-  assert(!repairSource.includes("compaction.prune"), "the repair source names no compaction.prune key");
+  const repairStart = repairSource.indexOf("export function applyBootRepairs");
+  const repairEnd = repairSource.indexOf("export async function repairProjectConfigBoot");
+  const repairFn = repairStart >= 0 && repairEnd > repairStart ? repairSource.slice(repairStart, repairEnd) : "";
+  assert(repairFn.length > 0, "the boot repair function is present");
+  assert(!repairFn.includes("subagent_depth"), "the boot repair never names subagent_depth");
+  assert(!repairFn.includes("compaction.prune"), "the boot repair never names compaction.prune");
 }
 
 try {
