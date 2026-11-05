@@ -18,9 +18,12 @@ import {
 } from "../src/hooks/guards/resource-guards.ts";
 import {
   callDepthGuard,
+  internalDuplicateGuard,
   recordDispatchPromptEffect,
   tawaRedirectGuard,
 } from "../src/hooks/guards/dispatch-guards.ts";
+import { getTaskAgents } from "../src/hooks/guards/shared/normalize.ts";
+import { subagentArgsToV1, v1ArgsToSubagent } from "../src/v2/delegation.ts";
 import { logger } from "../src/utils/logger.ts";
 
 let passed = 0;
@@ -259,6 +262,29 @@ const quotedChild = tawaQuoted.recordUserMessage("child", "inspect the tawa rout
 assert(quotedChild.mode === "normal", "a dispatch prompt that quotes tawa keeps its normal parent mode");
 assert(quotedChild.source === "dispatch" && quotedChild.latched === true, "the normal parent records a latched dispatch");
 
+const hostPreamble = "You are a subagent spawned by another session.\n";
+const prefixedState = new PipelineState();
+prefixedState.recordDispatchPrompt("parent", "inspect the parser and report back", "normal");
+const prefixed = prefixedState.recordUserMessage("child", `${hostPreamble}inspect the parser and report back`);
+assert(prefixed.source === "dispatch" && prefixed.latched === true, "a host-prefixed child prompt still matches the ring");
+const prefixedQuoted = new PipelineState();
+prefixedQuoted.recordDispatchPrompt("parent", "inspect the tawa routing notes and report back", "normal");
+const prefixedQuotedChild = prefixedQuoted.recordUserMessage(
+  "child",
+  `${hostPreamble}inspect the tawa routing notes and report back`,
+);
+assert(
+  prefixedQuotedChild.mode === "normal" && prefixedQuotedChild.source === "dispatch",
+  "a host-prefixed child keeps the normal parent mode even when it quotes tawa",
+);
+const prefixedTawa = new PipelineState();
+prefixedTawa.recordDispatchPrompt("parent", "investigate the failing guard today", "tawa");
+const prefixedTawaChild = prefixedTawa.recordUserMessage("child", `${hostPreamble}investigate the failing guard today`);
+assert(
+  prefixedTawaChild.mode === "normal" && prefixedTawaChild.source === "classified",
+  "a host-prefixed tawa hit without the sentinel still does not bleed",
+);
+
 const bleedState = new PipelineState();
 bleedState.recordDispatchPrompt("parent", "investigate the failing guard today", "tawa");
 const prefixMiss = bleedState.recordUserMessage("prefix-child", "investigate the failing guard today");
@@ -454,13 +480,15 @@ assert(effectState.promptRing.length === 1, "the dispatch effect records one tas
 assert(effectState.promptRing[0]?.dispatcherSessionID === "parent", "the ring entry names the dispatcher session");
 assert(effectState.promptRing[0]?.mode === "normal", "the ring entry carries the dispatcher mode");
 assert(taskOut.args.prompt === "please inspect the parser and report back", "the effect leaves a P1 prompt unchanged");
+const handoffOut: Out = { args: { to: "dev", task: "inspect", context: "inspect the parser closely" } };
 await allows(
   recordDispatchPromptEffect,
   ctxOf(effectState),
   { tool: "handoff", agent: "analyst", sessionID: "parent" },
-  { args: { to: "dev", task: "inspect", context: "inspect the parser closely" } },
+  handoffOut,
 );
 assert(effectState.promptRing.length === 1, "the dispatch effect ignores handoff");
+assert(handoffOut.args.context === "inspect the parser closely", "handoff never receives the clause");
 
 const precedenceState = new PipelineState();
 precedenceState.recordUserMessage("parent", "plain message");
@@ -505,6 +533,140 @@ assert(
   precedenceState.promptRing[3]?.prompt === "first parallel dispatch prompt text" &&
     precedenceState.promptRing[4]?.prompt === "second parallel dispatch prompt text",
   "parallel entries keep their own prompt text",
+);
+
+function occurrences(text: string, needle: string): number {
+  return text.split(needle).length - 1;
+}
+
+const routedEffect = new PipelineState();
+routedEffect.recordUserMessage("parent", "please handle this @tawa");
+const routedTaskOut: Out = { args: { prompt: "inspect the parser and report your findings" } };
+await allows(
+  recordDispatchPromptEffect,
+  ctxOf(routedEffect),
+  { tool: "task", agent: "analyst", sessionID: "parent" },
+  routedTaskOut,
+);
+const routedPrompt = String(routedTaskOut.args.prompt);
+assert(
+  routedPrompt === `inspect the parser and report your findings${REPORT_PATH_CLAUSE}`,
+  "a routed dispatch appends exactly one clause",
+);
+assert(occurrences(routedPrompt, REPORT_PATH_SENTINEL) === 1, "the routed child prompt carries one sentinel");
+assert(hasReportPathSentinel(routedPrompt), "the routed child prompt ends with the sentinel");
+assert(
+  !TAWA_MENTION_REGEX.test(routedPrompt),
+  "the routed child prompt does not trip the tawa mention regex",
+);
+assert(
+  !EXPLICIT_DISPATCH_REGEX.test(routedPrompt),
+  "the routed child prompt does not trip the dispatch regex",
+);
+assert(
+  routedEffect.promptRing[0]?.prompt === "inspect the parser and report your findings",
+  "the ring stores the prompt before injection",
+);
+const inheritedChild = routedEffect.recordUserMessage("child", routedPrompt);
+assert(
+  inheritedChild.mode === "tawa" && inheritedChild.source === "dispatch" && inheritedChild.latched,
+  "the injected child prompt inherits tawa through the ring",
+);
+const coldFromClause = new PipelineState().recordUserMessage("cold-child", routedPrompt);
+assert(
+  coldFromClause.mode === "tawa" && coldFromClause.source === "dispatch" && coldFromClause.latched === false,
+  "the injected prompt cold-starts from the sentinel when the ring is empty",
+);
+
+const twiceOut: Out = { args: { prompt: routedPrompt } };
+await allows(
+  recordDispatchPromptEffect,
+  ctxOf(routedEffect),
+  { tool: "task", agent: "analyst", sessionID: "parent" },
+  twiceOut,
+);
+assert(String(twiceOut.args.prompt) === routedPrompt, "a prompt that already ends with the sentinel is not injected twice");
+assert(
+  occurrences(String(twiceOut.args.prompt), REPORT_PATH_SENTINEL) === 1,
+  "the re-dispatch keeps one sentinel",
+);
+
+const descRouted = new PipelineState();
+descRouted.recordUserMessage("parent", "@tawa run this work");
+const descOut: Out = { args: { desc: "inspect the failing guard and report back" } };
+await allows(
+  recordDispatchPromptEffect,
+  ctxOf(descRouted),
+  { tool: "task", agent: "analyst", sessionID: "parent" },
+  descOut,
+);
+assert(
+  descOut.args.desc === `inspect the failing guard and report back${REPORT_PATH_CLAUSE}`,
+  "the desc fallback receives the clause in routed mode",
+);
+assert(
+  descRouted.promptRing[0]?.prompt === "inspect the failing guard and report back",
+  "the desc ring entry also stores the prompt before injection",
+);
+
+const parallelRouted = new PipelineState();
+parallelRouted.recordUserMessage("parent", "@tawa split the work");
+const parallelOut: Out = { args: { desc: ["inspect the parser closely and report back", "inspect the writer closely and report back"] } };
+await allows(
+  recordDispatchPromptEffect,
+  ctxOf(parallelRouted),
+  { tool: "task", agent: "analyst", sessionID: "parent" },
+  parallelOut,
+);
+const parallelList = parallelOut.args.desc as string[];
+assert(parallelList.length === 2, "the parallel list keeps both elements");
+assert(
+  parallelList.every((item) => hasReportPathSentinel(item) && occurrences(item, REPORT_PATH_SENTINEL) === 1),
+  "each parallel element ends with exactly one sentinel",
+);
+assert(
+  parallelList[0] === `inspect the parser closely and report back${REPORT_PATH_CLAUSE}` &&
+    parallelList[1] === `inspect the writer closely and report back${REPORT_PATH_CLAUSE}`,
+  "each parallel element carries its own full clause",
+);
+assert(
+  parallelRouted.promptRing.length === 2 &&
+    parallelRouted.promptRing[0]?.prompt === "inspect the parser closely and report back" &&
+    parallelRouted.promptRing[1]?.prompt === "inspect the writer closely and report back",
+  "each parallel element enters the ring before injection",
+);
+
+const bridged = subagentArgsToV1({
+  agent: "explore",
+  description: "Read package.json",
+  prompt: "Read package.json and report the version",
+});
+assert(
+  bridged.subagent === "explore" && bridged.agent === undefined,
+  "the v2 bridge moves the host agent into subagent without duplication",
+);
+assert(getTaskAgents({ args: bridged }).allRaw.length === 1, "the bridged task carries exactly one target");
+const bridgeOut: Out = { args: { ...bridged } };
+assert(
+  await allows(
+    internalDuplicateGuard,
+    ctxOf(new PipelineState()),
+    { tool: "task", agent: "tawa", sessionID: "bridge" },
+    bridgeOut,
+  ),
+  "the duplicate guard accepts the bridged dispatch",
+);
+const restored = v1ArgsToSubagent(bridged);
+assert(restored.agent === "explore", "the bridge restores the host agent field");
+const duplicateOut: Out = { args: { subagent: ["explore", "explore"] } };
+assert(
+  !(await allows(
+    internalDuplicateGuard,
+    ctxOf(new PipelineState()),
+    { tool: "task", agent: "tawa", sessionID: "bridge" },
+    duplicateOut,
+  )),
+  "the duplicate guard still rejects a genuine duplicate",
 );
 
 console.log(`PROOF PASS: report path routing and prompt ring (${passed} assertions)`);

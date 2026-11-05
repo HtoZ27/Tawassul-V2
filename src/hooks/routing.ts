@@ -79,7 +79,7 @@ export function matchPromptRing(
     const entry = ring[i];
     if (!entry) continue;
     if (now - entry.at > RING_TTL_MS) continue;
-    if (normalized.startsWith(normalizePrompt(entry.prompt))) return entry;
+    if (normalized.includes(normalizePrompt(entry.prompt))) return entry;
   }
   return null;
 }

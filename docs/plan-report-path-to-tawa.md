@@ -1,9 +1,10 @@
 # Report Path to the Coordinator — Design Plan
 
-Revision: 5. Revisions 2, 3, and 4 were reviewed by analyst agents; this revision applies the
-confirmed findings and fixes the clause, its insertion point, and the record schema. See Section 12.
-Status: P0 implemented on 2026-11-05 (messages 1-14). Messages 15-18 and 27-29 are the P0
-amendment; rows 19-26 and 30 are P0b. None are applied yet. P1 and P2 are proposals.
+Revision: 6. Revision 5 was the reviewed design (see Section 12); revision 6 records the P2 trial
+findings: the host prefixes native subagent prompts, so ring matching is containment, and the v2
+bridge moves the host `agent` field into `subagent` instead of copying it.
+Status: P0, the P0 amendment, P0b, P1, and P2 are implemented in this tree as of 2026-11-05.
+The phase table below remains the design record.
 Date: 2026-11-05
 Scope: Tawassul V2, this tree, OpenCode host >= 2.2.0
 Companion document: `docs/plan-token-burn-control.md`
@@ -242,11 +243,13 @@ Four rules on the write, in this order:
 1. **A dispatched prompt inherits.** On every `task` dispatch the plugin stores
    `{ dispatcherSessionID, prompt, mode, at }` in a bounded ring of 64 entries inside
    `PipelineState`, where `prompt` is the text **before** the clause is appended. A user message
-   whose whitespace-collapsed, lower-cased text starts with a stored prompt is a dispatch prompt.
-   The match is `startsWith`, not a fixed-length prefix — a prompt shorter than the prefix would
-   otherwise never match its own child — and it normalizes whitespace and case so host reformatting
-   does not break it. **A ring hit whose mode is `tawa` is honoured only when the message also ends
-   with the sentinel**; a tawa prefix match without it is ignored and logged, and classification
+   whose whitespace-collapsed, lower-cased text contains a stored prompt is a dispatch prompt.
+   The match is containment, not a fixed-length prefix: the host prepends
+   `You are a subagent spawned by another session.` to native subagent prompts, so a start-anchored
+   match never fires in production. Containment still requires the full stored prompt, which is at
+   least 32 characters, and it normalizes whitespace and case so host reformatting does not break
+   it. **A ring hit whose mode is `tawa` is honoured only when the message also ends
+   with the sentinel**; a tawa ring match without it is ignored and logged, and classification
    takes over. Every other ring hit inherits `normal`, so a dispatched child never carries the
    parent's `direct` or `explicit` mode. Entries expire after ten minutes, are purged on every write
    and match, and are **not** consumed, because two parallel siblings must both inherit.

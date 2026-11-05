@@ -26,7 +26,7 @@ import { t } from "../../translations.ts";
 import { logger } from "../../utils/logger.ts";
 import { resolveRole } from "../../utils/agent.ts";
 import { allowedTaskTargetsText } from "./shared/task-targets.ts";
-import type { RoutingMode } from "../routing.ts";
+import { REPORT_PATH_CLAUSE, hasReportPathSentinel, type RoutingMode } from "../routing.ts";
 
 export const callDepthGuard = guard("call-depth", (ctx, input, output) => {
   if (input.tool !== "task" || !input.sessionID) return null;
@@ -274,11 +274,16 @@ export const recordDispatchPromptEffect = effect("record-dispatch-prompt", (ctx,
   const value = args[key];
   if (typeof value === "string") {
     state.recordDispatchPrompt(sessionID, value, mode);
+    if (mode === "tawa" && !hasReportPathSentinel(value)) args[key] = `${value}${REPORT_PATH_CLAUSE}`;
     return;
   }
   if (Array.isArray(value)) {
-    for (const item of value) {
-      if (typeof item === "string" && item.trim().length > 0) state.recordDispatchPrompt(sessionID, item, mode);
-    }
+    const injected = value.map((item) => {
+      if (typeof item !== "string" || item.trim().length === 0) return item;
+      state.recordDispatchPrompt(sessionID, item, mode);
+      if (mode !== "tawa" || hasReportPathSentinel(item)) return item;
+      return `${item}${REPORT_PATH_CLAUSE}`;
+    });
+    args[key] = injected;
   }
 });

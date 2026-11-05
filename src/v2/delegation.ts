@@ -9,6 +9,7 @@ export function subagentArgsToV1(args: unknown): Record<string, unknown> {
   const out = { ...(args as Record<string, unknown>) };
   if (out.subagent === undefined && typeof out.agent === "string") {
     out.subagent = out.agent;
+    delete out.agent;
   }
   return out;
 }
