@@ -1117,6 +1117,13 @@
       ]
     },
     {
+      "name": "call-depth-clamp",
+      "cmd": [
+        "bun",
+        "scripts/prove-call-depth-clamp.ts"
+      ]
+    },
+    {
       "name": "payload-cache",
       "cmd": [
         "bun",

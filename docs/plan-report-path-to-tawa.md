@@ -1,15 +1,17 @@
 # Report Path to the Coordinator — Design Plan
 
-Revision: 7.1. Revision 5 was the reviewed design (see Section 12); revision 6 recorded the P2
+Revision: 7.2. Revision 5 was the reviewed design (see Section 12); revision 6 recorded the P2
 trial findings: the host prefixes native subagent prompts, so ring matching is containment, and
 the v2 bridge moves the host `agent` field into `subagent` instead of copying it. Revision 7
 closed every question in Section 10 by ballot and recorded the P3 probes: the host requires
 `prompt` on the `subagent` tool, `description` is never promoted to the delivered text, and
 `input.agent` names the running agent rather than the dispatcher. Revision 7.1 corrects the R5
 rationale after a five-agent review: `ToolContext.sessionID` is a host key, and `record` simply
-does not use it.
+does not use it. Revision 7.2 defers R5: the write tag has no consumer, so it would change no
+observable behaviour.
 Status: P0, the P0 amendment, P0b, P1, P2, and P3 are closed in this tree as of 2026-11-05. P3 is
-a decision, not code: lineage exists, but R2 stays unimplemented because K10 binds.
+a decision, not code: lineage exists, but R2 stays unimplemented because K10 binds. R5 is
+deferred: no read surface consumes a session tag, so it has no consumer and no schedule.
 The phase table below remains the design record.
 Date: 2026-11-05
 Scope: Tawassul V2, this tree, OpenCode host >= 2.2.0
@@ -494,13 +496,18 @@ eviction also clears it.
 | R2 | `handoff(to: "@tawa", report: true)` | no | M | blocked by the standing owner prohibition on handoff to tawa; lineage exists (`session.created.parentID`) but does not lift it |
 | R3 | Dedicated `report` tool | no | M | lineage exists, but a tool that pushes to tawa is a re-dispatch route and K10 forbids it; it also duplicates the `task()` return value |
 | R4 | Structured `blocker`/`needs` fields on the tool result | partly | L | the `task` result shape belongs to the host; the plugin authors handoff results itself, so a structured field is feasible there only |
-| R5 | `record` entry tagged with the root session, read by tawa later | partly | M | the host key exists in `ToolContext.sessionID` (`src/tool.ts:5`, `src/v2/adapters.ts:84`), but `record` never uses it and `RecordEntrySchema` carries no session field; the root id needs lineage resolution, and the channel is pull, not push |
+| R5 | `record` entry tagged with the root session, read by tawa later | partly | M | the host key exists in `ToolContext.sessionID` (`src/tool.ts:5`, `src/v2/adapters.ts:84`), but `record` never uses it and `RecordEntrySchema` carries no session field; the root id needs lineage resolution, and the channel is pull, not push. Deferred: no read surface consumes the tag, historical records cannot be backfilled, and the write alone changes no observable behaviour |
 
 R2, R3, and R5 are not wrong in principle. R2 and R3 are blocked by K10's prohibition on
 returning or re-dispatching to tawa. R5 is not blocked by the host: `ToolContext.sessionID`
 carries the host session key, but `record` never reads it, the record schema has no session
 field, and the root id needs lineage resolution; the pull-not-push shape is a design choice.
-R5 is therefore an implementation gap, not an owner decision. The `experimental.idle` snapshot is
+R5 is therefore an implementation gap, not an owner decision. It is nevertheless deferred. None
+of the eight record read surfaces consumes a session tag (`record.ts`, `hooks/session.ts`,
+`diagnostics.ts`, `message-updated-status.ts`), historical records cannot be backfilled, and a
+session filter would run against the cross-session memory the plugin exists to provide. Shipping
+the tag alone would change no observable behaviour, so it has no consumer and no schedule; it
+returns only when a specific reader is named. The `experimental.idle` snapshot is
 post-hoc — it lists live children after dispatch, not the parent of a child at its first
 message — so it does not change the verdict. Lineage is available (2.4), but it only changes the
 verdict for R2 and R3 if the owner lifts K10; until then, R1 is the only design that satisfies
@@ -757,7 +764,8 @@ second source of truth for the same fact.
 
 R3 and R5 are not ballot items. R3 shares R2's K10 block and is discussed in Section 5. R5 is an
 implementation gap, not a decision: the host key exists, `record` ignores it, and the R5 probe
-receipt records the runtime evidence.
+receipt records the runtime evidence. R5 is deferred as a capability without a consumer: no read
+surface uses a session tag, so no code change is scheduled.
 
 ---
 
@@ -781,7 +789,7 @@ Answered during review, no longer open:
 | Question | Answer in this tree |
 | --- | --- |
 | Does a user-role message ever carry `input.agent`? | No: the bridge forwards it for the assistant role only (`setup.ts:259`) |
-| Can `ctx.sessionId` stand in for the host session? | No: it is local and synthetic (`session-manager.ts:44-46`). Tools receive the real key separately as `ToolContext.sessionID` (`src/tool.ts:5`, `src/v2/adapters.ts:84`), which R5 would need and `record` ignores |
+| Can `ctx.sessionId` stand in for the host session? | No: it is local and synthetic (`session-manager.ts:44-46`). Tools receive the real key separately as `ToolContext.sessionID` (`src/tool.ts:5`, `src/v2/adapters.ts:84`), which R5 would need and `record` ignores; R5 is deferred because no read surface consumes it |
 | Does `input.agent` name the dispatcher? | No: it names the running agent. The isolated probe in 10.1 shows a `tester` child under a `tawa` parent, and the guard that fired named `tester` |
 
 ---
@@ -865,6 +873,7 @@ Answered during review, no longer open:
 | 73 | §11 records the argument probe: `prompt` is required, a `description`-only dispatch is refused before a child exists, and `description` is never promoted to the delivered text | isolated P3 trial, 2026-11-05 |
 | 74 | §10.2 ratifies revision 6's normalized containment and keeps the sentinel requirement on a tawa-mode ring hit | ballot D2 |
 | 75 | R5 rationale corrected: `ToolContext.sessionID` is a host key, so R5 is an implementation gap (`record` ignores the key, the schema has no session field, the root needs lineage) and not an owner decision. The P3 row now cites 10.1 and 10.3, §10.3 lists R3/R5 as non-ballot items, and §11 separates `ctx.sessionId` from the host key | five-agent review, `eval-4f55d759`, R5 probe receipt |
+| 76 | R5 deferred as a capability without a consumer: the write tag would change no observable behaviour, historical records cannot be backfilled, and a session filter would run against cross-session memory. No code change is scheduled; R5 returns only when a specific reader is named | owner decision, 2026-11-05 |
 
 Every claim added in revision 5 was re-read in this tree before it was accepted. The review behind
 revision 2 recorded only two evaluations for five agents; revisions 3-5 findings that could not be

@@ -11,6 +11,14 @@ export const PAUSE_BYPASS_TOOLS = new Set(["resume", "status"]);
 
 export let MAX_CALL_DEPTH = 3;
 export let MAX_TOTAL_TASKS = 25;
+
+export const HOST_CALL_DEPTH_CEILING = 3;
+
+export function resolveMaxCallDepth(requested: number | undefined): number | undefined {
+  if (requested === undefined || !Number.isFinite(requested) || requested <= 0) return undefined;
+  return Math.min(requested, HOST_CALL_DEPTH_CEILING);
+}
+
 export const setMaxCallDepth = (n: number) => {
   if (n > 0) MAX_CALL_DEPTH = n;
 };

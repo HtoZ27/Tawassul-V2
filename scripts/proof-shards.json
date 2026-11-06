@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "totalEstimateMs": 393341,
+  "totalEstimateMs": 394341,
   "shards": [
     {
       "name": "1",
@@ -153,7 +153,7 @@
     },
     {
       "name": "4",
-      "estimateMs": 99637,
+      "estimateMs": 100637,
       "steps": [
         "gen-merge",
         "roster-boundary",
@@ -186,6 +186,7 @@
         "model-failover",
         "model-failover-e2e",
         "repeat-guard",
+        "call-depth-clamp",
         "payload-cache",
         "routing-eval",
         "concordance",

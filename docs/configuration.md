@@ -73,7 +73,7 @@ a queue.
 
 | Key | Range | Default | Effect |
 | --- | --- | --- | --- |
-| `maxCallDepth` | 1–20 | `3` | Nested `task()` depth before dispatch is refused |
+| `maxCallDepth` | 1–20 | `3` | Nested `task()` depth before dispatch is refused; requests above 3 are bounded by the host ceiling of 3 |
 | `maxTotalTasks` | 1–100 | `25` | Total `task()` calls allowed in one session |
 
 Both limits exist to stop a delegation loop from consuming a session budget.
@@ -203,7 +203,7 @@ key. Detection states and the action precedence are described in
   "maxHandoffs": 1500,
 
   // Dispatch
-  "maxCallDepth": 4,
+  "maxCallDepth": 3,
   "maxTotalTasks": 40,
   "projectScale": "large",
 

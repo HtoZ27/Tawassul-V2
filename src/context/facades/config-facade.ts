@@ -5,6 +5,7 @@ import { resolveSafePathSync } from "../../utils/path.ts";
 import { resolve } from "node:path";
 import { t } from "../../translations.ts";
 import { setMaxCallDepth, setMaxTotalTasks } from "../../hooks/validation-pipeline.ts";
+import { HOST_CALL_DEPTH_CEILING, resolveMaxCallDepth } from "../../hooks/guards/shared/limits.ts";
 import { logger } from "../../utils/logger.ts";
 import { globalConfigDir } from "../../utils/path-resolver.ts";
 
@@ -57,6 +58,15 @@ export function configLoadConfig(ctx: TawassulContext): void {
   ctx.agentManager.config = ctx.configManager.config;
   ctx.preferenceManager.setConfig(ctx.configManager.config);
   const c = ctx.configManager.config;
-  if (c.maxCallDepth) setMaxCallDepth(c.maxCallDepth);
+  const requestedDepth = c.maxCallDepth;
+  const effectiveDepth = resolveMaxCallDepth(requestedDepth);
+  if (effectiveDepth !== undefined) {
+    if (requestedDepth !== undefined && requestedDepth > effectiveDepth) {
+      logger.info(
+        `maxCallDepth ${requestedDepth} is bounded by the host ceiling ${HOST_CALL_DEPTH_CEILING}; using ${effectiveDepth}`,
+      );
+    }
+    setMaxCallDepth(effectiveDepth);
+  }
   if (c.maxTotalTasks) setMaxTotalTasks(c.maxTotalTasks);
 }

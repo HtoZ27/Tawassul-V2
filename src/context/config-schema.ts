@@ -11,7 +11,12 @@ export const configSchema = tool.schema.object({
   maxHandoffs: tool.schema.number().min(10).max(10000).optional(),
   maxCompactItems: tool.schema.number().min(5).max(200).optional(),
   maxDynamicAgents: tool.schema.number().min(1).max(100).optional(),
-  maxCallDepth: tool.schema.number().min(1).max(20).optional(),
+  maxCallDepth: tool.schema
+    .number()
+    .min(1)
+    .max(20)
+    .describe("Nested task() depth ceiling. Values above 3 are accepted but bounded by the host ceiling of 3.")
+    .optional(),
   iterationBudgets: tool.schema.record(tool.schema.string(), tool.schema.number().min(1).max(10000)).optional(),
   adaptiveBudgets: tool.schema.boolean().optional(),
   projectScale: tool.schema.enum(["small", "medium", "large"]).optional(),

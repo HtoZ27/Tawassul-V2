@@ -1,0 +1,334 @@
+{
+  "probe": "Probe 0",
+  "date": "2026-11-06",
+  "host": "OpenCode 2.2.5 (audited 2.2.1)",
+  "model": "opencode/big-pickle",
+  "sessions": {
+    "root": "ses_e4fa35e16ffe7C44xW2CkbwKLj",
+    "child": "ses_e4fa2b251ffev7gVH2DsEPZHdB"
+  },
+  "marker": "PROBE0-CHILD-MARKER-7F3A",
+  "q1_q2_q3_q8_usage": [
+    {
+      "sessionID": "ses_e4fa35e16ffe7C44xW2CkbwKLj",
+      "tokens": {
+        "input": 164,
+        "output": 7,
+        "reasoning": 0,
+        "cache": {
+          "read": 384,
+          "write": 0
+        }
+      },
+      "cost": 0
+    },
+    {
+      "sessionID": "ses_e4fa35e16ffe7C44xW2CkbwKLj",
+      "tokens": {
+        "input": 20125,
+        "output": 57,
+        "reasoning": 0,
+        "cache": {
+          "read": 384,
+          "write": 0
+        }
+      },
+      "cost": 0
+    },
+    {
+      "sessionID": "ses_e4fa35e16ffe7C44xW2CkbwKLj",
+      "tokens": {
+        "input": 54751,
+        "output": 114,
+        "reasoning": 207,
+        "cache": {
+          "read": 384,
+          "write": 0
+        }
+      },
+      "cost": 0
+    },
+    {
+      "sessionID": "ses_e4fa35e16ffe7C44xW2CkbwKLj",
+      "tokens": {
+        "input": 69974,
+        "output": 175,
+        "reasoning": 491,
+        "cache": {
+          "read": 35200,
+          "write": 0
+        }
+      },
+      "cost": 0
+    },
+    {
+      "sessionID": "ses_e4fa35e16ffe7C44xW2CkbwKLj",
+      "tokens": {
+        "input": 70092,
+        "output": 234,
+        "reasoning": 727,
+        "cache": {
+          "read": 85504,
+          "write": 0
+        }
+      },
+      "cost": 0
+    },
+    {
+      "sessionID": "ses_e4fa35e16ffe7C44xW2CkbwKLj",
+      "tokens": {
+        "input": 70163,
+        "output": 292,
+        "reasoning": 752,
+        "cache": {
+          "read": 136192,
+          "write": 0
+        }
+      },
+      "cost": 0
+    },
+    {
+      "sessionID": "ses_e4fa2b251ffev7gVH2DsEPZHdB",
+      "tokens": {
+        "input": 19765,
+        "output": 41,
+        "reasoning": 0,
+        "cache": {
+          "read": 0,
+          "write": 0
+        }
+      },
+      "cost": 0
+    },
+    {
+      "sessionID": "ses_e4fa2b251ffev7gVH2DsEPZHdB",
+      "tokens": {
+        "input": 39363,
+        "output": 56,
+        "reasoning": 0,
+        "cache": {
+          "read": 0,
+          "write": 0
+        }
+      },
+      "cost": 0
+    },
+    {
+      "sessionID": "ses_e4fa35e16ffe7C44xW2CkbwKLj",
+      "tokens": {
+        "input": 70346,
+        "output": 387,
+        "reasoning": 812,
+        "cache": {
+          "read": 187008,
+          "write": 0
+        }
+      },
+      "cost": 0
+    },
+    {
+      "sessionID": "ses_e4fa35e16ffe7C44xW2CkbwKLj",
+      "tokens": {
+        "input": 70484,
+        "output": 402,
+        "reasoning": 828,
+        "cache": {
+          "read": 238080,
+          "write": 0
+        }
+      },
+      "cost": 0
+    }
+  ],
+  "q10_task_result": {
+    "tool": "subagent",
+    "status": "completed",
+    "marker_in_output": true,
+    "truncated": false
+  },
+  "q2_q5_q6_gets": [
+    {
+      "id": "ses_e4fa35e16ffe7C44xW2CkbwKLj",
+      "tokens": {
+        "input": 70484,
+        "output": 402,
+        "reasoning": 828,
+        "cache": {
+          "read": 238080,
+          "write": 0
+        }
+      },
+      "cost": 0,
+      "parentID": null
+    },
+    {
+      "id": "ses_e4fa2b251ffev7gVH2DsEPZHdB",
+      "tokens": {
+        "input": 39363,
+        "output": 56,
+        "reasoning": 0,
+        "cache": {
+          "read": 0,
+          "write": 0
+        }
+      },
+      "cost": 0,
+      "parentID": "ses_e4fa35e16ffe7C44xW2CkbwKLj"
+    }
+  ],
+  "q15_order": [
+    "session.text.ended",
+    "session.usage.updated",
+    "session.execution.succeeded"
+  ],
+  "q13_sequential": {
+    "before": [
+      {
+        "at": "2026-11-06T10:20:46.520Z",
+        "sessionID": "ses_e4fa02252ffeEo6V0KYOQ6a1IH",
+        "agent": "tawa",
+        "input": "{\"agent\":\"probe-c1\",\"description\":\"depth 1\",\"prompt\":\"Reply with exactly OK and nothing else.\"}"
+      },
+      {
+        "at": "2026-11-06T10:20:59.451Z",
+        "sessionID": "ses_e4fa02252ffeEo6V0KYOQ6a1IH",
+        "agent": "tawa",
+        "input": "{\"agent\":\"probe-c2\",\"description\":\"depth 2\",\"prompt\":\"Reply with exactly OK and nothing else.\"}"
+      },
+      {
+        "at": "2026-11-06T10:21:08.274Z",
+        "sessionID": "ses_e4fa02252ffeEo6V0KYOQ6a1IH",
+        "agent": "tawa",
+        "input": "{\"agent\":\"probe-c3\",\"description\":\"depth 3\",\"prompt\":\"Reply with exactly OK and nothing else.\"}"
+      },
+      {
+        "at": "2026-11-06T10:21:15.102Z",
+        "sessionID": "ses_e4fa02252ffeEo6V0KYOQ6a1IH",
+        "agent": "tawa",
+        "input": "{\"agent\":\"probe-c4\",\"description\":\"depth 4\",\"prompt\":\"Reply with exactly OK and nothing else.\"}"
+      }
+    ],
+    "after": [
+      {
+        "at": "2026-11-06T10:20:53.476Z",
+        "status": null,
+        "output": "{\"sessionID\":\"ses_e4f9ff36bffe2ce3e3Uc1cIxXd\",\"status\":\"completed\",\"output\":\"OK\"}"
+      },
+      {
+        "at": "2026-11-06T10:21:05.242Z",
+        "status": null,
+        "output": "{\"sessionID\":\"ses_e4f9fc33affeBYrROHi2XfWMx2\",\"status\":\"completed\",\"output\":\"OK\"}"
+      },
+      {
+        "at": "2026-11-06T10:21:13.406Z",
+        "status": null,
+        "output": "{\"sessionID\":\"ses_e4f9fa0c6ffe7FBa21PaigDM5u\",\"status\":\"completed\",\"output\":\"OK\"}"
+      },
+      {
+        "at": "2026-11-06T10:21:20.998Z",
+        "status": null,
+        "output": "{\"sessionID\":\"ses_e4f9f8617ffefx5Ra0xUkVyYIh\",\"status\":\"completed\",\"output\":\"OK\"}"
+      }
+    ]
+  },
+  "q13_parallel": {
+    "before": [
+      {
+        "at": "2026-11-06T10:21:50.025Z",
+        "sessionID": "ses_e4f9f17e3ffeBH1mhupDjZI50V",
+        "agent": "tawa",
+        "input": "{\"agent\":\"probe-c1\",\"description\":\"parallel 1\",\"prompt\":\"Reply with exactly OK and nothing else.\"}"
+      },
+      {
+        "at": "2026-11-06T10:21:50.026Z",
+        "sessionID": "ses_e4f9f17e3ffeBH1mhupDjZI50V",
+        "agent": "tawa",
+        "input": "{\"agent\":\"probe-c2\",\"description\":\"parallel 2\",\"prompt\":\"Reply with exactly OK and nothing else.\"}"
+      },
+      {
+        "at": "2026-11-06T10:21:50.065Z",
+        "sessionID": "ses_e4f9f17e3ffeBH1mhupDjZI50V",
+        "agent": "tawa",
+        "input": "{\"agent\":\"probe-c3\",\"description\":\"parallel 3\",\"prompt\":\"Reply with exactly OK and nothing else.\"}"
+      },
+      {
+        "at": "2026-11-06T10:21:50.066Z",
+        "sessionID": "ses_e4f9f17e3ffeBH1mhupDjZI50V",
+        "agent": "tawa",
+        "input": "{\"agent\":\"probe-c4\",\"description\":\"parallel 4\",\"prompt\":\"Reply with exactly OK and nothing else.\"}"
+      }
+    ],
+    "after": [
+      {
+        "at": "2026-11-06T10:21:51.879Z",
+        "status": null,
+        "output": "{\"sessionID\":\"ses_e4f9efd35ffeaFE1poPIM53wGP\",\"status\":\"completed\",\"output\":\"OK\"}"
+      },
+      {
+        "at": "2026-11-06T10:21:51.923Z",
+        "status": null,
+        "output": "{\"sessionID\":\"ses_e4f9efd31ffeYzYnN5QS62A51N\",\"status\":\"completed\",\"output\":\"OK\"}"
+      },
+      {
+        "at": "2026-11-06T10:21:53.770Z",
+        "status": null,
+        "output": "{\"sessionID\":\"ses_e4f9efd2cffeuVefU5yYt3iJvJ\",\"status\":\"completed\",\"output\":\"OK\"}"
+      },
+      {
+        "at": "2026-11-06T10:21:54.090Z",
+        "status": null,
+        "output": "{\"sessionID\":\"ses_e4f9efd28ffeKW89nGB1FPn3z5\",\"status\":\"completed\",\"output\":\"OK\"}"
+      }
+    ]
+  },
+  "q13_child_first_dispatch_error": "The child (`tawa-pickle`, session `ses_e4fa111a9ffe5OSz0bc9lt3MB6`) returned:\n\n> I attempted the requested call. There is no `task` tool available to me, so I called the equivalent `subagent` tool with agent `dev`, description \"depth probe\", prompt \"Reply with OK\". The exact error text returned was:\n>\n> ```\n> {\"error\":{\"type\":\"unknown\",\"message\":\"\ud83d\udeab Agent \\\"tawa-pickle\\\" has not produced their analysis yet. Produce your analysis first, then dispatch.\"},\"content\":[]}\n> ```",
+  "q14_handoff": {
+    "output_len": 3595,
+    "has_start": true,
+    "has_tail": true,
+    "stored_task_len": 3223
+  },
+  "q16": {
+    "before": 5,
+    "after": 5,
+    "tool": "shell"
+  },
+  "q9_before_compaction": {
+    "count": 5,
+    "types": [
+      "user",
+      "assistant",
+      "assistant",
+      "idle",
+      "agent-switched"
+    ],
+    "marker_in_content": true
+  },
+  "q9_after_compaction": {
+    "count": 5,
+    "types": [
+      "compaction",
+      "user",
+      "assistant",
+      "idle",
+      "agent-switched"
+    ],
+    "marker_in_content": false
+  },
+  "clamp_log_count": 12,
+  "schema_bytes": 24513,
+  "cache_evidence": {
+    "cold_cache_read": 384,
+    "bare_after_restart": {
+      "input": 280,
+      "cache_read": 51200
+    },
+    "cumulative_root_cache_read": 238080,
+    "cache_write": 0
+  },
+  "q9_compaction_summary": {
+    "has_marker": true,
+    "marker_offset": 615,
+    "summary_len": 1008
+  }
+}

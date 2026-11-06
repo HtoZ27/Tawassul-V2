@@ -45,7 +45,8 @@
     "maxCallDepth": {
       "type": "number",
       "minimum": 1,
-      "maximum": 20
+      "maximum": 20,
+      "description": "Nested task() depth ceiling. Values above 3 are accepted but bounded by the host ceiling of 3."
     },
     "iterationBudgets": {
       "type": "object",
