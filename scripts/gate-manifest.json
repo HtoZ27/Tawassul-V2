@@ -1131,6 +1131,13 @@
       ]
     },
     {
+      "name": "usage-shadow",
+      "cmd": [
+        "bun",
+        "scripts/prove-usage-shadow.ts"
+      ]
+    },
+    {
       "name": "payload-cache",
       "cmd": [
         "bun",

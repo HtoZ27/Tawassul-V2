@@ -67,7 +67,20 @@ export interface UsageInjectionRow {
   bytes: number;
 }
 
-export type UsageLedgerLine = UsageLedgerRow | UsageInjectionRow;
+export type ShadowDetector = "repeat" | "echo" | "fanout";
+
+export interface UsageShadowRow {
+  v: number;
+  kind: "shadow";
+  ts: string;
+  detector: ShadowDetector;
+  sessionID: string;
+  tripped: boolean;
+  count: number;
+  detail: Record<string, unknown>;
+}
+
+export type UsageLedgerLine = UsageLedgerRow | UsageInjectionRow | UsageShadowRow;
 
 export interface UsageSessionSnapshot {
   id: string;
@@ -110,6 +123,10 @@ export interface UsageLedgerSummary {
   usageRows: number;
   injectionRows: number;
   injectionBytes: number;
+  shadowRows: number;
+  repeatSessions: number;
+  echoSessions: number;
+  fanoutSessions: number;
   sessions: number;
   roots: number;
   children: number;
@@ -285,6 +302,12 @@ export class UsageLedger {
   private usageRows = 0;
   private injectionRows = 0;
   private injectionBytes = 0;
+  private shadowRows = 0;
+  private readonly shadowSessions: Record<ShadowDetector, Set<string>> = {
+    repeat: new Set(),
+    echo: new Set(),
+    fanout: new Set(),
+  };
   private unobservedRows = 0;
   private backfilledSessions = 0;
   private lastEventAt: string | null = null;
@@ -348,6 +371,16 @@ export class UsageLedger {
       this.rows += 1;
       this.injectionRows += 1;
       this.injectionBytes += bytes;
+      return;
+    }
+    if (row.kind === "shadow") {
+      const detector = row.detector;
+      const sessionID = typeof row.sessionID === "string" ? row.sessionID : "";
+      if (detector !== "repeat" && detector !== "echo" && detector !== "fanout") return;
+      if (!sessionID) return;
+      this.rows += 1;
+      this.shadowRows += 1;
+      this.shadowSessions[detector].add(sessionID);
       return;
     }
     if (row.kind !== "usage") return;
@@ -587,6 +620,34 @@ export class UsageLedger {
     return row;
   }
 
+  recordShadow(input: {
+    detector: ShadowDetector;
+    sessionID: string;
+    tripped: boolean;
+    count: number;
+    detail?: Record<string, unknown>;
+  }): UsageShadowRow | undefined {
+    if (this.disposed) return undefined;
+    if (!input.sessionID) return undefined;
+    const count = finite(input.count);
+    if (count === undefined || count < 0) return undefined;
+    const row: UsageShadowRow = {
+      v: USAGE_LEDGER_VERSION,
+      kind: "shadow",
+      ts: new Date(this.now()).toISOString(),
+      detector: input.detector,
+      sessionID: input.sessionID,
+      tripped: input.tripped === true,
+      count,
+      detail: input.detail ?? {},
+    };
+    this.rows += 1;
+    this.shadowRows += 1;
+    this.shadowSessions[input.detector].add(input.sessionID);
+    this.enqueue(JSON.stringify(row));
+    return row;
+  }
+
   summary(): UsageLedgerSummary {
     const roots: number[] = [];
     const children: number[] = [];
@@ -615,6 +676,10 @@ export class UsageLedger {
       usageRows: this.usageRows,
       injectionRows: this.injectionRows,
       injectionBytes: this.injectionBytes,
+      shadowRows: this.shadowRows,
+      repeatSessions: this.shadowSessions.repeat.size,
+      echoSessions: this.shadowSessions.echo.size,
+      fanoutSessions: this.shadowSessions.fanout.size,
       sessions: this.states.size,
       roots: roots.length,
       children: children.length,

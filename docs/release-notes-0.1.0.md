@@ -133,9 +133,9 @@ ACLs, Defender, long paths, and file locking.
 | Check | Result at this release |
 | --- | --- |
 | Fast gate | 16 steps |
-| Proofs | 178 steps, one child process each |
+| Proofs | 179 steps, one child process each |
 | Smoke | 6 steps, including the release artifacts, global boot, and independence boot |
-| Proof files | 181, all catalogued across the stages |
+| Proof files | 182, all catalogued across the stages |
 | Public docs | 45 files, 44 tools, 8 agents, 4 skills |
 | Native Windows | Native receipts for the bundle and wasm lane; database lane unavailable |
 

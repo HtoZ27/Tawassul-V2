@@ -19,6 +19,7 @@ import { installHostGoalMirror, uninstallHostGoalMirror } from "./host-goal.ts";
 import { applyV1AfterOutput, jsonSafeMetadata, metadataChanged, resultText, titleFromMetadata, withTitleMetadata } from "./result-bridge.ts";
 import { clearSessionBridge, installSessionBridge, type SessionBridge } from "./session-bridge.ts";
 import { clearUsageLedger, installUsageLedger } from "../services/usage-ledger.ts";
+import { clearUsageShadow, installUsageShadow } from "../services/usage-shadow.ts";
 import {
   classifyTerminalFailure,
   createFailurePack,
@@ -512,6 +513,11 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
       getSession: (sessionID) => ctx.session.get({ sessionID }),
       listSessions: (input) => ctx.session.list(input),
     });
+    const usageShadow = installUsageShadow({
+      emit: (observation) => {
+        usageLedger.recordShadow(observation);
+      },
+    });
     try {
       await usageLedger.start();
     } catch (e) {
@@ -783,6 +789,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
             }
             try {
               await usageLedger.handleEvent(raw);
+              usageShadow.handleEvent(raw);
             } catch (e) {
               logger.debug("[tawassul] usage ledger event skipped:", e);
             }
@@ -812,6 +819,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
       );
     }
 
+    registered.push(async () => clearUsageShadow());
     registered.push(async () => clearUsageLedger());
 
     return async () => {

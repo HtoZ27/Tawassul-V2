@@ -188,6 +188,7 @@
         "repeat-guard",
         "call-depth-clamp",
         "usage-ledger",
+        "usage-shadow",
         "payload-cache",
         "routing-eval",
         "concordance",

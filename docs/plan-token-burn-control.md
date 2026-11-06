@@ -1501,10 +1501,11 @@ item is removed, no ledger code is written, and K3/K4 and the `callDepth` semant
 ### 17.8 P2 ledger shadow — first slice (2026-11-06)
 
 P2 is **partially executed**. The ledger core, JSONL, historical backfill, reload reconciliation,
-the self-injection audit, and the health report are implemented and proven. The shadow
-repeat/echo/fan-out detectors and the 7-day or 30-session window are not implemented, so the P2
-gate remains open and no enforcement is claimed. Receipt:
-`docs/experiments/receipts/2026-11-06-p2-usage-ledger.md`.
+the self-injection audit, the health report, and the shadow repeat/echo/fan-out detectors are
+implemented and proven. The 7-day or 30-session observation window has not run, so the P2 gate
+remains open and no enforcement is claimed. Receipts:
+`docs/experiments/receipts/2026-11-06-p2-usage-ledger.md` and
+`docs/experiments/receipts/2026-11-06-p2-usage-shadow.md`.
 
 | Item | Implementation | Evidence |
 | --- | --- | --- |
@@ -1517,19 +1518,25 @@ gate remains open and no enforcement is claimed. Receipt:
 | Reload | reads the `.1` rotation file and the active file; restores sessions, turns, and injection totals; the first post-restart delta reconciles against the persisted snapshot | reload and rotation assertions |
 | Boot gap | a list snapshot above the persisted counter writes an `unobserved` row with only the missing delta | gap assertions |
 | Injection audit | `digest`, `context`, and `session_index` bytes recorded from `src/hooks/session.ts` into `kind: "injection"` rows | injection assertions |
-| Report | `health()` prints the `## Usage ledger` block, including root/child p50/p90/p99 | static wiring assertion |
-| Proof | `scripts/prove-usage-ledger.ts`, 115 assertions, gate step `usage-ledger`; step 178 of 178, file 181 of 181 | `npm run verify` GATE PASS |
+| Repeat shadow | per session and tool, warning at 3, trip at 5; failed calls and calls without a session are ignored; no blocking | repeat assertions |
+| Echo shadow | `session.text.ended` per assistant message, flushed on `session.usage.updated`; 80% trigram overlap for 12 consecutive no-tool turns; a tool turn resets the streak (Q15) | echo assertions |
+| Fan-out shadow | `task`, `handoff`, and `fasttrack` dispatch text clustered by 80% similarity inside a 10-minute window; trip at 6 | fan-out assertions |
+| Sink | every observation becomes a `kind: "shadow"` JSONL row and a health reading; reload restores the row and session counts | ledger-sink and reload assertions |
+| Report | `health()` prints the `## Usage ledger` block, including root/child p50/p90/p99 and the shadow line | static wiring assertion |
+| Proof | `scripts/prove-usage-ledger.ts`, 115 assertions, gate step `usage-ledger`; `scripts/prove-usage-shadow.ts`, 80 assertions, gate step `usage-shadow`; 179 steps and 182 files | `npm run verify` GATE PASS |
 
-Four P2 readings are already available or partially available: the root/child p99 split, the
-orphan count, `unobserved` rows during reload, and injected bytes per source. Three remain:
-echo-flagged sessions per 30 sessions, the repeat detector's false-positive rate, and the
-cached-schema share (Q11 already shows full caching on repeat requests, so Option 11 stays
-hygiene). Catalog-derived cache weights and the 20% cost reconciliation warning are deferred
+The shadow detections are now live readings rather than an implementation gap: the root/child p99
+split, the orphan count, `unobserved` rows during reload, injected bytes per source, repeat and
+fan-out flagged sessions, and echo streaks are all recorded. Two readings still require the
+forward window: echo-flagged sessions per 30 sessions and the repeat detector's false-positive
+rate. Cached-schema share is settled by Q11 (repeat requests hit the cache in full, so Option 11
+stays hygiene). Catalog-derived cache weights and the 20% cost reconciliation warning are deferred
 until a priced model is observed; until then every weight is labelled `source: "default"` and
 every zero-cost row is `cost_unpriced`.
 
-The ledger enforces nothing. Deleting `src/services/usage-ledger.ts`, its setup wiring, and the
-session-hook audit calls is the rollback, matching the plan's Phase 1 rollback row.
+The detectors enforce nothing: they only emit rows. Deleting `src/services/usage-ledger.ts`,
+`src/services/usage-shadow.ts`, their setup wiring, the session-hook audit calls, and the
+tool-hook observers is the rollback, matching the plan's Phase 1 rollback row.
 
 ---
 

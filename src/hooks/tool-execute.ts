@@ -50,6 +50,7 @@ import {
 } from "./guards/tool-loop-guard.ts";
 
 import { consume, refund, sweepStaleBudgets } from "../services/iteration-budget.ts";
+import { getUsageShadow } from "../services/usage-shadow.ts";
 import { TAWA_AGENT, SecurityPolicy } from "../security-policy.ts";
 import { isManagedAgent } from "../utils/agent.ts";
 
@@ -479,6 +480,10 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
       input.tool = normalizeToolName(input.tool);
       const normalizedAgent = input.agent ? normalizeName(input.agent) : undefined;
 
+      if (input.sessionID) {
+        getUsageShadow()?.observeDispatch({ sessionID: input.sessionID, tool: input.tool, args: input.args });
+      }
+
       
       
       const startedAt = input.callID ? _callStartTimes.get(callStartKey(input.sessionID, input.callID)) : undefined;
@@ -574,6 +579,13 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
           if (repeatCount === REPEAT_RESULT_WARN_AT && typeof output.output === "string") {
             output.output += repeatResultWarning(input.tool, repeatCount);
           }
+          getUsageShadow()?.observeRepeat({
+            sessionID: input.sessionID,
+            agent: normalizedAgent,
+            tool: input.tool,
+            count: repeatCount,
+            success: true,
+          });
         } else {
           recordToolFailure(normalizedAgent, input.tool);
           resetToolResultRun(input.sessionID, normalizedAgent, input.tool);
