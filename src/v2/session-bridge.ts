@@ -1,7 +1,17 @@
-import type { V2Context, V2ModelList, V2SessionCreateInput, V2SessionFile } from "./types.ts";
+import type {
+  V2Context,
+  V2ModelList,
+  V2SessionCreateInput,
+  V2SessionFile,
+  V2SessionInfo,
+  V2SessionList,
+  V2SessionListInput,
+} from "./types.ts";
 
 export type SessionBridge = {
   create: (input: V2SessionCreateInput) => Promise<{ id: string; [key: string]: unknown }>;
+  get: (input: { sessionID: string }) => Promise<V2SessionInfo>;
+  list: (input?: V2SessionListInput) => Promise<V2SessionList>;
   prompt: (input: {
     sessionID: string;
     text: string;
@@ -18,6 +28,8 @@ let active: SessionBridge | null = null;
 export function installSessionBridge(ctx: V2Context): SessionBridge {
   const bridge: SessionBridge = {
     create: (input) => ctx.session.create(input),
+    get: (input) => ctx.session.get(input),
+    list: (input) => ctx.session.list(input),
     prompt: (input) => ctx.session.prompt(input),
     context: (input) => ctx.session.context(input),
     wait: (input) => ctx.session.wait(input),

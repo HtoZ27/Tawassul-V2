@@ -26,7 +26,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-001 | The v2 entry is a module exporting a plugin object with id and setup. | `src/index.ts:9` `setup: createV2Setup` | `scripts/prove-host-entry.ts` | verified |
 | S-002 | The build resolves the host plugin package through the ESM exports condition instead of a static external list. | `build-v2.mjs:18` `import.meta.resolve` | `scripts/prove-host-entry.ts` | verified |
 | S-003 | Every tool execute result is converted from the v1 shape to the v2 shape. | `src/v2/adapters.ts:99` `toV2Result` | `scripts/prove-v2-compat.ts` | verified |
-| S-004 | Setup aborts before registration when the host lacks the session or tool domain. | `src/v2/setup.ts:473` `host missing required domains` | `scripts/prove-host-entry.ts` | verified |
+| S-004 | Setup aborts before registration when the host lacks the session or tool domain. | `src/v2/setup.ts:474` `host missing required domains` | `scripts/prove-host-entry.ts` | verified |
 | S-005 | The role to tool matrix is ported without an i18n or NLP dependency. | `src/role-matrix.ts:40` `TAWASSUL_TOOL_ROLES` | `scripts/prove-s005.ts`, `scripts/prove-s013.ts` | verified |
 | S-006 | Model display names are English-only with no bilingual shape or lang parameter. | `src/core/model-registry.ts:91` `MODEL_DISPLAY_NAMES` | `scripts/prove-feature-index-english.ts` | verified |
 | S-007 | A full-tree port must never overwrite hand-fixed files. | - | - | n-a |
@@ -37,7 +37,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-012 | A completed board cannot be reopened; transitions are close-only. | `src/services/mission-board.ts:269` `isCompleted` | `scripts/prove-board-invariants.ts` | verified |
 | S-013.1 | Role-scoped plugin permissions and record/eval read-back are enforced. | `src/security-policy.ts:458` `checkTawassulToolPermission` | `scripts/prove-s013.ts`, `scripts/prove-e21.ts` | verified |
 | S-013.2 | The MCP boundary is not applicable because v2 ships no MCP server or client. | - | - | n-a |
-| S-014 | A standalone health tool exists in the tawa namespace. | `src/tools/tawa/health.ts:57` `buildHealthTool` | `scripts/prove-e46.ts` | verified |
+| S-014 | A standalone health tool exists in the tawa namespace. | `src/tools/tawa/health.ts:65` `buildHealthTool` | `scripts/prove-e46.ts` | verified |
 | S-015 | The retired kanban-board name must not return. | - | - | n-a |
 | S-016 | Conflict-marker pollutants must not be propagated. | - | - | n-a |
 | S-017 | The three-day hardening batch is ported on merit: model retirements, generator hardening, governance, and runtime rows. | `src/services/proxy-fallback-chains.ts:73` `sweepRetiredModelPins` | `scripts/prove-s017.ts`, `scripts/prove-gen-lock-contention.ts`, `scripts/prove-gen-merge-guards.ts`, `scripts/prove-gen-guard-wal.ts`, `scripts/prove-roster-boundary.ts`, `scripts/prove-event-trust-p1.ts`, `scripts/prove-web-ssrf.ts`, `scripts/prove-s028.ts` | verified |
@@ -73,7 +73,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-042 | Local plugin entries must be deduplicated by the loader, not only by the plugin. | `src/core/install-scope.ts:56` `claimCoexistence` | - | host-bound |
 | S-043 | Legacy config keys no longer produce per-boot normalization warnings. | `src/utils/opencode-config.ts:376` `applyBootRepairs` | `scripts/prove-e02.ts` | verified |
 | S-044 | Select and multiselect elicitation fail closed through the ask bridge. | `src/services/ask-channel-parse.ts:12` `multiselect` | `scripts/prove-v2-ask-bridge.ts` | verified |
-| S-045 | Deferred tool schemas are refreshed after init with a bounded retry. | `src/v2/setup.ts:50` `SCHEMA_RETRY_ATTEMPTS` | `scripts/prove-b02.ts` | verified |
+| S-045 | Deferred tool schemas are refreshed after init with a bounded retry. | `src/v2/setup.ts:51` `SCHEMA_RETRY_ATTEMPTS` | `scripts/prove-b02.ts` | verified |
 | S-046 | Unknown permission actions need a host default policy or rule registration. | `src/v2/ask.ts:18` `evaluate` | - | host-bound |
 | S-047 | Tool output deltas and a compaction prompt contract are implemented. | `src/hooks/tool-output-stream.ts:90` `message.part.delta` | `scripts/prove-e15.ts` | verified |
 | S-048 | The input and output schema pairing needs host documentation. | `src/v2/result-bridge.ts:99` `writeBackV1Output` | - | host-bound |

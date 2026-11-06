@@ -18,6 +18,7 @@ import { startSchemaRefresh } from "./schema-refresh.ts";
 import { installHostGoalMirror, uninstallHostGoalMirror } from "./host-goal.ts";
 import { applyV1AfterOutput, jsonSafeMetadata, metadataChanged, resultText, titleFromMetadata, withTitleMetadata } from "./result-bridge.ts";
 import { clearSessionBridge, installSessionBridge, type SessionBridge } from "./session-bridge.ts";
+import { clearUsageLedger, installUsageLedger } from "../services/usage-ledger.ts";
 import {
   classifyTerminalFailure,
   createFailurePack,
@@ -507,6 +508,15 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
     const registered: Array<() => Promise<void>> = [];
     const sessionBridge = installSessionBridge(ctx);
     registered.push(async () => clearSessionBridge());
+    const usageLedger = installUsageLedger({
+      getSession: (sessionID) => ctx.session.get({ sessionID }),
+      listSessions: (input) => ctx.session.list(input),
+    });
+    try {
+      await usageLedger.start();
+    } catch (e) {
+      logger.warn("[tawassul] usage ledger start skipped (fail-open):", e instanceof Error ? e.message : String(e));
+    }
     try {
       await warmWorkspace({
         worktree: input.directory,
@@ -771,6 +781,11 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
             } catch (e) {
               logger.debug("[tawassul] v2 context pack event failed:", e);
             }
+            try {
+              await usageLedger.handleEvent(raw);
+            } catch (e) {
+              logger.debug("[tawassul] usage ledger event skipped:", e);
+            }
             if (!plugin.event) continue;
             const mapped = mapV2EventToV1(raw, { toolOf: (id) => callTools.get(id) });
             for (const ev of mapped) {
@@ -796,6 +811,8 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
         "[tawassul] v2: config hook has no host channel; models are baked at config generation and the tawa deny list is enforced in execute.before",
       );
     }
+
+    registered.push(async () => clearUsageLedger());
 
     return async () => {
       if (refreshStop) {

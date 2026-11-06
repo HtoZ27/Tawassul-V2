@@ -73,8 +73,35 @@ export type V2SessionCreateInput = {
   metadata?: Record<string, unknown>;
 };
 
+export type V2SessionInfo = {
+  id: string;
+  parentID?: string | null;
+  agent?: string | null;
+  cost?: number | null;
+  tokens?: {
+    input?: number;
+    output?: number;
+    reasoning?: number;
+    cache?: { read?: number; write?: number } | null;
+  } | null;
+  time?: { created?: number; updated?: number } | null;
+};
+
+export type V2SessionListInput = {
+  limit?: number;
+  order?: "asc" | "desc";
+  cursor?: string;
+};
+
+export type V2SessionList = {
+  data: V2SessionInfo[];
+  cursor?: { previous?: string | null; next?: string | null } | null;
+};
+
 export type V2Session = {
   create: (input: V2SessionCreateInput) => Promise<{ id: string; [key: string]: unknown }>;
+  get: (input: { sessionID: string }) => Promise<V2SessionInfo>;
+  list: (input?: V2SessionListInput) => Promise<V2SessionList>;
   switchModel: (input: {
     sessionID: string;
     model: { id: string; providerID: string; variant?: string };

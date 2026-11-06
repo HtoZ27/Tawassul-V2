@@ -187,6 +187,7 @@
         "model-failover-e2e",
         "repeat-guard",
         "call-depth-clamp",
+        "usage-ledger",
         "payload-cache",
         "routing-eval",
         "concordance",

@@ -1124,6 +1124,13 @@
       ]
     },
     {
+      "name": "usage-ledger",
+      "cmd": [
+        "bun",
+        "scripts/prove-usage-ledger.ts"
+      ]
+    },
+    {
       "name": "payload-cache",
       "cmd": [
         "bun",

@@ -54,6 +54,8 @@ async function main(): Promise<void> {
     context: async () => overflowMessages(),
     wait: async () => undefined,
     modelList: async () => ({ data: [] }),
+    get: async () => ({ id: "ses-model-switch" }),
+    list: async () => ({ data: [] }),
   };
 
   const smallPlan = planOutbound([{ role: "user", content: "small" }], 128000);

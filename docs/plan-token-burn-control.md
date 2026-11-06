@@ -1498,6 +1498,39 @@ item is removed, no ledger code is written, and K3/K4 and the `callDepth` semant
 | Q16 | Five identical `shell` calls all completed. | P3 must widen the repeat set and the shadow detector must count non-read repeats, as planned. |
 | Cost | Every event reported `cost 0` on `opencode/big-pickle`, including children and compaction. | Weighted tokens are the unit; rows are labelled `cost_unpriced`. |
 
+### 17.8 P2 ledger shadow — first slice (2026-11-06)
+
+P2 is **partially executed**. The ledger core, JSONL, historical backfill, reload reconciliation,
+the self-injection audit, and the health report are implemented and proven. The shadow
+repeat/echo/fan-out detectors and the 7-day or 30-session window are not implemented, so the P2
+gate remains open and no enforcement is claimed. Receipt:
+`docs/experiments/receipts/2026-11-06-p2-usage-ledger.md`.
+
+| Item | Implementation | Evidence |
+| --- | --- | --- |
+| Event source | `session.usage.updated` is parsed from the raw stream in `src/v2/setup.ts`; Q1 and Q2 hold | `parseUsageEvent` proof branches |
+| Snapshots and deltas | latest cumulative per session; deltas derived from consecutive snapshots; a shrinking snapshot is a labelled `resync` | cumulative, delta, and resync assertions |
+| Unit | `billable = input + output + cache.read * 0.10 + cache.write * 1.25`; `reasoning` stays inside `output`; `contextSize = input + cache.read` (Q4) | arithmetic assertions |
+| Cost label | `cost 0` produces `costUnpriced: true`; priced sessions produce `false` (Q8) | priced/unpriced assertions |
+| Lineage | recursive `session.get` parent walk on first sight; depth 0/1/2; a resolver failure emits the row with `depth: null` and counts `lineageUnknown` (Q5, Q6) | live-lineage and fail-open assertions |
+| Backfill | `session.list` paged 500 at a time, newest first, up to 10 pages; zero-usage sessions skipped; brief pages supply parent depth; unknown parents count as orphans | two-page backfill assertions |
+| Reload | reads the `.1` rotation file and the active file; restores sessions, turns, and injection totals; the first post-restart delta reconciles against the persisted snapshot | reload and rotation assertions |
+| Boot gap | a list snapshot above the persisted counter writes an `unobserved` row with only the missing delta | gap assertions |
+| Injection audit | `digest`, `context`, and `session_index` bytes recorded from `src/hooks/session.ts` into `kind: "injection"` rows | injection assertions |
+| Report | `health()` prints the `## Usage ledger` block, including root/child p50/p90/p99 | static wiring assertion |
+| Proof | `scripts/prove-usage-ledger.ts`, 115 assertions, gate step `usage-ledger`; step 178 of 178, file 181 of 181 | `npm run verify` GATE PASS |
+
+Four P2 readings are already available or partially available: the root/child p99 split, the
+orphan count, `unobserved` rows during reload, and injected bytes per source. Three remain:
+echo-flagged sessions per 30 sessions, the repeat detector's false-positive rate, and the
+cached-schema share (Q11 already shows full caching on repeat requests, so Option 11 stays
+hygiene). Catalog-derived cache weights and the 20% cost reconciliation warning are deferred
+until a priced model is observed; until then every weight is labelled `source: "default"` and
+every zero-cost row is `cost_unpriced`.
+
+The ledger enforces nothing. Deleting `src/services/usage-ledger.ts`, its setup wiring, and the
+session-hook audit calls is the rollback, matching the plan's Phase 1 rollback row.
+
 ---
 
 ## Appendix A — Evidence with numbers
@@ -1553,7 +1586,7 @@ item is removed, no ledger code is written, and K3/K4 and the `callDepth` semant
 | Live schema payload | `docs/experiments/receipts/2026-11-05-schema-payload.json` | 24,513 B / 6,129 tokens, 44 tools |
 | Usage event | `node_modules/@opencode/schema/dist/event-manifest.d.ts` | 1097-1145; durability `ephemeral` at 1136 |
 | Session totals and parent | `node_modules/@opencode/client/dist/promise/generated/types.d.ts` | 3062-3064; call at `promise/client.d.ts:213` |
-| Session bridge methods | `src/v2/session-bridge.ts` | 3-14 |
+| Session bridge methods | `src/v2/session-bridge.ts` | 11-24 (type), 28-42 (install) |
 | Session Index ceiling | `src/hooks/session.ts` | 144-146, 468-481 |
 | Plugin injections | `src/hooks/session.ts` | 291-373, 431, 524 |
 

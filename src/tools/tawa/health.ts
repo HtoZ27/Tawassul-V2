@@ -9,6 +9,7 @@ import { defaultKeyFile, classifyDbLane, isolatedDbPathFor, dataRoot } from "../
 import { failoverSummary } from "../../services/model-failover.ts";
 import { dbMaintenanceState } from "../../services/db-maintenance-trigger.ts";
 import { projectStatePath } from "../../utils/state-paths.ts";
+import { getUsageLedger } from "../../services/usage-ledger.ts";
 
 const LAG_WARN_THRESHOLD_MS = 500;
 const LAG_SPIKE_CAP = 20;
@@ -46,6 +47,13 @@ export function measureEventLoopLag(): Promise<number> {
   return new Promise<number>((resolve) => {
     setImmediate(() => resolve(performance.now() - start));
   });
+}
+
+function compactNumber(value: number | null): string {
+  if (value === null) return "n/a";
+  return Math.round(value)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 export interface HealthToolDeps {
@@ -91,6 +99,7 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
       const maintenance =
         process.platform === "win32" ? "unavailable" : process.platform === "darwin" ? "manual" : "automatic";
       const dbMaintenance = dbMaintenanceState();
+      const ledger = getUsageLedger()?.summary() ?? null;
       return {
         title: "Health",
         output: [
@@ -114,6 +123,16 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
           `- Router file: ${routerFile} (${existsSync(routerFile) ? "exists" : "missing"})`,
           `- HMAC key: ${keyFile} (${keyPresent ? "present" : "missing"})`,
           `- Pending flushes: ${flushes}`,
+          ...(ledger
+            ? [
+                "## Usage ledger",
+                `- Sessions: ${ledger.sessions} (roots ${ledger.roots} / children ${ledger.children}, orphans ${ledger.orphanChildren}${ledger.lineageUnknown > 0 ? `, lineage unknown ${ledger.lineageUnknown}` : ""})`,
+                `- Weighted tokens p50/p90/p99: root ${compactNumber(ledger.root.p50)}/${compactNumber(ledger.root.p90)}/${compactNumber(ledger.root.p99)} · child ${compactNumber(ledger.child.p50)}/${compactNumber(ledger.child.p90)}/${compactNumber(ledger.child.p99)}`,
+                `- Rows: ${ledger.usageRows} usage, ${ledger.injectionRows} injection (${compactNumber(ledger.injectionBytes)} B) · backfilled ${ledger.backfilledSessions} · unobserved ${ledger.unobservedRows}`,
+                `- Unit: ${ledger.unit} · priced ${ledger.pricedSessions} / unpriced ${ledger.unpricedSessions}${ledger.unpricedSessions > 0 ? " · cost_unpriced" : ""}`,
+                `- Ledger: ${ledger.path} (last event ${ledger.lastEventAt ?? "none"})`,
+              ]
+            : []),
           ...(intelligence
             ? [
                 `## Intelligence`,

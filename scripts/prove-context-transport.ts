@@ -62,6 +62,8 @@ async function main(): Promise<void> {
     context: async () => sourceMessages(),
     wait: async () => undefined,
     modelList: async () => ({ data: [] }),
+    get: async () => ({ id: "ses-successor" }),
+    list: async () => ({ data: [] }),
   };
   assert(!("fork" in bridge), "the bridge has no fork entry");
 

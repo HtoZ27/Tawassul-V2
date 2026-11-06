@@ -11,6 +11,7 @@ import type { ScoredContextEntry } from "../context/priority-types.ts";
 import { countTokens } from "../services/context-compressor.ts";
 import { lruSet } from "../utils/bounded-map.ts";
 import { decayWeight, K8_DETAIL_CAP } from "../services/importance-decay.ts";
+import { getUsageLedger } from "../services/usage-ledger.ts";
 import {
   estimateTokensByFactor,
   PRIORITY_TOKEN_FACTOR,
@@ -318,11 +319,14 @@ export function createSessionCompactedHook(ctx: SessionCompactedContext) {
       
       
       
+      let digestBytes = 0;
       try {
         const digest = (await ctx.getGoalDigest?.()) ?? "";
         if (digest.trim().length > 0 && !k7IsRepeat(input.sessionID, digest)) {
           context.push(digest);
           k7Remember(input.sessionID, digest);
+          digestBytes = Buffer.byteLength(digest, "utf8");
+          getUsageLedger()?.recordInjection({ sessionID: input.sessionID, source: "digest", bytes: digestBytes });
         }
       } catch {
 
@@ -486,6 +490,14 @@ export function createSessionCompactedHook(ctx: SessionCompactedContext) {
         
         const compactCount = rememberCompactionCount(input.sessionID);
         rememberInjectedTokens(input.sessionID, countTokens(finalText));
+        const ledger = getUsageLedger();
+        if (ledger) {
+          const contextBytes = Math.max(0, Buffer.byteLength(combined, "utf8") - digestBytes);
+          if (contextBytes > 0) ledger.recordInjection({ sessionID: input.sessionID, source: "context", bytes: contextBytes });
+          if (indexText.length > 0) {
+            ledger.recordInjection({ sessionID: input.sessionID, source: "session_index", bytes: Buffer.byteLength(indexText, "utf8") });
+          }
+        }
         if (compactCount === 10 || compactCount === 25 || compactCount === 50) {
           logger.warn(
             `[tawassul] S7 shadow: session ${input.sessionID} compacted ${compactCount}×, ` +
