@@ -1,7 +1,31 @@
 # Notices
 
+Tawassul
+Copyright 2026 Tawassul contributors
+
+Tawassul is licensed under the Apache License, Version 2.0. See `LICENSE` for
+the full terms. This file carries the attribution notices required by section
+4(d) of that license; redistributions must keep it.
+
 Tawassul is an OpenCode plugin. It is not affiliated with OpenCode, and it does
 not vendor the host.
+
+## Original innovation attribution notice
+
+Original Innovator: HtoZ27
+Original Innovation: Tawassul team runtime for OpenCode
+Original Project: Tawassul
+Copyright: © 2026 HtoZ27
+
+Attribution and Recognition
+
+The design and implementation of the Original Innovation were originated by
+the Original Innovator. Any use, modification, or redistribution of this
+project that builds on that innovation is asked to preserve this notice and to
+credit the Original Innovator and the Original Project.
+
+This notice does not replace, modify, or override the terms of the applicable
+software license.
 
 ## Third-party components
 

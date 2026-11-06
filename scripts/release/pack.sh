@@ -94,7 +94,7 @@ const manifest = {
   name: "tawassul-v2",
   version: process.env.VERSION,
   description: "Tawassul plugin for OpenCode v2 (Plugin API v2)",
-  license: "MIT",
+  license: "Apache-2.0",
   type: "module",
   main: "dist/index.js",
   exports: {

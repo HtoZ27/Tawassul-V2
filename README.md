@@ -166,7 +166,9 @@ finding; it is not retried until it passes.
 
 ## Licence
 
-MIT. Third-party components and their licences are listed in
-[NOTICE.md](NOTICE.md), with the complete installed inventory in
+Apache License 2.0. [LICENSE](LICENSE) carries the full terms and
+[NOTICE.md](NOTICE.md) the attribution notices and the third-party components
+that ship in the bundle or as wasm grammars; redistributions must keep both.
+The complete installed inventory is in
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). The projects whose ideas
 shaped this one are thanked in [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md).

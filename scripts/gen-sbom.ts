@@ -195,7 +195,7 @@ const sbom = {
       "bom-ref": purlOf(rootName, rootVersion),
       name: rootName,
       version: rootVersion,
-      licenses: [licenseEntry(manifest.license ?? "MIT")],
+      licenses: [licenseEntry(manifest.license ?? "Apache-2.0")],
     },
     properties: [
       { name: "tawassul:bundle:path", value: "dist/global.js" },

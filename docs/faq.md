@@ -8,8 +8,8 @@ checkpoints, memory records, discussions, and context packs.
 
 ## Is it free?
 
-Yes. The licence is MIT. There is no paid tier, no account, and no telemetry
-endpoint.
+Yes. The licence is Apache 2.0. There is no paid tier, no account, and no
+telemetry endpoint.
 
 ## Does it send my code anywhere?
 
