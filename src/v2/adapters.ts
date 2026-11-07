@@ -48,12 +48,21 @@ export function schemaFingerprint(schemas: Map<string, Record<string, unknown>>)
   return hash.digest("hex");
 }
 
-export function measureSchemaPayload(schemas: Map<string, Record<string, unknown>>): { bytes: number; estimatedTokens: number } {
-  let bytes = 0;
-  for (const schema of schemas.values()) {
-    bytes += Buffer.byteLength(JSON.stringify(schema), "utf8");
-  }
-  return { bytes, estimatedTokens: Math.ceil(bytes / 4) };
+export type SchemaPayloadMeasurement = {
+  bytes: number;
+  estimatedTokens: number;
+  lines: Array<{ name: string; bytes: number; estimatedTokens: number }>;
+};
+
+export function measureSchemaPayload(schemas: Map<string, Record<string, unknown>>): SchemaPayloadMeasurement {
+  const lines = [...schemas.keys()]
+    .sort()
+    .map((name) => {
+      const bytes = Buffer.byteLength(JSON.stringify(schemas.get(name)), "utf8");
+      return { name, bytes, estimatedTokens: Math.ceil(bytes / 4) };
+    });
+  const bytes = lines.reduce((sum, line) => sum + line.bytes, 0);
+  return { bytes, estimatedTokens: Math.ceil(bytes / 4), lines };
 }
 
 export type DescriptionTextMeasurement = {

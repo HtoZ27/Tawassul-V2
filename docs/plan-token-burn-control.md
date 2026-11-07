@@ -13,11 +13,14 @@ is clamped at the wiring point), the Probe 0 Q13-Q16 scope corrections, the D6/D
 narrowing, and the depth-guard scope note. Revision 2.4 adds Section 18: the owner's 2026-11-07
 corrections, the 200-character floor for the echo detector, and the 200k default context window
 with host declarations taken verbatim. Revision 2.5 adds Section 19: the isolated echo-threshold
-replay, the decision to keep 200 characters, and the tool-only reset fix. No Revision 1, 2, 2.1,
-2.2, 2.3, or 2.4 item is removed; every correction is appended and marked with its revision.
-Status: D13 and the P2 ledger shadow slice are implemented and proven; enforcement remains
-proposal only.
-Date: 2026-11-07 (Revision 2.5, echo replay and tool-only reset note)
+replay, the decision to keep 200 characters, and the tool-only reset fix. Revision 2.6 adds
+Section 20: the post-retirement fixed-cost re-measurement (24,740 B / 6,185 tokens), the per-tool
+schema and description ledger, the corrected P1 cut (4,740 B, -19.2%), and the gate timing guard.
+No Revision 1, 2, 2.1, 2.2, 2.3, 2.4, or 2.5 item is removed; every correction is appended and
+marked with its revision.
+Status: D13 and the P2 ledger shadow slice are implemented and proven; the fixed-cost payload is
+measured per tool; enforcement remains proposal only.
+Date: 2026-11-07 (Revision 2.6, fixed-cost ledger refresh)
 Target: Tawassul V2, this tree, OpenCode host >= 2.2.0
 Audience: independent models and agents asked to score the options and produce a verdict.
 
@@ -26,11 +29,12 @@ Audience: independent models and agents asked to score the options and produce a
 0. Read Section 14 first for the Revision 2 re-evaluation, then Section 15 for the first consolidated
    five-agent review, then Section 16 for the second review and the shadow-instrumentation
    correction, then Section 17 for the third review and the D13 reconciliation, then Section 18 for
-   the owner's 2026-11-07 corrections and Section 19 for the echo-threshold replay. Sections 0-13 are
-   the Revision 1 dossier and are scored as written; Section 14 states what the re-evaluation
-   corrected, what it adds, and which findings the five-agent review must attack; Sections 15-19
-   record what the reviews confirmed, refuted, and changed. The operative recommendation is
-   Section 15.5 as amended by 16.3, 17.3, 18.1, and 19.3, not Section 7.
+   the owner's 2026-11-07 corrections and Section 19 for the echo-threshold replay, then Section 20
+   for the post-retirement fixed-cost ledger. Sections 0-13 are the Revision 1 dossier and are
+   scored as written; Section 14 states what the re-evaluation corrected, what it adds, and which
+   findings the five-agent review must attack; Sections 15-20 record what the reviews confirmed,
+   refuted, and changed. The operative recommendation is Section 15.5 as amended by 16.3, 17.3,
+   18.1, 19.3, and the corrected P1 distance in 20.1, not Section 7.
 
 1. Read Section 0 (hard constraints) first. Any option that violates one is disqualified, regardless of score.
 2. Read Section 3 (current code). The code map is factual and was read from the tree on 2026-11-05.
@@ -1725,6 +1729,78 @@ measure.
 
 ---
 
+## 20. Fixed-cost ledger refresh (Revision 2.6)
+
+### 20.1 Corrected measurement and P1 arithmetic
+
+Revision 2.5 measured 24,513 B / 6,129 tokens. The goal acceptance retirement added two properties
+(`acceptRetireId`, `acceptRetireReason`) to the `goal` schema, so the 2026-11-07 re-measurement is
+**24,740 B / 6,185 tokens for 44 tools** in
+`docs/experiments/receipts/2026-11-07-schema-payload.json`. Every earlier schema figure in this
+dossier - including 14.5, 15.5, 16.2, 19.2, and Appendix A - is pre-retirement history and is
+superseded by this section for arithmetic. The option scoring and the recommendation are unchanged.
+
+| Item | Value |
+| --- | --- |
+| Live schema payload | 24,740 B / 6,185 tokens |
+| P1 target (unchanged) | 20,000 B |
+| Remaining cut | 4,740 B (19.2%) |
+| Pre-retirement distance | 4,513 B (18.4%) |
+| Description surface | 16,163 B, still 20.25% below 20,267 |
+| Hot-tool retries | zero on the eight frozen tools |
+
+At the same four-bytes-per-token estimator, 20,000 B is 5,000 tokens, so the target saves 1,185
+estimated tokens per request against the current payload.
+
+### 20.2 Per-tool ledger
+
+The receipt now carries two arrays sorted by tool name: `schemaLines` (44 rows, the
+`JSON.stringify` length of each tool schema) and `descriptionLines` (44 rows, the UTF-8 length of
+each `description`). The schema rows sum to 24,740 B and the description rows sum to 16,163 B. The
+description is part of the schema string, so the two ledgers overlap and must not be added together.
+
+| Tool | Schema B | Description B |
+| --- | --- | --- |
+| `goal` | 3,341 | 1,564 |
+| `web` | 2,161 | 256 |
+| `handoff` | 1,818 | 1,126 |
+| `evaluationreport` | 1,733 | 673 |
+| `evidence` | 1,120 | 457 |
+| `record` | 836 | 541 |
+| `discussion` | 781 | 387 |
+| `divide` | 758 | 415 |
+
+The first five rows are 10,173 B, 41.1% of the payload, so they are the first candidates for the
+P1 cut. `goal` alone is 13.5% of the payload and 1,564 B of that is description text; the other
+1,777 B is parameter and result schema.
+
+`scripts/prove-context-diet.ts` now asserts that the live per-tool measurement matches the receipt
+row by row and that each array sums to its golden total. A future schema edit therefore has to
+update the ledger in the same change, and the proof fails if a row drifts.
+
+### 20.3 What is still open in P1
+
+| Surface | Ledger source | Budget |
+| --- | --- | --- |
+| Compaction digest | `digest` injection rows | none |
+| Session Index | `session_index` injection rows; 90k-token compaction ceiling | none |
+| Recent decisions | folded into the `context` rows | none |
+| R1 report clause | not recorded | none |
+
+The schema cut from 24,740 B to 20,000 B is not applied; the description target and the retry table
+are unchanged by the retirement. The four injections above still have audit rows only, so the P1
+slice is measurement-complete and budget-incomplete.
+
+### 20.4 Gate timing guard
+
+The same revision bounds the gate so a stalled stage cannot hang a work session: 240 s per step by
+default, 300 s for `fast`, 900 s for `proofs`, 600 s for `smoke`, 1800 s for the `ci` umbrella, and
+a process-group kill on timeout. `scripts/prove-gate-budget.ts` covers the step timeout, the
+stage-capped step, and the grandchild kill with 22 assertions. `host:refresh` keeps the 120 s shell
+limit.
+
+---
+
 ## Appendix A — Evidence with numbers
 
 | Claim | Number | Source | Confidence |
@@ -1775,7 +1851,9 @@ measure.
 | Exempt calls | `src/hooks/PipelineState.ts` | 42 |
 | Known constraints | `TRIAGE.md` | 116-125 |
 | Prior plan, closed | `docs/FUTURE-WORK-PLAN.md` | section 4 |
-| Live schema payload | `docs/experiments/receipts/2026-11-05-schema-payload.json` | 24,513 B / 6,129 tokens, 44 tools |
+| Live schema payload (current) | `docs/experiments/receipts/2026-11-07-schema-payload.json` | 24,740 B / 6,185 tokens, 44 tools, per-tool ledger |
+| Schema and description measurement | `src/v2/adapters.ts` | 57-84 |
+| Live schema payload (pre-retirement) | `docs/experiments/receipts/2026-11-05-schema-payload.json` | 24,513 B / 6,129 tokens, 44 tools |
 | Usage event | `node_modules/@opencode/schema/dist/event-manifest.d.ts` | 1097-1145; durability `ephemeral` at 1136 |
 | Session totals and parent | `node_modules/@opencode/client/dist/promise/generated/types.d.ts` | 3062-3064; call at `promise/client.d.ts:213` |
 | Session bridge methods | `src/v2/session-bridge.ts` | 11-24 (type), 28-42 (install) |

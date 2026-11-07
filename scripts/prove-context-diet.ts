@@ -45,6 +45,9 @@ type PayloadReceipt = {
   toolCount: number;
   toolNameSetHash: string;
   schemaPayload: { bytes: number; estimatedTokens: number };
+  descriptionBytes: number;
+  schemaLines: Line[];
+  descriptionLines: Line[];
   archivedBaseline: { file: string; bytes: number };
 };
 
@@ -137,6 +140,25 @@ try {
     "the live schema payload token estimate follows its bytes",
   );
   assert(
+    payloadReceipt.schemaLines.length === payloadReceipt.toolCount,
+    `the per-tool schema ledger covers every tool (${payloadReceipt.schemaLines.length}/${payloadReceipt.toolCount})`,
+  );
+  assert(
+    payloadReceipt.schemaLines.reduce((sum, line) => sum + line.bytes, 0) ===
+      payloadReceipt.schemaPayload.bytes,
+    `the per-tool schema ledger sums to the recorded total (${payloadReceipt.schemaPayload.bytes})`,
+  );
+  assert(
+    payloadReceipt.schemaLines.every(
+      (line, index) => line.name === livePayload.lines[index]?.name && line.bytes === livePayload.lines[index]?.bytes,
+    ),
+    "the per-tool schema ledger matches the live per-tool measurement",
+  );
+  assert(
+    payloadReceipt.schemaLines.every((line) => line.estimatedTokens === Math.ceil(line.bytes / 4)),
+    "every schema ledger token estimate follows its bytes",
+  );
+  assert(
     measured.lines.length === baseline.descriptionText.lines.length,
     `the measurement covers every baseline tool (${measured.lines.length}/${baseline.descriptionText.lines.length})`,
   );
@@ -162,6 +184,25 @@ try {
   assert(
     measured.estimatedTokens === Math.ceil(measured.bytes / 4),
     "the reported token estimate follows the measured bytes",
+  );
+  assert(
+    payloadReceipt.descriptionBytes === measured.bytes,
+    `the receipt description total matches the live measurement (${payloadReceipt.descriptionBytes} === ${measured.bytes})`,
+  );
+  assert(
+    payloadReceipt.descriptionLines.length === measured.lines.length,
+    `the per-tool description ledger covers every tool (${payloadReceipt.descriptionLines.length}/${measured.lines.length})`,
+  );
+  assert(
+    payloadReceipt.descriptionLines.reduce((sum, line) => sum + line.bytes, 0) ===
+      payloadReceipt.descriptionBytes,
+    `the per-tool description ledger sums to the recorded total (${payloadReceipt.descriptionBytes})`,
+  );
+  assert(
+    payloadReceipt.descriptionLines.every(
+      (line, index) => line.name === measured.lines[index]?.name && line.bytes === measured.lines[index]?.bytes,
+    ),
+    "the per-tool description ledger matches the live per-tool measurement",
   );
 
   const slimmed = measured.lines.filter((line) => {
