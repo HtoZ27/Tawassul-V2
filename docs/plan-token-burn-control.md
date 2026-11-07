@@ -1507,8 +1507,9 @@ remains open and no enforcement is claimed. Receipts:
 `docs/experiments/receipts/2026-11-06-p2-usage-ledger.md`,
 `docs/experiments/receipts/2026-11-06-p2-usage-shadow.md`,
 `docs/experiments/receipts/2026-11-07-d12-no-agent-row.md`,
-`docs/experiments/receipts/2026-11-07-p2-isolated-experiments.md`, and
-`docs/experiments/receipts/2026-11-07-p2-live-probe.md`.
+`docs/experiments/receipts/2026-11-07-p2-isolated-experiments.md`,
+`docs/experiments/receipts/2026-11-07-p2-live-probe.md`, and
+`docs/experiments/receipts/2026-11-07-p2-history-calibration.md`.
 
 | Item | Implementation | Evidence |
 | --- | --- | --- |
@@ -1527,13 +1528,17 @@ remains open and no enforcement is claimed. Receipts:
 | Fan-out shadow | `task`, `handoff`, and `fasttrack` dispatch text clustered by 80% similarity inside a 10-minute window; trip at 6 | fan-out assertions |
 | Sink | every observation becomes a `kind: "shadow"` JSONL row and a health reading; reload restores the row and session counts | ledger-sink and reload assertions |
 | Report | `health()` prints the `## Usage ledger` block, including root/child p50/p90/p99 and the shadow line | static wiring assertion |
+| Calibration from history | a read-only copy of the v2 lane DB gives the first distribution without waiting: project roots 1,896,313 / 22,292,966.6 / 22,292,966.6 billable (n=4), children 305,277.8 / 582,082.6 / 679,631 (n=14); `p99(root)` is far above 300k, so Option 6's falsification does not fire; the sample is below 30 sessions, so the gate stays open | `2026-11-07-p2-history-calibration.md` |
 | Proof | `scripts/prove-usage-ledger.ts`, 122 assertions, gate step `usage-ledger`; `scripts/prove-usage-shadow.ts`, 80 assertions, gate step `usage-shadow`; 179 steps and 182 files | `npm run verify` GATE PASS |
 
 The shadow detections are now live readings rather than an implementation gap: the root/child p99
 split, the orphan count, `unobserved` rows during reload, injected bytes per source, repeat and
-fan-out flagged sessions, and echo streaks are all recorded. Two readings still require the
-forward window: echo-flagged sessions per 30 sessions and the repeat detector's false-positive
-rate. Cached-schema share is settled by Q11 (repeat requests hit the cache in full, so Option 11
+fan-out flagged sessions, and echo streaks are all recorded. The first distribution is no longer
+blocked on the window either: a read-only copy of the lane DB yields root p99 22.29M and child p99
+679.6k billable with four project roots, enough to reject Option 6's falsification but not to set
+budgets, since the project sample is 18 sessions. Two readings still require the forward window:
+echo-flagged sessions per 30 sessions and the repeat detector's false-positive rate. Cached-schema
+share is settled by Q11 (repeat requests hit the cache in full, so Option 11
 stays hygiene). Catalog-derived cache weights and the 20% cost reconciliation warning are deferred
 until a priced model is observed; until then every weight is labelled `source: "default"` and
 every zero-cost row is `cost_unpriced`.
