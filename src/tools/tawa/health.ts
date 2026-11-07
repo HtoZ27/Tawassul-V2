@@ -129,6 +129,7 @@ export function buildHealthTool(ctx: TawassulContext, deps: HealthToolDeps = {})
                 `- Sessions: ${ledger.sessions} (roots ${ledger.roots} / children ${ledger.children}, orphans ${ledger.orphanChildren}${ledger.lineageUnknown > 0 ? `, lineage unknown ${ledger.lineageUnknown}` : ""})`,
                 `- Weighted tokens p50/p90/p99: root ${compactNumber(ledger.root.p50)}/${compactNumber(ledger.root.p90)}/${compactNumber(ledger.root.p99)} · child ${compactNumber(ledger.child.p50)}/${compactNumber(ledger.child.p90)}/${compactNumber(ledger.child.p99)}`,
                 `- Rows: ${ledger.usageRows} usage, ${ledger.injectionRows} injection (${compactNumber(ledger.injectionBytes)} B) · backfilled ${ledger.backfilledSessions} · unobserved ${ledger.unobservedRows}`,
+                `- No-agent calls: ${ledger.noAgentRows}`,
                 `- Shadow: repeat ${ledger.repeatSessions} / echo ${ledger.echoSessions} / fan-out ${ledger.fanoutSessions} session(s), ${ledger.shadowRows} row(s)`,
                 `- Unit: ${ledger.unit} · priced ${ledger.pricedSessions} / unpriced ${ledger.unpricedSessions}${ledger.unpricedSessions > 0 ? " · cost_unpriced" : ""}`,
                 `- Ledger: ${ledger.path} (last event ${ledger.lastEventAt ?? "none"})`,

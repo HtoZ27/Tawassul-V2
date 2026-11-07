@@ -129,6 +129,13 @@ function stamp(): string {
   return new Date().toISOString().replace(/[:.]/g, "-");
 }
 
+const TRANSIENT_ARTIFACT = /\.bak\.\d+\.[0-9a-f]{12}$|\.bak\.orphan-\d+$|\.\d+(-[0-9a-f]{12})?\.tmp$/;
+
+function isTransientArtifact(rel: string): boolean {
+  const name = rel.split("/").pop() ?? rel;
+  return TRANSIENT_ARTIFACT.test(name);
+}
+
 function listFiles(base: string, prefix = "", excludeAtRoot = true): string[] {
   const current = join(base, prefix);
   let entries: string[];
@@ -148,7 +155,7 @@ function listFiles(base: string, prefix = "", excludeAtRoot = true): string[] {
       continue;
     }
     if (stats.isDirectory()) out.push(...listFiles(base, rel, excludeAtRoot));
-    else if (stats.isFile()) out.push(rel);
+    else if (stats.isFile() && !isTransientArtifact(rel)) out.push(rel);
   }
   return out;
 }

@@ -1504,8 +1504,10 @@ P2 is **partially executed**. The ledger core, JSONL, historical backfill, reloa
 the self-injection audit, the health report, and the shadow repeat/echo/fan-out detectors are
 implemented and proven. The 7-day or 30-session observation window has not run, so the P2 gate
 remains open and no enforcement is claimed. Receipts:
-`docs/experiments/receipts/2026-11-06-p2-usage-ledger.md` and
-`docs/experiments/receipts/2026-11-06-p2-usage-shadow.md`.
+`docs/experiments/receipts/2026-11-06-p2-usage-ledger.md`,
+`docs/experiments/receipts/2026-11-06-p2-usage-shadow.md`,
+`docs/experiments/receipts/2026-11-07-d12-no-agent-row.md`, and
+`docs/experiments/receipts/2026-11-07-p2-isolated-experiments.md`.
 
 | Item | Implementation | Evidence |
 | --- | --- | --- |
@@ -1518,12 +1520,13 @@ remains open and no enforcement is claimed. Receipts:
 | Reload | reads the `.1` rotation file and the active file; restores sessions, turns, and injection totals; the first post-restart delta reconciles against the persisted snapshot | reload and rotation assertions |
 | Boot gap | a list snapshot above the persisted counter writes an `unobserved` row with only the missing delta | gap assertions |
 | Injection audit | `digest`, `context`, and `session_index` bytes recorded from `src/hooks/session.ts` into `kind: "injection"` rows | injection assertions |
+| No-agent audit | every tool call without `input.agent` records a `kind: "noagent"` row from `src/hooks/tool-execute.ts`; the count appears in health (D12's record half; the default/deny/warn policy stays open) | no-agent assertions |
 | Repeat shadow | per session and tool, warning at 3, trip at 5; failed calls and calls without a session are ignored; no blocking | repeat assertions |
 | Echo shadow | `session.text.ended` per assistant message, flushed on `session.usage.updated`; 80% trigram overlap for 12 consecutive no-tool turns; a tool turn resets the streak (Q15) | echo assertions |
 | Fan-out shadow | `task`, `handoff`, and `fasttrack` dispatch text clustered by 80% similarity inside a 10-minute window; trip at 6 | fan-out assertions |
 | Sink | every observation becomes a `kind: "shadow"` JSONL row and a health reading; reload restores the row and session counts | ledger-sink and reload assertions |
 | Report | `health()` prints the `## Usage ledger` block, including root/child p50/p90/p99 and the shadow line | static wiring assertion |
-| Proof | `scripts/prove-usage-ledger.ts`, 115 assertions, gate step `usage-ledger`; `scripts/prove-usage-shadow.ts`, 80 assertions, gate step `usage-shadow`; 179 steps and 182 files | `npm run verify` GATE PASS |
+| Proof | `scripts/prove-usage-ledger.ts`, 122 assertions, gate step `usage-ledger`; `scripts/prove-usage-shadow.ts`, 80 assertions, gate step `usage-shadow`; 179 steps and 182 files | `npm run verify` GATE PASS |
 
 The shadow detections are now live readings rather than an implementation gap: the root/child p99
 split, the orphan count, `unobserved` rows during reload, injected bytes per source, repeat and

@@ -187,6 +187,9 @@ try {
   equal(ledger.recordInjection({ sessionID: "ses-root", source: "bad", bytes: Number.NaN }), undefined, "a non-finite injection is ignored");
   equal(ledger.recordInjection({ sessionID: "ses-root", source: "bad", bytes: -1 }), undefined, "a negative injection is ignored");
   equal(ledger.recordInjection({ sessionID: "ses-root", source: "round", bytes: 1.6 })?.bytes, 2, "injection bytes round");
+  equal(ledger.recordNoAgent({ sessionID: "ses-root", tool: "bash" })?.tool, "bash", "a no-agent call is recorded");
+  equal(ledger.recordNoAgent({ sessionID: "", tool: "bash" }), undefined, "a no-agent call without a session is ignored");
+  equal(ledger.recordNoAgent({ sessionID: "ses-root", tool: "" }), undefined, "a no-agent call without a tool is ignored");
 
   await ledger.flush();
   const mode = statSync(file).mode & 0o777;
@@ -200,6 +203,7 @@ try {
   equal(summary.unpricedSessions, 3, "three sessions are unpriced");
   equal(summary.injectionRows, 3, "three injection rows are counted");
   equal(summary.injectionBytes, 422, "injection bytes are summed");
+  equal(summary.noAgentRows, 1, "one no-agent row is counted");
   equal(summary.unobservedRows, 0, "live events are not unobserved");
   equal(summary.backfilledSessions, 0, "live events are not backfilled");
   equal(summary.lineageUnknown, 0, "resolved roots are not lineage-unknown");
@@ -212,6 +216,7 @@ try {
   equal(reloaded.sessionCount(), 4, "reload restores every session from JSONL");
   equal(reloaded.sessionSnapshot("ses-root")?.turn, 2, "reload restores the turn counter");
   equal(reloaded.summary().injectionBytes, 422, "reload restores injection bytes");
+  equal(reloaded.summary().noAgentRows, 1, "reload restores the no-agent count");
   const afterRestart = await reloaded.handleEvent(usage("ses-root", { input: 40, output: 6, reasoning: 2, read: 300, write: 4 }));
   await reloaded.flush();
   const restartRow = lastRow(file) as { delta: { input: number }; turn: number };
@@ -331,13 +336,16 @@ try {
   assert(bridge.includes("list: (input) => ctx.session.list(input)"), "the bridge exposes session.list");
   const health = readFileSync(join(repo, "src", "tools", "tawa", "health.ts"), "utf8");
   assert(health.includes("## Usage ledger"), "health reports the ledger");
+  assert(health.includes("No-agent calls"), "health reports the no-agent count");
+  const toolHook = readFileSync(join(repo, "src", "hooks", "tool-execute.ts"), "utf8");
+  assert(toolHook.includes("recordNoAgent"), "the tool hook records no-agent calls");
   const sessionHook = readFileSync(join(repo, "src", "hooks", "session.ts"), "utf8");
   assert(sessionHook.includes("source: \"digest\""), "the session hook audits digest bytes");
   assert(sessionHook.includes("source: \"session_index\""), "the session hook audits session index bytes");
   equal(DEFAULT_USAGE_WEIGHTS.read, 0.1, "the default read weight is the documented fallback");
   equal(DEFAULT_USAGE_WEIGHTS.write, 1.25, "the default write weight is the documented fallback");
 
-  console.log("PROOF PASS: usage ledger covers parsing, pricing, lineage, backfill, reload, gaps, injection, and rotation");
+  console.log("PROOF PASS: usage ledger covers parsing, pricing, lineage, backfill, reload, gaps, injection, no-agent rows, and rotation");
 } finally {
   rmSync(work, { recursive: true, force: true });
 }

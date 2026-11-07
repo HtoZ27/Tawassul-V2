@@ -8,6 +8,7 @@
 - Runtime: Bun 1.3.14 on Linux x64; the proof uses an isolated temporary directory.
 - Proof: `scripts/prove-usage-ledger.ts`, 115 assertions, gate step `usage-ledger`.
 - Gate: `npm run verify` passed (`GATE PASS: fast (16 step(s))` plus the build).
+- Later slices: `2026-11-06-p2-usage-shadow.md` adds the shadow detectors; `2026-11-07-d12-no-agent-row.md` adds the no-agent rows. The proof now carries 122 assertions.
 
 ## Change under proof
 

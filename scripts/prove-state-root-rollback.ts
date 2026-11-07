@@ -281,6 +281,14 @@ try {
   assert(conflictJournal.length > journalBefore, "the conflict boot appends a journal line");
   const journalAfterConflict = conflictJournal.length;
 
+  const transientBackup = join(workspace, "timeline", "timeline-meta.json.bak.1794018472517.da5ca9d7610f");
+  const transientTemp = join(workspace, "timeline", "timeline-meta.json.4242-0011223344ff.tmp");
+  const transientOrphan = join(workspace, "timeline", "timeline-meta.json.bak.orphan-1794018472517");
+  mkdirSync(join(workspace, "timeline"), { recursive: true });
+  writeFileSync(transientBackup, "{\"transient\":true}\n");
+  writeFileSync(transientTemp, "transient\n");
+  writeFileSync(transientOrphan, "transient\n");
+
   const settled = await bootPlugin({ workspace, projectID: ID });
   const settledTitles = recordTitles(settled);
   const settledGoals = await readGoals(settled, workspace);
@@ -292,6 +300,21 @@ try {
   await disposePlugin(settled);
   const settledJournalLength = readFileSync(journalFile, "utf8").trim().split("\n").length;
   assert(settledJournalLength === journalAfterConflict, "a settled conflict appends nothing on the next boot");
+  assert(existsSync(transientBackup), "the settled boot leaves the atomic backup in place");
+  assert(existsSync(transientTemp), "the settled boot leaves the atomic temp file in place");
+  assert(existsSync(transientOrphan), "the settled boot leaves the orphan backup in place");
+  assert(
+    !existsSync(join(root, "timeline", "timeline-meta.json.bak.1794018472517.da5ca9d7610f")),
+    "a transient backup is never migrated",
+  );
+  assert(
+    !existsSync(join(root, "timeline", "timeline-meta.json.4242-0011223344ff.tmp")),
+    "a transient temp file is never migrated",
+  );
+  assert(
+    !existsSync(join(root, "timeline", "timeline-meta.json.bak.orphan-1794018472517")),
+    "an orphan backup is never migrated",
+  );
 
   const schemaDir = join(work, "schema-roundtrip");
   mkdirSync(schemaDir, { recursive: true });

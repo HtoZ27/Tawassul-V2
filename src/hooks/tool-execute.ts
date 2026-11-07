@@ -51,6 +51,7 @@ import {
 
 import { consume, refund, sweepStaleBudgets } from "../services/iteration-budget.ts";
 import { getUsageShadow } from "../services/usage-shadow.ts";
+import { getUsageLedger } from "../services/usage-ledger.ts";
 import { TAWA_AGENT, SecurityPolicy } from "../security-policy.ts";
 import { isManagedAgent } from "../utils/agent.ts";
 
@@ -182,6 +183,11 @@ export function createToolExecuteBeforeHook(ctx: ToolExecuteBeforeContext) {
     try {
       input.tool = normalizeToolName(input.tool);
       const normalizedAgent = input.agent ? normalizeName(input.agent) : undefined;
+
+      if (input.sessionID && input.tool) {
+        if (!normalizedAgent) getUsageLedger()?.recordNoAgent({ sessionID: input.sessionID, tool: input.tool });
+        getUsageShadow()?.observeDispatch({ sessionID: input.sessionID, tool: input.tool, args: output.args });
+      }
 
       if (isTawassulTool(input.tool)) {
         logger.debug(`Tool called: ${input.tool} by ${normalizedAgent ?? "undefined"}`);
@@ -479,10 +485,6 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
     try {
       input.tool = normalizeToolName(input.tool);
       const normalizedAgent = input.agent ? normalizeName(input.agent) : undefined;
-
-      if (input.sessionID) {
-        getUsageShadow()?.observeDispatch({ sessionID: input.sessionID, tool: input.tool, args: input.args });
-      }
 
       
       

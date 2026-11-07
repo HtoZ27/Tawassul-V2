@@ -80,7 +80,15 @@ export interface UsageShadowRow {
   detail: Record<string, unknown>;
 }
 
-export type UsageLedgerLine = UsageLedgerRow | UsageInjectionRow | UsageShadowRow;
+export interface UsageNoAgentRow {
+  v: number;
+  kind: "noagent";
+  ts: string;
+  sessionID: string;
+  tool: string;
+}
+
+export type UsageLedgerLine = UsageLedgerRow | UsageInjectionRow | UsageShadowRow | UsageNoAgentRow;
 
 export interface UsageSessionSnapshot {
   id: string;
@@ -124,6 +132,7 @@ export interface UsageLedgerSummary {
   injectionRows: number;
   injectionBytes: number;
   shadowRows: number;
+  noAgentRows: number;
   repeatSessions: number;
   echoSessions: number;
   fanoutSessions: number;
@@ -303,6 +312,7 @@ export class UsageLedger {
   private injectionRows = 0;
   private injectionBytes = 0;
   private shadowRows = 0;
+  private noAgentRows = 0;
   private readonly shadowSessions: Record<ShadowDetector, Set<string>> = {
     repeat: new Set(),
     echo: new Set(),
@@ -381,6 +391,13 @@ export class UsageLedger {
       this.rows += 1;
       this.shadowRows += 1;
       this.shadowSessions[detector].add(sessionID);
+      return;
+    }
+    if (row.kind === "noagent") {
+      const sessionID = typeof row.sessionID === "string" ? row.sessionID : "";
+      if (!sessionID) return;
+      this.rows += 1;
+      this.noAgentRows += 1;
       return;
     }
     if (row.kind !== "usage") return;
@@ -648,6 +665,22 @@ export class UsageLedger {
     return row;
   }
 
+  recordNoAgent(input: { sessionID: string; tool: string }): UsageNoAgentRow | undefined {
+    if (this.disposed) return undefined;
+    if (!input.sessionID || !input.tool) return undefined;
+    const row: UsageNoAgentRow = {
+      v: USAGE_LEDGER_VERSION,
+      kind: "noagent",
+      ts: new Date(this.now()).toISOString(),
+      sessionID: input.sessionID,
+      tool: input.tool,
+    };
+    this.rows += 1;
+    this.noAgentRows += 1;
+    this.enqueue(JSON.stringify(row));
+    return row;
+  }
+
   summary(): UsageLedgerSummary {
     const roots: number[] = [];
     const children: number[] = [];
@@ -677,6 +710,7 @@ export class UsageLedger {
       injectionRows: this.injectionRows,
       injectionBytes: this.injectionBytes,
       shadowRows: this.shadowRows,
+      noAgentRows: this.noAgentRows,
       repeatSessions: this.shadowSessions.repeat.size,
       echoSessions: this.shadowSessions.echo.size,
       fanoutSessions: this.shadowSessions.fanout.size,

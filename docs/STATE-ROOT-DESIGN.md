@@ -128,6 +128,7 @@ At every boot that resolves a project root, and only then, `prepareProjectState`
 
 - It records `identity.json`.
 - It scans both legacy locations: every file under `.opencode/` (index key is the path relative to `.opencode/`) and the top-level stores that were never inside `.opencode/` — `goals/`, `timeline/`, `mission-board/`, `sagas/`, `handoff-ledger.jsonl`, `checkpoints.json` and `metrics.json` (index key is `state:<relative path>`). The two key spaces never collide.
+- It ignores transient writer artifacts instead of treating them as legacy state: atomic rotations (`<file>.bak.<epoch-ms>.<12 hex>`), quarantines (`<file>.bak.orphan-<epoch-ms>`), and staging files (`<file>.<pid>.tmp`, `<file>.<pid>-<12 hex>.tmp`). A debounced write that lands in the legacy tree after the mode switch therefore cannot add a `migrate` line on the next boot.
 - On the first run with legacy artifacts it copies every legacy artifact that has no project copy, byte-for-byte, into the project namespace, after writing a backup and manifest. A legacy artifact discovered on a later boot (for example after an upgrade adds a top-level store) is also backed up before its first copy.
 - On every later run it compares the legacy digest against the recorded digest, per file:
   - Legacy unchanged: nothing happens.
