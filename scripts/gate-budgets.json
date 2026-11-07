@@ -1,6 +1,15 @@
 {
   "version": 1,
   "stages": {
+    "fast": {
+      "wallMs": 300000
+    },
+    "proofs": {
+      "wallMs": 900000
+    },
+    "smoke": {
+      "wallMs": 600000
+    },
     "evals": {
       "wallMs": 90000,
       "rssMb": 256

@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { setPriority, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +8,7 @@ type GateStep = {
   name: string;
   cmd: string[];
   env?: Record<string, string>;
+  timeoutMs?: number;
 };
 
 type GateManifest = Record<string, GateStep[]>;
@@ -39,6 +40,7 @@ type StepResult = {
   status: "pass" | "fail";
   durationMs: number;
   exit: string;
+  timedOut?: boolean;
 };
 
 type StageRecord = {
@@ -50,7 +52,9 @@ type StageRecord = {
 };
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
-const manifestPath = join(repo, "scripts", "gate-manifest.json");
+const manifestPath = process.env.TAWASSUL_GATE_MANIFEST_FILE
+  ? process.env.TAWASSUL_GATE_MANIFEST_FILE
+  : join(repo, "scripts", "gate-manifest.json");
 const shardsPath = join(repo, "scripts", "proof-shards.json");
 const budgetsPath = process.env.TAWASSUL_GATE_BUDGET_FILE
   ? process.env.TAWASSUL_GATE_BUDGET_FILE
@@ -59,6 +63,17 @@ const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as GateManifest;
 const args = process.argv.slice(2);
 const STATE_DIR = join(repo, ".opencode", "state");
 const TRANSCRIPT = join(repo, "docs", "CI-TRANSCRIPT.md");
+const STEP_TIMEOUT_MS = positiveEnv("TAWASSUL_GATE_STEP_TIMEOUT_MS", 240_000);
+const TOTAL_TIMEOUT_MS = positiveEnv("TAWASSUL_GATE_TOTAL_TIMEOUT_MS", 1_800_000);
+const KILL_GRACE_MS = 5_000;
+
+function positiveEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value <= 0) fail(`${name} must be a positive integer`);
+  return value;
+}
 
 function fail(message: string): never {
   console.error(`GATE FAIL: ${message}`);
@@ -162,9 +177,90 @@ function toPosixPath(value: string): string {
     : value.replace(/\\/g, "/");
 }
 
-function runStep(step: GateStep): StepResult {
+type ChildOutcome = {
+  code: number | null;
+  signal: NodeJS.Signals | null;
+  error: Error | null;
+  timedOut: boolean;
+  elapsedMs: number;
+};
+
+let activeChildPid: number | null = null;
+
+function killTree(pid: number | undefined, force: boolean): void {
+  if (pid === undefined) return;
+  if (process.platform === "win32") {
+    spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"], { stdio: "ignore" });
+    return;
+  }
+  const signal = force ? "SIGKILL" : "SIGTERM";
+  try {
+    process.kill(-pid, signal);
+  } catch {
+    try {
+      process.kill(pid, signal);
+    } catch {}
+  }
+}
+
+function abortActiveChild(): void {
+  if (activeChildPid === null) return;
+  const pid = activeChildPid;
+  activeChildPid = null;
+  killTree(pid, true);
+}
+
+process.on("SIGINT", () => {
+  abortActiveChild();
+  process.exit(130);
+});
+process.on("SIGTERM", () => {
+  abortActiveChild();
+  process.exit(143);
+});
+
+function runChild(argv: string[], env: NodeJS.ProcessEnv, timeoutMs: number): Promise<ChildOutcome> {
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const child = spawn(argv[0] as string, argv.slice(1), {
+      cwd: repo,
+      stdio: "inherit",
+      env,
+      detached: process.platform !== "win32",
+    });
+    activeChildPid = child.pid ?? null;
+    let timedOut = false;
+    let settled = false;
+    let graceTimer: ReturnType<typeof setTimeout> | null = null;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killTree(child.pid, false);
+      graceTimer = setTimeout(() => killTree(child.pid, true), KILL_GRACE_MS);
+    }, timeoutMs);
+    const finish = (code: number | null, signal: NodeJS.Signals | null, error: Error | null): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (graceTimer !== null) clearTimeout(graceTimer);
+      if (activeChildPid === (child.pid ?? null)) activeChildPid = null;
+      resolve({ code, signal, error, timedOut, elapsedMs: Date.now() - started });
+    };
+    child.once("error", (error) => finish(null, null, error));
+    child.once("exit", (code, signal) => finish(code, signal, null));
+  });
+}
+
+async function runStep(step: GateStep, stageRemainingMs: number | null): Promise<StepResult> {
   const command = resolveShell(step.cmd[0] ?? "");
   if (!command) fail(`step ${step.name} has no command`);
+  const requested = step.timeoutMs ?? STEP_TIMEOUT_MS;
+  const stageCapped = stageRemainingMs !== null && stageRemainingMs < requested;
+  const timeoutMs = stageCapped ? stageRemainingMs : requested;
+  if (timeoutMs <= 0) {
+    const reason = "stage budget exhausted";
+    console.error(`FAIL ${step.name}: ${reason}`);
+    return { name: step.name, status: "fail", durationMs: 0, exit: reason };
+  }
   const timeBin = activeBudget?.rssMb !== undefined ? "/usr/bin/time" : null;
   if (timeBin !== null && !existsSync(timeBin) && !activeTimeWarned) {
     activeTimeWarned = true;
@@ -176,7 +272,6 @@ function runStep(step: GateStep): StepResult {
     : null;
   const base = [command, ...step.cmd.slice(1)];
   const argv = useTime ? [timeBin, "-f", "%M", "-o", rssFile as string, ...base] : base;
-  const started = Date.now();
   const env: NodeJS.ProcessEnv = { ...process.env, ...step.env };
   if (process.versions.bun) env.TAWASSUL_BUN = process.execPath;
   if (process.platform === "win32" && command !== step.cmd[0]) {
@@ -189,12 +284,8 @@ function runStep(step: GateStep): StepResult {
     }
     env.PATH = [...new Set(entries)].join(":");
   }
-  const result = spawnSync(argv[0] as string, argv.slice(1), {
-    cwd: repo,
-    stdio: "inherit",
-    env,
-  });
-  const elapsed = Date.now() - started;
+  const outcome = await runChild(argv, env, timeoutMs);
+  const elapsed = outcome.elapsedMs;
   if (rssFile) {
     try {
       const measured = Number.parseInt(readFileSync(rssFile, "utf-8").trim(), 10);
@@ -208,13 +299,25 @@ function runStep(step: GateStep): StepResult {
     rmSync(rssFile, { force: true });
   }
   const suffix = timings ? ` (${elapsed}ms)` : "";
-  if (result.status === 0 && !result.error) {
+  if (!outcome.timedOut && outcome.code === 0 && !outcome.error) {
     console.log(`PASS ${step.name}${suffix}`);
     return { name: step.name, status: "pass", durationMs: elapsed, exit: "0" };
   }
-  const reason = result.error ? result.error.message : `exit ${result.status ?? result.signal ?? "unknown"}`;
+  const reason = outcome.timedOut
+    ? stageCapped
+      ? `stage budget ${timeoutMs}ms exhausted`
+      : `timeout after ${timeoutMs}ms`
+    : outcome.error
+      ? outcome.error.message
+      : `exit ${outcome.code ?? outcome.signal ?? "unknown"}`;
   console.error(`FAIL ${step.name}${suffix}: ${reason}`);
-  return { name: step.name, status: "fail", durationMs: elapsed, exit: reason };
+  return {
+    name: step.name,
+    status: "fail",
+    durationMs: elapsed,
+    exit: reason,
+    ...(outcome.timedOut ? { timedOut: true } : {}),
+  };
 }
 
 function readBudgets(): BudgetFile {
@@ -295,7 +398,7 @@ function writeTranscript(order: string[], ran: Map<string, boolean>): void {
   console.log(`GATE TRANSCRIPT: ${TRANSCRIPT}`);
 }
 
-function runStage(name: string): boolean {
+async function runStage(name: string): Promise<boolean> {
   const stageSteps = manifest[name] ?? [];
   let steps = stageSteps;
   let label = name;
@@ -335,7 +438,8 @@ function runStage(name: string): boolean {
   activeMaxRssKb = 0;
   activeRssMeasured = false;
   for (const step of selected) {
-    const result = runStep(step);
+    const remaining = budget === null ? null : budget.wallMs - (Date.now() - started);
+    const result = await runStep(step, remaining);
     results.push(result);
     if (result.status !== "pass") {
       activeBudget = null;
@@ -375,17 +479,27 @@ if (stage === "all") {
     rmSync(statePath(name), { force: true });
   }
   const ran = new Map<string, boolean>();
+  const totalStarted = Date.now();
   for (const name of order) {
-    const flags = timings ? ["--timings"] : [];
-    const result = spawnSync(process.execPath, [fileURLToPath(import.meta.url), name, ...flags], {
-      cwd: repo,
-      stdio: "inherit",
-      env: process.env,
-    });
-    ran.set(name, true);
-    if (result.status !== 0 || result.error) {
+    const remaining = TOTAL_TIMEOUT_MS - (Date.now() - totalStarted);
+    if (remaining <= 0) {
       writeTranscript(order, ran);
-      const reason = result.error ? result.error.message : `exit ${result.status ?? result.signal ?? "unknown"}`;
+      fail(`total budget ${TOTAL_TIMEOUT_MS}ms exhausted before ${name}`);
+    }
+    const flags = timings ? ["--timings"] : [];
+    const outcome = await runChild(
+      [process.execPath, fileURLToPath(import.meta.url), name, ...flags],
+      process.env,
+      remaining,
+    );
+    ran.set(name, true);
+    if (outcome.code !== 0 || outcome.error || outcome.timedOut) {
+      writeTranscript(order, ran);
+      const reason = outcome.timedOut
+        ? `timeout after ${remaining}ms`
+        : outcome.error
+          ? outcome.error.message
+          : `exit ${outcome.code ?? outcome.signal ?? "unknown"}`;
       fail(`stage ${name} failed (${reason})`);
     }
   }
@@ -395,4 +509,4 @@ if (stage === "all") {
   process.exit(0);
 }
 
-if (!runStage(stage)) process.exit(1);
+if (!(await runStage(stage))) process.exit(1);
