@@ -1502,14 +1502,15 @@ item is removed, no ledger code is written, and K3/K4 and the `callDepth` semant
 
 P2 is **partially executed**. The ledger core, JSONL, historical backfill, reload reconciliation,
 the self-injection audit, the health report, and the shadow repeat/echo/fan-out detectors are
-implemented and proven. The 7-day or 30-session observation window has not run, so the P2 gate
-remains open and no enforcement is claimed. Receipts:
+implemented and proven. The 7-day / 30-session window started on 2026-11-06T20:47Z and has not
+completed, so the P2 gate remains open and no enforcement is claimed. Receipts:
 `docs/experiments/receipts/2026-11-06-p2-usage-ledger.md`,
 `docs/experiments/receipts/2026-11-06-p2-usage-shadow.md`,
 `docs/experiments/receipts/2026-11-07-d12-no-agent-row.md`,
 `docs/experiments/receipts/2026-11-07-p2-isolated-experiments.md`,
-`docs/experiments/receipts/2026-11-07-p2-live-probe.md`, and
-`docs/experiments/receipts/2026-11-07-p2-history-calibration.md`.
+`docs/experiments/receipts/2026-11-07-p2-live-probe.md`,
+`docs/experiments/receipts/2026-11-07-p2-history-calibration.md`, and
+`docs/experiments/receipts/2026-11-07-p2-live-window-state.md`.
 
 | Item | Implementation | Evidence |
 | --- | --- | --- |
@@ -1529,6 +1530,7 @@ remains open and no enforcement is claimed. Receipts:
 | Sink | every observation becomes a `kind: "shadow"` JSONL row and a health reading; reload restores the row and session counts | ledger-sink and reload assertions |
 | Report | `health()` prints the `## Usage ledger` block, including root/child p50/p90/p99 and the shadow line | static wiring assertion |
 | Calibration from history | a read-only copy of the v2 lane DB gives the first distribution without waiting: project roots 1,896,313 / 22,292,966.6 / 22,292,966.6 billable (n=4), children 305,277.8 / 582,082.6 / 679,631 (n=14); `p99(root)` is far above 300k, so Option 6's falsification does not fire; the sample is below 30 sessions, so the gate stays open | `2026-11-07-p2-history-calibration.md` |
+| Live window | the desktop host runs the built ledger: 299 rows at 2026-11-07T03:26Z (293 usage, 6 injection at 17,942 B), 23 backfilled sessions plus 1 live session, 1 `unobserved` boot-gap row, and 0 shadow trips; the window started 2026-11-06T20:47Z | `2026-11-07-p2-live-window-state.md` |
 | Proof | `scripts/prove-usage-ledger.ts`, 122 assertions, gate step `usage-ledger`; `scripts/prove-usage-shadow.ts`, 80 assertions, gate step `usage-shadow`; 179 steps and 182 files | `npm run verify` GATE PASS |
 
 The shadow detections are now live readings rather than an implementation gap: the root/child p99
@@ -1551,7 +1553,9 @@ The event source is proven end to end as well: three isolated live-host runs wro
 each from the real `session.usage.updated` stream, priced the host's own `step_finish` deltas
 exactly, and tripped `repeat` at five identical shell calls (warning at three). Those runs also
 showed `noagent: 0` because the host populated `input.agent` on that path, so the D12 policy
-decision stays open while the record path remains proven at the hook boundary.
+decision stays open while the record path remains proven at the hook boundary. The desktop host
+itself now runs the same build: its ledger holds 299 rows (293 usage, 6 injection), 23 backfilled
+sessions, one live session, and one real `unobserved` boot-gap row, with zero shadow trips so far.
 
 ---
 

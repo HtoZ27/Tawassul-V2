@@ -79,6 +79,25 @@ This project has **zero** priced sessions, so every project row stays `source: "
 `cost_unpriced`. Catalog-derived cache weights and the 20% reconciliation warning remain deferred
 here; adding the NVIDIA model to the catalog would need a price source before it can be trusted.
 
+## Correction (2026-11-07, live ledger)
+
+The live host's ledger disproved the assumption that `session.list` is project-scoped: its first
+backfill copied **24 sessions from the whole v2 lane**, of which 23 carry usage (9 roots, 14
+children). The primary distribution is therefore the whole-lane one, not the project subset:
+
+| Group | n | billable p50 | p90 | p99 | p99 x 1.5 |
+| --- | --- | --- | --- | --- | --- |
+| Lane roots | 9 | 1,896,313 | 22,292,966.6 | 22,292,966.6 | 33,439,449.9 |
+| Lane children | 14 | 305,277.8 | 582,082.6 | 679,631 | 1,019,446.5 |
+
+The project-only rows above stay as a secondary view; the 300k falsification result is unchanged
+(the lane maximum is also 22.29M). Because the backfill is lane-wide, the one priced session
+(`nvidia/meta/llama-3.2-90b-vision-instruct`) does enter the ledger, but the model is still absent
+from `DEFAULT_PRICING_MODELS`, so every derived weight remains `source: "default"` and the 20%
+reconciliation cannot run on it.
+
+Evidence: `docs/experiments/receipts/2026-11-07-p2-live-window-state.md`.
+
 ## Reproduce
 
 ```
