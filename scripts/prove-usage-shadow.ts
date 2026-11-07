@@ -203,6 +203,20 @@ try {
   drive(toolShadow, "tool", "ta12", base);
   equal(toolRows.length, 1, "a fresh run after a short tool turn trips");
 
+  const toolOnlyRows: ShadowObservation[] = [];
+  const toolOnlyShadow = new UsageShadow({ emit: (row) => toolOnlyRows.push(row), now });
+  for (let turnIndex = 1; turnIndex <= 11; turnIndex += 1) {
+    drive(toolOnlyShadow, "tool-only", `o${turnIndex}`, base);
+  }
+  toolOnlyShadow.handleEvent({ type: "session.tool.called", data: { sessionID: "tool-only", assistantMessageID: "o-tool" } });
+  toolOnlyShadow.handleEvent({ type: "session.usage.updated", data: { sessionID: "tool-only" } });
+  for (let turnIndex = 1; turnIndex <= 11; turnIndex += 1) {
+    drive(toolOnlyShadow, "tool-only", `p${turnIndex}`, base);
+  }
+  equal(toolOnlyRows.length, 0, "a tool-only message breaks the streak without adding a text turn");
+  drive(toolOnlyShadow, "tool-only", "p12", base);
+  equal(toolOnlyRows.length, 1, "a fresh run after a tool-only message trips");
+
   const boundaryRows: ShadowObservation[] = [];
   const boundaryShadow = new UsageShadow({ emit: (row) => boundaryRows.push(row), now });
   const exact = base.slice(0, SHADOW_ECHO_MIN_CHARS);

@@ -137,6 +137,9 @@ export class UsageShadow {
       if (!messageID) return false;
       const state = this.echoState(sessionID);
       state.toolMessages.add(messageID);
+      state.streak = 0;
+      state.lastText = "";
+      state.tripped = false;
       if (state.toolMessages.size > MAX_TOOL_MESSAGES) {
         const oldest = state.toolMessages.values().next().value;
         if (oldest !== undefined) state.toolMessages.delete(oldest);

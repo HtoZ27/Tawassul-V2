@@ -1,6 +1,6 @@
 # Token-Burn Control — Design Dossier for Multi-Model Review
 
-Revision: 2.4. Revision 1 (2026-11-05) is preserved in Sections 0-13. Revision 2 added Section 14:
+Revision: 2.5. Revision 1 (2026-11-05) is preserved in Sections 0-13. Revision 2 added Section 14:
 the re-evaluation against the post-R1 tree, the four structural findings, Option 11 (fixed-cost
 diet), the canonical accounting formula, the revised execution order, and Probe 0. Revision 2.1
 added Section 15: the consolidated five-agent review, the score spread, the confirmed and refuted
@@ -12,11 +12,12 @@ the third five-agent review, the D13 reconciliation decision (K3 is the host cei
 is clamped at the wiring point), the Probe 0 Q13-Q16 scope corrections, the D6/D11 wording
 narrowing, and the depth-guard scope note. Revision 2.4 adds Section 18: the owner's 2026-11-07
 corrections, the 200-character floor for the echo detector, and the 200k default context window
-with host declarations taken verbatim. No Revision 1, 2, 2.1, 2.2, or 2.3 item is removed; every
-correction is appended and marked with its revision.
+with host declarations taken verbatim. Revision 2.5 adds Section 19: the isolated echo-threshold
+replay, the decision to keep 200 characters, and the tool-only reset fix. No Revision 1, 2, 2.1,
+2.2, 2.3, or 2.4 item is removed; every correction is appended and marked with its revision.
 Status: D13 and the P2 ledger shadow slice are implemented and proven; enforcement remains
 proposal only.
-Date: 2026-11-07 (Revision 2.4, echo-length and window-default note)
+Date: 2026-11-07 (Revision 2.5, echo replay and tool-only reset note)
 Target: Tawassul V2, this tree, OpenCode host >= 2.2.0
 Audience: independent models and agents asked to score the options and produce a verdict.
 
@@ -24,11 +25,12 @@ Audience: independent models and agents asked to score the options and produce a
 
 0. Read Section 14 first for the Revision 2 re-evaluation, then Section 15 for the first consolidated
    five-agent review, then Section 16 for the second review and the shadow-instrumentation
-   correction, then Section 17 for the third review and the D13 reconciliation. Sections 0-13 are
+   correction, then Section 17 for the third review and the D13 reconciliation, then Section 18 for
+   the owner's 2026-11-07 corrections and Section 19 for the echo-threshold replay. Sections 0-13 are
    the Revision 1 dossier and are scored as written; Section 14 states what the re-evaluation
-   corrected, what it adds, and which findings the five-agent review must attack; Sections 15-17
+   corrected, what it adds, and which findings the five-agent review must attack; Sections 15-19
    record what the reviews confirmed, refuted, and changed. The operative recommendation is
-   Section 15.5 as amended by 16.3 and 17.3, not Section 7.
+   Section 15.5 as amended by 16.3, 17.3, 18.1, and 19.3, not Section 7.
 
 1. Read Section 0 (hard constraints) first. Any option that violates one is disqualified, regardless of score.
 2. Read Section 3 (current code). The code map is factual and was read from the tree on 2026-11-05.
@@ -1529,7 +1531,7 @@ completed, so the P2 gate remains open and no enforcement is claimed. Receipts:
 | Injection audit | `digest`, `context`, and `session_index` bytes recorded from `src/hooks/session.ts` into `kind: "injection"` rows | injection assertions |
 | No-agent audit | every tool call without `input.agent` records a `kind: "noagent"` row from `src/hooks/tool-execute.ts`; the count appears in health (D12's record half; the default/deny/warn policy stays open) | no-agent assertions |
 | Repeat shadow | per session and tool, warning at 3, trip at 5; failed calls and calls without a session are ignored; no blocking | repeat assertions |
-| Echo shadow | `session.text.ended` per assistant message, flushed on `session.usage.updated`; 80% trigram overlap for 12 consecutive no-tool turns; a tool turn resets the streak (Q15); Revision 2.4 adds the 200-character floor, so a shorter turn is not counted and breaks the run | echo assertions plus the length cases |
+| Echo shadow | `session.text.ended` per assistant message, flushed on `session.usage.updated`; 80% trigram overlap for 12 consecutive no-tool turns; a tool turn resets the streak (Q15), and since Revision 2.5 a tool-only message with no text event resets it too; Revision 2.4 adds the 200-character floor, so a shorter turn is not counted and breaks the run | echo assertions plus the length and tool-only cases |
 | Fan-out shadow | `task`, `handoff`, and `fasttrack` dispatch text clustered by 80% similarity inside a 10-minute window; trip at 6 | fan-out assertions |
 | Sink | every observation becomes a `kind: "shadow"` JSONL row and a health reading; reload restores the row and session counts | ledger-sink and reload assertions |
 | Report | `health()` prints the whole `## Usage ledger` block; a real host call at 2026-11-07T05:25Z returned 23 sessions (9 roots / 14 children, 0 orphans), root 1,896,313/22,292,967/22,292,967 and child 305,278/582,083/679,631 weighted tokens, 336 usage plus 9 injection rows at 26,913 B, and 0 shadow sessions; the backfilled count is cumulative across reload (23) rather than per boot | live health call plus reload assertion |
@@ -1537,7 +1539,7 @@ completed, so the P2 gate remains open and no enforcement is claimed. Receipts:
 | Live window | the desktop host runs the built ledger: 299 rows at 2026-11-07T03:26Z (293 usage, 6 injection at 17,942 B), 23 backfilled sessions plus 1 live session, 1 `unobserved` boot-gap row, and 0 shadow trips; the window started 2026-11-06T20:47Z | `2026-11-07-p2-live-window-state.md` |
 | Live reload | a copy of the real ledger reloads through `UsageLedger.start()`: 312 rows at 2026-11-07T04:07Z (306 usage, 6 injection at 17,942 B), 23 sessions (9 roots / 14 children), 1 priced and 22 unpriced, `unit: mixed`, root p50/p90/p99 1,896,313 / 22,292,966.6 / 22,292,966.6, child 305,277.8 / 582,082.6 / 679,631 — identical to the independent aggregation | `2026-11-07-p2-live-ledger-reload.md` |
 | Gate readings | against the live ledger at 2026-11-07T04:26Z: `p99(root)` 22,292,966.6 does not cancel P5; weighted cache-read share 93.19% keeps Option 11 as hygiene; orphan rate 0/23 = 0% leaves C4 usable; event loss 1 `unobserved` in 326 usage rows = 0.31% does not fire; echo and repeat false positives still need the forward window | `2026-11-07-p2-gate-readings.md` |
-| Proof | `scripts/prove-usage-ledger.ts`, 123 assertions, gate step `usage-ledger`; `scripts/prove-usage-shadow.ts`, 80 assertions (95 after Revision 2.4), gate step `usage-shadow`; 179 steps and 182 files | `npm run verify` GATE PASS |
+| Proof | `scripts/prove-usage-ledger.ts`, 123 assertions, gate step `usage-ledger`; `scripts/prove-usage-shadow.ts`, 80 assertions (95 after Revision 2.4, 97 after Revision 2.5), gate step `usage-shadow`; 179 steps and 182 files | `npm run verify` GATE PASS |
 
 The shadow detections are now live readings rather than an implementation gap: the root/child p99
 split, the orphan count, `unobserved` rows during reload, injected bytes per source, repeat and
@@ -1650,6 +1652,76 @@ catalog and then the 200k default; that gap is a reading, not a clamp.
 The 50k tool-output cap, the absence of a price registry, shadow-only enforcement, the P2 window
 (30 sessions or 2026-11-13T20:47Z), the D12 warn-first policy, the Option 8 rejection, and the
 repeat distinct-turn rule remain as in Revision 2.3.
+
+---
+
+## 19. Revision 2.5 — echo threshold replay (2026-11-07)
+
+Problem: the 200-character floor from Revision 2.4 was a defensive choice, not a measured one. The
+owner asked for isolated experiments over the possible thresholds before accepting it.
+
+### 19.1 Method
+
+`docs/experiments/receipts/2026-11-07-p2-echo-replay.ts` copies a snapshot of the live v2 database
+into a fresh `mkdtemp` directory and opens only the copy, read-only. For every assistant message it
+takes the last non-blank text part, because the detector keeps the last `session.text.ended` text
+per message, and records the trimmed length and whether the message has a tool part. It replays two
+reset models: `current` (a tool-only message is skipped) and `fixed` (a tool-only message resets).
+It compares thresholds 1, 40, 80, 120, and 200 characters with the 12-turn trip and the 0.8 overlap,
+and it cross-checks the model against the shipped `UsageShadow` class for the fixed variants.
+
+Snapshot: 31 sessions, 6,038 assistant messages, 153,464,832 bytes, 2026-11-07 11:09.
+
+### 19.2 Readings
+
+| Variant | Tripped sessions | Trips | Near-miss (6-11) |
+| --- | --- | --- | --- |
+| current-200 | 0 | 0 | 0 |
+| fixed-200 | 0 | 0 | 0 |
+| fixed-120 | 0 | 0 | 0 |
+| fixed-80 | 0 | 0 | 0 |
+| fixed-40 | 0 | 0 | 0 |
+| current-80 | 0 | 0 | 0 |
+| fixed-1 | 0 | 0 | 0 |
+| current-1 | 0 | 0 | 0 |
+
+Every session has a best streak of 1 at every threshold, including 1 character. The model matches
+the shipped detector at every fixed threshold. The shape the detector wants is absent, so lowering
+the floor cannot recover a detection that the floor is blocking.
+
+The 687 consecutive text pairs include a 1.0 pair: the 14-character `"\n\n<|DSML| calls>\n"` text in
+`ses_e50c38b2ef...`. Fifty-seven messages carry it and 56 of them also carry a tool part, so the
+`hadTool` branch resets them; the one message without a tool part is a single 3,171-character
+response. The 69 consecutive text-only pairs have a maximum similarity of **0.0846** (671 against
+1,083 characters), far below 0.8.
+
+Cost reading: in `ses_e50c38b2ef...` the next turns re-read 123,842-141,158 tokens
+(`delta.input + delta.cacheRead`), so a twelve-turn short loop would re-read about 1.49M tokens
+while a 200-character reply is about 50 tokens. The floor is a false-positive control, not a cost
+measure.
+
+### 19.3 Decision
+
+1. Keep `SHADOW_ECHO_MIN_CHARS = 200`. Lowering it changes no observed result and only increases the
+   future false-positive surface for short acknowledgements.
+2. Fix the tool-only reset: `session.tool.called` now clears the streak, the comparison text, and the
+   tripped flag immediately, so a tool-only message is a tool turn for Q15. The old path could only
+   inflate a streak.
+3. Do not add near-miss rows: the maximum observed streak is 1, so a 6-11 instrument would be empty.
+   The replay script is the forward probe.
+4. Do not add an `echo-short` detector now: the only short repeats are tool-bearing parser artifacts,
+   and the Q15 rule resets them. Revisit only if a forward replay shows a short text-only run or a
+   high-context session with repeated short text.
+5. Keep the detector shadow-only; the P2 gate and its 30-session window are unchanged.
+
+### 19.4 Proof and files
+
+- `scripts/prove-usage-shadow.ts`: 97 assertions. The new case is eleven long tool-free turns, one
+  tool-only message with no text event, and eleven more long turns; the pre-fix code tripped on the
+  first turn after the tool-only message, and the fixed code stays at zero until the twelfth turn of
+  the fresh run.
+- Receipt: `docs/experiments/receipts/2026-11-07-p2-echo-threshold-replay.md` and its replay script.
+- Code: `src/services/usage-shadow.ts` (the tool-only reset).
 
 ---
 
