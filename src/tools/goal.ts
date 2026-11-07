@@ -53,61 +53,61 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
       "RULES: evidence ≥8 chars, no duplicates, ≤100/goal. A goal with no items and no acceptance criteria can never close. progressPct is derived from items.",
     ].join("\n"),
     args: {
-      create: tool.schema.string().optional().describe("Goal title to create"),
-      update: tool.schema.string().optional().describe("Goal ID to update (e.g. G-001)"),
-      get: tool.schema.string().optional().describe("Goal ID to read back"),
-      list: tool.schema.boolean().optional().describe("List goals (default filter: active)"),
+      create: tool.schema.string().optional().describe("Goal title"),
+      update: tool.schema.string().optional().describe("Goal ID to update"),
+      get: tool.schema.string().optional().describe("Goal ID to read"),
+      list: tool.schema.boolean().optional().describe("List goals (default: active)"),
       filter: tool.schema
         .enum(VALID_GOAL_FILTERS as [string, ...string[]])
         .optional()
         .describe("List filter"),
-      board: tool.schema.boolean().optional().describe("Tiered digest of all goals"),
-      host: tool.schema.boolean().optional().describe("Read the host /goal state for this session (read-only)"),
-      evidence: tool.schema.string().optional().describe("Goal ID to attach evidence to"),
-      evidenceText: tool.schema.string().optional().describe("Evidence text (≥8 chars)"),
-      close: tool.schema.string().optional().describe("Goal ID to close (completed; verify:true → verified)"),
-      verify: tool.schema.boolean().optional().describe("Close as verified instead of completed"),
-      delete: tool.schema.string().optional().describe("Goal ID to drop (owner or @analyst)"),
-      detail: tool.schema.string().optional().describe("Goal detail/description"),
+      board: tool.schema.boolean().optional().describe("Tiered goal digest"),
+      host: tool.schema.boolean().optional().describe("Read the host /goal state (read-only)"),
+      evidence: tool.schema.string().optional().describe("Goal ID for evidence"),
+      evidenceText: tool.schema.string().optional().describe("Evidence (≥8 chars)"),
+      close: tool.schema.string().optional().describe("Goal ID to close"),
+      verify: tool.schema.boolean().optional().describe("Close as verified"),
+      delete: tool.schema.string().optional().describe("Goal ID to drop"),
+      detail: tool.schema.string().optional().describe("Goal detail"),
       state: tool.schema
         .enum(VALID_GOAL_STATES as [string, ...string[]])
         .optional()
         .describe("New goal status"),
-      itemId: tool.schema.string().optional().describe("Item ID to transition (with itemState)"),
+      itemId: tool.schema.string().optional().describe("Item ID to transition"),
       itemEvidence: tool.schema
         .array(
           tool.schema.object({
-            itemId: tool.schema.string().describe("Item ID the evidence belongs to"),
-            text: tool.schema.string().describe("Evidence text (≥8 chars)"),
+            itemId: tool.schema.string().describe("Item ID"),
+            text: tool.schema.string().describe("Evidence (≥8 chars)"),
           }),
         )
         .optional()
-        .describe("Item evidence applied before itemState (P2: done and dropped need evidence)"),
+        .describe("Item evidence before itemState"),
       itemState: tool.schema
         .enum(VALID_GOAL_ITEM_STATES as [string, ...string[]])
         .optional()
-        .describe("New item state; dropped means the owner decided the item is not needed (records evidence first)"),
-      itemTitle: tool.schema.string().optional().describe("New item title (with itemId)"),
+        .describe("New item state (dropped needs evidence)"),
+      itemTitle: tool.schema.string().optional().describe("New item title"),
       items: tool.schema.array(tool.schema.string()).optional().describe("Item titles (create)"),
-      itemsAdd: tool.schema.array(tool.schema.string()).optional().describe("Item titles to append (update)"),
+      itemsAdd: tool.schema.array(tool.schema.string()).optional().describe("Item titles to append"),
       acceptance: tool.schema.array(tool.schema.string()).optional().describe("DoD criteria (create)"),
-      acceptanceAdd: tool.schema.array(tool.schema.string()).optional().describe("DoD criteria to append (update)"),
-      acceptId: tool.schema.string().optional().describe("DoD criterion to transition (with acceptState)"),
+      acceptanceAdd: tool.schema.array(tool.schema.string()).optional().describe("DoD criteria to append"),
+      acceptId: tool.schema.string().optional().describe("DoD criterion to transition"),
       acceptState: tool.schema
         .enum(VALID_ACCEPTANCE_STATES as [string, ...string[]])
         .optional()
         .describe("New DoD status"),
-      acceptEvidence: tool.schema.string().optional().describe("Evidence for marking a DoD criterion met (≥8 chars)"),
-      acceptRetireId: tool.schema.string().optional().describe("DoD criterion to retire (with acceptRetireReason)"),
+      acceptEvidence: tool.schema.string().optional().describe("Evidence for met DoD (≥8 chars)"),
+      acceptRetireId: tool.schema.string().optional().describe("DoD criterion to retire"),
       acceptRetireReason: tool.schema
         .string()
         .optional()
-        .describe("Why the criterion is retired (≥8 chars); archived with the criterion"),
-      linkedRecords: tool.schema.array(tool.schema.string()).optional().describe("Linked record IDs (create)"),
-      linkedHandoffs: tool.schema.array(tool.schema.string()).optional().describe("Linked handoff IDs (create)"),
-      linkedBoards: tool.schema.array(tool.schema.string()).optional().describe("Linked board IDs (create)"),
+        .describe("Retirement reason (≥8 chars)"),
+      linkedRecords: tool.schema.array(tool.schema.string()).optional().describe("Linked record IDs"),
+      linkedHandoffs: tool.schema.array(tool.schema.string()).optional().describe("Linked handoff IDs"),
+      linkedBoards: tool.schema.array(tool.schema.string()).optional().describe("Linked board IDs"),
       parentId: tool.schema.string().optional().describe("Parent goal ID"),
-      pinned: tool.schema.boolean().optional().describe("Pin goal (update)"),
+      pinned: tool.schema.boolean().optional().describe("Pin goal"),
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
       await store.ensureLoaded();

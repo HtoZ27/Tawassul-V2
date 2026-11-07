@@ -17,10 +17,10 @@ export function buildOverrideTool(ctx: TawassulContext, handoffService?: Handoff
       "The system learns from your overrides to improve future routing.",
     ].join("\n"),
     args: {
-      handoffId: tool.schema.string().optional().describe("Handoff ID to redirect/cancel/force-complete (e.g. H-001)"),
-      to: tool.schema.string().optional().describe("Target agent (for redirect/reroute)"),
-      force: tool.schema.boolean().optional().describe("Force-complete a handoff (use with handoffId)"),
-      reason: tool.schema.string().optional().describe("Why you are overriding (helps the system learn)"),
+      handoffId: tool.schema.string().optional().describe("Handoff ID"),
+      to: tool.schema.string().optional().describe("Target agent"),
+      force: tool.schema.boolean().optional().describe("Force-complete"),
+      reason: tool.schema.string().optional().describe("Override reason"),
     },
     async execute(args, cctx) {
       const handoffId = typeof args.handoffId === "string" ? args.handoffId : undefined;

@@ -1,6 +1,6 @@
 # Token-Burn Control — Design Dossier for Multi-Model Review
 
-Revision: 2.7. Revision 1 (2026-11-05) is preserved in Sections 0-13. Revision 2 added Section 14:
+Revision: 2.8. Revision 1 (2026-11-05) is preserved in Sections 0-13. Revision 2 added Section 14:
 the re-evaluation against the post-R1 tree, the four structural findings, Option 11 (fixed-cost
 diet), the canonical accounting formula, the revised execution order, and Probe 0. Revision 2.1
 added Section 15: the consolidated five-agent review, the score spread, the confirmed and refuted
@@ -18,12 +18,13 @@ Section 20: the post-retirement fixed-cost re-measurement (24,740 B / 6,185 toke
 schema and description ledger, the corrected P1 cut (4,740 B, -19.2%), the injection budgets, and
 the gate timing guard. Revision 2.7 adds Section 21: the P4 context-pressure implementation (host
 token fields, every-role evaluation, per-session hysteresis, tool-output deferral, durable
-snapshots, and no forced compaction).
+snapshots, and no forced compaction). Revision 2.8 adds Section 22: the applied P1 schema cut
+(19,534 B / 4,884 tokens, -21.0%), the per-tool cut ledger, and the retry argument.
 No Revision 1, 2, 2.1, 2.2, 2.3, 2.4, or 2.5 item is removed; every correction is appended and
 marked with its revision.
-Status: D13, the P2 ledger shadow slice, and the P4 nudge mechanism are implemented and proven;
-the fixed-cost payload is measured per tool; enforcement remains proposal only.
-Date: 2026-11-07 (Revision 2.7, context-pressure mechanism)
+Status: D13, the P2 ledger shadow slice, the P4 nudge mechanism, and the P1 fixed-cost cut are
+implemented and proven; enforcement remains proposal only.
+Date: 2026-11-07 (Revision 2.8, schema payload cut)
 Target: Tawassul V2, this tree, OpenCode host >= 2.2.0
 Audience: independent models and agents asked to score the options and produce a verdict.
 
@@ -33,7 +34,8 @@ Audience: independent models and agents asked to score the options and produce a
    five-agent review, then Section 16 for the second review and the shadow-instrumentation
    correction, then Section 17 for the third review and the D13 reconciliation, then Section 18 for
    the owner's 2026-11-07 corrections and Section 19 for the echo-threshold replay, then Section 20
-   for the post-retirement fixed-cost ledger. Sections 0-13 are the Revision 1 dossier and are
+   for the post-retirement fixed-cost ledger, Section 21 for the context-pressure mechanism, and
+   Section 22 for the applied schema cut. Sections 0-13 are the Revision 1 dossier and are
    scored as written; Section 14 states what the re-evaluation corrected, what it adds, and which
    findings the five-agent review must attack; Sections 15-20 record what the reviews confirmed,
    refuted, and changed. The operative recommendation is Section 15.5 as amended by 16.3, 17.3,
@@ -1745,9 +1747,9 @@ superseded by this section for arithmetic. The option scoring and the recommenda
 
 | Item | Value |
 | --- | --- |
-| Live schema payload | 24,740 B / 6,185 tokens |
+| Pre-cut schema payload (Revision 2.6) | 24,740 B / 6,185 tokens |
 | P1 target (unchanged) | 20,000 B |
-| Remaining cut | 4,740 B (19.2%) |
+| Remaining cut at Revision 2.6 | 4,740 B (19.2%) |
 | Pre-retirement distance | 4,513 B (18.4%) |
 | Description surface | 16,163 B, still 20.25% below 20,267 |
 | Hot-tool retries | zero on the eight frozen tools |
@@ -1761,6 +1763,7 @@ The receipt now carries two arrays sorted by tool name: `schemaLines` (44 rows, 
 `JSON.stringify` length of each tool schema) and `descriptionLines` (44 rows, the UTF-8 length of
 each `description`). The schema rows sum to 24,740 B and the description rows sum to 16,163 B. The
 description is part of the schema string, so the two ledgers overlap and must not be added together.
+Revision 2.8 cuts the schema rows to 19,534 B; Section 22 carries the per-tool cut ledger.
 
 | Tool | Schema B | Description B |
 | --- | --- | --- |
@@ -1781,7 +1784,7 @@ P1 cut. `goal` alone is 13.5% of the payload and 1,564 B of that is description 
 row by row and that each array sums to its golden total. A future schema edit therefore has to
 update the ledger in the same change, and the proof fails if a row drifts.
 
-### 20.3 What is still open in P1
+### 20.3 Injection budgets and P1 closure
 
 | Surface | Ledger source | Budget |
 | --- | --- | --- |
@@ -1795,9 +1798,11 @@ Each budget is at least twice the largest row observed on 2026-11-07: digest 196
 truncated at a line boundary and ends with a marker that names the source and the durable pointer.
 R1 is fixed text, so a proof keeps it under budget rather than truncating the sentinel.
 
-The schema cut from 24,740 B to 20,000 B is still not applied; the description target and the retry
-table are unchanged by the retirement. The four injections now have both ledger rows and budgets,
-so P1 is measurement-complete on both fronts and remains open only on the schema cut.
+Revision 2.8 applies the schema cut: the live payload is 19,534 B / 4,884 tokens, 5,206 B (21.0%)
+below the 24,740 B measurement, with 466 B of headroom under the 20,000 B target. The description
+target and the retry table are unchanged. The four injections now have both ledger rows and budgets,
+and the fixed-cost surface is cut on both fronts, so P1 is complete and the P2 gate is the next
+dependency.
 
 ### 20.4 Gate timing guard
 
@@ -1853,6 +1858,100 @@ receipt.
 P4 is implemented but not calibrated: the 70/85/95 thresholds and the 12,000-character cap stay as
 written until the P5 30-session run reports p99 and the 1.5x rule can adjust them.
 
+## 22. Applied schema cut (Revision 2.8)
+
+### 22.1 Result
+
+The P1 fixed-cost cut is applied. The live payload is **19,534 B / 4,884 estimated tokens for 44
+tools**, down from 24,740 B / 6,185 tokens: **5,206 B removed (21.0%)**, or **1,301 estimated tokens
+per request**, with 466 B of headroom under the 20,000 B target.
+`docs/experiments/receipts/2026-11-07-schema-payload.json` carries the new per-tool ledger and the
+pre-cut total.
+
+| Item | Value |
+| --- | --- |
+| Pre-cut payload (Revision 2.6) | 24,740 B / 6,185 tokens |
+| Post-cut payload (Revision 2.8) | 19,534 B / 4,884 tokens |
+| Cut | 5,206 B (21.0%) / 1,301 tokens |
+| P1 target | 20,000 B |
+| Headroom | 466 B |
+| Description surface | 16,163 B (unchanged) |
+| Hot-tool retries | zero on the eight frozen tools |
+
+### 22.2 Where the bytes came from
+
+Two changes account for the whole cut:
+
+1. **The `$schema` boilerplate is not shipped.** `buildToolJsonSchema` deletes the
+   `$schema: "https://json-schema.org/draft/2020-12/schema"` key after `z.toJSONSchema` returns.
+   It is optional JSON Schema metadata; the host consumes the `jsonSchema` object, not a standalone
+   document. 44 tools x 57 B = **2,508 B**.
+2. **Parameter descriptions are shorter.** The parameter-description clusters of 19 tools were
+   rewritten: **2,698 B** across 212 parameters. The table lists every tool whose schema changed
+   beyond the shared boilerplate cut.
+
+| Tool | Before B | After B | Saved B | Of which param text |
+| --- | ---: | ---: | ---: | ---: |
+| `goal` | 3,341 | 2,799 | 542 | 485 |
+| `handoff` | 1,818 | 1,450 | 368 | 311 |
+| `web` | 2,161 | 1,799 | 362 | 305 |
+| `evaluationreport` | 1,733 | 1,415 | 318 | 261 |
+| `evidence` | 1,120 | 878 | 242 | 185 |
+| `task_control` | 601 | 368 | 233 | 176 |
+| `override` | 448 | 258 | 190 | 133 |
+| `depmap` | 485 | 328 | 157 | 100 |
+| `timeline` | 615 | 458 | 157 | 100 |
+| `gitdiff` | 590 | 437 | 153 | 96 |
+| `readsymbol` | 535 | 396 | 139 | 82 |
+| `smartgrep` | 461 | 324 | 137 | 80 |
+| `image_route` | 402 | 272 | 130 | 73 |
+| `record` | 836 | 710 | 126 | 69 |
+| `codestate` | 475 | 353 | 122 | 65 |
+| `astquery` | 398 | 285 | 113 | 56 |
+| `checkpoint` | 475 | 366 | 109 | 52 |
+| `propose` | 727 | 624 | 103 | 46 |
+| `divide` | 758 | 678 | 80 | 23 |
+
+The 19 tools save 3,781 B in total, of which 1,083 B is their share of the shared boilerplate cut.
+The other 25 tools each lose exactly 57 B from `$schema` and nothing else, which adds 1,425 B.
+
+### 22.3 What was kept
+
+The rewrite removed only restatement: the `$schema` line; "for the X action" suffixes where the
+`action` enum already names the operation; "e.g. H-001" style examples; and long phrases that
+repeated the parameter name. Every discriminating fact stayed: enum values, numeric ranges,
+defaults, action scopes, required-on-write markers, and the minimum lengths the executor enforces.
+`goal` is the clearest example: `close` keeps the close action, `verify` keeps the verified close,
+`acceptState` keeps `met|not_met`, and `itemState` keeps the dropped-needs-evidence rule; only the
+parenthetical examples and the repeated "Goal ID" wording were removed.
+
+### 22.4 Retry argument
+
+The cut is argued against `docs/experiments/receipts/2026-11-01-wave2-retries.json`, the frozen
+retry table, not against intuition. The baseline records 0 retries for all eight hot tools (`bash`
+41 calls, `goal` 20, `thread` 13, `read` 5, `show_board` 5, `record` 4, `status` 4, and `skill` 6
+calls with 1 error and 0 retries). The closure table keeps every retry at or below the baseline.
+Shortening a parameter description cannot add a retry unless the model loses a fact it needs to form
+the call; the facts listed in 22.3 are exactly the ones the executor validates and the proofs pin.
+`prove-context-diet` re-runs the closure comparison, so a future edit that raises a retry on a frozen
+tool fails the gate.
+
+### 22.5 Evidence
+
+`scripts/prove-context-diet.ts` now carries 72 assertions: the description target, the per-tool
+schema ledger, the 20,000 B target, the 4,740 B cut floor, the pre-cut receipt row, the absence of
+`$schema` in every tool schema, the four injection budgets, and the retry closure.
+`scripts/prove-payload-cache.ts` pins the new key order (`type`, `properties`, `required`).
+`scripts/prove-constraint-retention.ts` still passes with 11 slimmed descriptions, 103 retained
+phrases, and 11 executor refusals; `prove-context-baseline`, `prove-b05`, `prove-e17`, `prove-e35`,
+and `prove-report-path` stay green. `npm run verify` is the integration receipt.
+
+### 22.6 P1 status
+
+P1 is complete on both fronts: the description surface is 16,163 B (20.25% below the frozen
+baseline) and the schema payload is 19,534 B (21.0% below the pre-cut measurement), with the four
+injection budgets proven. Enforcement remains proposal only; the P2 gate is the next dependency.
+
 ---
 
 ## Appendix A — Evidence with numbers
@@ -1907,7 +2006,9 @@ written until the P5 30-session run reports p99 and the 1.5x rule can adjust the
 | Exempt calls | `src/hooks/PipelineState.ts` | 42 |
 | Known constraints | `TRIAGE.md` | 116-125 |
 | Prior plan, closed | `docs/FUTURE-WORK-PLAN.md` | section 4 |
-| Live schema payload (current) | `docs/experiments/receipts/2026-11-07-schema-payload.json` | 24,740 B / 6,185 tokens, 44 tools, per-tool ledger |
+| Live schema payload (current) | `docs/experiments/receipts/2026-11-07-schema-payload.json` | 19,534 B / 4,884 tokens, 44 tools, per-tool ledger |
+| Live schema payload (pre-cut) | `docs/experiments/receipts/2026-11-07-schema-payload.json` | 24,740 B / 6,185 tokens, 44 tools, `schemaPreCut` |
+| Tool schema builder | `src/lib/tool-schema-injection.ts` | 12-27 |
 | Schema and description measurement | `src/v2/adapters.ts` | 57-84 |
 | Live schema payload (pre-retirement) | `docs/experiments/receipts/2026-11-05-schema-payload.json` | 24,513 B / 6,129 tokens, 44 tools |
 | Usage event | `node_modules/@opencode/schema/dist/event-manifest.d.ts` | 1097-1145; durability `ephemeral` at 1136 |

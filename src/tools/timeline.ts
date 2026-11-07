@@ -37,12 +37,12 @@ export function buildTimelineTool(store: TimelineStore): ToolDefinition {
       view: tool.schema
         .enum(["recent", "day", "agent", "range", "achievements"])
         .optional()
-        .describe("Which timeline view to render (default: recent)"),
-      agent: tool.schema.string().optional().describe("Agent name to filter (@name)"),
-      date: tool.schema.string().optional().describe("Date for day view (YYYY-MM-DD, default: today)"),
-      from: tool.schema.string().optional().describe("Start ISO datetime for range view"),
-      to: tool.schema.string().optional().describe("End ISO datetime for range view"),
-      limit: tool.schema.number().optional().describe("Max events to return (default: 20)"),
+        .describe("View (default: recent)"),
+      agent: tool.schema.string().optional().describe("Filter by agent"),
+      date: tool.schema.string().optional().describe("Day view date (YYYY-MM-DD)"),
+      from: tool.schema.string().optional().describe("Range start (ISO)"),
+      to: tool.schema.string().optional().describe("Range end (ISO)"),
+      limit: tool.schema.number().optional().describe("Max events (default: 20)"),
     },
     async execute(args) {
       await store.ensureLoaded();

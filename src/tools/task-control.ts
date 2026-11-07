@@ -143,19 +143,19 @@ export function buildTaskControlTool() {
     args: {
       action: tool.schema
         .enum(["status", "cancel", "revive"])
-        .describe("status lists background work; cancel and revive act on one subagent child"),
+        .describe("status, cancel, or revive"),
       sessionID: tool.schema
         .string()
         .optional()
-        .describe("Session whose snapshot is read (default: the calling session)"),
+        .describe("Session to inspect"),
       childSessionID: tool.schema
         .string()
         .optional()
-        .describe("Child session id to cancel or revive; required for those actions"),
+        .describe("Child session for cancel/revive"),
       text: tool.schema
         .string()
         .optional()
-        .describe("Instructions for revive; required and must be non-empty for that action"),
+        .describe("Revive instructions"),
     },
     async execute(args, cctx) {
       const sessionID = args.sessionID?.trim() || cctx.sessionID;

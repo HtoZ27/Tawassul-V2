@@ -24,10 +24,10 @@ export function buildSmartGrepTool(_ctx: TawassulContext): ToolDefinition {
       '  smart_grep(pattern: "TODO|FIXME", path: "src/", context: 2)',
     ].join("\n"),
     args: {
-      pattern: tool.schema.string().describe("Regex pattern to search for"),
-      path: tool.schema.string().optional().describe("Search path (optional, defaults to project root)"),
-      context: tool.schema.number().optional().describe("Number of context lines before/after a match (default 3)"),
-      maxResults: tool.schema.number().optional().describe("Maximum number of results (default 60)"),
+      pattern: tool.schema.string().describe("Regex pattern"),
+      path: tool.schema.string().optional().describe("Search path (default: root)"),
+      context: tool.schema.number().optional().describe("Context lines (default 3)"),
+      maxResults: tool.schema.number().optional().describe("Max results (default 60)"),
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
       const { pattern, path, context, maxResults } = args as {
@@ -135,12 +135,12 @@ export function buildGitDiffTool(_ctx: TawassulContext): ToolDefinition {
       "  git_diff(summary: true)                 → summary only",
     ].join("\n"),
     args: {
-      staged: tool.schema.boolean().optional().describe("Show only the staged diff (default false)"),
-      commit: tool.schema.string().optional().describe("Commit hash or reference to view"),
-      file: tool.schema.string().optional().describe("A specific file to view diff"),
-      statOnly: tool.schema.boolean().optional().describe("Stats only without content (default false)"),
-      summary: tool.schema.boolean().optional().describe("Summary only without full diff content (default false)"),
-      context: tool.schema.number().optional().describe("Number of context lines (default 3)"),
+      staged: tool.schema.boolean().optional().describe("Staged diff only (default false)"),
+      commit: tool.schema.string().optional().describe("Commit or ref"),
+      file: tool.schema.string().optional().describe("File to diff"),
+      statOnly: tool.schema.boolean().optional().describe("Stats only (default false)"),
+      summary: tool.schema.boolean().optional().describe("Summary only (default false)"),
+      context: tool.schema.number().optional().describe("Context lines (default 3)"),
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
       const { staged, commit, file, statOnly, summary, context } = args as {

@@ -195,8 +195,8 @@ async function main(): Promise<void> {
     assert(first === second, "a repeated schema build returns the cached object");
     assert(stable(first) === stable(second), "the schema serializes byte-identically");
     assert(
-      first !== undefined && stable(Object.keys(first)) === stable(["$schema", "type", "properties", "required"]),
-      "the schema key order is stable",
+      first !== undefined && stable(Object.keys(first)) === stable(["type", "properties", "required"]),
+      "the schema key order is stable and omits the JSON Schema boilerplate",
     );
     const rebuilt = await buildToolJsonSchema({ query: z.string(), limit: z.number().int().optional() });
     assert(rebuilt !== first, "an equal literal is a distinct cache key");

@@ -50,11 +50,11 @@ export function buildRecordTool(ctx: TawassulContext): ToolDefinition {
         .enum(VALID_SEVERITIES as [string, ...string[]])
         .optional()
         .describe("For fixes/incidents"),
-      get: tool.schema.string().optional().describe("Record ID to read back (e.g. R-001)"),
+      get: tool.schema.string().optional().describe("Record ID to read"),
       list: tool.schema.boolean().optional().describe("List all session records"),
-      delete: tool.schema.string().optional().describe("Record ID to delete (e.g. R-001)"),
-      search: tool.schema.string().optional().describe("Case-folded substring over title and detail"),
-      limit: tool.schema.number().int().optional().describe("Max records to return (default 20, max 20)"),
+      delete: tool.schema.string().optional().describe("Record ID to delete"),
+      search: tool.schema.string().optional().describe("Search title and detail"),
+      limit: tool.schema.number().int().optional().describe("Max records (default 20)"),
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
       if (args.get) {

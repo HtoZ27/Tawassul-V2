@@ -289,10 +289,10 @@ export function buildProposeTool(
     ].join("\n"),
     args: {
       discussionId: tool.schema.string().describe("Discussion ID"),
-      errorId: tool.schema.string().describe("Error ID to propose solution for"),
-      solution: tool.schema.string().describe("Proposed solution description"),
+      errorId: tool.schema.string().describe("Error ID"),
+      solution: tool.schema.string().describe("Proposed solution"),
       priority: tool.schema.enum(["high", "medium", "low"]).describe("Solution priority"),
-      estimatedEffort: tool.schema.number().min(1).describe("Estimated effort in minutes"),
+      estimatedEffort: tool.schema.number().min(1).describe("Effort in minutes"),
       risk: tool.schema.enum(["high", "medium", "low"]).describe("Risk level"),
       justification: tool.schema.string().optional().describe("Why this solution?"),
     },
@@ -484,8 +484,8 @@ export function buildDivideTool(
             description: tool.schema.string().describe("Task description"),
             assignedTo: tool.schema.string().describe("Agent to assign to"),
             priority: tool.schema.enum(["high", "medium", "low"]).describe("Task priority"),
-            estimatedTime: tool.schema.number().min(1).describe("Estimated time in minutes"),
-            dependsOn: tool.schema.array(tool.schema.string()).optional().describe("Task IDs this depends on"),
+            estimatedTime: tool.schema.number().min(1).describe("Minutes"),
+            dependsOn: tool.schema.array(tool.schema.string()).optional().describe("Dependency task IDs"),
           }),
         )
         .describe("Tasks to divide"),
@@ -557,20 +557,20 @@ export function buildEvidenceTool(
         .enum(["start", "receipt", "claim", "verify", "challenge", "advance", "status", "abort"])
         .describe("Evidence action"),
       discussionId: tool.schema.string().describe("Discussion ID"),
-      toolName: tool.schema.string().optional().describe("Tool name (for receipt action)"),
-      output: tool.schema.string().optional().describe("Tool output (for receipt action)"),
-      claim: tool.schema.string().optional().describe("Claim text (for claim action)"),
-      receiptIds: tool.schema.array(tool.schema.string()).optional().describe("Receipt IDs (for claim action)"),
-      confidence: tool.schema.number().min(0).max(1).optional().describe("Confidence 0-1 (for claim action)"),
-      claimId: tool.schema.string().optional().describe("Claim ID (for verify/challenge action)"),
+      toolName: tool.schema.string().optional().describe("Tool name"),
+      output: tool.schema.string().optional().describe("Tool output"),
+      claim: tool.schema.string().optional().describe("Claim text"),
+      receiptIds: tool.schema.array(tool.schema.string()).optional().describe("Receipt IDs"),
+      confidence: tool.schema.number().min(0).max(1).optional().describe("Confidence 0-1"),
+      claimId: tool.schema.string().optional().describe("Claim ID"),
       verdict: tool.schema
         .enum(["supported", "contradicted", "inconclusive"])
         .optional()
-        .describe("Verification verdict (for verify action)"),
+        .describe("Verdict"),
       challengeType: tool.schema
         .enum(["unverified", "contradicted", "ungrounded"])
         .optional()
-        .describe("Challenge type (for challenge action)"),
+        .describe("Challenge type"),
     },
     async execute(args, cctx) {
       const d = getDiscussion(args.discussionId);

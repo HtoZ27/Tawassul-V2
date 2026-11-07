@@ -19,6 +19,7 @@ export async function buildToolJsonSchema(argsShape: Zod.ZodRawShape): Promise<R
       io: "input",
     });
     if (!isPlainJsonSchema(schema)) return undefined;
+    delete schema.$schema;
     schemaCache.set(argsShape, schema);
     return schema;
   } catch {

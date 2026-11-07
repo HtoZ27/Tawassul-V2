@@ -258,24 +258,24 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
       "RULES: context ≥ 5 words (required), ≥ 10 words (recommended). task ≥ 3 words (required), ≥ 5 words (recommended). files optional but recommended. DO NOT mix actions in one call.",
     ].join("\n"),
     args: {
-      to: tool.schema.string().optional().describe("Target agent (@name)"),
-      task: tool.schema.string().optional().describe("What needs to be done"),
-      context: tool.schema.string().optional().describe("Context for the receiving agent"),
+      to: tool.schema.string().optional().describe("Target agent"),
+      task: tool.schema.string().optional().describe("Task"),
+      context: tool.schema.string().optional().describe("Context"),
       files: tool.schema.array(tool.schema.string()).optional().describe("Files involved"),
-      helpRequest: tool.schema.boolean().optional().describe("Request another agent to call a tool on your behalf"),
+      helpRequest: tool.schema.boolean().optional().describe("Ask another agent to call a tool"),
       parallelCopies: tool.schema
         .number()
         .int()
         .min(2)
         .max(MAX_PARALLEL_COPIES)
         .optional()
-        .describe("Create N parallel copies to different agents (2-5)"),
-      result: tool.schema.string().optional().describe("Result output when completing a handoff"),
+        .describe("N copies to N agents (2-5)"),
+      result: tool.schema.string().optional().describe("Completion result"),
       checkpoint: tool.schema
         .object({
-          completed: tool.schema.array(tool.schema.string()).describe("What was completed so far"),
-          remaining: tool.schema.array(tool.schema.string()).describe("What remains to finish the task"),
-          filesChanged: tool.schema.array(tool.schema.string()).describe("Files that changed"),
+          completed: tool.schema.array(tool.schema.string()).describe("Completed"),
+          remaining: tool.schema.array(tool.schema.string()).describe("Remaining"),
+          filesChanged: tool.schema.array(tool.schema.string()).describe("Changed files"),
           decisions: tool.schema
             .array(
               tool.schema.object({
@@ -283,18 +283,18 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
                 detail: tool.schema.string(),
               }),
             )
-            .describe("Decisions made along the way"),
-          unverified: tool.schema.array(tool.schema.string()).optional().describe("What is not yet verified"),
+            .describe("Decisions"),
+          unverified: tool.schema.array(tool.schema.string()).optional().describe("Unverified"),
         })
         .optional()
-        .describe("Checkpoint for continuation — use when your context runs low"),
-      completeHandoff: tool.schema.string().optional().describe("Handoff ID to mark completed (e.g. H-001)"),
-      undo: tool.schema.string().optional().describe("Handoff ID to revert to pending"),
-      rescue: tool.schema.string().optional().describe("Stalled handoff ID to force-reassign (e.g. H-003)"),
+        .describe("Checkpoint for continuation"),
+      completeHandoff: tool.schema.string().optional().describe("Handoff ID to complete"),
+      undo: tool.schema.string().optional().describe("Handoff ID to undo"),
+      rescue: tool.schema.string().optional().describe("Handoff ID to rescue"),
       resumeInterrupted: tool.schema
         .string()
         .optional()
-        .describe("Interrupted handoff ID to reopen (e.g. H-001)"),
+        .describe("Handoff ID to reopen"),
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
       if (args.completeHandoff) {

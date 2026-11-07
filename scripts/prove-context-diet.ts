@@ -47,6 +47,7 @@ type PayloadReceipt = {
   toolCount: number;
   toolNameSetHash: string;
   schemaPayload: { bytes: number; estimatedTokens: number };
+  schemaPreCut: { bytes: number; estimatedTokens: number };
   descriptionBytes: number;
   schemaLines: Line[];
   descriptionLines: Line[];
@@ -59,6 +60,9 @@ const PAYLOAD_RECEIPT = join(repo, "docs", "experiments", "receipts", "2026-11-0
 const FROZEN_BASELINE_BYTES = 20267;
 const TARGET_BYTES = 16213;
 const MIN_CUT = FROZEN_BASELINE_BYTES - TARGET_BYTES;
+const SCHEMA_PRE_CUT_BYTES = 24_740;
+const SCHEMA_TARGET_BYTES = 20_000;
+const SCHEMA_MIN_CUT = SCHEMA_PRE_CUT_BYTES - SCHEMA_TARGET_BYTES;
 const RETRY_RECEIPT = join(repo, "docs", "experiments", "receipts", "2026-11-01-wave2-retries.json");
 
 const baselinePath = join(repo, "docs", "experiments", "baselines", BASELINE_FILE);
@@ -140,6 +144,26 @@ try {
   assert(
     livePayload.estimatedTokens === Math.ceil(livePayload.bytes / 4),
     "the live schema payload token estimate follows its bytes",
+  );
+  assert(
+    livePayload.bytes <= SCHEMA_TARGET_BYTES,
+    `the schema payload meets the P1 target (${livePayload.bytes} <= ${SCHEMA_TARGET_BYTES})`,
+  );
+  assert(
+    payloadReceipt.schemaPreCut.bytes === SCHEMA_PRE_CUT_BYTES,
+    `the receipt pins the pre-cut schema payload (${payloadReceipt.schemaPreCut.bytes} === ${SCHEMA_PRE_CUT_BYTES})`,
+  );
+  assert(
+    payloadReceipt.schemaPreCut.estimatedTokens === Math.ceil(payloadReceipt.schemaPreCut.bytes / 4),
+    "the pre-cut token estimate follows its bytes",
+  );
+  assert(
+    SCHEMA_PRE_CUT_BYTES - livePayload.bytes >= SCHEMA_MIN_CUT,
+    `the schema cut reaches the P1 floor (${SCHEMA_PRE_CUT_BYTES - livePayload.bytes} >= ${SCHEMA_MIN_CUT})`,
+  );
+  assert(
+    [...liveSchemas.values()].every((schema) => !("$schema" in schema)),
+    "the JSON Schema boilerplate is not shipped in any tool schema",
   );
   assert(
     payloadReceipt.schemaLines.length === payloadReceipt.toolCount,
@@ -273,7 +297,7 @@ try {
   }
 
   console.log(
-    `INFO  description text ${FROZEN_BASELINE_BYTES} -> ${measured.bytes} bytes, cut ${cut} (${((cut / FROZEN_BASELINE_BYTES) * 100).toFixed(3)}%), schema ${livePayload.bytes} matches the ${payloadReceipt.schemaPayload.bytes} golden`,
+    `INFO  description text ${FROZEN_BASELINE_BYTES} -> ${measured.bytes} bytes, cut ${cut} (${((cut / FROZEN_BASELINE_BYTES) * 100).toFixed(3)}%), schema ${livePayload.bytes} matches the ${payloadReceipt.schemaPayload.bytes} golden, schema cut ${SCHEMA_PRE_CUT_BYTES - livePayload.bytes} (${(((SCHEMA_PRE_CUT_BYTES - livePayload.bytes) / SCHEMA_PRE_CUT_BYTES) * 100).toFixed(3)}%)`,
   );
   console.log(`PROOF PASS: the description diet meets the frozen target, the schema payload matches its golden, and hot-tool retries do not increase (${passed} assertions)`);
 } finally {

@@ -29,10 +29,10 @@ export function buildCodeStateTool(tawaCtx: TawassulContext) {
     args: {
       action: tool.schema
         .enum(["snapshot", "undo", "redo", "status", "restore", "diff", "reset"])
-        .describe("Operation to perform"),
-      label: tool.schema.string().optional().describe("Label for a snapshot"),
-      id: tool.schema.string().optional().describe("Snapshot id (restore) or id/index (diff)"),
-      force: tool.schema.boolean().optional().describe("Overwrite unsaved changes (undo/redo/restore)"),
+        .describe("Operation"),
+      label: tool.schema.string().optional().describe("Snapshot label"),
+      id: tool.schema.string().optional().describe("Snapshot id or index"),
+      force: tool.schema.boolean().optional().describe("Overwrite changes"),
     },
     async execute(args: { action: string; label?: string; id?: string; force?: boolean }, _cctx: ToolContext) {
       const svc = service();

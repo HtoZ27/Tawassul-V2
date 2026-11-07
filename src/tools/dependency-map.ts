@@ -225,14 +225,14 @@ export function buildDependencyMapTool(ctx: TawassulContext): ToolDefinition {
       '  dependency_map(file: "src/utils.ts", ast: true)',
     ].join("\n"),
     args: {
-      file: tool.schema.string().optional().describe("Path of a specific file to analyze its dependencies"),
-      circular: tool.schema.boolean().optional().describe("Show only circular dependencies (default false)"),
-      depth: tool.schema.number().optional().describe("File scan depth (default 3, max 5)"),
+      file: tool.schema.string().optional().describe("File to analyze"),
+      circular: tool.schema.boolean().optional().describe("Circular only (default false)"),
+      depth: tool.schema.number().optional().describe("Scan depth (default 3, max 5)"),
       ast: tool.schema
         .boolean()
         .optional()
         .default(false)
-        .describe("Use Tree-sitter AST to extract imports precisely (supports .ts, .tsx, .js)"),
+        .describe("Use AST (supports .ts, .tsx, .js)"),
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
       const { file, circular, depth, ast } = args as {

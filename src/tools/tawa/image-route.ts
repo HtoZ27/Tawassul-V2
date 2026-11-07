@@ -8,9 +8,9 @@ export function buildImageRouteTool(imageRouter: ImageRouter, getAgents: () => s
     description:
       "Route an image or visual description to the most suitable agent (read-only suggestion, creates no handoffs).",
     args: {
-      description: tool.schema.string().describe("Description of the image, screenshot, UI mockup, diagram, or error"),
-      filename: tool.schema.string().optional().describe("Optional image filename (used for type hints)"),
-      mimeType: tool.schema.string().optional().describe("Optional mime type, e.g. image/png"),
+      description: tool.schema.string().describe("Image or visual description"),
+      filename: tool.schema.string().optional().describe("Image filename (optional)"),
+      mimeType: tool.schema.string().optional().describe("Mime type (optional)"),
     },
     async execute(args) {
       const description = String(args.description || "").trim();

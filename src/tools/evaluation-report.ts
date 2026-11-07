@@ -47,33 +47,33 @@ export function buildEvaluationReportTool(ctx: TawassulContext) {
       "You MUST report ALL issues you find — not just the biggest ones.",
     ].join("\n"),
     args: {
-      featureId: tool.schema.string().describe("ID of the feature being evaluated"),
-      get: tool.schema.boolean().optional().describe("Read back stored evaluations for this feature"),
+      featureId: tool.schema.string().describe("Feature ID"),
+      get: tool.schema.boolean().optional().describe("Read stored evaluations"),
       issues: tool.schema
         .array(
           tool.schema.object({
-            severity: tool.schema.enum(SEVERITIES).describe("How severe is this issue"),
-            category: tool.schema.enum(CATEGORIES).describe("Category of the issue"),
-            file: tool.schema.string().optional().describe("File path where the issue was found"),
-            line: tool.schema.number().optional().describe("Line number in the file"),
-            dedupKey: tool.schema.string().describe("Key for deduplication (e.g., 'security-sqli-login')"),
-            description: tool.schema.string().describe("What the problem is"),
-            recommendation: tool.schema.string().describe("How to fix the issue"),
+            severity: tool.schema.enum(SEVERITIES).describe("Severity"),
+            category: tool.schema.enum(CATEGORIES).describe("Category"),
+            file: tool.schema.string().optional().describe("File path"),
+            line: tool.schema.number().optional().describe("Line number"),
+            dedupKey: tool.schema.string().describe("Dedup key"),
+            description: tool.schema.string().describe("Problem"),
+            recommendation: tool.schema.string().describe("Fix"),
             relatedRecordIds: tool.schema
               .array(tool.schema.string())
               .optional()
-              .describe("IDs of related records or handoffs"),
+              .describe("Related record/handoff IDs"),
           }),
         )
         .optional()
-        .describe("Issues found — required on write (at least 1), omitted on read"),
+        .describe("Issues (required on write)"),
       recommendations: tool.schema.array(tool.schema.string()).optional().describe("General recommendations"),
       uncoveredAreas: tool.schema.array(tool.schema.string()).optional().describe("Areas not yet evaluated"),
-      summary: tool.schema.string().optional().describe("Brief summary of this evaluation round"),
+      summary: tool.schema.string().optional().describe("Evaluation summary"),
       coverageMap: tool.schema
         .record(tool.schema.string(), tool.schema.array(tool.schema.string()))
         .optional()
-        .describe("Map of area → files covered"),
+        .describe("Area to files map"),
     },
     async execute(args, cctx: ToolContext) {
       const tracker = ctx.evaluationTracker;

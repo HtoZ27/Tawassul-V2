@@ -1,13 +1,17 @@
 {
   "version": 1,
   "date": "2026-11-07",
-  "commit": "cdeebdc3351ec3e6122831aa5b8c7c1483d69a94",
-  "phase": "post-0.1.0 goal acceptance retirement",
-  "recordedDuring": "Goal acceptance retirement feature: acceptRetireId and acceptRetireReason added to the goal tool schema",
+  "commit": "788f371eae262e0106385d12e444a50b74538460",
+  "phase": "post-0.1.0 schema payload cut",
+  "recordedDuring": "P1 schema cut: remove the $schema boilerplate and shorten parameter descriptions across 19 tools",
   "method": "initPlugin from src, wait for readiness, collectToolSchemas(hooks.tool), measureSchemaPayload and measureDescriptionText; this is the same buildToolJsonSchema path the tool.definition hook uses, so the number matches the payload the host receives. The per-tool ledger lists every tool's schema and description bytes, and both arrays sum to the recorded totals.",
   "toolCount": 44,
   "toolNameSetHash": "1c1f4d27508a7a3f6f3b50d1e10f8ae0cf8801c7ce3d73df9cd29783ee7c3bb2",
   "schemaPayload": {
+    "bytes": 19534,
+    "estimatedTokens": 4884
+  },
+  "schemaPreCut": {
     "bytes": 24740,
     "estimatedTokens": 6185
   },
@@ -15,223 +19,223 @@
   "schemaLines": [
     {
       "name": "addagent",
-      "bytes": 185,
-      "estimatedTokens": 47
+      "bytes": 128,
+      "estimatedTokens": 32
     },
     {
       "name": "astquery",
-      "bytes": 398,
-      "estimatedTokens": 100
+      "bytes": 285,
+      "estimatedTokens": 72
     },
     {
       "name": "batchread",
-      "bytes": 290,
-      "estimatedTokens": 73
+      "bytes": 233,
+      "estimatedTokens": 59
     },
     {
       "name": "check",
-      "bytes": 90,
-      "estimatedTokens": 23
+      "bytes": 33,
+      "estimatedTokens": 9
     },
     {
       "name": "checkpoint",
-      "bytes": 475,
-      "estimatedTokens": 119
+      "bytes": 366,
+      "estimatedTokens": 92
     },
     {
       "name": "codestate",
-      "bytes": 475,
-      "estimatedTokens": 119
+      "bytes": 353,
+      "estimatedTokens": 89
     },
     {
       "name": "dashboard",
-      "bytes": 293,
-      "estimatedTokens": 74
+      "bytes": 236,
+      "estimatedTokens": 59
     },
     {
       "name": "depmap",
-      "bytes": 485,
-      "estimatedTokens": 122
+      "bytes": 328,
+      "estimatedTokens": 82
     },
     {
       "name": "directresponse",
-      "bytes": 190,
-      "estimatedTokens": 48
+      "bytes": 133,
+      "estimatedTokens": 34
     },
     {
       "name": "discussion",
-      "bytes": 781,
-      "estimatedTokens": 196
+      "bytes": 724,
+      "estimatedTokens": 181
     },
     {
       "name": "divide",
-      "bytes": 758,
-      "estimatedTokens": 190
+      "bytes": 678,
+      "estimatedTokens": 170
     },
     {
       "name": "evaluationreport",
-      "bytes": 1733,
-      "estimatedTokens": 434
+      "bytes": 1415,
+      "estimatedTokens": 354
     },
     {
       "name": "evidence",
-      "bytes": 1120,
-      "estimatedTokens": 280
+      "bytes": 878,
+      "estimatedTokens": 220
     },
     {
       "name": "fasttrack",
-      "bytes": 459,
-      "estimatedTokens": 115
-    },
-    {
-      "name": "gitdiff",
-      "bytes": 590,
-      "estimatedTokens": 148
-    },
-    {
-      "name": "goal",
-      "bytes": 3341,
-      "estimatedTokens": 836
-    },
-    {
-      "name": "handoff",
-      "bytes": 1818,
-      "estimatedTokens": 455
-    },
-    {
-      "name": "health",
-      "bytes": 90,
-      "estimatedTokens": 23
-    },
-    {
-      "name": "help",
-      "bytes": 90,
-      "estimatedTokens": 23
-    },
-    {
-      "name": "image_route",
       "bytes": 402,
       "estimatedTokens": 101
     },
     {
+      "name": "gitdiff",
+      "bytes": 437,
+      "estimatedTokens": 110
+    },
+    {
+      "name": "goal",
+      "bytes": 2799,
+      "estimatedTokens": 700
+    },
+    {
+      "name": "handoff",
+      "bytes": 1450,
+      "estimatedTokens": 363
+    },
+    {
+      "name": "health",
+      "bytes": 33,
+      "estimatedTokens": 9
+    },
+    {
+      "name": "help",
+      "bytes": 33,
+      "estimatedTokens": 9
+    },
+    {
+      "name": "image_route",
+      "bytes": 272,
+      "estimatedTokens": 68
+    },
+    {
       "name": "imagegen",
-      "bytes": 477,
-      "estimatedTokens": 120
+      "bytes": 420,
+      "estimatedTokens": 105
     },
     {
       "name": "kick",
-      "bytes": 260,
-      "estimatedTokens": 65
+      "bytes": 203,
+      "estimatedTokens": 51
     },
     {
       "name": "moa",
-      "bytes": 303,
-      "estimatedTokens": 76
+      "bytes": 246,
+      "estimatedTokens": 62
     },
     {
       "name": "override",
-      "bytes": 448,
-      "estimatedTokens": 112
+      "bytes": 258,
+      "estimatedTokens": 65
     },
     {
       "name": "panic",
-      "bytes": 159,
-      "estimatedTokens": 40
+      "bytes": 102,
+      "estimatedTokens": 26
     },
     {
       "name": "pause",
-      "bytes": 283,
-      "estimatedTokens": 71
+      "bytes": 226,
+      "estimatedTokens": 57
     },
     {
       "name": "projectmap",
+      "bytes": 196,
+      "estimatedTokens": 49
+    },
+    {
+      "name": "propose",
+      "bytes": 624,
+      "estimatedTokens": 156
+    },
+    {
+      "name": "qualityreport",
+      "bytes": 172,
+      "estimatedTokens": 43
+    },
+    {
+      "name": "readsymbol",
+      "bytes": 396,
+      "estimatedTokens": 99
+    },
+    {
+      "name": "record",
+      "bytes": 710,
+      "estimatedTokens": 178
+    },
+    {
+      "name": "report",
+      "bytes": 183,
+      "estimatedTokens": 46
+    },
+    {
+      "name": "resume",
+      "bytes": 33,
+      "estimatedTokens": 9
+    },
+    {
+      "name": "review",
+      "bytes": 257,
+      "estimatedTokens": 65
+    },
+    {
+      "name": "self_heal",
+      "bytes": 134,
+      "estimatedTokens": 34
+    },
+    {
+      "name": "show_board",
+      "bytes": 173,
+      "estimatedTokens": 44
+    },
+    {
+      "name": "smartgrep",
+      "bytes": 324,
+      "estimatedTokens": 81
+    },
+    {
+      "name": "status",
+      "bytes": 33,
+      "estimatedTokens": 9
+    },
+    {
+      "name": "task_control",
+      "bytes": 368,
+      "estimatedTokens": 92
+    },
+    {
+      "name": "task_orchestrate",
       "bytes": 253,
       "estimatedTokens": 64
     },
     {
-      "name": "propose",
-      "bytes": 727,
-      "estimatedTokens": 182
-    },
-    {
-      "name": "qualityreport",
-      "bytes": 229,
-      "estimatedTokens": 58
-    },
-    {
-      "name": "readsymbol",
-      "bytes": 535,
-      "estimatedTokens": 134
-    },
-    {
-      "name": "record",
-      "bytes": 836,
-      "estimatedTokens": 209
-    },
-    {
-      "name": "report",
-      "bytes": 240,
-      "estimatedTokens": 60
-    },
-    {
-      "name": "resume",
-      "bytes": 90,
-      "estimatedTokens": 23
-    },
-    {
-      "name": "review",
-      "bytes": 314,
-      "estimatedTokens": 79
-    },
-    {
-      "name": "self_heal",
-      "bytes": 191,
-      "estimatedTokens": 48
-    },
-    {
-      "name": "show_board",
-      "bytes": 230,
-      "estimatedTokens": 58
-    },
-    {
-      "name": "smartgrep",
-      "bytes": 461,
-      "estimatedTokens": 116
-    },
-    {
-      "name": "status",
-      "bytes": 90,
-      "estimatedTokens": 23
-    },
-    {
-      "name": "task_control",
-      "bytes": 601,
-      "estimatedTokens": 151
-    },
-    {
-      "name": "task_orchestrate",
-      "bytes": 310,
-      "estimatedTokens": 78
-    },
-    {
       "name": "thread",
-      "bytes": 435,
-      "estimatedTokens": 109
+      "bytes": 378,
+      "estimatedTokens": 95
     },
     {
       "name": "timeline",
-      "bytes": 615,
-      "estimatedTokens": 154
+      "bytes": 458,
+      "estimatedTokens": 115
     },
     {
       "name": "vote",
-      "bytes": 429,
-      "estimatedTokens": 108
+      "bytes": 372,
+      "estimatedTokens": 93
     },
     {
       "name": "web",
-      "bytes": 2161,
-      "estimatedTokens": 541
+      "bytes": 1799,
+      "estimatedTokens": 450
     }
   ],
   "descriptionLines": [

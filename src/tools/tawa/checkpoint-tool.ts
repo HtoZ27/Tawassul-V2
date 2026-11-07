@@ -7,9 +7,9 @@ export function buildCheckpointTool(checkpointManager: CheckpointManager): ToolD
     description: "Create, list, or restore checkpoints for code state snapshots.",
     args: {
       action: tool.schema.enum(["create", "list", "restore", "diff"]).describe("Checkpoint action"),
-      label: tool.schema.string().optional().describe("Label for the checkpoint (required for create/restore/diff)"),
-      from: tool.schema.string().optional().describe("Source checkpoint ID (for diff)"),
-      to: tool.schema.string().optional().describe("Target checkpoint ID (for diff, default: HEAD)"),
+      label: tool.schema.string().optional().describe("Label (create/restore/diff)"),
+      from: tool.schema.string().optional().describe("Source checkpoint (diff)"),
+      to: tool.schema.string().optional().describe("Target checkpoint (default: HEAD)"),
     },
     async execute(args) {
       switch (args.action) {

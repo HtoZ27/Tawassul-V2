@@ -95,12 +95,12 @@ export function buildAstQueryTool(ctx: TawassulContext): ToolDefinition {
       '  astquery(file: "src/utils.ts", kind: "function")',
     ].join("\n"),
     args: {
-      file: tool.schema.string().describe("Path of the file to analyze"),
-      symbol: tool.schema.string().optional().describe("Name of a specific symbol to search for"),
+      file: tool.schema.string().describe("File path"),
+      symbol: tool.schema.string().optional().describe("Symbol name"),
       kind: tool.schema
         .enum(["function", "class", "interface", "type", "enum", "method", "variable"])
         .optional()
-        .describe("Filter by symbol type"),
+        .describe("Symbol type"),
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
       const { file, symbol, kind } = args as { file?: string; symbol?: string; kind?: string };
@@ -185,16 +185,16 @@ export function buildReadSymbolTool(ctx: TawassulContext): ToolDefinition {
     ].join("\n"),
     args: {
       file: tool.schema.string().describe("File path"),
-      symbol: tool.schema.string().describe("Name of the symbol to search for"),
+      symbol: tool.schema.string().describe("Symbol name"),
       kind: tool.schema
         .enum(["function", "class", "interface", "type", "enum", "method", "variable"])
         .optional()
-        .describe("Symbol type (optional — helps narrow the search)"),
+        .describe("Symbol type (optional)"),
       ast: tool.schema
         .boolean()
         .optional()
         .default(false)
-        .describe("Use Tree-sitter AST for precise analysis (supports .ts, .tsx, .js)"),
+        .describe("Use AST (supports .ts, .tsx, .js)"),
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
       const { file, symbol, kind, ast } = args as { file: string; symbol: string; kind?: string; ast?: boolean };
