@@ -1510,7 +1510,7 @@ completed, so the P2 gate remains open and no enforcement is claimed. Receipts:
 `docs/experiments/receipts/2026-11-07-p2-isolated-experiments.md`,
 `docs/experiments/receipts/2026-11-07-p2-live-probe.md`,
 `docs/experiments/receipts/2026-11-07-p2-history-calibration.md`, and
-`docs/experiments/receipts/2026-11-07-p2-live-window-state.md`.
+`docs/experiments/receipts/2026-11-07-p2-live-ledger-reload.md`.
 
 | Item | Implementation | Evidence |
 | --- | --- | --- |
@@ -1531,14 +1531,18 @@ completed, so the P2 gate remains open and no enforcement is claimed. Receipts:
 | Report | `health()` prints the `## Usage ledger` block, including root/child p50/p90/p99 and the shadow line | static wiring assertion |
 | Calibration from history | a read-only copy of the v2 lane DB gives the first distribution without waiting: project roots 1,896,313 / 22,292,966.6 / 22,292,966.6 billable (n=4), children 305,277.8 / 582,082.6 / 679,631 (n=14); `p99(root)` is far above 300k, so Option 6's falsification does not fire; the sample is below 30 sessions, so the gate stays open | `2026-11-07-p2-history-calibration.md` |
 | Live window | the desktop host runs the built ledger: 299 rows at 2026-11-07T03:26Z (293 usage, 6 injection at 17,942 B), 23 backfilled sessions plus 1 live session, 1 `unobserved` boot-gap row, and 0 shadow trips; the window started 2026-11-06T20:47Z | `2026-11-07-p2-live-window-state.md` |
+| Live reload | a copy of the real ledger reloads through `UsageLedger.start()`: 312 rows at 2026-11-07T04:07Z (306 usage, 6 injection at 17,942 B), 23 sessions (9 roots / 14 children), 1 priced and 22 unpriced, `unit: mixed`, root p50/p90/p99 1,896,313 / 22,292,966.6 / 22,292,966.6, child 305,277.8 / 582,082.6 / 679,631 — identical to the independent aggregation | `2026-11-07-p2-live-ledger-reload.md` |
 | Proof | `scripts/prove-usage-ledger.ts`, 122 assertions, gate step `usage-ledger`; `scripts/prove-usage-shadow.ts`, 80 assertions, gate step `usage-shadow`; 179 steps and 182 files | `npm run verify` GATE PASS |
 
 The shadow detections are now live readings rather than an implementation gap: the root/child p99
 split, the orphan count, `unobserved` rows during reload, injected bytes per source, repeat and
-fan-out flagged sessions, and echo streaks are all recorded. The first distribution is no longer
-blocked on the window either: a read-only copy of the lane DB yields root p99 22.29M and child p99
-679.6k billable with four project roots, enough to reject Option 6's falsification but not to set
-budgets, since the project sample is 18 sessions. Two readings still require the forward window:
+fan-out flagged sessions, and echo streaks are all recorded. The parser is checked against the
+real file too: reloading a copy of the live ledger reproduces the independent aggregation exactly
+(312 rows, 23 sessions, same percentiles, same 17,942 injected bytes). The first distribution is no
+longer blocked on the window either: a read-only copy of the lane DB yields root p99 22.29M and
+child p99 679.6k billable with four project roots, enough to reject Option 6's falsification but
+not to set budgets, since the project sample is 18 sessions. Two readings still require the forward
+window:
 echo-flagged sessions per 30 sessions and the repeat detector's false-positive rate. Cached-schema
 share is settled by Q11 (repeat requests hit the cache in full, so Option 11
 stays hygiene). Catalog-derived cache weights and the 20% cost reconciliation warning are deferred
