@@ -783,7 +783,11 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
 
       
       if (!quarantineApplied && outputText && !TASK_TOOL_NAMES.includes(input.tool)) {
-        output.output = svc.truncateToolOutput(deliveredText);
+        const deferredCap = ctx.contextNudgeManager?.deferredOutputCap(input.sessionID);
+        output.output =
+          deferredCap !== undefined
+            ? svc.truncateToolOutput(deliveredText, deferredCap)
+            : svc.truncateToolOutput(deliveredText);
       }
 
       if (!isTawassulTool(input.tool)) return;

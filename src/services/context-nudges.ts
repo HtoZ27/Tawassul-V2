@@ -1,25 +1,40 @@
 import type { ContextNudge, ContextUsage, NudgeConfig } from "../context/priority-types.ts";
 
-const NUDGE_THRESHOLDS: NudgeConfig[] = [
-  { threshold: 0.7, severity: "info", action: "compact" },
+export const NUDGE_THRESHOLDS: NudgeConfig[] = [
+  { threshold: 0.7, severity: "info", action: "defer" },
   { threshold: 0.85, severity: "warning", action: "summarize" },
   { threshold: 0.95, severity: "critical", action: "save" },
 ];
 
 const NUDGE_MESSAGES: Record<string, string> = {
+  defer: "Context at {percentage}%. Large tool results will be deferred; prefer targeted reads and pointers.",
+  summarize: "Context at {percentage}%. Summarize the task state and keep only the active checkpoint.",
+  save: "Context near full ({percentage}%). Save progress via record(); compaction is not forced.",
   compact: "Context approaching limit ({percentage}%). Auto-compaction available to preserve conversation.",
-  summarize: "Context at {percentage}%. Consider summarizing or saving progress.",
-  save: "Context near full ({percentage}%). Save current task via record() to prevent data loss.",
   handoff: "Context full. Consider handing off to another agent via handoff().",
   pause: "Critical context limit exceeded. Pausing to maintain stability.",
+};
+
+export const NUDGE_RESET_BELOW = 0.65;
+export const DEFERRED_TOOL_OUTPUT_CHARS = 12_000;
+const MAX_NUDGE_SESSIONS = 200;
+
+type Tier = "info" | "warning" | "critical";
+
+type SessionNudgeState = {
+  firedTiers: Set<Tier>;
+  lastNudgeTime: number;
+  lastNudgeSeverity: Tier | null;
+  deferral: boolean;
 };
 
 export class ContextNudgeManager {
   private nudgeHistory: ContextNudge[] = [];
   private lastNudgeTime = 0;
-  private lastNudgeSeverity: "info" | "warning" | "critical" | null = null;
-  private firedTiers: Set<"info" | "warning" | "critical"> = new Set();
-  private cooldownMs = 60_000;
+  private lastNudgeSeverity: Tier | null = null;
+  private firedTiers: Set<Tier> = new Set();
+  private sessions = new Map<string, SessionNudgeState>();
+  private maxSessions = MAX_NUDGE_SESSIONS;
   private maxHistory = 100;
   private historyHead = 0;
 
@@ -32,22 +47,47 @@ export class ContextNudgeManager {
     return 0;
   }
 
-  evaluate(usage: ContextUsage): ContextNudge | null {
+  private stateFor(sessionID: string): SessionNudgeState {
+    let state = this.sessions.get(sessionID);
+    if (state) return state;
+    state = {
+      firedTiers: new Set<Tier>(),
+      lastNudgeTime: this.lastNudgeTime,
+      lastNudgeSeverity: this.lastNudgeSeverity,
+      deferral: false,
+    };
+    this.sessions.set(sessionID, state);
+    if (this.sessions.size > this.maxSessions) {
+      const oldest = this.sessions.keys().next().value as string | undefined;
+      if (oldest !== undefined && oldest !== sessionID) this.sessions.delete(oldest);
+    }
+    return state;
+  }
+
+  evaluate(usage: ContextUsage, sessionID = "default"): ContextNudge | null {
     this.metrics.totalEvaluations++;
+    const state = this.stateFor(sessionID);
+    if (usage.percentage < NUDGE_RESET_BELOW) {
+      state.firedTiers.clear();
+      state.lastNudgeTime = 0;
+      state.lastNudgeSeverity = null;
+      state.deferral = false;
+      return null;
+    }
     const now = Date.now();
-    const inCooldown = now - this.lastNudgeTime < this.cooldownMs;
+    let highestFired = 0;
+    for (const tier of state.firedTiers) highestFired = Math.max(highestFired, ContextNudgeManager.severityRank(tier));
     for (const nudgeConfig of [...NUDGE_THRESHOLDS].reverse()) {
       if (usage.percentage >= nudgeConfig.threshold) {
-        const severity = nudgeConfig.severity as "info" | "warning" | "critical";
-        if (this.firedTiers.has(severity)) continue;
-        if (
-          inCooldown &&
-          this.lastNudgeSeverity !== null &&
-          ContextNudgeManager.severityRank(severity) <= ContextNudgeManager.severityRank(this.lastNudgeSeverity)
-        ) {
+        const severity = nudgeConfig.severity as Tier;
+        if (ContextNudgeManager.severityRank(severity) <= highestFired) {
           this.metrics.totalSuppressed++;
           return null;
         }
+        state.lastNudgeTime = now;
+        state.lastNudgeSeverity = severity;
+        state.firedTiers.add(severity);
+        state.deferral = true;
         this.lastNudgeTime = now;
         this.lastNudgeSeverity = severity;
         this.firedTiers.add(severity);
@@ -76,6 +116,18 @@ export class ContextNudgeManager {
       }
     }
     return null;
+  }
+
+  isDeferralActive(sessionID = "default"): boolean {
+    return this.sessions.get(sessionID)?.deferral === true;
+  }
+
+  deferredOutputCap(sessionID = "default"): number | undefined {
+    return this.isDeferralActive(sessionID) ? DEFERRED_TOOL_OUTPUT_CHARS : undefined;
+  }
+
+  resetSession(sessionID: string): void {
+    this.sessions.delete(sessionID);
   }
 
   suggestAction(usage: ContextUsage, currentTask?: string): string[] {
@@ -115,6 +167,7 @@ export class ContextNudgeManager {
     this.lastNudgeTime = 0;
     this.lastNudgeSeverity = null;
     this.firedTiers.clear();
+    this.sessions.clear();
     this.historyHead = 0;
   }
 }

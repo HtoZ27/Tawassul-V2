@@ -164,6 +164,8 @@ export interface ToolExecuteAfterContext {
   
   contextCompressionEscalation?: import("../services/context-compression-escalation.ts").ContextCompressionEscalation;
   
+  contextNudgeManager?: import("../services/context-nudges.ts").ContextNudgeManager;
+  
   privacyGuard?: import("../services/privacy-guard.ts").PrivacyGuard;
   asyncStageQueue?: AsyncStageQueue;
   

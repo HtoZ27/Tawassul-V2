@@ -48,17 +48,19 @@ export interface DedupResult {
   mergeWithId?: string;
 }
 
+export type NudgeAction = "defer" | "compact" | "summarize" | "save" | "handoff" | "pause";
+
 export interface NudgeConfig {
   threshold: number;
   severity: "info" | "warning" | "critical";
-  action: "compact" | "summarize" | "save" | "handoff" | "pause";
+  action: NudgeAction;
 }
 
 export interface ContextNudge {
   id: string;
   severity: "info" | "warning" | "critical";
   message: string;
-  action: "compact" | "summarize" | "save" | "handoff" | "pause";
+  action: NudgeAction;
   threshold: number;
   timestamp: number;
 }

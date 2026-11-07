@@ -50,7 +50,8 @@ import type { EffortAnalysis } from "../services/effort-analyzer.ts";
 import type { ElicitationAsk } from "../services/elicitation-gate.ts";
 import { isValidMessageId } from "../lib/tool-schema-injection.ts";
 import { DEFAULT_PRICING_MODELS } from "../services/cost-transparency/types.ts";
-import type { ScoredContextEntry } from "../context/priority-types.ts";
+import type { ScoredContextEntry, ContextUsage } from "../context/priority-types.ts";
+import { usageFromHost } from "../services/context-pressure.ts";
 
 export const DISPATCH_QA_IN_ROOT = false;
 
@@ -416,7 +417,7 @@ function injectModeAndStatus(
   }
 }
 
-function injectContextEngine(
+export function injectContextEngine(
   ctx: MessageUpdatedContext,
   input: { sessionID: string; agent?: string; model?: { providerID: string; modelID: string } },
   output: {
@@ -446,26 +447,45 @@ function injectContextEngine(
     priorityIndex.insert(entry);
   }
 
-  if (contextNudgeManager && role === "user") {
-    const content = getMessageContent(output);
-    const msgTokens = svc.estimateTokens(content);
-    const stats = priorityIndex?.getStats();
+  if (contextNudgeManager) {
     const maxTokens = resolveMaxContextTokens(input.model, ctx.agentModelMap, input.agent);
-    const usedTokens = stats?.totalTokens ?? msgTokens;
-    const usage = svc.estimateContextUsage(usedTokens, 0, 0, 0, maxTokens);
-    const nudge = contextNudgeManager.evaluate(usage);
+    const hostUsage = usageFromHost(output?.message, maxTokens);
+    const stats = priorityIndex?.getStats();
+    let usage: ContextUsage;
+    let source: "host" | "estimate";
+    if (hostUsage) {
+      usage = hostUsage;
+      source = "host";
+    } else {
+      const content = getMessageContent(output);
+      const msgTokens = svc.estimateTokens(content);
+      const usedTokens = stats?.totalTokens ?? msgTokens;
+      usage = svc.estimateContextUsage(usedTokens, 0, 0, 0, maxTokens);
+      source = "estimate";
+    }
+    const nudge = contextNudgeManager.evaluate(usage, input.sessionID);
     if (nudge) {
+      if (nudge.action === "summarize" || nudge.action === "save") {
+        ctx.recordContextSnapshot?.({
+          sessionID: input.sessionID,
+          action: nudge.action,
+          percentage: usage.percentage,
+          usedTokens: usage.usedTokens,
+          maxTokens: usage.maxTokens,
+          source,
+        });
+      }
       const pct = Math.round(usage.percentage * 100);
       const chatInjection =
         (ctx.config?.innovations?.contextNudges as { chatInjection?: boolean } | undefined)?.chatInjection === true;
-      if (chatInjection && Array.isArray(output?.parts)) {
+      if (chatInjection && role === "user" && Array.isArray(output?.parts)) {
         output.parts.push({
           type: "text" as const,
           text: `\n\n_${nudge.message}_`,
         });
       } else {
         logger.info(
-          `[tawassul] Context nudge (${nudge.severity}): ${pct}% (${usedTokens}/${maxTokens} tokens) — ${nudge.message}`,
+          `[tawassul] Context nudge (${nudge.severity}) for ${role}: ${pct}% (${usage.usedTokens}/${usage.maxTokens} tokens, ${source}) — ${nudge.message}`,
         );
       }
     }

@@ -15,6 +15,7 @@ import { AgentTransactionManager } from "../context/transaction-manager.ts";
 import { ToolDeduplicator } from "../services/tool-dedup.ts";
 import { AsyncStageQueue } from "../services/async-stage-queue.ts";
 import { ContextNudgeManager } from "../services/context-nudges.ts";
+import { buildContextSnapshotRecord } from "../services/context-pressure.ts";
 import { DYNAMIC_MODEL_SENTINEL, getDynamicFallbackChainForRole } from "../services/proxy-fallback-chains.ts";
 import { RETIRED_MODEL_IDS } from "../core/variant-names.ts";
 import { resolveRole } from "../utils/agent.ts";
@@ -240,6 +241,13 @@ export function createHooks(
         provenance: "user_stated",
       });
     },
+    recordContextSnapshot: (snapshot) => {
+      if (tawaCtx.records.length >= tawaCtx.getMaxRecords()) return;
+      tawaCtx.recSeq += 1;
+      tawaCtx.records.push(buildContextSnapshotRecord(snapshot, `R-${String(tawaCtx.recSeq).padStart(3, "0")}`));
+      tawaCtx.recordRecordCreated("@tawa");
+      void tawaCtx.saveState();
+    },
     statsCollector: tawaCtx.statsCollector,
     pipelineManager: tawaCtx.pipelineManager,
     
@@ -417,6 +425,7 @@ export function createHooks(
     transactionManager,
     toolRunLog: tawaCtx.toolRunLog,
     contextCompressionEscalation: tawaCtx.contextCompressionEscalation,
+    contextNudgeManager,
     privacyGuard: tawaCtx.privacyGuard,
     asyncStageQueue,
     goalStore: services?.goalStore,

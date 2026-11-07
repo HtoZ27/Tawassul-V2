@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "totalEstimateMs": 394341,
+  "totalEstimateMs": 396341,
   "shards": [
     {
       "name": "1",
@@ -51,7 +51,7 @@
     },
     {
       "name": "2",
-      "estimateMs": 96533,
+      "estimateMs": 98533,
       "steps": [
         "gen-guard-wal",
         "first-boot",
@@ -96,7 +96,8 @@
         "goal-board-truth",
         "run-interrupt",
         "project-index-incremental",
-        "read-cache-unrelated-edit"
+        "read-cache-unrelated-edit",
+        "context-pressure"
       ]
     },
     {

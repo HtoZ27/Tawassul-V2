@@ -103,6 +103,8 @@ export interface MessageUpdatedContext {
   
   recordDecision?: (content: string, opts?: { tags?: string[]; importance?: "low" | "medium" | "high" }) => void;
   
+  recordContextSnapshot?: (snapshot: import("../services/context-pressure.ts").ContextSnapshot) => void;
+  
   serviceClients?: MessageUpdatedServiceClients;
 
   concordanceText?: string;

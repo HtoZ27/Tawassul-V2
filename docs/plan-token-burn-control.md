@@ -1,6 +1,6 @@
 # Token-Burn Control — Design Dossier for Multi-Model Review
 
-Revision: 2.5. Revision 1 (2026-11-05) is preserved in Sections 0-13. Revision 2 added Section 14:
+Revision: 2.7. Revision 1 (2026-11-05) is preserved in Sections 0-13. Revision 2 added Section 14:
 the re-evaluation against the post-R1 tree, the four structural findings, Option 11 (fixed-cost
 diet), the canonical accounting formula, the revised execution order, and Probe 0. Revision 2.1
 added Section 15: the consolidated five-agent review, the score spread, the confirmed and refuted
@@ -16,12 +16,14 @@ with host declarations taken verbatim. Revision 2.5 adds Section 19: the isolate
 replay, the decision to keep 200 characters, and the tool-only reset fix. Revision 2.6 adds
 Section 20: the post-retirement fixed-cost re-measurement (24,740 B / 6,185 tokens), the per-tool
 schema and description ledger, the corrected P1 cut (4,740 B, -19.2%), the injection budgets, and
-the gate timing guard.
+the gate timing guard. Revision 2.7 adds Section 21: the P4 context-pressure implementation (host
+token fields, every-role evaluation, per-session hysteresis, tool-output deferral, durable
+snapshots, and no forced compaction).
 No Revision 1, 2, 2.1, 2.2, 2.3, 2.4, or 2.5 item is removed; every correction is appended and
 marked with its revision.
-Status: D13 and the P2 ledger shadow slice are implemented and proven; the fixed-cost payload is
-measured per tool; enforcement remains proposal only.
-Date: 2026-11-07 (Revision 2.6, fixed-cost ledger refresh)
+Status: D13, the P2 ledger shadow slice, and the P4 nudge mechanism are implemented and proven;
+the fixed-cost payload is measured per tool; enforcement remains proposal only.
+Date: 2026-11-07 (Revision 2.7, context-pressure mechanism)
 Target: Tawassul V2, this tree, OpenCode host >= 2.2.0
 Audience: independent models and agents asked to score the options and produce a verdict.
 
@@ -176,7 +178,7 @@ Not supported:
 | D5 | Cost telemetry is fabricated | `event-integrations.ts:226-232` | no decision can be based on current cost reports |
 | D6 | Identical-repeat blocking covers only read-only search tools | `tool-loop-guard.ts:9-16,193-207`; every successful result for a normalized agent is recorded and warned at 3 (`tool-execute.ts:564-575`), the warning is appended only when the result is a string (`:574`), and failures reset the run (`:577-580`); `REPEAT_BLOCK_TOOLS` is `read/grep/glob` | non-read loops (`bash`, MCP) are warned but never blocked; failed repeats are not counted; assistant-turn echo is uncovered; S2 is only partially covered (Revision 2.2; narrowed 2.3) |
 | D7 | The no-progress counter is tool-failure-only | `tool-loop-guard.ts:123-127`; the sole call is `tool-execute.ts:581` | a tool-free S1 echo never increments it; "absent" was too strong, "covered" is too strong (Revision 2.2) |
-| D8 | Nudge does not trigger compaction or deferral | `context-nudges.ts` only logs or injects text | warning without mechanism |
+| D8 | Nudge does not trigger compaction or deferral | `context-nudges.ts` only logs or injects text | warning without mechanism; resolved in Revision 2.7: deferral caps tool output at 12,000 chars, summarize/save write a durable note, and compaction is deliberately not forced |
 | D9 | `consume` counts spend-neutral and spend-increasing tools identically | `tool-execute.ts:268` | the quota blocks a final report as readily as a new subagent |
 | D10 | The permanent schema payload has no owner in this plan | `docs/experiments/receipts/2026-11-05-schema-payload.json`: 24,513 B / 6,129 tokens for 44 tools; the archived 13,868 B undercounts because it used the src zod instance | the largest fixed per-request cost is absent from the option space (Revision 2) |
 | D11 | Dispatch results are uncapped | `TASK_TOOL_NAMES` at `security-policy.ts:14`; the 50k truncation excludes all three at `tool-execute.ts:771-772`; `!quarantineApplied` at `:771` is a second bypass | a `task`, `handoff`, or `fasttrack` result can enter the parent arbitrarily large, and quarantined output bypasses the same cap (Revision 2.2; widened 2.3) |
@@ -1089,7 +1091,7 @@ independently; the evidence column is the deciding file or receipt.
 | 13 | The first sensitivity clause is still wrong | R4, R5 | efficacy 15 / FP 30 gives Option 9 = 4.20, Option 6 = 4.05 with efficacy 5 | Revision 2.2: withdrawn; with efficacy 4 the clause reproduces (4.05 tie) |
 | 14 | `session.usage.updated` is ephemeral | R2, R3, R5 | `event-manifest.d.ts:1136` | Ledger reconciles on reload; event-loss metric added |
 | 15 | The R1 clause is per routed dispatch, not per turn | R2, R3, R4 | `dispatch-guards.ts:277,284-286`; `routing.ts:4-6` | Scope corrected; measure but do not prioritise |
-| 16 | The nudge still lacks a mechanism | R5 | `message-updated.ts:459-470` | D8 remains open; P4 must add an action, not only a warning |
+| 16 | The nudge still lacks a mechanism | R5 | `message-updated.ts:459-470` | D8 resolved in 2.7: defer/summarize/save actions, per-session hysteresis, durable snapshot; no forced compaction |
 | 17 | `sweepStaleBudgets` evicts by insertion order | R3 | `iteration-budget.ts:179-184` | New defect D17; use last-used order |
 | 18 | K7 dedupe can be re-injected after 16 blocks | R2 | `session.ts:289-303` | New defect D18; record the reset |
 | 19 | The schema receipt predates the audit HEAD | R4, R5 | receipt commit `ef0bdd5`; plan HEAD `c14aa1b` | Re-measure at HEAD in P1 before setting the target |
@@ -1805,6 +1807,52 @@ a process-group kill on timeout. `scripts/prove-gate-budget.ts` covers the step 
 stage-capped step, and the grandchild kill with 22 assertions. `host:refresh` keeps the 120 s shell
 limit.
 
+## 21. Context-pressure mechanism (Revision 2.7)
+
+### 21.1 Host fields replace text length
+
+`readHostTokenUsage` reads the assistant message's `tokens` struct (`input`, `output`, `reasoning`,
+`cache.read`, `cache.write`), the top-level aliases, and an explicit `contextSize`; it sums a
+measured total and never lets the context count fall below it. `usageFromHost` turns that into the
+same `ContextUsage` shape the estimator already used, so the nudge now measures billed host tokens
+whenever the message carries them and falls back to the estimate only when it does not. Negative or
+non-finite fields are clamped or ignored.
+
+### 21.2 Every role, per-session hysteresis
+
+`injectContextEngine` now evaluates `chat.message` for user and assistant roles; the visible chat
+text injection stays user-only, and other roles log. Nudge state is per session: each tier fires
+once per crossing, a higher tier never downgrades to a lower one, and a drop below 0.65 clears the
+session's tiers and its deferral. The state map is capped at 200 sessions with oldest-first
+eviction.
+
+### 21.3 The mechanism D8 required
+
+- **70% — defer.** The session's deferral flag makes `tool-execute.ts` cap non-task tool output at
+  12,000 characters (`DEFERRED_TOOL_OUTPUT_CHARS`) instead of the default 50,000. The cap is
+  per-session, so one hot session never shrinks another session's results.
+- **85% — summarize.** The nudge records a durable `note` via `buildContextSnapshotRecord` and
+  saves state; the record names the session, the percentage, the source, and the action.
+- **95% — save.** The same durable record path runs with the save action.
+- **No forced compaction.** The red zone deliberately does not call `session.compact`; the proof
+  asserts that neither `message-updated.ts` nor `context-nudges.ts` names the host compaction call.
+  The action is a deferral plus a durable snapshot, not a destructive context reset.
+
+A repeated reading at the same tier fires once; the synthetic 40-evaluation echo loop in the proof
+confirms the suppression, and a drop under 0.65 lets the next crossing fire again.
+
+### 21.4 Evidence
+
+`scripts/prove-context-pressure.ts` carries 75 assertions: host parsing (including aliases, clamps,
+and a null fallback), usage conversion, threshold actions, the echo loop, per-session isolation,
+the 12,000-character cap, assistant-role evaluation, host-sourced snapshots, the durable record
+shape, the absence of a host compaction call, and the tool-hook wiring. It is proof 180, assigned
+to shard 2 with a +2,000 ms estimate (total 396,341 ms). `npm run verify` is the integration
+receipt.
+
+P4 is implemented but not calibrated: the 70/85/95 thresholds and the 12,000-character cap stay as
+written until the P5 30-session run reports p99 and the 1.5x rule can adjust them.
+
 ---
 
 ## Appendix A — Evidence with numbers
@@ -1848,8 +1896,10 @@ limit.
 | Dispatch output cap exclusion | `src/hooks/tool-execute.ts`; `src/security-policy.ts` | 771-772; 14 |
 | Depth semantics | `src/hooks/guards/dispatch-guards.ts` | 236-252 |
 | Depth constant | `src/hooks/guards/shared/limits.ts` | 12-19 |
-| Context nudge thresholds | `src/services/context-nudges.ts` | 3-7, 21-24 |
-| Nudge evaluation | `src/hooks/message-updated.ts` | 449-475 |
+| Context nudge thresholds | `src/services/context-nudges.ts` | 3-19, 31-40 |
+| Nudge evaluation | `src/hooks/message-updated.ts` | 420-495 |
+| Host token parser and snapshot record | `src/services/context-pressure.ts` | 1-103 |
+| Tool-output deferral | `src/hooks/tool-execute.ts`; `src/hooks/tool-execute-types.ts` | 786-790; 165-167 |
 | Fabricated cost | `src/bootstrap/event-integrations.ts` | 226-238 |
 | Event hook | `src/bootstrap/plugin-init.ts` | 1230 |
 | Cost tracker API | `src/services/cost-transparency/tracker.ts` | 57-102 |
