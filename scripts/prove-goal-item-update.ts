@@ -28,7 +28,7 @@ try {
     title: "owner can rewrite or drop items",
     owner: "@dev",
     items: ["draft item", "second item"],
-    acceptance: ["owner decision is recorded"],
+    acceptance: ["owner decision is recorded", "cancelled scope is retired"],
   });
   if (!created.ok) fail(`seed goal failed: ${created.reason}`);
   const goalId = created.goal.id;
@@ -85,6 +85,51 @@ try {
     acceptance: [],
   });
   assert(droppedInvariant.ok, "a dropped item no longer blocks close");
+
+  const retireUnknown = await store.update(goalId, {
+    acceptanceRetire: [{ criterion: "no such criterion", reason: "the plan revision removed this scope" }],
+  });
+  assert(
+    !retireUnknown.ok && retireUnknown.reason === "acceptance-unknown",
+    "retiring an unknown acceptance criterion is refused",
+  );
+
+  const retireShort = await store.update(goalId, {
+    acceptanceRetire: [{ criterion: "cancelled scope is retired", reason: "no" }],
+  });
+  assert(
+    !retireShort.ok && retireShort.reason === "acceptance-reason-short",
+    "retiring an acceptance criterion needs a recorded reason",
+  );
+
+  const retired = await store.update(goalId, {
+    acceptanceRetire: [
+      {
+        criterion: "cancelled scope is retired",
+        reason: "the plan revision removed this scope before release",
+      },
+    ],
+  });
+  const retiredGoal = retired.ok ? retired.goal : fail("a cancelled acceptance criterion is retired");
+  assert(retired.ok, "a cancelled acceptance criterion is retired");
+  assert(
+    !retiredGoal.acceptance.some((a) => a.criterion === "cancelled scope is retired"),
+    "the retired criterion leaves the active DoD",
+  );
+  assert(
+    retiredGoal.retiredAcceptance.some(
+      (r) => r.criterion === "cancelled scope is retired" && r.reason.includes("plan revision"),
+    ),
+    "the retirement is archived with its reason",
+  );
+  assert(retiredGoal.evidence.length === 0, "retirement does not consume goal evidence");
+  const resurrectedDod = await store.update(goalId, {
+    acceptanceStates: [{ criterion: "cancelled scope is retired", status: "met" }],
+  });
+  assert(
+    !resurrectedDod.ok && resurrectedDod.reason === "acceptance-unknown",
+    "a retired criterion cannot be marked met later",
+  );
 
   const covered = await store.update(goalId, {
     acceptanceEvidence: [{ criterion: "owner decision is recorded", text: "the dropped item carries the owner reason" }],

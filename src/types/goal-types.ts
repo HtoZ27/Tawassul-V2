@@ -17,6 +17,12 @@ export interface DoDCriterion {
   evidence: string[];
 }
 
+export interface RetiredAcceptance {
+  criterion: string;
+  reason: string;
+  retiredAt: string;
+}
+
 export interface GoalItem {
   id: string;
   title: string;
@@ -51,6 +57,7 @@ export interface Goal {
   
   completedItems: CompletedItem[];
   acceptance: DoDCriterion[];
+  retiredAcceptance: RetiredAcceptance[];
   linkedRecords: string[];
   linkedHandoffs: string[];
   linkedBoards: string[];

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "date": "2026-11-07",
+  "commit": "cdeebdc3351ec3e6122831aa5b8c7c1483d69a94",
+  "phase": "post-0.1.0 goal acceptance retirement",
+  "recordedDuring": "Goal acceptance retirement feature: acceptRetireId and acceptRetireReason added to the goal tool schema",
+  "method": "initPlugin from src, wait for readiness, collectToolSchemas(hooks.tool), measureSchemaPayload; this is the same buildToolJsonSchema path the tool.definition hook uses, so the number matches the payload the host receives",
+  "toolCount": 44,
+  "toolNameSetHash": "1c1f4d27508a7a3f6f3b50d1e10f8ae0cf8801c7ce3d73df9cd29783ee7c3bb2",
+  "schemaPayload": {
+    "bytes": 24740,
+    "estimatedTokens": 6185
+  },
+  "archivedBaseline": {
+    "file": "docs/experiments/baselines/2026-10-31-context-baseline.json",
+    "bytes": 13868,
+    "note": "The archived baseline and the 2026-11-04 zod receipt measured the built entry with the src zod instance, which drops property descriptions during conversion and undercounts the payload. This receipt measures one instance, as the shipped hook does."
+  }
+}

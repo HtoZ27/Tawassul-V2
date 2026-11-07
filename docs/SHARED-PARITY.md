@@ -44,7 +44,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-018 | R-008, R-009, and R-011 are ported in a v2 shape with first-boot roster seeding. | `src/utils/opencode-config.ts:507` `ensureGlobalRosterSeed` | `scripts/prove-first-boot-seed.ts` | verified |
 | S-019 | The atomic-audit P0 closures are ported: containment, WAL probe, backup environment, and fail-closed gates. | `scripts/opencode-db-maintenance.sh:596` `require_v2_generation` | `scripts/prove-db-retention.ts` | verified |
 | S-020 | The nine-day batch is ported: tool surface, cache generation, guards, and wiring. | `src/context/model-utils.ts:24` `getPortCacheGen` | `scripts/prove-s020.ts` | verified |
-| S-022 | The 37-commit backlog rows are triaged and the actionable ones ported. | `src/services/goal-store.ts:529` `mutate` | `scripts/prove-goal-resurrection.ts` | verified |
+| S-022 | The 37-commit backlog rows are triaged and the actionable ones ported. | `src/services/goal-store.ts:530` `private async mutate` | `scripts/prove-goal-resurrection.ts` | verified |
 | S-021 | The 37-commit sweep remainders are ported: invocation fallback, scoped budgets, honest cost, and the MAX doctrine. | `src/tools/agent-management.ts:63` `tawaFallbackPermission` | `scripts/prove-s021.ts` | verified |
 | S-023 | The reconciliation remainders are ported: iteration budgets, timers, torn reads, and abort. | `src/services/iteration-budget.ts:63` `applyIterationBudgets` | `scripts/prove-s021.ts` | verified |
 | S-024 | The atomic-audit findings are ported and the gate hole is closed. | `src/services/timeline-store.ts:161` `getFlushStats` | `scripts/prove-s024.ts` | verified |
@@ -80,7 +80,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-049 | After-hook output mutations are written back into the tool result. | `src/v2/result-bridge.ts:99` `writeBackV1Output` | `scripts/prove-v2-compat.ts` | verified |
 | S-050 | Budget exhaustion must not be mislabeled as a verification failure. | - | - | n-a |
 | S-051 | Permission evaluate mutation and tool reload need public contract documentation. | `src/v2/ask.ts:18` `evaluate` | - | host-bound |
-| S-052 | Goal auto-capture follows the corrected shape, not the v1 code. | `src/services/goal-store.ts:820` `finishLocked` | `scripts/prove-goal-capture.ts` | verified |
+| S-052 | Goal auto-capture follows the corrected shape, not the v1 code. | `src/services/goal-store.ts:840` `private async finishLocked` | `scripts/prove-goal-capture.ts` | verified |
 | S-053.1 | The watcher policy is owned by the v2 launcher with env over pinned over auto and one decision line. | `scripts/opencode-v2-iso.sh:302` `[launcher] watcher mode=` | `scripts/prove-boot-gate.ts` | verified |
 | S-053.2 | DB retention prunes event rows and the backup probe counts both session tables. | `scripts/opencode-db-maintenance.sh:91` `EVENT_KEEP` | `scripts/prove-db-retention.ts` | verified |
 | S-053.3 | The seven-item unchecked-task census is either ported as tests or recorded as out of scope. | `ISSUES.md:2978` `### E-53` | `scripts/prove-handoff-rescue.ts`, `scripts/prove-seed-agents.ts` | verified |

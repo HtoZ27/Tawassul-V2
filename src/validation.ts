@@ -461,6 +461,12 @@ export const DoDCriterionSchema = z.object({
   evidence: z.array(z.string()).default([]),
 });
 
+export const RetiredAcceptanceSchema = z.object({
+  criterion: z.string().min(1).max(500),
+  reason: z.string().min(1).max(2000),
+  retiredAt: z.string(),
+});
+
 export const GoalItemSchema = z.object({
   id: z.string(),
   title: z.string().min(1).max(500),
@@ -493,6 +499,7 @@ export const GoalSchema = z.object({
   
   completedItems: z.array(CompletedItemSchema).optional().default([]),
   acceptance: z.array(DoDCriterionSchema),
+  retiredAcceptance: z.array(RetiredAcceptanceSchema).optional().default([]),
   linkedRecords: z.array(z.string()),
   linkedHandoffs: z.array(z.string()),
   linkedBoards: z.array(z.string()),

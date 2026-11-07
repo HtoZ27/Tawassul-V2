@@ -202,6 +202,8 @@
   "goalItemStateRequired": "⚠️ Pass `itemState`, `itemTitle`, or `itemEvidence` with `itemId`.",
   "goalAcceptanceUnknown": "❌ No acceptance criterion {criterion} on the goal.",
   "goalAcceptanceEvidenceBlocked": "⛔ Criterion {criterion} cannot be marked met without evidence — pass it via `acceptEvidence` (≥8 chars).",
+  "goalAcceptanceRetireBlocked": "⛔ Criterion {criterion} cannot be retired without a reason (≥8 chars) — pass it via `acceptRetireReason`.",
+  "goalAcceptanceRetirePair": "⚠️ Pass `acceptRetireId` and `acceptRetireReason` together (reason ≥8 chars).",
   "goalListTitle": "🎯 {count} goal(s)",
   "goalMaxReached": "⚠️ Maximum goals reached. Complete or drop an old goal.",
   "goalNoPermission": "⛔ You don't have permission to drop **{id}**. Only {owner} or @analyst can drop it.",

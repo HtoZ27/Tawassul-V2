@@ -53,6 +53,7 @@ export interface GoalUpdatePatch {
   
   acceptanceStates?: Array<{ criterion: string; status: DoDStatus }>;
   acceptanceEvidence?: Array<{ criterion: string; text: string }>;
+  acceptanceRetire?: Array<{ criterion: string; reason: string }>;
   itemsAdd?: string[];
   acceptanceAdd?: string[];
   linkedRecords?: string[];
@@ -620,6 +621,7 @@ export class GoalStore {
         items,
         completedItems: [],
         acceptance,
+        retiredAcceptance: [],
         linkedRecords: input.linkedRecords ?? [],
         linkedHandoffs: input.linkedHandoffs ?? [],
         linkedBoards: input.linkedBoards ?? [],
@@ -680,6 +682,24 @@ export class GoalStore {
       if (patch.acceptanceAdd !== undefined) {
         for (const c of patch.acceptanceAdd) {
           next.acceptance.push({ criterion: c, verification: "agent_check", status: "pending", evidence: [] });
+        }
+      }
+      if (patch.acceptanceRetire !== undefined) {
+        for (const { criterion, reason } of patch.acceptanceRetire) {
+          const index = next.acceptance.findIndex((a) => a.criterion === criterion);
+          if (index < 0) return { ok: false, reason: "acceptance-unknown", missing: [criterion] };
+          const clean = reason?.trim() ?? "";
+          if (clean.length < MIN_EVIDENCE_LEN) {
+            return { ok: false, reason: "acceptance-reason-short", missing: [criterion] };
+          }
+          const retired = next.acceptance[index];
+          if (!retired) return { ok: false, reason: "acceptance-unknown", missing: [criterion] };
+          next.retiredAcceptance.push({
+            criterion: retired.criterion,
+            reason: clean,
+            retiredAt: now,
+          });
+          next.acceptance.splice(index, 1);
         }
       }
       
@@ -1173,6 +1193,7 @@ export class GoalStore {
       items: [],
       completedItems: [],
       acceptance: [],
+      retiredAcceptance: [],
       linkedRecords: [],
       linkedHandoffs: [],
       linkedBoards: [],

@@ -249,6 +249,7 @@ try {
       items: [],
       completedItems: [],
       acceptance: [],
+      retiredAcceptance: [],
       linkedRecords: [],
       linkedHandoffs: [],
       linkedBoards: [],

@@ -57,6 +57,7 @@ function record(id: string, seq: number, status: GoalStatus, closedAs?: GoalStat
     items: [],
     completedItems: [],
     acceptance: [],
+    retiredAcceptance: [],
     linkedRecords: [],
     linkedHandoffs: [],
     linkedBoards: [],

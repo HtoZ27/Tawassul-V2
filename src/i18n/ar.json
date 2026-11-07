@@ -202,6 +202,8 @@
   "goalItemStateRequired": "⚠️ مرّر `itemState` أو `itemTitle` أو `itemEvidence` مع `itemId`.",
   "goalAcceptanceUnknown": "❌ لا معيار قبول {criterion} على الهدف.",
   "goalAcceptanceEvidenceBlocked": "⛔ لا يمكن تعليم المعيار {criterion} مُستوفى دون دليل — مرّره عبر `acceptEvidence` (≥8 أحرف).",
+  "goalAcceptanceRetireBlocked": "⛔ لا يمكن سحب المعيار {criterion} دون سبب (≥8 أحرف) — مرّره عبر `acceptRetireReason`.",
+  "goalAcceptanceRetirePair": "⚠️ مرّر `acceptRetireId` و`acceptRetireReason` معًا (السبب ≥8 أحرف).",
   "goalListTitle": "🎯 {count} هدف",
   "goalMaxReached": "⚠️ بلغت الحد الأقصى للأهداف. أكمل هدفًا قديمًا أو أسقطه.",
   "goalNoPermission": "⛔ لا تملك صلاحية إسقاط **{id}**. فقط {owner} أو @analyst يمكنه إسقاطه.",

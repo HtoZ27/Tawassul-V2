@@ -37,7 +37,7 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
       "⚠️ THIS IS THE ONLY interface to goals/items/DoD — never search data files, plugin files or the MCP server: read with goal(list/board), write here.",
       "",
       "create: goal(create: <title>) [+ detail, items, acceptance, linkedRecords, linkedHandoffs, parentId]",
-      "update: goal(update: <G-xxx>) [+ title, detail, state, itemId+itemState, itemId+itemTitle, itemEvidence, acceptId+acceptState, itemsAdd, acceptanceAdd, pinned]",
+      "update: <G-xxx> [+ title, detail, state, itemId+itemState/itemTitle/itemEvidence, acceptId+acceptState, acceptRetireId+acceptRetireReason, itemsAdd, acceptanceAdd, pinned]",
       "evidence: goal(evidence: <G-xxx>, evidenceText: <text>)",
       "DoD: goal(update: <G-xxx>, acceptId: <criterion>, acceptState: met|not_met[, acceptEvidence: <note>]) — met requires evidence (≥8 chars)",
       "close: goal(close: <G-xxx>) [+ verify: true] — completed/verified ONLY if every DoD is met and no items are unfinished (mechanical gate, never prompt-based)",
@@ -48,7 +48,7 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
       "  goal(list: true) → active goals (+ filter: all|open|partial|blocked|completed|verified|dropped|stale)",
       "  goal(board: true) → tiered digest: attention + roster + counts",
       "",
-      'HOST (read-only): goal(host: true) / goal(get: "host") reads the host /goal for this session; goal(board: true) appends it. Never sets, pauses, resumes or clears it — use /goal pause|resume|clear in the host.',
+      'HOST (read-only): goal(host: true) / goal(get: "host") reads the host /goal for this session; goal(board: true) appends it. Never sets, pauses, resumes or clears it — use /goal pause|resume|clear.',
       "",
       "RULES: evidence ≥8 chars, no duplicates, ≤100/goal. A goal with no items and no acceptance criteria can never close. progressPct is derived from items.",
     ].join("\n"),
@@ -98,6 +98,11 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
         .optional()
         .describe("New DoD status"),
       acceptEvidence: tool.schema.string().optional().describe("Evidence for marking a DoD criterion met (≥8 chars)"),
+      acceptRetireId: tool.schema.string().optional().describe("DoD criterion to retire (with acceptRetireReason)"),
+      acceptRetireReason: tool.schema
+        .string()
+        .optional()
+        .describe("Why the criterion is retired (≥8 chars); archived with the criterion"),
       linkedRecords: tool.schema.array(tool.schema.string()).optional().describe("Linked record IDs (create)"),
       linkedHandoffs: tool.schema.array(tool.schema.string()).optional().describe("Linked handoff IDs (create)"),
       linkedBoards: tool.schema.array(tool.schema.string()).optional().describe("Linked board IDs (create)"),
@@ -240,6 +245,9 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
         ) {
           return { output: t("goalItemStateRequired") };
         }
+        if ((args.acceptRetireId === undefined) !== (args.acceptRetireReason === undefined)) {
+          return { output: t("goalAcceptanceRetirePair") };
+        }
         const res = await store.update(id, {
           ...(args.title !== undefined ? { title: str(args.title) } : {}),
           ...(args.detail !== undefined ? { detail: str(args.detail) } : {}),
@@ -270,6 +278,13 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
                 acceptanceEvidence: [{ criterion: str(args.acceptId), text: str(args.acceptEvidence) }],
               }
             : {}),
+          ...(args.acceptRetireId !== undefined && args.acceptRetireReason !== undefined
+            ? {
+                acceptanceRetire: [
+                  { criterion: str(args.acceptRetireId), reason: str(args.acceptRetireReason) },
+                ],
+              }
+            : {}),
         });
         if (!res.ok) {
           if (res.reason === "locked") return { output: t("goalLocked") };
@@ -288,6 +303,9 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
           }
           if (res.reason === "acceptance-evidence" || res.reason === "acceptance-evidence-short") {
             return { output: t("goalAcceptanceEvidenceBlocked", { criterion: (res.missing ?? []).join(", ") }) };
+          }
+          if (res.reason === "acceptance-reason-short") {
+            return { output: t("goalAcceptanceRetireBlocked", { criterion: (res.missing ?? []).join(", ") }) };
           }
           return { output: t("goalRequiredFields") };
         }

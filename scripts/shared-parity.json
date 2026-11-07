@@ -466,8 +466,8 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/goal-store.ts",
-            "line": 529,
-            "marker": "mutate"
+            "line": 530,
+            "marker": "private async mutate"
           },
           "proofs": [
             "scripts/prove-goal-resurrection.ts"
@@ -1217,8 +1217,8 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/goal-store.ts",
-            "line": 820,
-            "marker": "finishLocked"
+            "line": 840,
+            "marker": "private async finishLocked"
           },
           "proofs": [
             "scripts/prove-goal-capture.ts"
