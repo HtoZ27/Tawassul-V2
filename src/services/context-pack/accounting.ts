@@ -1,5 +1,5 @@
 import { DEFAULT_PRICING_MODELS } from "../cost-transparency/types.ts";
-import { MIN_BUDGET_BYTES, MIN_TRUSTED_WINDOW, PACK_MAX_BYTES } from "./types.ts";
+import { DEFAULT_CONTEXT_WINDOW, MIN_BUDGET_BYTES, PACK_MAX_BYTES, WINDOW_SANITY_FLOOR } from "./types.ts";
 import type { PackMessage } from "./types.ts";
 
 const IMAGE_ATTACHMENT_BYTES = 8192;
@@ -37,18 +37,14 @@ export function resolveModelWindow(input: {
   modelID?: string;
 }): number {
   const raw = input.limitContext;
-  const host =
-    typeof raw === "number" && Number.isInteger(raw) && raw >= MIN_TRUSTED_WINDOW && raw <= 10_000_000
-      ? raw
-      : undefined;
-  const pricedRaw = pricingWindow(input.providerID, input.modelID) ?? MIN_TRUSTED_WINDOW;
-  const priced = pricedRaw < MIN_TRUSTED_WINDOW ? MIN_TRUSTED_WINDOW : pricedRaw;
-  if (host === undefined) return priced;
-  return Math.min(host, priced);
+  if (typeof raw === "number" && Number.isFinite(raw) && raw >= WINDOW_SANITY_FLOOR) return Math.floor(raw);
+  const catalog = pricingWindow(input.providerID, input.modelID);
+  if (catalog !== undefined && catalog >= WINDOW_SANITY_FLOOR) return catalog;
+  return DEFAULT_CONTEXT_WINDOW;
 }
 
 export function resolveReserve(window: number): number {
-  const safe = Number.isFinite(window) && window > 0 ? Math.floor(window) : MIN_TRUSTED_WINDOW;
+  const safe = Number.isFinite(window) && window > 0 ? Math.floor(window) : DEFAULT_CONTEXT_WINDOW;
   return Math.min(Math.max(16000, Math.floor(safe / 4)), Math.floor(safe / 2));
 }
 

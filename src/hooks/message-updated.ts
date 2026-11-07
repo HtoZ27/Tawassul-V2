@@ -75,7 +75,7 @@ function resolveServiceClients(clients?: MessageUpdatedServiceClients): Required
 
 export type { MessageUpdatedServiceClients } from "./message-updated-types.ts";
 
-const DEFAULT_CONTEXT_MAX_TOKENS = 128000;
+const DEFAULT_CONTEXT_MAX_TOKENS = 200000;
 
 const PRICING_MAX_TOKENS: Map<string, number> = new Map();
 for (const pm of DEFAULT_PRICING_MODELS) {

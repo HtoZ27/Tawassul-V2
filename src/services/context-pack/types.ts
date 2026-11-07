@@ -11,7 +11,8 @@ export const LEDGER_MAX_LINES = 5000;
 export const LEDGER_KEEP_LINES = 2500;
 export const LOCK_STALE_MS = 30000;
 export const MIN_BUDGET_BYTES = 1024;
-export const MIN_TRUSTED_WINDOW = 128000;
+export const WINDOW_SANITY_FLOOR = 2000;
+export const DEFAULT_CONTEXT_WINDOW = 200000;
 
 export type HostUserMessage = {
   role: "user";

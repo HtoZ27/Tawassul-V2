@@ -1,6 +1,6 @@
 # Token-Burn Control — Design Dossier for Multi-Model Review
 
-Revision: 2.3. Revision 1 (2026-11-05) is preserved in Sections 0-13. Revision 2 added Section 14:
+Revision: 2.4. Revision 1 (2026-11-05) is preserved in Sections 0-13. Revision 2 added Section 14:
 the re-evaluation against the post-R1 tree, the four structural findings, Option 11 (fixed-cost
 diet), the canonical accounting formula, the revised execution order, and Probe 0. Revision 2.1
 added Section 15: the consolidated five-agent review, the score spread, the confirmed and refuted
@@ -10,10 +10,13 @@ corrections it confirmed, the D13 config conflict, the sensitivity recomputation
 shadow-instrumentation fix, and the four additional Probe 0 questions. Revision 2.3 adds Section 17:
 the third five-agent review, the D13 reconciliation decision (K3 is the host ceiling; the knob
 is clamped at the wiring point), the Probe 0 Q13-Q16 scope corrections, the D6/D11 wording
-narrowing, and the depth-guard scope note. No Revision 1, 2, 2.1, or 2.2 item is removed; every
-correction is appended and marked "Revision 2.3".
-Status: D13 is implemented and proven; every other item is proposal only.
-Date: 2026-11-06 (Revision 2.3, D13 implementation note)
+narrowing, and the depth-guard scope note. Revision 2.4 adds Section 18: the owner's 2026-11-07
+corrections, the 200-character floor for the echo detector, and the 200k default context window
+with host declarations taken verbatim. No Revision 1, 2, 2.1, 2.2, or 2.3 item is removed; every
+correction is appended and marked with its revision.
+Status: D13 and the P2 ledger shadow slice are implemented and proven; enforcement remains
+proposal only.
+Date: 2026-11-07 (Revision 2.4, echo-length and window-default note)
 Target: Tawassul V2, this tree, OpenCode host >= 2.2.0
 Audience: independent models and agents asked to score the options and produce a verdict.
 
@@ -1526,7 +1529,7 @@ completed, so the P2 gate remains open and no enforcement is claimed. Receipts:
 | Injection audit | `digest`, `context`, and `session_index` bytes recorded from `src/hooks/session.ts` into `kind: "injection"` rows | injection assertions |
 | No-agent audit | every tool call without `input.agent` records a `kind: "noagent"` row from `src/hooks/tool-execute.ts`; the count appears in health (D12's record half; the default/deny/warn policy stays open) | no-agent assertions |
 | Repeat shadow | per session and tool, warning at 3, trip at 5; failed calls and calls without a session are ignored; no blocking | repeat assertions |
-| Echo shadow | `session.text.ended` per assistant message, flushed on `session.usage.updated`; 80% trigram overlap for 12 consecutive no-tool turns; a tool turn resets the streak (Q15) | echo assertions |
+| Echo shadow | `session.text.ended` per assistant message, flushed on `session.usage.updated`; 80% trigram overlap for 12 consecutive no-tool turns; a tool turn resets the streak (Q15); Revision 2.4 adds the 200-character floor, so a shorter turn is not counted and breaks the run | echo assertions plus the length cases |
 | Fan-out shadow | `task`, `handoff`, and `fasttrack` dispatch text clustered by 80% similarity inside a 10-minute window; trip at 6 | fan-out assertions |
 | Sink | every observation becomes a `kind: "shadow"` JSONL row and a health reading; reload restores the row and session counts | ledger-sink and reload assertions |
 | Report | `health()` prints the whole `## Usage ledger` block; a real host call at 2026-11-07T05:25Z returned 23 sessions (9 roots / 14 children, 0 orphans), root 1,896,313/22,292,967/22,292,967 and child 305,278/582,083/679,631 weighted tokens, 336 usage plus 9 injection rows at 26,913 B, and 0 shadow sessions; the backfilled count is cumulative across reload (23) rather than per boot | live health call plus reload assertion |
@@ -1534,7 +1537,7 @@ completed, so the P2 gate remains open and no enforcement is claimed. Receipts:
 | Live window | the desktop host runs the built ledger: 299 rows at 2026-11-07T03:26Z (293 usage, 6 injection at 17,942 B), 23 backfilled sessions plus 1 live session, 1 `unobserved` boot-gap row, and 0 shadow trips; the window started 2026-11-06T20:47Z | `2026-11-07-p2-live-window-state.md` |
 | Live reload | a copy of the real ledger reloads through `UsageLedger.start()`: 312 rows at 2026-11-07T04:07Z (306 usage, 6 injection at 17,942 B), 23 sessions (9 roots / 14 children), 1 priced and 22 unpriced, `unit: mixed`, root p50/p90/p99 1,896,313 / 22,292,966.6 / 22,292,966.6, child 305,277.8 / 582,082.6 / 679,631 — identical to the independent aggregation | `2026-11-07-p2-live-ledger-reload.md` |
 | Gate readings | against the live ledger at 2026-11-07T04:26Z: `p99(root)` 22,292,966.6 does not cancel P5; weighted cache-read share 93.19% keeps Option 11 as hygiene; orphan rate 0/23 = 0% leaves C4 usable; event loss 1 `unobserved` in 326 usage rows = 0.31% does not fire; echo and repeat false positives still need the forward window | `2026-11-07-p2-gate-readings.md` |
-| Proof | `scripts/prove-usage-ledger.ts`, 123 assertions, gate step `usage-ledger`; `scripts/prove-usage-shadow.ts`, 80 assertions, gate step `usage-shadow`; 179 steps and 182 files | `npm run verify` GATE PASS |
+| Proof | `scripts/prove-usage-ledger.ts`, 123 assertions, gate step `usage-ledger`; `scripts/prove-usage-shadow.ts`, 80 assertions (95 after Revision 2.4), gate step `usage-shadow`; 179 steps and 182 files | `npm run verify` GATE PASS |
 
 The shadow detections are now live readings rather than an implementation gap: the root/child p99
 split, the orphan count, `unobserved` rows during reload, injected bytes per source, repeat and
@@ -1564,6 +1567,89 @@ showed `noagent: 0` because the host populated `input.agent` on that path, so th
 decision stays open while the record path remains proven at the hook boundary. The desktop host
 itself now runs the same build: its ledger holds 299 rows (293 usage, 6 injection), 23 backfilled
 sessions, one live session, and one real `unobserved` boot-gap row, with zero shadow trips so far.
+
+---
+
+## 18. Revision 2.4 — owner corrections (2026-11-07)
+
+Two owner decisions from 2026-11-07 are applied. Both are additive: no earlier item is removed,
+the detectors stay shadow-only, and the P2 gate stays open.
+
+### 18.1 Echo minimum length: 200 characters
+
+Problem: `gramsOf` falls back to unigrams for texts under three tokens, so two identical short
+replies ("ok", "done") have similarity 1.0. Twelve such turns could trip the echo detector with no
+context re-read, which is the false-positive shape the gate is meant to measure.
+
+Decision (owner): a turn counts only when its trimmed text reaches 200 characters.
+
+Implementation (`src/services/usage-shadow.ts`): `SHADOW_ECHO_MIN_CHARS = 200`, an `echoMinChars`
+option, and a length check in `flushEcho` after the `hadTool` branch and after the empty-normalized
+skip. A shorter turn is not counted, clears the streak and the comparison text, and is therefore a
+hard boundary: only a consecutive run of eligible turns can trip. The trip detail carries `chars`
+and `minChars` for after-the-fact adjudication. The boundary is inclusive: exactly 200 characters
+counts; 199 does not.
+
+Consequences:
+- A short turn never extends a streak, even when it is identical to its neighbours.
+- A tool turn still resets first, independent of its text length.
+- The detector remains shadow-only; the P2 gate denominator (sessions with a 12-turn run) is
+  unchanged, but the eligible-turn definition now includes the length floor.
+- Residual: an echo of long text separated by short turns is not counted; that pattern emits less
+  text than the one the detector targets, and the repeat detector does not cover it either.
+
+### 18.2 Context window: host verbatim, 200k default
+
+Problem: `resolveModelWindow` used `priced = pricingWindow(...) ?? MIN_TRUSTED_WINDOW` and then
+`Math.min(host, priced)`. An uncatalogued model that the host reported at 1M was computed at 128k,
+so the pack/transfer gate fired far too early; `message-updated.ts` used the same 128k as its nudge
+denominator.
+
+Decision (owner): 128k is obsolete as a default. The weakest good coding model has 200k and new
+models reach 1M, so the default must not cap a larger host declaration. There is no static price
+registry gate on the ledger path: an unknown model runs with default weights and `cost_unpriced`,
+never a refusal. The legacy cost tracker still throws for an unknown id, but its only caller passes
+the catalogued `unattributed` id inside a fail-open catch, so no unknown model reaches that branch
+today.
+
+Precedence:
+1. `TAWASSUL_MAX_CONTEXT_TOKENS` where that override already exists (the nudge path).
+2. The host's `limit.context`, verbatim, at or above the 2,000-token sanity floor; no upper clamp.
+3. The pricing catalog, only as filler when the host is silent.
+4. `DEFAULT_CONTEXT_WINDOW = 200000`, labelled as a default.
+
+Implementation:
+- `src/services/context-pack/types.ts`: `MIN_TRUSTED_WINDOW` (128k) is replaced by
+  `WINDOW_SANITY_FLOOR = 2000` and `DEFAULT_CONTEXT_WINDOW = 200000`.
+- `src/services/context-pack/accounting.ts`: `resolveModelWindow` returns the host value verbatim,
+  then the catalog value, then the default; the non-integer and upper-bound checks are gone;
+  `resolveReserve` uses the 200k default for a non-finite or non-positive window.
+- `src/hooks/message-updated.ts`: `DEFAULT_CONTEXT_MAX_TOKENS = 200000`; the catalog still fills a
+  known model, and the environment override still wins.
+- Reconciliation is still skipped unless a catalog price and a host `cost > 0` both exist.
+
+Consequences: a host 1M declaration with 100k of history no longer overflows (the old 128k clamp
+did); the reserve at the 200k default is 50k; a 200k host declaration and a 96k host declaration
+are both trusted; a new model absent from the catalog packs against its host window instead of a
+fixed 128k. The nudge path still sees no host limit (the hook has no model list), so it uses the
+catalog and then the 200k default; that gap is a reading, not a clamp.
+
+### 18.3 Proofs
+
+- `scripts/prove-context-budget.ts`: 200k fallback, 96k/200k/1M/12M host pass-through, the 2,000
+  floor boundary, fractional flooring, string/negative rejection, catalog fill, host-over-catalog,
+  the 50k reserve at 200k, the 1M no-overflow case, the old 128k clamp overflow, and the nudge
+  default/catalog/env precedence.
+- `scripts/prove-usage-shadow.ts`: 95 assertions, including 50 identical short replies (no trip),
+  a short turn breaking an 11-turn run, a short tool turn still resetting, exactly 200 characters
+  tripping at 12, and 30 turns at 199 characters never tripping.
+- Receipt: `docs/experiments/receipts/2026-11-07-p2-echo-length-window.md` and its script.
+
+### 18.4 What Revision 2.4 does not change
+
+The 50k tool-output cap, the absence of a price registry, shadow-only enforcement, the P2 window
+(30 sessions or 2026-11-13T20:47Z), the D12 warn-first policy, the Option 8 rejection, and the
+repeat distinct-turn rule remain as in Revision 2.3.
 
 ---
 

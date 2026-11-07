@@ -22,15 +22,15 @@ failed delivery.
    `Buffer.byteLength(s, "utf8")`. Never reuse the 0.25/0.4 factors and never
    `SESSION_HARD_CEILING_TOKENS = 90k`. Never slice text by byte; selection
    operates on whole messages only, so no codepoint is split.
-2. `W` resolves from `ctx.model.list().data[].limit.context`, then the pricing
-   table, then 128000. The list envelope is `{ location, data }`; read `data`.
-   Measured on 2.2.2: a provider declared in `opencode.json` appears in the list
-   with its configured `limit.context` (a 128000 declaration was returned as
-   128000), so provider-declared limits do reach the plugin. The open caveat
-   (#56023) is the top-level `models[]` override path only; treat a model that
-   is absent from `data` as unknown. Treat any value below 128000 as unknown and
-   fall back to 128000; never trust a limit above what the pricing table
-   confirms.
+2. `W` resolves from `ctx.model.list().data[].limit.context` verbatim, then the
+   pricing table as filler, then 200000. The list envelope is `{ location, data }`;
+   read `data`. Measured on 2.2.2: a provider declared in `opencode.json` appears
+   in the list with its configured `limit.context` (a 128000 declaration was
+   returned as 128000), so provider-declared limits do reach the plugin. The open
+   caveat (#56023) is the top-level `models[]` override path only; treat a model
+   that is absent from `data` as unknown. Trust every host value at or above the
+   2,000-token sanity floor, with no upper clamp; never lower a host declaration
+   to a catalog entry.
 3. `reserve = min(max(16000, floor(W / 4)), floor(W / 2))`.
 4. `room = W - reserve - requestBytes`; `budget = min(64000, room)`. If
    `budget < 1024` the request overflows. No ambiguous `clamp` form.
@@ -311,7 +311,7 @@ Then `npm run verify` and `gate:smoke`.
 | High | UTF-8 split mid-codepoint | Measure by bytes, select by message |
 | High | A new HMAC secret breaks the existing contract | Reuse the existing key file |
 | High | Claim replay across worktrees | Bind directory, `issuedAt`, `expiresAt`, `nonce` |
-| High | Model limit override does not reach plugins (#56023) | Treat sub-128000 limits as unknown |
+| High | Model limit override does not reach plugins (#56023) | Treat sub-2,000 limits as unknown; fill from the catalog, then 200k |
 | High | Quota error misclassified as auth/JSON (#50352) | Tolerate multiple error types, never one literal |
 | High | Pack content treated as instructions | Hook appends a data message; no `instructions.entry` |
 | High | Blind re-injection from the pre-summary hook | Rejected: the hook re-applies per request, nothing is stored |

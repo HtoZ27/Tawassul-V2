@@ -309,8 +309,8 @@ async function main(): Promise<void> {
 
   const overflowBefore: PackMessage[] = stored;
   stored = [
-    { role: "user", content: "F".repeat(50000) },
-    { role: "assistant", content: "A".repeat(50000) },
+    { role: "user", content: "F".repeat(90000) },
+    { role: "assistant", content: "A".repeat(90000) },
     { role: "user", content: "CURRENT" },
   ];
   const snapshot = JSON.stringify(stored);

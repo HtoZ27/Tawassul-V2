@@ -80,6 +80,10 @@ open and are listed below.
    measured limits: free 200k/32k output at zero cost, Go 1M/384k output at
    0.15/0.60 per million tokens with 0.003 cache read. The context-budget
    proof asserts the confirmed windows and the cap on a larger declaration.
+   Revision 2.4 update (2026-11-07): the catalog is now filler only. A host
+   declaration at or above 2,000 tokens is taken verbatim, the catalog fills an
+   absent declaration, and the fallback is 200k; the cap on a larger declaration
+   was removed, so the proof now asserts host pass-through instead.
 
 2. **Open, minor: `compaction.buffer` above 25 percent.**
    Tawassul reserves `max(16k, window/4)`, capped at `window/2`, and transfers
@@ -98,6 +102,9 @@ open and are listed below.
    ignored. The same mechanism protects against overstated host values, so a
    fix should be opt-in (for example a `trustHostWindow` switch) rather than a
    blanket removal of the cap.
+   Revision 2.4 update (2026-11-07): resolved by owner decision. The
+   `min(host, catalog)` cap was removed; the host is trusted at or above the
+   2,000-token sanity floor, and the catalog fills only an absent declaration.
 
 4. **Optional: artifacts for reports.**
    The 2.2.4 artifact API could publish HTML evaluation or E2E reports instead

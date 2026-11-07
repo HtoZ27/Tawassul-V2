@@ -4,6 +4,7 @@ export const SHADOW_REPEAT_WARN_AT = 3;
 export const SHADOW_REPEAT_TRIP_AT = 5;
 export const SHADOW_ECHO_TRIP_TURNS = 12;
 export const SHADOW_ECHO_OVERLAP = 0.8;
+export const SHADOW_ECHO_MIN_CHARS = 200;
 export const SHADOW_FANOUT_TRIP_COUNT = 6;
 export const SHADOW_FANOUT_WINDOW_MS = 10 * 60 * 1000;
 export const SHADOW_FANOUT_OVERLAP = 0.8;
@@ -23,6 +24,7 @@ export interface UsageShadowOptions {
   repeatWarnAt?: number;
   repeatTripAt?: number;
   echoTripTurns?: number;
+  echoMinChars?: number;
   overlap?: number;
   fanoutTripCount?: number;
   fanoutWindowMs?: number;
@@ -103,6 +105,7 @@ export class UsageShadow {
   private readonly repeatWarnAt: number;
   private readonly repeatTripAt: number;
   private readonly echoTripTurns: number;
+  private readonly echoMinChars: number;
   private readonly overlap: number;
   private readonly fanoutTripCount: number;
   private readonly fanoutWindowMs: number;
@@ -116,6 +119,7 @@ export class UsageShadow {
     this.repeatWarnAt = options.repeatWarnAt ?? SHADOW_REPEAT_WARN_AT;
     this.repeatTripAt = options.repeatTripAt ?? SHADOW_REPEAT_TRIP_AT;
     this.echoTripTurns = options.echoTripTurns ?? SHADOW_ECHO_TRIP_TURNS;
+    this.echoMinChars = options.echoMinChars ?? SHADOW_ECHO_MIN_CHARS;
     this.overlap = options.overlap ?? SHADOW_ECHO_OVERLAP;
     this.fanoutTripCount = options.fanoutTripCount ?? SHADOW_FANOUT_TRIP_COUNT;
     this.fanoutWindowMs = options.fanoutWindowMs ?? SHADOW_FANOUT_WINDOW_MS;
@@ -253,6 +257,12 @@ export class UsageShadow {
         state.tripped = false;
         continue;
       }
+      if (text.trim().length < this.echoMinChars) {
+        state.streak = 0;
+        state.lastText = "";
+        state.tripped = false;
+        continue;
+      }
       if (!state.lastText) {
         state.streak = 1;
         state.lastText = normalized;
@@ -269,7 +279,12 @@ export class UsageShadow {
             sessionID,
             tripped: true,
             count: state.streak,
-            detail: { similarity: Number(score.toFixed(4)), overlap: this.overlap },
+            detail: {
+              similarity: Number(score.toFixed(4)),
+              overlap: this.overlap,
+              chars: text.trim().length,
+              minChars: this.echoMinChars,
+            },
           });
         }
       } else {

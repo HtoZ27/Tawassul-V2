@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   SHADOW_DISPATCH_TOOLS,
+  SHADOW_ECHO_MIN_CHARS,
   SHADOW_ECHO_OVERLAP,
   SHADOW_ECHO_TRIP_TURNS,
   SHADOW_FANOUT_OVERLAP,
@@ -36,7 +37,7 @@ function equal(actual: unknown, expected: unknown, message: string): void {
 }
 
 const base =
-  "the quick brown fox jumps over the lazy dog while the calm river carries every autumn leaf toward the wide open sea and the distant hills stay quiet under a pale morning sky";
+  "the quick brown fox jumps over the lazy dog while the calm river carries every autumn leaf toward the wide open sea and the distant hills stay quiet under a pale morning sky and the old stone road waits for travelers who never come";
 const near = base.replace("quiet", "silent");
 const unrelated =
   "database migrations require careful ordering because a failed rollback can leave the schema in a state that no later migration expects or repairs";
@@ -67,6 +68,7 @@ try {
   equal(SHADOW_REPEAT_WARN_AT, 3, "the balanced repeat warning is 3");
   equal(SHADOW_REPEAT_TRIP_AT, 5, "the balanced repeat trip is 5");
   equal(SHADOW_ECHO_TRIP_TURNS, 12, "the balanced echo trip is 12 turns");
+  equal(SHADOW_ECHO_MIN_CHARS, 200, "a turn must reach 200 characters before it counts");
   equal(SHADOW_FANOUT_TRIP_COUNT, 6, "the balanced fan-out trip is 6");
   equal(SHADOW_FANOUT_WINDOW_MS, 600000, "the fan-out window is 10 minutes");
   equal(SHADOW_ECHO_OVERLAP, 0.8, "the balanced overlap is 80 percent");
@@ -121,11 +123,13 @@ try {
 
   const echoRows: ShadowObservation[] = [];
   const echoShadow = new UsageShadow({ emit: (row) => echoRows.push(row), now });
-  const turn = (sessionID: string, id: string, text: string, tool = false): void => {
-    if (tool) echoShadow.handleEvent({ type: "session.tool.called", data: { sessionID, assistantMessageID: id } });
-    echoShadow.handleEvent({ type: "session.text.ended", data: { sessionID, assistantMessageID: id, text } });
-    echoShadow.handleEvent({ type: "session.usage.updated", data: { sessionID } });
+  const drive = (shadow: UsageShadow, sessionID: string, id: string, text: string, tool = false): void => {
+    if (tool) shadow.handleEvent({ type: "session.tool.called", data: { sessionID, assistantMessageID: id } });
+    shadow.handleEvent({ type: "session.text.ended", data: { sessionID, assistantMessageID: id, text } });
+    shadow.handleEvent({ type: "session.usage.updated", data: { sessionID } });
   };
+  const turn = (sessionID: string, id: string, text: string, tool = false): void =>
+    drive(echoShadow, sessionID, id, text, tool);
   assert(!echoShadow.handleEvent(null), "a non-object event is ignored");
   assert(!echoShadow.handleEvent({ type: "session.text.ended", data: {} }), "a text event without a session is ignored");
   assert(
@@ -161,6 +165,63 @@ try {
   equal(echoRows.length, 3, "the replaced part counts toward the trip");
   const nearTrip = echoRows[2];
   assert(typeof nearTrip?.detail.similarity === "number", "the echo row records the similarity");
+  equal(echoRows[0]?.detail.chars, base.length, "the echo row records the text length");
+  equal(echoRows[0]?.detail.minChars, SHADOW_ECHO_MIN_CHARS, "the echo row records the minimum length");
+
+  const shortRows: ShadowObservation[] = [];
+  const shortShadow = new UsageShadow({ emit: (row) => shortRows.push(row), now });
+  for (let turnIndex = 1; turnIndex <= 50; turnIndex += 1) {
+    drive(shortShadow, "short", `s${turnIndex}`, "done");
+  }
+  equal(shortRows.length, 0, "fifty identical short replies never trip the echo detector");
+
+  const lengthRows: ShadowObservation[] = [];
+  const lengthShadow = new UsageShadow({ emit: (row) => lengthRows.push(row), now });
+  for (let turnIndex = 1; turnIndex <= 11; turnIndex += 1) {
+    drive(lengthShadow, "len", `l${turnIndex}`, base);
+  }
+  drive(lengthShadow, "len", "l12", "done");
+  equal(lengthRows.length, 0, "a short turn does not count toward the streak");
+  for (let turnIndex = 1; turnIndex <= 11; turnIndex += 1) {
+    drive(lengthShadow, "len", `la${turnIndex}`, base);
+  }
+  equal(lengthRows.length, 0, "eleven long turns after a short turn stay below the trip");
+  drive(lengthShadow, "len", "la12", base);
+  equal(lengthRows.length, 1, "the short turn broke the consecutive run");
+
+  const toolRows: ShadowObservation[] = [];
+  const toolShadow = new UsageShadow({ emit: (row) => toolRows.push(row), now });
+  for (let turnIndex = 1; turnIndex <= 11; turnIndex += 1) {
+    drive(toolShadow, "tool", `t${turnIndex}`, base);
+  }
+  drive(toolShadow, "tool", "t12", "done", true);
+  equal(toolRows.length, 0, "a tool turn with a short text does not count");
+  for (let turnIndex = 1; turnIndex <= 11; turnIndex += 1) {
+    drive(toolShadow, "tool", `ta${turnIndex}`, base);
+  }
+  equal(toolRows.length, 0, "a tool turn resets the streak even when its text is short");
+  drive(toolShadow, "tool", "ta12", base);
+  equal(toolRows.length, 1, "a fresh run after a short tool turn trips");
+
+  const boundaryRows: ShadowObservation[] = [];
+  const boundaryShadow = new UsageShadow({ emit: (row) => boundaryRows.push(row), now });
+  const exact = base.slice(0, SHADOW_ECHO_MIN_CHARS);
+  for (let turnIndex = 1; turnIndex <= 11; turnIndex += 1) {
+    drive(boundaryShadow, "boundary", `b${turnIndex}`, exact);
+  }
+  equal(boundaryRows.length, 0, "eleven turns at exactly the minimum do not trip");
+  drive(boundaryShadow, "boundary", "b12", exact);
+  equal(boundaryRows.length, 1, "a turn at exactly the minimum is counted");
+  equal(exact.length, SHADOW_ECHO_MIN_CHARS, "the boundary text is exactly 200 characters");
+
+  const belowRows: ShadowObservation[] = [];
+  const belowShadow = new UsageShadow({ emit: (row) => belowRows.push(row), now });
+  const below = base.slice(0, SHADOW_ECHO_MIN_CHARS - 1);
+  for (let turnIndex = 1; turnIndex <= 30; turnIndex += 1) {
+    drive(belowShadow, "below", `c${turnIndex}`, below);
+  }
+  equal(belowRows.length, 0, "thirty turns one character below the minimum never trip");
+  equal(below.length, SHADOW_ECHO_MIN_CHARS - 1, "the below-boundary text is one character short");
 
   const fanRows: ShadowObservation[] = [];
   const fanShadow = new UsageShadow({ emit: (row) => fanRows.push(row), now });

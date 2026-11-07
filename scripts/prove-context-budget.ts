@@ -3,6 +3,8 @@ import {
   resolveModelWindow,
   resolveReserve,
 } from "../src/services/context-pack/accounting.ts";
+import { DEFAULT_CONTEXT_WINDOW, WINDOW_SANITY_FLOOR } from "../src/services/context-pack/types.ts";
+import { resolveMaxContextTokens } from "../src/hooks/message-updated.ts";
 
 function fail(message: string): never {
   console.error(`PROOF FAIL: ${message}`);
@@ -41,52 +43,79 @@ function main(): void {
   eq(belowBoundary.budget, 1023, "one byte below the boundary");
   assert(belowBoundary.overflow, "below 1024 bytes overflows");
 
-  eq(resolveModelWindow({}), 128000, "unknown window falls back to 128000");
-  eq(resolveModelWindow({ limitContext: 96000 }), 128000, "a sub-128k declaration is unknown");
-  eq(resolveModelWindow({ limitContext: 128000 }), 128000, "128k is trusted");
-  eq(resolveModelWindow({ limitContext: 200000 }), 128000, "an unconfirmed 200k is not trusted");
+  eq(resolveModelWindow({}), DEFAULT_CONTEXT_WINDOW, "an unknown model falls back to the labelled 200k window");
+  eq(resolveModelWindow({ limitContext: 96000 }), 96000, "a host 96k declaration is trusted verbatim");
+  eq(resolveModelWindow({ limitContext: 200000 }), 200000, "a host 200k declaration is trusted verbatim");
+  eq(resolveModelWindow({ limitContext: 1000000 }), 1000000, "a host million-token declaration is not clamped");
   eq(
-    resolveModelWindow({ providerID: "anthropic", modelID: "claude-sonnet-4-20250514", limitContext: 200000 }),
-    200000,
-    "the pricing table confirms 200k",
+    resolveModelWindow({ limitContext: 12000000 }),
+    12000000,
+    "no upper clamp is applied to a host declaration",
   );
   eq(
+    resolveModelWindow({ limitContext: WINDOW_SANITY_FLOOR - 1 }),
+    DEFAULT_CONTEXT_WINDOW,
+    "a declaration below the sanity floor is ignored",
+  );
+  eq(resolveModelWindow({ limitContext: WINDOW_SANITY_FLOOR }), WINDOW_SANITY_FLOOR, "the sanity floor is trusted");
+  eq(resolveModelWindow({ limitContext: 2500.7 }), 2500, "a fractional declaration is floored");
+  eq(resolveModelWindow({ limitContext: "200000" }), DEFAULT_CONTEXT_WINDOW, "a string declaration is ignored");
+  eq(resolveModelWindow({ limitContext: -1 }), DEFAULT_CONTEXT_WINDOW, "a negative declaration is ignored");
+  eq(
     resolveModelWindow({ providerID: "deepseek", modelID: "deepseek-chat" }),
-    128000,
-    "a sub-128k pricing entry is treated as unknown",
+    64000,
+    "the catalog fills a missing host window",
   );
   eq(
     resolveModelWindow({ providerID: "anthropic", modelID: "claude-sonnet-4-20250514", limitContext: 300000 }),
-    200000,
-    "a host limit above the pricing table is capped",
+    300000,
+    "the host overrides the catalog upward",
   );
   eq(
     resolveModelWindow({
       providerID: "opencode",
       modelID: "deepseek-v4.1-flash-free",
-      limitContext: 200000,
-    }),
-    200000,
-    "the DeepSeek V4.1 Flash free window is confirmed",
-  );
-  eq(
-    resolveModelWindow({
-      providerID: "opencode-go",
-      modelID: "deepseek-v4.1-flash",
       limitContext: 1000000,
     }),
     1000000,
-    "the DeepSeek V4.1 Flash Go window is confirmed",
+    "a catalog 200k entry does not cap a host million-token window",
   );
   eq(
-    resolveModelWindow({
-      providerID: "opencode",
-      modelID: "deepseek-v4.1-flash-free",
-      limitContext: 300000,
-    }),
+    resolveModelWindow({ providerID: "opencode", modelID: "deepseek-v4.1-flash-free" }),
     200000,
-    "a host limit above the DeepSeek V4.1 free window is capped",
+    "the catalog fills the free model window when the host is silent",
   );
+  eq(resolveReserve(DEFAULT_CONTEXT_WINDOW), 50000, "the reserve at the 200k default is 50k");
+  eq(resolveReserve(0), 50000, "a non-positive window uses the default reserve");
+  eq(resolveReserve(Number.NaN), 50000, "a non-finite window uses the default reserve");
+  const hostMillion = computeBudget(1000000, 100000);
+  assert(!hostMillion.overflow, "a host 1M window with 100k of history does not overflow");
+  const oldClamp = computeBudget(128000, 100000);
+  assert(oldClamp.overflow, "the removed 128k clamp is why a 1M window used to transfer");
+  eq(
+    resolveMaxContextTokens({ providerID: "unknown", modelID: "brand-new-model" }, undefined, undefined),
+    DEFAULT_CONTEXT_WINDOW,
+    "the nudge fallback for an unknown model is the 200k default",
+  );
+  eq(
+    resolveMaxContextTokens({ providerID: "deepseek", modelID: "deepseek-chat" }, undefined, undefined),
+    64000,
+    "the catalog fills the nudge window when the host is silent",
+  );
+  eq(
+    resolveMaxContextTokens(undefined, { dev: "opencode/deepseek-v4.1-flash-free" }, "dev"),
+    200000,
+    "the agent model map supplies the nudge window",
+  );
+  const previous = process.env.TAWASSUL_MAX_CONTEXT_TOKENS;
+  process.env.TAWASSUL_MAX_CONTEXT_TOKENS = "123456";
+  eq(
+    resolveMaxContextTokens({ providerID: "unknown", modelID: "brand-new-model" }, undefined, undefined),
+    123456,
+    "the environment override wins over the default",
+  );
+  if (previous === undefined) delete process.env.TAWASSUL_MAX_CONTEXT_TOKENS;
+  else process.env.TAWASSUL_MAX_CONTEXT_TOKENS = previous;
   console.log("PROOF PASS: reserve and budget stay explicit at every window");
 }
 
