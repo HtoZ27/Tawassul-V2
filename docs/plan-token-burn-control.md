@@ -1506,8 +1506,9 @@ implemented and proven. The 7-day or 30-session observation window has not run, 
 remains open and no enforcement is claimed. Receipts:
 `docs/experiments/receipts/2026-11-06-p2-usage-ledger.md`,
 `docs/experiments/receipts/2026-11-06-p2-usage-shadow.md`,
-`docs/experiments/receipts/2026-11-07-d12-no-agent-row.md`, and
-`docs/experiments/receipts/2026-11-07-p2-isolated-experiments.md`.
+`docs/experiments/receipts/2026-11-07-d12-no-agent-row.md`,
+`docs/experiments/receipts/2026-11-07-p2-isolated-experiments.md`, and
+`docs/experiments/receipts/2026-11-07-p2-live-probe.md`.
 
 | Item | Implementation | Evidence |
 | --- | --- | --- |
@@ -1540,6 +1541,12 @@ every zero-cost row is `cost_unpriced`.
 The detectors enforce nothing: they only emit rows. Deleting `src/services/usage-ledger.ts`,
 `src/services/usage-shadow.ts`, their setup wiring, the session-hook audit calls, and the
 tool-hook observers is the rollback, matching the plan's Phase 1 rollback row.
+
+The event source is proven end to end as well: three isolated live-host runs wrote six `usage` rows
+each from the real `session.usage.updated` stream, priced the host's own `step_finish` deltas
+exactly, and tripped `repeat` at five identical shell calls (warning at three). Those runs also
+showed `noagent: 0` because the host populated `input.agent` on that path, so the D12 policy
+decision stays open while the record path remains proven at the hook boundary.
 
 ---
 
