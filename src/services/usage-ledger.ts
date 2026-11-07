@@ -319,7 +319,6 @@ export class UsageLedger {
     fanout: new Set(),
   };
   private unobservedRows = 0;
-  private backfilledSessions = 0;
   private lastEventAt: string | null = null;
 
   constructor(options: UsageLedgerOptions = {}) {
@@ -490,7 +489,6 @@ export class UsageLedger {
         });
         const state = this.states.get(id);
         if (state) state.backfilled = true;
-        this.backfilledSessions += 1;
         continue;
       }
       const previous: UsageRawCounters = { ...existing.raw };
@@ -688,7 +686,9 @@ export class UsageLedger {
     let unpriced = 0;
     let orphanChildren = 0;
     let lineageUnknown = 0;
+    let backfilledSessions = 0;
     for (const state of this.states.values()) {
+      if (state.backfilled) backfilledSessions += 1;
       const billable = computeBillable(state.raw, this.weights);
       if (state.parentID) {
         children.push(billable);
@@ -722,7 +722,7 @@ export class UsageLedger {
       pricedSessions: priced,
       unpricedSessions: unpriced,
       unobservedRows: this.unobservedRows,
-      backfilledSessions: this.backfilledSessions,
+      backfilledSessions,
       lastEventAt: this.lastEventAt,
       unit,
       root: percentileSet(roots),

@@ -265,6 +265,14 @@ try {
   equal(backfill.summary().child.p99, 210, "the child p99 comes from the cumulative snapshot");
   assert(backfill.sessionSnapshot("r1")?.backfilled === true, "a backfilled session is labelled");
   await backfill.dispose();
+  const backfillReload = new UsageLedger({
+    path: backfillPath,
+    now,
+    listSessions: async () => ({ data: [], cursor: { next: null } }),
+  });
+  await backfillReload.start();
+  equal(backfillReload.summary().backfilledSessions, 5, "reload restores the backfilled count");
+  await backfillReload.dispose();
 
   const gapPath = join(work, "gap.jsonl");
   const before = new UsageLedger({ path: gapPath, now });
