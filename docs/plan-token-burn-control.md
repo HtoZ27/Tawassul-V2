@@ -15,7 +15,8 @@ corrections, the 200-character floor for the echo detector, and the 200k default
 with host declarations taken verbatim. Revision 2.5 adds Section 19: the isolated echo-threshold
 replay, the decision to keep 200 characters, and the tool-only reset fix. Revision 2.6 adds
 Section 20: the post-retirement fixed-cost re-measurement (24,740 B / 6,185 tokens), the per-tool
-schema and description ledger, the corrected P1 cut (4,740 B, -19.2%), and the gate timing guard.
+schema and description ledger, the corrected P1 cut (4,740 B, -19.2%), the injection budgets, and
+the gate timing guard.
 No Revision 1, 2, 2.1, 2.2, 2.3, 2.4, or 2.5 item is removed; every correction is appended and
 marked with its revision.
 Status: D13 and the P2 ledger shadow slice are implemented and proven; the fixed-cost payload is
@@ -1782,14 +1783,19 @@ update the ledger in the same change, and the proof fails if a row drifts.
 
 | Surface | Ledger source | Budget |
 | --- | --- | --- |
-| Compaction digest | `digest` injection rows | none |
-| Session Index | `session_index` injection rows; 90k-token compaction ceiling | none |
-| Recent decisions | folded into the `context` rows | none |
-| R1 report clause | not recorded | none |
+| Compaction digest | `digest` injection rows | 8,192 B |
+| Session Index | `session_index` injection rows; 90k-token compaction ceiling | 16,384 B |
+| Recent decisions | `decisions` injection rows (the records block) | 4,096 B |
+| R1 report clause | `r1` injection rows | 512 B |
 
-The schema cut from 24,740 B to 20,000 B is not applied; the description target and the retry table
-are unchanged by the retirement. The four injections above still have audit rows only, so the P1
-slice is measurement-complete and budget-incomplete.
+Each budget is at least twice the largest row observed on 2026-11-07: digest 196 B, Session Index
+6,934 B, decisions under the old 1,904 B combined `context` maximum, and R1 221 B. Oversized text is
+truncated at a line boundary and ends with a marker that names the source and the durable pointer.
+R1 is fixed text, so a proof keeps it under budget rather than truncating the sentinel.
+
+The schema cut from 24,740 B to 20,000 B is still not applied; the description target and the retry
+table are unchanged by the retirement. The four injections now have both ledger rows and budgets,
+so P1 is measurement-complete on both fronts and remains open only on the schema cut.
 
 ### 20.4 Gate timing guard
 
@@ -1859,6 +1865,7 @@ limit.
 | Session bridge methods | `src/v2/session-bridge.ts` | 11-24 (type), 28-42 (install) |
 | Session Index ceiling | `src/hooks/session.ts` | 144-146, 468-481 |
 | Plugin injections | `src/hooks/session.ts` | 291-373, 431, 524 |
+| Injection budgets | `src/services/injection-budget.ts` | 1-60 |
 
 ## Appendix C — Glossary
 

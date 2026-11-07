@@ -23,6 +23,7 @@ import {
   tawaRedirectGuard,
 } from "../src/hooks/guards/dispatch-guards.ts";
 import { getTaskAgents } from "../src/hooks/guards/shared/normalize.ts";
+import { INJECTION_BUDGETS } from "../src/services/injection-budget.ts";
 import { subagentArgsToV1, v1ArgsToSubagent } from "../src/v2/delegation.ts";
 import { logger } from "../src/utils/logger.ts";
 
@@ -99,6 +100,10 @@ assert(!TAWA_MENTION_REGEX.test(REPORT_PATH_SENTINEL), "the sentinel does not tr
 assert(!EXPLICIT_DISPATCH_REGEX.test(REPORT_PATH_SENTINEL), "the sentinel does not trip the dispatch regex");
 assert(!TAWA_MENTION_REGEX.test(REPORT_PATH_CLAUSE), "the clause does not trip the tawa mention regex");
 assert(!EXPLICIT_DISPATCH_REGEX.test(REPORT_PATH_CLAUSE), "the clause does not trip the dispatch regex");
+assert(
+  Buffer.byteLength(REPORT_PATH_CLAUSE, "utf8") <= INJECTION_BUDGETS.r1,
+  `the clause fits the r1 injection budget (${Buffer.byteLength(REPORT_PATH_CLAUSE, "utf8")} <= ${INJECTION_BUDGETS.r1})`,
+);
 assert(hasReportPathSentinel(`prompt text\n\n${REPORT_PATH_SENTINEL}`), "the sentinel is detected at the end");
 assert(!hasReportPathSentinel(`${REPORT_PATH_SENTINEL}\n\nprompt text`), "the sentinel is not detected at the start");
 

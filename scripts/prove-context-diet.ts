@@ -8,6 +8,8 @@ import { TOOL_COUNT, TOOL_NAME_SET_HASH } from "../src/generated/tool-tripwire.t
 import { toolNameSetHash } from "../src/services/tool-tripwire.ts";
 import type { ToolDefinition } from "../src/tool.ts";
 import { measureDescriptionText, collectToolSchemas, measureSchemaPayload } from "../src/v2/adapters.ts";
+import { INJECTION_BUDGETS, fitInjection } from "../src/services/injection-budget.ts";
+import { REPORT_PATH_CLAUSE, REPORT_PATH_SENTINEL } from "../src/hooks/routing.ts";
 
 let passed = 0;
 
@@ -215,6 +217,39 @@ try {
     return before !== undefined && line.bytes > before.bytes;
   });
   assert(grown.length === 0, `no description grew against the frozen baseline (${grown.map((line) => line.name).join(", ")})`);
+
+  assert(
+    INJECTION_BUDGETS.digest === 8_192 &&
+      INJECTION_BUDGETS.session_index === 16_384 &&
+      INJECTION_BUDGETS.decisions === 4_096 &&
+      INJECTION_BUDGETS.r1 === 512,
+    `the injection budgets are fixed (${INJECTION_BUDGETS.digest}/${INJECTION_BUDGETS.session_index}/${INJECTION_BUDGETS.decisions}/${INJECTION_BUDGETS.r1})`,
+  );
+  const shortInjection = fitInjection("### Goals\n- G-001 open", "digest");
+  assert(!shortInjection.truncated, "a digest inside its budget is injected unchanged");
+  assert(
+    shortInjection.bytes === Buffer.byteLength("### Goals\n- G-001 open", "utf8"),
+    "an unchanged digest keeps its measured bytes",
+  );
+  const longRecords = Array.from({ length: 400 }, (_, index) => `- 📄 R-${index}: ${"x".repeat(40)}`).join("\n");
+  const fittedRecords = fitInjection(longRecords, "decisions");
+  assert(fittedRecords.truncated, "a decisions block over its budget is truncated");
+  assert(fittedRecords.bytes <= fittedRecords.budget, `the truncated decisions block fits the budget (${fittedRecords.bytes} <= ${fittedRecords.budget})`);
+  assert(fittedRecords.text.startsWith("- 📄 R-0:"), "the truncated decisions block keeps its head");
+  assert(fittedRecords.text.includes("decisions truncated from"), "the truncated decisions block names its source");
+  assert(fittedRecords.text.includes("record(list: true)"), "the truncated decisions block points at the durable source");
+  const oneLongLine = fitInjection("é".repeat(20_000), "digest");
+  assert(oneLongLine.bytes <= oneLongLine.budget, `a single overlong line is sliced to the budget (${oneLongLine.bytes} <= ${oneLongLine.budget})`);
+  assert(
+    Buffer.from(oneLongLine.text, "utf8").toString("utf8") === oneLongLine.text,
+    "the sliced line stays valid UTF-8",
+  );
+  const clauseBytes = Buffer.byteLength(REPORT_PATH_CLAUSE, "utf8");
+  assert(
+    clauseBytes <= INJECTION_BUDGETS.r1,
+    `the R1 clause fits its budget (${clauseBytes} <= ${INJECTION_BUDGETS.r1})`,
+  );
+  assert(REPORT_PATH_CLAUSE.trimEnd().endsWith(REPORT_PATH_SENTINEL), "the R1 clause keeps its sentinel last");
 
   assert(existsSync(RETRY_RECEIPT), "the hot-tool retry receipt exists");
   const receipt = JSON.parse(readFileSync(RETRY_RECEIPT, "utf8")) as RetryReceipt;

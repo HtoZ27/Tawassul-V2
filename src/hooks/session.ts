@@ -12,6 +12,7 @@ import { countTokens } from "../services/context-compressor.ts";
 import { lruSet } from "../utils/bounded-map.ts";
 import { decayWeight, K8_DETAIL_CAP } from "../services/importance-decay.ts";
 import { getUsageLedger } from "../services/usage-ledger.ts";
+import { fitInjection } from "../services/injection-budget.ts";
 import {
   estimateTokensByFactor,
   PRIORITY_TOKEN_FACTOR,
@@ -320,12 +321,14 @@ export function createSessionCompactedHook(ctx: SessionCompactedContext) {
       
       
       let digestBytes = 0;
+      let decisionsBytes = 0;
       try {
         const digest = (await ctx.getGoalDigest?.()) ?? "";
-        if (digest.trim().length > 0 && !k7IsRepeat(input.sessionID, digest)) {
-          context.push(digest);
-          k7Remember(input.sessionID, digest);
-          digestBytes = Buffer.byteLength(digest, "utf8");
+        const fittedDigest = digest.trim().length > 0 ? fitInjection(digest, "digest") : null;
+        if (fittedDigest !== null && !k7IsRepeat(input.sessionID, fittedDigest.text)) {
+          context.push(fittedDigest.text);
+          k7Remember(input.sessionID, fittedDigest.text);
+          digestBytes = fittedDigest.bytes;
           getUsageLedger()?.recordInjection({ sessionID: input.sessionID, source: "digest", bytes: digestBytes });
         }
       } catch {
@@ -360,22 +363,28 @@ export function createSessionCompactedHook(ctx: SessionCompactedContext) {
       if (decayed.length > 0) {
         const recordsSection = uniqueById(decayed.filter((e) => e.type === "record"));
         const detailRecords = recordsSection.slice(0, K8_DETAIL_CAP);
+        const recordLines: string[] = [];
         if (detailRecords.length > 0) {
-          context.push(`### 📋 Session Records (${detailRecords.length} detail)`);
+          recordLines.push(`### 📋 Session Records (${detailRecords.length} detail)`);
           for (const e of detailRecords) {
             const record = recordsMap.get(e.id);
             if (record) {
-              context.push(
+              recordLines.push(
                 `${severityEmoji(record.severity)} ${record.id} [${record.type}] ${titleLabel(record.title, recordTitleCounts)} (${record.agent})`,
               );
             }
           }
           if (recordsSection.length > detailRecords.length) {
             const hidden = uniqueById(recordsSection.slice(K8_DETAIL_CAP)).map((e) => e.id);
-            context.push(
+            recordLines.push(
               `  • +${hidden.length} more records (see record list) · ids ${sliceRange(hidden)}; fetch via \`record(list: true)\``,
             );
           }
+        }
+        if (recordLines.length > 0) {
+          const fittedRecords = fitInjection(recordLines.join("\n"), "decisions");
+          for (const line of fittedRecords.text.split("\n")) context.push(line);
+          decisionsBytes = fittedRecords.bytes;
         }
 
         const handoffSection = decayed.filter((e) => e.type === "handoff");
@@ -480,7 +489,11 @@ export function createSessionCompactedHook(ctx: SessionCompactedContext) {
           ) {
             pageSize = Math.max(INDEX_PAGE_FLOOR, pageSize >> 1);
           }
-          indexText = buildIndex(pageSize);
+          const fittedIndex = fitInjection(buildIndex(pageSize), "session_index");
+          if (fittedIndex.truncated) {
+            logger.warn(`[tawassul] session_index injection truncated to the ${fittedIndex.budget} B budget`);
+          }
+          indexText = fittedIndex.text;
           effectiveIndexPageSize = pageSize;
         }
         const finalText = indexText.length > 0 ? combined + "\n" + indexText : combined;
@@ -492,8 +505,11 @@ export function createSessionCompactedHook(ctx: SessionCompactedContext) {
         rememberInjectedTokens(input.sessionID, countTokens(finalText));
         const ledger = getUsageLedger();
         if (ledger) {
-          const contextBytes = Math.max(0, Buffer.byteLength(combined, "utf8") - digestBytes);
+          const contextBytes = Math.max(0, Buffer.byteLength(combined, "utf8") - digestBytes - decisionsBytes);
           if (contextBytes > 0) ledger.recordInjection({ sessionID: input.sessionID, source: "context", bytes: contextBytes });
+          if (decisionsBytes > 0) {
+            ledger.recordInjection({ sessionID: input.sessionID, source: "decisions", bytes: decisionsBytes });
+          }
           if (indexText.length > 0) {
             ledger.recordInjection({ sessionID: input.sessionID, source: "session_index", bytes: Buffer.byteLength(indexText, "utf8") });
           }

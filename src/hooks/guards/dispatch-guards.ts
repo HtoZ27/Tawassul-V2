@@ -27,6 +27,13 @@ import { logger } from "../../utils/logger.ts";
 import { resolveRole } from "../../utils/agent.ts";
 import { allowedTaskTargetsText } from "./shared/task-targets.ts";
 import { REPORT_PATH_CLAUSE, hasReportPathSentinel, type RoutingMode } from "../routing.ts";
+import { getUsageLedger } from "../../services/usage-ledger.ts";
+import { INJECTION_BUDGETS } from "../../services/injection-budget.ts";
+
+const REPORT_CLAUSE_BYTES = Buffer.byteLength(REPORT_PATH_CLAUSE, "utf8");
+if (REPORT_CLAUSE_BYTES > INJECTION_BUDGETS.r1) {
+  logger.warn(`[tawassul] the report path clause is ${REPORT_CLAUSE_BYTES} B, over the ${INJECTION_BUDGETS.r1} B budget`);
+}
 
 export const callDepthGuard = guard("call-depth", (ctx, input, output) => {
   if (input.tool !== "task" || !input.sessionID) return null;
@@ -274,16 +281,22 @@ export const recordDispatchPromptEffect = effect("record-dispatch-prompt", (ctx,
   const value = args[key];
   if (typeof value === "string") {
     state.recordDispatchPrompt(sessionID, value, mode);
-    if (mode === "tawa" && !hasReportPathSentinel(value)) args[key] = `${value}${REPORT_PATH_CLAUSE}`;
+    if (mode === "tawa" && !hasReportPathSentinel(value)) {
+      args[key] = `${value}${REPORT_PATH_CLAUSE}`;
+      getUsageLedger()?.recordInjection({ sessionID, source: "r1", bytes: REPORT_CLAUSE_BYTES });
+    }
     return;
   }
   if (Array.isArray(value)) {
+    let injectedBytes = 0;
     const injected = value.map((item) => {
       if (typeof item !== "string" || item.trim().length === 0) return item;
       state.recordDispatchPrompt(sessionID, item, mode);
       if (mode !== "tawa" || hasReportPathSentinel(item)) return item;
+      injectedBytes += REPORT_CLAUSE_BYTES;
       return `${item}${REPORT_PATH_CLAUSE}`;
     });
     args[key] = injected;
+    if (injectedBytes > 0) getUsageLedger()?.recordInjection({ sessionID, source: "r1", bytes: injectedBytes });
   }
 });

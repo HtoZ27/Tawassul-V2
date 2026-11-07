@@ -1,5 +1,6 @@
 import { existsSync, unlinkSync } from "node:fs";
 import { createSessionCompactedHook } from "../src/hooks/session.ts";
+import { INJECTION_BUDGETS } from "../src/services/injection-budget.ts";
 import type { RecordEntry } from "../src/context/types.ts";
 
 let passed = 0;
@@ -71,6 +72,55 @@ assert(digest.includes("R-101…R-105"), "the hidden tail keeps both distinct ra
 assert(!/[0-9a-f]{16,}/i.test(digest), "no content hash replaces a record id");
 assert(JSON.stringify(records) === snapshot, "the digest never mutates, deletes, or merges the store");
 assert(records.length === 106, "the store still holds every entry it started with");
+
+const digestBudgetHook = createSessionCompactedHook({
+  records: [],
+  handoffs: [],
+  agentErrors: {},
+  getMaxCompactItems: () => 10,
+  sessionId: "s-digest-budget",
+  getGoalDigest: () => Array.from({ length: 400 }, (_, index) => `- 🎯 G-${index} open ${"x".repeat(60)}`).join("\n"),
+});
+const digestBudgetOut: { context: string[] } = { context: [] };
+await digestBudgetHook({ sessionID: "s-digest-budget" }, digestBudgetOut);
+const fittedDigest = digestBudgetOut.context.join("\n");
+assert(
+  Buffer.byteLength(fittedDigest, "utf8") <= INJECTION_BUDGETS.digest,
+  `the goal digest stays inside its budget (${Buffer.byteLength(fittedDigest, "utf8")} <= ${INJECTION_BUDGETS.digest})`,
+);
+assert(fittedDigest.includes("digest truncated from"), "the oversized goal digest announces its truncation");
+
+const longTitle = "Long record title ".repeat(40);
+const longRecords = Array.from({ length: 40 }, (_, index) => ({
+  ...record(`R-${String(index + 1).padStart(3, "0")}`, longTitle, index * 1_000),
+}));
+const decisionsBudgetHook = createSessionCompactedHook({
+  records: longRecords,
+  handoffs: [],
+  agentErrors: {},
+  getMaxCompactItems: () => 10,
+  sessionId: "s-decisions-budget",
+});
+const decisionsBudgetOut: { context: string[] } = { context: [] };
+await decisionsBudgetHook({ sessionID: "s-decisions-budget" }, decisionsBudgetOut);
+const decisionsText = decisionsBudgetOut.context.join("\n");
+const recordsStart = decisionsText.indexOf("### 📋 Session Records");
+const indexStart = decisionsText.indexOf("### 🗂️ Session Index");
+assert(recordsStart >= 0, "the decisions budget run renders the records header");
+assert(indexStart > recordsStart, "the decisions budget run renders the Session Index after the records");
+const recordsBlock = decisionsText.slice(recordsStart, indexStart).trimEnd();
+const indexBlock = decisionsText.slice(indexStart);
+assert(
+  Buffer.byteLength(recordsBlock, "utf8") <= INJECTION_BUDGETS.decisions,
+  `the decisions block stays inside its budget (${Buffer.byteLength(recordsBlock, "utf8")} <= ${INJECTION_BUDGETS.decisions})`,
+);
+assert(recordsBlock.includes("decisions truncated from"), "the oversized decisions block announces its truncation");
+assert(recordsBlock.includes("record(list: true)"), "the truncated decisions block keeps the durable pointer");
+assert(
+  Buffer.byteLength(indexBlock, "utf8") <= INJECTION_BUDGETS.session_index,
+  `the Session Index stays inside its budget (${Buffer.byteLength(indexBlock, "utf8")} <= ${INJECTION_BUDGETS.session_index})`,
+);
+assert(indexBlock.includes("session_index truncated from"), "the oversized Session Index announces its truncation");
 
 if (existsSync(soakPath)) unlinkSync(soakPath);
 console.log(`PROOF PASS: repeated titles are annotated while distinct record ids survive (${passed} assertions)`);
