@@ -99,7 +99,7 @@ try {
     `a bundle without tawassul-runtime/wasm yields exactly one tawassul line (got ${degradedLines.length})`,
   );
   assert(degradedLines[0]?.includes("tawassul-runtime/wasm") === true, "the single line names tawassul-runtime/wasm");
-  assert(degradedLines[0]?.includes("npm run install:global") === true, "the single line names npm run install:global");
+  assert(degradedLines[0]?.includes("reinstall the plugin") === true, "the single line names the repair");
   assert(degradedLines[0]?.includes("astquery/depmap") === true, "the single line says which features are disabled");
   assert(degraded.out.includes("Aborted") === false, "the wasm root pre-check prevents emscripten abort noise");
 
@@ -144,7 +144,7 @@ try {
   const broken = runEntry(join(WORK, "selfcheck.ts"), [brokenProject], isoEnv());
   const brokenLines = tawassulLines(broken.out);
   assert(brokenLines.length === 1, "a present but unbuilt project plugin dir warns exactly once");
-  assert(brokenLines[0]?.includes("npm run install:global") === true, "the dev-lane warning names the install command");
+  assert(brokenLines[0]?.includes("reinstall the plugin") === true, "the dev-lane warning names the repair");
   assert(brokenLines[0]?.includes("build-v2.mjs") === false, "no user-facing line points at repo-only build commands");
 
   const okProject = join(WORK, "project-ok");

@@ -1,33 +1,38 @@
 import { smartTruncate } from "../utils/smart-truncate.ts";
-import { existsSync } from "node:fs";
 import type { TawassulContext } from "../context.ts";
 import type { ToolDefinition, ToolContext } from "../tool.ts";
 import { tool } from "../tool.ts";
 import { t } from "../translations.ts";
-import { secureExec } from "../utils/secure-exec.ts";
+import { hasScript, resolveProjectRunner, type Runner } from "../utils/package-manager.ts";
+import { PKG_SAFE_SCRIPTS, probeHostBun, runPackageScript } from "../utils/secure-exec.ts";
+
 const EACH_TIMEOUT = 60000;
 const MAX_LINES = 100;
+const CHECK_ORDER = ["lint", "typecheck", "test"] as const;
 
 interface CheckResult {
   name: string;
   passed: boolean;
+  defined: boolean;
   output: string;
   duration: number;
   exitCode: number | null;
 }
 
-async function runCheck(name: string, cmd: string, args: string[], dir: string): Promise<CheckResult> {
+async function runCheck(name: string, runner: Runner, dir: string): Promise<CheckResult> {
   const start = Date.now();
   try {
-    const child = await secureExec(cmd, args, {
+    const child = await runPackageScript(runner, name, {
       timeout: EACH_TIMEOUT,
       maxBuffer: 5 * 1024 * 1024,
       cwd: dir,
+      projectRoot: dir,
     });
     const duration = Date.now() - start;
     return {
       name,
       passed: true,
+      defined: true,
       output: smartTruncate(child.stdout, MAX_LINES) || t("qualityReportNoOutput"),
       duration,
       exitCode: 0,
@@ -41,6 +46,7 @@ async function runCheck(name: string, cmd: string, args: string[], dir: string):
     return {
       name,
       passed: false,
+      defined: true,
       output,
       duration,
       exitCode: err.code === "ENOENT" ? -1 : (err.status ?? 1),
@@ -48,28 +54,15 @@ async function runCheck(name: string, cmd: string, args: string[], dir: string):
   }
 }
 
-function detectPackageManager(dir: string): string {
-  if (existsSync(dir + "/pnpm-lock.yaml")) return "pnpm";
-  if (existsSync(dir + "/yarn.lock")) return "yarn";
-  return "npm";
-}
-
-function lintCommand(pm: string): [string, string[]] {
-  if (pm === "pnpm") return ["pnpm", ["lint"]];
-  if (pm === "yarn") return ["yarn", ["lint"]];
-  return ["npm", ["run", "lint"]];
-}
-
-function typecheckCommand(pm: string): [string, string[]] {
-  if (pm === "pnpm") return ["pnpm", ["typecheck"]];
-  if (pm === "yarn") return ["yarn", ["typecheck"]];
-  return ["npm", ["run", "typecheck"]];
-}
-
-function testCommand(pm: string): [string, string[]] {
-  if (pm === "pnpm") return ["pnpm", ["test", "--", "--reporter=verbose"]];
-  if (pm === "yarn") return ["yarn", ["test", "--verbose"]];
-  return ["npm", ["test"]];
+function missingScript(name: string): CheckResult {
+  return {
+    name,
+    passed: true,
+    defined: false,
+    output: t("qualityReportNotDefinedOutput", { script: name }),
+    duration: 0,
+    exitCode: 0,
+  };
 }
 
 export function buildQualityReportTool(_ctx: TawassulContext): ToolDefinition {
@@ -91,51 +84,69 @@ export function buildQualityReportTool(_ctx: TawassulContext): ToolDefinition {
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
       const { checks } = args as { checks?: string[] };
-      const pm = detectPackageManager(cctx.directory);
+      const resolution = await resolveProjectRunner(cctx.directory, {
+        probeHostBun: async () => (await probeHostBun()) !== null,
+        projectRoot: cctx.directory,
+      });
 
-      const available: [string, string, string[]][] = [
-        ["lint", ...lintCommand(pm)],
-        ["typecheck", ...typecheckCommand(pm)],
-        ["test", ...testCommand(pm)],
-      ];
+      if (resolution.kind === "override-invalid") {
+        return { output: t("qualityReportRunnerInvalid", { value: resolution.value.slice(0, 40) }) };
+      }
+      if (resolution.kind === "override-unavailable") {
+        return { output: t("qualityReportRunnerUnavailable", { manager: resolution.manager }) };
+      }
+      if (resolution.kind === "pnp-unavailable") {
+        return { output: t("qualityReportPnpUnavailable") };
+      }
+      if (resolution.kind === "none") {
+        return { output: t("qualityReportNoPackageManager") };
+      }
 
-      const toRun = checks ? available.filter(([name]) => checks.includes(name)) : available;
+      const runner = resolution.runner;
+      const manager = runner.kind === "path" ? runner.manager : "bun";
+      const available = CHECK_ORDER.filter((name) => PKG_SAFE_SCRIPTS.has(name));
+      const toRun = checks ? available.filter((name) => checks.includes(name)) : available;
 
       if (toRun.length === 0) {
         return { output: t("qualityReportNoChecks") };
       }
 
-      const results = await Promise.all(toRun.map(([name, cmd, args]) => runCheck(name, cmd, args, cctx.directory)));
+      const results = await Promise.all(
+        toRun.map((name) => (hasScript(cctx.directory, name) ? runCheck(name, runner, cctx.directory) : missingScript(name))),
+      );
 
       const lines: string[] = [
         t("qualityReportTitle", { directory: cctx.directory }),
         t("qualityReportTimestamp", { time: new Date().toISOString().slice(0, 19).replace("T", " ") }),
-        t("qualityReportPackageManager", { pm }),
+        t("qualityReportPackageManager", { pm: manager }),
         "",
       ];
 
-      let allPassed = true;
       for (const r of results) {
-        const icon = r.passed ? "✅" : r.exitCode === -1 ? "⚠️" : "❌";
-        const status = r.passed
-          ? t("qualityReportStatusPass")
-          : r.exitCode === -1
-            ? t("qualityReportStatusNotInstalled")
-            : t("qualityReportStatusFail");
+        const icon = !r.defined ? "⚠️" : r.passed ? "✅" : r.exitCode === -1 ? "⚠️" : "❌";
+        const status = !r.defined
+          ? t("qualityReportStatusNotDefined")
+          : r.passed
+            ? t("qualityReportStatusPass")
+            : r.exitCode === -1
+              ? t("qualityReportStatusNotInstalled")
+              : t("qualityReportStatusFail");
         const duration = r.duration > 1000 ? `${(r.duration / 1000).toFixed(1)}s` : `${r.duration}ms`;
 
         lines.push(`${icon} ${r.name} — ${status} (${duration})`);
         lines.push("");
         lines.push(r.output.trim());
         lines.push("");
-
-        if (!r.passed) allPassed = false;
       }
 
-      const failedCount = results.filter((r) => !r.passed).length;
-      const summary = allPassed
-        ? t("qualityReportAllPassed", { count: String(results.length) })
-        : t("qualityReportSomeFailed", { failed: String(failedCount), total: String(results.length) });
+      const executed = results.filter((r) => r.defined);
+      const failedCount = executed.filter((r) => !r.passed).length;
+      const summary =
+        executed.length === 0
+          ? t("qualityReportNoDefinedChecks")
+          : failedCount === 0
+            ? t("qualityReportAllPassed", { count: String(executed.length) })
+            : t("qualityReportSomeFailed", { count: String(failedCount) });
 
       lines.push("—".repeat(40));
       lines.push(summary);

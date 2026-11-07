@@ -71,6 +71,15 @@ export const BASH_READ_ONLY: Record<string, string> = {
   "yarn typecheck": "allow",
   "yarn test*": "allow",
 
+  "bun --version": "allow",
+  "bun -v": "allow",
+  "bun run lint": "allow",
+  "bun run typecheck": "allow",
+  "bun run test": "allow",
+  "bun run build": "allow",
+  "bun run lint && bun run typecheck": "allow",
+  "bun run lint; bun run typecheck": "allow",
+
   
   
   
@@ -100,6 +109,16 @@ export const BASH_READ_ONLY: Record<string, string> = {
   "perl *-e*": "deny",
   "ruby *-e*": "deny",
   "node *-e*": "deny",
+  "bun test*": "deny",
+  "bun install*": "deny",
+  "bun add*": "deny",
+  "bun remove*": "deny",
+  "bun link*": "deny",
+  "bun x*": "deny",
+  "bunx *": "deny",
+  "bun *-e*": "deny",
+  "bun *--eval*": "deny",
+  "bun *--preload*": "deny",
   "xargs *": "deny",
 
   

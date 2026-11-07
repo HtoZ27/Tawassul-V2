@@ -280,6 +280,7 @@ is not here is either internal to a proof or has no documented contract.
 | `TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT=1` | Append the scoped historical background to a new handoff context (default off; an explicit value wins over `handoffAccumulatedContext`) |
 | `TAWASSUL_CODE_STATE_AUTO` | Let code-state snapshots run without an explicit call |
 | `TAWASSUL_GOAL_AUTOCLOSE=1` | Auto-close finished goals and mark old unfinished goals stale in the background sweep |
+| `TAWASSUL_PACKAGE_MANAGER` | Force the runner used by `qualityreport`: `bun`, `pnpm`, `yarn`, or `npm`; an unavailable or unknown value fails with one clear message |
 
 ## What is not configured here
 

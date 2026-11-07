@@ -25,7 +25,7 @@ function warnAstDegraded(reason: string): void {
   logger.warn(
     `⚠️ AST degraded — tawassul-runtime/wasm is missing (${reason}): ` +
       `astquery/depmap features are disabled for this session. ` +
-      `Fix: run npm run install:global (stages tawassul-runtime/wasm), then restart opencode.`,
+      `Fix: reinstall the plugin (see docs/installation.md) to stage tawassul-runtime/wasm, then restart opencode.`,
   );
 }
 

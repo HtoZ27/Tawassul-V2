@@ -95,7 +95,7 @@ export async function passiveSelfCheck(projectDir: string, pluginDir: string): P
     const altDistJs = resolve(projectDir, "dist/index.js");
     if (!existsSync(distJs) && !existsSync(altDistJs)) {
       checks.push(
-        `project plugin dir ${pluginDir} has no built dist/index.js — the supported install is npm run install:global`,
+        `project plugin dir ${pluginDir} has no built dist/index.js — the supported repair is to reinstall the plugin (see docs/installation.md)`,
       );
     }
 

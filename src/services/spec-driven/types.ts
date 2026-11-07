@@ -325,7 +325,7 @@ export const BUILTIN_TEMPLATES: SpecTemplate[] = [
       },
       { name: "coverageTarget", description: "Required coverage percentage", required: false, defaultValue: "80%" },
       { name: "scenario", description: "Scenario to test", required: true },
-      { name: "runCommand", description: "Test runner command", required: false, defaultValue: "npm test" },
+      { name: "runCommand", description: "Test command or tool invocation", required: false, defaultValue: 'quality_report(checks: ["test"])' },
     ],
     source: "built_in",
     usageCount: 0,

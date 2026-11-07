@@ -6,9 +6,9 @@
 agentsTotal = 34
 agentsWithCapabilityManifest = 25
 baseRoleTemplates = 8
-bashReadOnlyAllowPatterns = 91
-bashReadOnlyDenyPatterns = 245
-bashReadOnlyTotal = 336
+bashReadOnlyAllowPatterns = 99
+bashReadOnlyDenyPatterns = 255
+bashReadOnlyTotal = 354
 loopExactFailureBlockAfter = 3
 loopNoProgressBlockAfter = 5
 loopSameToolHaltAfter = 5

@@ -65,6 +65,15 @@ performs no partial work.
 | `evaluationreport` | Structured evaluation of a feature: issues, coverage, summary |
 | `qualityreport` | Lint, typecheck, and tests in one pass |
 
+`qualityreport` resolves the project runner in this order:
+`TAWASSUL_PACKAGE_MANAGER`, the `packageManager` field, the lockfile manager
+when its executable exists, Bun on `PATH`, the host's embedded Bun, then npm.
+It runs only `lint`, `typecheck`, and `test`, skips any script that is absent
+from `package.json`, and never runs `bun test`. A Yarn PnP project (`.pnp.cjs`)
+requires `yarn`; when it is missing the report says so instead of downgrading to
+another manager. A project whose own scripts call `node` still needs Node
+installed.
+
 ## Reporting
 
 | Tool | Purpose |

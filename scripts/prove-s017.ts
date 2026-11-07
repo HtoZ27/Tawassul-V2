@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, chmodSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,7 +8,17 @@ import { FALLBACK_CHAINS, sweepRetiredModelPins } from "../src/services/proxy-fa
 import { HandoffLedger } from "../src/services/handoff-ledger.ts";
 import { ImageRouter } from "../src/services/image-router/index.ts";
 import { AgentValidator } from "../src/services/third-party-validator.ts";
-import { secureExec } from "../src/utils/secure-exec.ts";
+import { secureExec, probeBunVersion, PKG_SAFE_SCRIPTS, runnerEnvironment } from "../src/utils/secure-exec.ts";
+import { BASH_READ_ONLY } from "../src/permissions.ts";
+import {
+  findExecutable,
+  hasScript,
+  readPackageScripts,
+  resolveProjectRunner,
+  resolveSpawnPlan,
+  splitPathEntries,
+} from "../src/utils/package-manager.ts";
+import { isInsideDir } from "../src/utils/path-resolver.ts";
 import { HMAC_PREFIX, unwrapWithHmac, wrapWithHmac } from "../src/utils/crypto.ts";
 import { validateAddInput } from "../src/tools/agent-add-helpers.ts";
 
@@ -126,21 +136,256 @@ assert((await validator.validate({ handoffId: "H-1", from: "@dev", to: "@tawa", 
 assert((await validator.validate({ handoffId: "H-2", from: "@dev", to: "@reviewer", task: "x" })).approved === false, "a short task to an OPEN agent is blocked");
 assert((await validator.validate({ handoffId: "H-3", from: "@dev", to: "@analyst", task: "x" })).approved === true, "a short task to a healthy agent passes");
 
-let denied = 0;
-for (const [binary, args] of [
+const deniedCases: Array<[string, string[]]> = [
   ["curl", ["https://example.test"]],
   ["git", ["diff", "--output=/tmp/leak"]],
   ["npm", ["run", "postinstall"]],
   ["npx", ["typescript"]],
   ["rg", ["-r", "x", "y"]],
   ["git", ["status"]],
-] as Array<[string, string[]]>) {
+  ["bun", ["install"]],
+  ["bun", ["-e", "x"]],
+  ["bunx", ["eslint"]],
+  ["bun", ["test"]],
+  ["bun", ["test", "--preload", "./x.ts"]],
+  ["npm", ["test", "--", "--require=/tmp/x.js"]],
+  ["bun", ["run", "lint"]],
+];
+let denied = 0;
+for (const [binary, args] of deniedCases) {
   const blocked = await secureExec(binary, args).then(() => false, () => true);
   if (blocked) denied += 1;
 }
-assert(denied === 6, "the secure exec allowlist rejects forbidden binaries and flags");
+assert(denied === deniedCases.length, "the secure exec allowlist rejects every forbidden case");
 const meta = await secureExec("git", ["diff", "x;rm"]).then(() => false, () => true);
 assert(meta === true, "the secure exec allowlist rejects shell metacharacters");
+
+const resolverRoot = mkdtempSync(join(tmpdir(), "tawassul-resolver-"));
+try {
+  const project = join(resolverRoot, "project");
+  const bin = join(resolverRoot, "bin");
+  mkdirSync(project, { recursive: true });
+  mkdirSync(bin, { recursive: true });
+  const fakeNpm = join(bin, "npm");
+  writeFileSync(fakeNpm, "#!/bin/sh\nexit 0\n");
+  chmodSync(fakeNpm, 0o755);
+  const fakeBun = join(bin, "bun");
+  writeFileSync(fakeBun, "#!/bin/sh\nexit 0\n");
+  chmodSync(fakeBun, 0o755);
+  writeFileSync(join(project, "package.json"), JSON.stringify({ scripts: { lint: "true", test: "true" } }));
+  writeFileSync(join(project, "package-lock.json"), "{}");
+
+  assert(PKG_SAFE_SCRIPTS.has("test") && !PKG_SAFE_SCRIPTS.has("postinstall"), "the package script allowlist stays narrow");
+  assert(hasScript(project, "lint") === true, "the resolver reads package scripts");
+  assert(hasScript(project, "build") === false, "the resolver reports a missing script");
+  assert(readPackageScripts(project)?.test === "true", "the resolver parses package.json scripts");
+
+  const locked = await resolveProjectRunner(project, {
+    env: { PATH: bin },
+    platform: "linux",
+    probeHostBun: async () => false,
+  });
+  assert(
+    locked.kind === "runner" && locked.runner.kind === "path" && locked.runner.manager === "npm",
+    "the resolver picks the lockfile manager when its executable exists",
+  );
+
+  writeFileSync(join(project, "package.json"), JSON.stringify({ packageManager: "npm@10.0.0", scripts: { lint: "true" } }));
+  const declaredMissing = await resolveProjectRunner(project, {
+    env: { PATH: "" },
+    platform: "linux",
+    probeHostBun: async () => true,
+  });
+  assert(
+    declaredMissing.kind === "runner" && declaredMissing.runner.kind === "host-bun",
+    "a declared but missing manager falls through to the host Bun lane",
+  );
+
+  const rejectedHost = await resolveProjectRunner(project, {
+    env: { PATH: "" },
+    platform: "linux",
+    probeHostBun: async () => false,
+  });
+  assert(rejectedHost.kind === "none" && rejectedHost.skipped.includes("npm"), "a rejected host probe and no PATH manager yields no runner");
+
+  const unavailableOverride = await resolveProjectRunner(project, {
+    env: { PATH: bin, TAWASSUL_PACKAGE_MANAGER: "pnpm" },
+    platform: "linux",
+  });
+  assert(unavailableOverride.kind === "override-unavailable" && unavailableOverride.manager === "pnpm", "an unavailable explicit override fails closed");
+
+  const invalidOverride = await resolveProjectRunner(project, {
+    env: { PATH: bin, TAWASSUL_PACKAGE_MANAGER: "cargo" },
+    platform: "linux",
+  });
+  assert(invalidOverride.kind === "override-invalid" && invalidOverride.value === "cargo", "an invalid override is reported");
+
+  const availableOverride = await resolveProjectRunner(project, {
+    env: { PATH: bin, TAWASSUL_PACKAGE_MANAGER: "bun" },
+    platform: "linux",
+  });
+  assert(
+    availableOverride.kind === "runner" && availableOverride.runner.kind === "path" && availableOverride.runner.manager === "bun",
+    "an available override wins",
+  );
+
+  writeFileSync(
+    join(project, "package.json"),
+    JSON.stringify({ packageManager: "bun@1.3.14", scripts: { lint: "true", test: "true" } }),
+  );
+  const declaredAvailable = await resolveProjectRunner(project, {
+    env: { PATH: bin },
+    platform: "linux",
+    probeHostBun: async () => false,
+  });
+  assert(
+    declaredAvailable.kind === "runner" &&
+      declaredAvailable.source === "packageManager" &&
+      declaredAvailable.runner.kind === "path" &&
+      declaredAvailable.runner.manager === "bun",
+    "an available packageManager field wins over the lockfile",
+  );
+
+  const bunLockProject = join(resolverRoot, "bun-lock-project");
+  mkdirSync(bunLockProject, { recursive: true });
+  writeFileSync(join(bunLockProject, "package.json"), JSON.stringify({ scripts: { test: "true" } }));
+  writeFileSync(join(bunLockProject, "bun.lock"), "");
+  const bunLocked = await resolveProjectRunner(bunLockProject, {
+    env: { PATH: bin },
+    platform: "linux",
+    probeHostBun: async () => false,
+  });
+  assert(
+    bunLocked.kind === "runner" &&
+      bunLocked.source === "lockfile" &&
+      bunLocked.runner.kind === "path" &&
+      bunLocked.runner.manager === "bun",
+    "a bun lockfile selects bun without npm",
+  );
+
+  const plainProject = join(resolverRoot, "plain-project");
+  mkdirSync(plainProject, { recursive: true });
+  writeFileSync(join(plainProject, "package.json"), JSON.stringify({ scripts: { test: "true" } }));
+  const bunOnPath = await resolveProjectRunner(plainProject, {
+    env: { PATH: bin },
+    platform: "linux",
+    probeHostBun: async () => false,
+  });
+  assert(
+    bunOnPath.kind === "runner" &&
+      bunOnPath.source === "bun" &&
+      bunOnPath.runner.kind === "path" &&
+      bunOnPath.runner.manager === "bun",
+    "bun on PATH is the fallback before the host probe",
+  );
+
+  const pnpProject = join(resolverRoot, "pnp-project");
+  mkdirSync(pnpProject, { recursive: true });
+  writeFileSync(join(pnpProject, "package.json"), JSON.stringify({ scripts: { test: "true" } }));
+  writeFileSync(join(pnpProject, ".pnp.cjs"), "");
+  const pnpUnavailable = await resolveProjectRunner(pnpProject, {
+    env: { PATH: bin },
+    platform: "linux",
+    probeHostBun: async () => true,
+  });
+  assert(
+    pnpUnavailable.kind === "pnp-unavailable" && pnpUnavailable.skipped.includes("yarn"),
+    "yarn PnP without yarn is reported instead of downgraded",
+  );
+
+  assert(
+    splitPathEntries("\"C:\\a;b\";D:\\c", "win32").join("|") === "C:\\a;b|D:\\c",
+    "the win32 PATH splitter honours quotes and drops the quotes",
+  );
+
+  const winBin = join(resolverRoot, "winbin");
+  mkdirSync(winBin, { recursive: true });
+  writeFileSync(join(winBin, "npm.exe"), "");
+  writeFileSync(join(winBin, "npm.cmd"), "");
+  const winContext = {
+    platform: "win32" as const,
+    pathEnv: winBin,
+    pathExt: ".COM;.EXE;.BAT;.CMD",
+    comSpec: "C:\\Windows\\System32\\cmd.exe",
+    projectRoot: project,
+  };
+  assert(findExecutable("npm", winContext) === join(winBin, "npm.exe"), "the win32 resolver prefers the .exe lane");
+  const winLockProject = join(resolverRoot, "win-lock-project");
+  mkdirSync(winLockProject, { recursive: true });
+  writeFileSync(join(winLockProject, "package.json"), JSON.stringify({ scripts: { test: "true" } }));
+  writeFileSync(join(winLockProject, "package-lock.json"), "{}");
+  const winResolved = await resolveProjectRunner(winLockProject, {
+    env: { PATH: winBin, PATHEXT: ".COM;.EXE;.BAT;.CMD" },
+    platform: "win32",
+    projectRoot: winLockProject,
+    probeHostBun: async () => false,
+  });
+  assert(
+    winResolved.kind === "runner" &&
+      winResolved.runner.kind === "path" &&
+      winResolved.runner.manager === "npm" &&
+      winResolved.runner.exe === join(winBin, "npm.exe"),
+    "the win32 resolver selects the lockfile manager through the .exe lane",
+  );
+  const cmdPlan = resolveSpawnPlan(join(winBin, "npm.cmd"), ["run", "lint"], winContext);
+  assert(
+    cmdPlan.command === winContext.comSpec && cmdPlan.args.slice(0, 3).join(" ") === "/d /s /c",
+    "the win32 shim runs through ComSpec",
+  );
+  assert(
+    cmdPlan.windowsVerbatimArguments === true && cmdPlan.args[3]?.startsWith("\"") === true,
+    "the win32 shim builds one quoted verbatim command line",
+  );
+  const unsafeShell = await (async () => {
+    try {
+      resolveSpawnPlan(join(winBin, "npm.cmd"), ["run", "%PATH%"], winContext);
+      return false;
+    } catch {
+      return true;
+    }
+  })();
+  assert(unsafeShell, "the win32 shim rejects percent expansion");
+  const unsafeExe = await (async () => {
+    try {
+      resolveSpawnPlan(join(winBin, "npm%x.cmd"), ["run", "lint"], winContext);
+      return false;
+    } catch {
+      return true;
+    }
+  })();
+  assert(unsafeExe, "the win32 shim rejects percent expansion in the command path");
+  const exePlan = resolveSpawnPlan(join(winBin, "npm.exe"), ["run", "lint"], winContext);
+  assert(exePlan.windowsVerbatimArguments === false, "the win32 .exe lane spawns directly");
+
+  assert(isInsideDir("C:\\Proj", "c:\\proj\\src", "win32") === true, "the win32 trust check folds case");
+  assert(isInsideDir("C:\\Proj", "C:\\Other", "win32") === false, "the win32 trust check rejects a sibling path");
+
+  assert((await probeBunVersion("host", async () => "1.4.4\n")) === true, "the host probe accepts Bun semver");
+  assert((await probeBunVersion("node", async () => "v22.9.0\n")) === false, "the host probe rejects Node version output");
+  assert((await probeBunVersion("broken", async () => { throw new Error("nope"); })) === false, "the host probe fails closed");
+
+  const pathEnv = runnerEnvironment({ kind: "path", manager: "npm", exe: join(bin, "npm") });
+  assert(pathEnv.BUN_BE_BUN === process.env.BUN_BE_BUN, "a path runner environment does not add BUN_BE_BUN");
+  const hostEnv = runnerEnvironment({ kind: "host-bun", exe: "/host/bun" });
+  assert(hostEnv.BUN_BE_BUN === "1", "the host Bun environment carries BUN_BE_BUN");
+
+  const bunVersion = await secureExec("bun", ["--version"]);
+  assert(/^\d+\.\d+\.\d+/.test(bunVersion.stdout.trim()), "the secure exec bun lane returns a Bun version");
+  const missingScriptDenied = await secureExec("bun", ["run", "build"], { cwd: project }).then(() => false, () => true);
+  assert(missingScriptDenied, "bun run rejects a script absent from package.json");
+  const declaredScriptRan = await secureExec("bun", ["run", "lint"], { cwd: project }).then(() => true, () => false);
+  assert(declaredScriptRan, "bun run executes a declared safe script");
+  assert(BASH_READ_ONLY["bun test*"] === "deny", "the permission table denies bare bun test");
+  assert(BASH_READ_ONLY["bun run test"] === "allow", "the permission table allows bun run test");
+  assert(
+    Object.entries(BASH_READ_ONLY).every(([rule, action]) => !(action === "allow" && /^bun test/.test(rule))),
+    "no permission rule allows a bare bun test",
+  );
+} finally {
+  rmSync(resolverRoot, { recursive: true, force: true });
+}
+
+assert(!source("src/utils/package-manager.ts").includes("child_process"), "the resolver module imports no child-process API");
 
 const goalStore = source("src/services/goal-store.ts");
 assert((goalStore.match(/const fresh = this\.goals\.get\(id\)/g) ?? []).length >= 3, "the goal store re-reads inside the lock");

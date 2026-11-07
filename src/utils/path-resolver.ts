@@ -1,6 +1,6 @@
 
 
-import { resolve, relative, isAbsolute, sep, join, dirname } from "node:path";
+import { resolve, sep, join, dirname, posix, win32 } from "node:path";
 import { homedir, userInfo, tmpdir } from "node:os";
 import { existsSync, readFileSync, statSync } from "node:fs";
 
@@ -157,18 +157,19 @@ export function resolveNativeAgentMdPath(agentName: string, stateDir: string, sc
 }
 
 
-function isInsideDir(root: string, target: string): boolean {
+export function isInsideDir(root: string, target: string, platform: NodeJS.Platform = process.platform): boolean {
   
   
   
   
-  const a = process.platform === "win32" ? root.toLowerCase() : root;
-  const b = process.platform === "win32" ? target.toLowerCase() : target;
-  const rel = relative(a, b);
+  const api = platform === "win32" ? win32 : posix;
+  const a = platform === "win32" ? root.toLowerCase() : root;
+  const b = platform === "win32" ? target.toLowerCase() : target;
+  const rel = api.relative(a, b);
   
   
   
-  return rel === "" || (!isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${sep}`));
+  return rel === "" || (!api.isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${api.sep}`));
 }
 
 

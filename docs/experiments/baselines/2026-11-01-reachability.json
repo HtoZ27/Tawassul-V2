@@ -1,12 +1,12 @@
 {
   "date": "2026-11-01",
   "entry": "src/index.ts",
-  "totalFiles": 384,
-  "reachableFiles": 365,
-  "totalLoc": 65005,
-  "reachableLoc": 63315,
-  "shareFiles": 0.9505,
-  "shareLoc": 0.974,
+  "totalFiles": 385,
+  "reachableFiles": 366,
+  "totalLoc": 65433,
+  "reachableLoc": 63743,
+  "shareFiles": 0.9506,
+  "shareLoc": 0.9742,
   "dynamicEdges": 124,
   "byArea": {
     "agent-templates.ts": 1,
@@ -35,7 +35,7 @@
     "training-evaluator.ts": 1,
     "translations.ts": 1,
     "types": 4,
-    "utils": 28,
+    "utils": 29,
     "v2": 11,
     "validation.ts": 1
   }
