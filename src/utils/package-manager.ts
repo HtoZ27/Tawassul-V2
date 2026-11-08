@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import * as path from "node:path";
 import { isInsideDir } from "./path-resolver.ts";
 
@@ -102,11 +102,38 @@ function windowsCandidates(name: string, pathExt: string): string[] {
   return unique.map((extension) => `${name}${extension}`);
 }
 
+function stripExtendedPathPrefix(value: string): string {
+  if (value.startsWith("\\\\?\\UNC\\")) return `\\\\${value.slice(8)}`;
+  if (value.startsWith("\\\\?\\")) return value.slice(4);
+  return value;
+}
+
+function canonicalTrustPath(value: string, platform: NodeJS.Platform): string {
+  try {
+    const resolved = realpathSync.native(value);
+    return platform === "win32" ? stripExtendedPathPrefix(resolved) : resolved;
+  } catch {
+    return value;
+  }
+}
+
+export function isInsideProjectRoot(
+  projectRoot: string,
+  target: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  return isInsideDir(
+    canonicalTrustPath(projectRoot, platform),
+    canonicalTrustPath(target, platform),
+    platform,
+  );
+}
+
 function resolveWindowsCommand(name: string, context: SpawnContext): string | undefined {
   const candidates = windowsCandidates(name, context.pathExt);
   for (const dir of splitPathEntries(context.pathEnv, "win32")) {
     if (!path.isAbsolute(dir)) continue;
-    if (context.projectRoot && isInsideDir(context.projectRoot, dir, "win32")) continue;
+    if (context.projectRoot && isInsideProjectRoot(context.projectRoot, dir, "win32")) continue;
     let entries: string[];
     try {
       entries = readdirSync(dir);
@@ -128,7 +155,7 @@ export function findExecutable(name: string, context: SpawnContext): string | un
   if (context.platform === "win32") return resolveWindowsCommand(name, context);
   for (const dir of splitPathEntries(context.pathEnv, context.platform)) {
     if (!path.isAbsolute(dir)) continue;
-    if (context.projectRoot && isInsideDir(context.projectRoot, dir, context.platform)) continue;
+    if (context.projectRoot && isInsideProjectRoot(context.projectRoot, dir, context.platform)) continue;
     const candidate = path.join(dir, name);
     if (isExecutableFile(candidate, context.platform)) return candidate;
   }
@@ -251,7 +278,7 @@ export async function resolveProjectRunner(
   }
   if (options.probeHostBun) {
     const hostExe = process.execPath;
-    const trustable = !context.projectRoot || !isInsideDir(context.projectRoot, hostExe, platform);
+    const trustable = !context.projectRoot || !isInsideProjectRoot(context.projectRoot, hostExe, platform);
     if (trustable && (await options.probeHostBun(hostExe))) {
       return { kind: "runner", runner: { kind: "host-bun", exe: hostExe }, source: "bun", skipped };
     }

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, chmodSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, chmodSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { devNull, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +13,7 @@ import { BASH_READ_ONLY } from "../src/permissions.ts";
 import {
   findExecutable,
   hasScript,
+  isInsideProjectRoot,
   readPackageScripts,
   resolveProjectRunner,
   resolveSpawnPlan,
@@ -406,6 +407,31 @@ try {
 
   assert(isInsideDir("C:\\Proj", "c:\\proj\\src", "win32") === true, "the win32 trust check folds case");
   assert(isInsideDir("C:\\Proj", "C:\\Other", "win32") === false, "the win32 trust check rejects a sibling path");
+
+  const trustRoot = join(resolverRoot, "trust");
+  const trustProject = join(trustRoot, "project");
+  const trustTools = join(trustProject, "tools");
+  const trustLink = join(trustRoot, "link-bin");
+  mkdirSync(trustTools, { recursive: true });
+  writeFileSync(join(trustTools, "npm"), "#!/bin/sh\nexit 0\n");
+  chmodSync(join(trustTools, "npm"), 0o755);
+  symlinkSync(trustTools, trustLink, "junction");
+  assert(
+    isInsideProjectRoot(trustProject, trustLink, "linux") === true,
+    "the trust check canonicalizes a symlinked directory",
+  );
+  assert(
+    findExecutable("npm", { platform: "linux", pathEnv: trustLink, pathExt: "", projectRoot: trustProject }) === undefined,
+    "the resolver skips an executable reached through a symlinked project directory",
+  );
+  assert(
+    isInsideProjectRoot(trustProject, join(trustRoot, "sibling"), "linux") === false,
+    "the trust check keeps a sibling directory outside",
+  );
+  assert(
+    isInsideProjectRoot(join(trustRoot, "missing"), join(trustRoot, "missing", "src"), "linux") === true,
+    "the trust check falls back to the textual path",
+  );
 
   assert((await probeBunVersion("host", async () => "1.4.4\n")) === true, "the host probe accepts Bun semver");
   assert((await probeBunVersion("node", async () => "v22.9.0\n")) === false, "the host probe rejects Node version output");
