@@ -63,7 +63,7 @@ export function buildSmartGrepTool(_ctx: TawassulContext): ToolDefinition {
             pattern,
             searchDir,
           ],
-          { timeout: 15000, maxBuffer: 2 * 1024 * 1024 },
+          { timeout: 15000, maxBuffer: 2 * 1024 * 1024, cwd: cctx.directory },
         );
         const output = child.stdout;
         if (!output || output.trim() === "") {

@@ -68,13 +68,13 @@ function missingScript(name: string): CheckResult {
 export function buildQualityReportTool(_ctx: TawassulContext): ToolDefinition {
   return tool({
     description: [
-      "Run quality checks (lint + typecheck + tests) combined in one command.",
+      "Run quality checks (lint + typecheck + tests) combined into one command.",
       "Shows each check's result with pass/fail status and duration.",
       "Reduces the need for 3-4 separate bash calls.",
       "",
       "Examples:",
-      "  quality_report()",
-      '  quality_report(checks: ["lint", "typecheck"])  # run specific checks only',
+      "  qualityreport()",
+      '  qualityreport(checks: ["lint", "typecheck"])  # run specific checks only',
     ].join("\n"),
     args: {
       checks: tool.schema
@@ -111,9 +111,14 @@ export function buildQualityReportTool(_ctx: TawassulContext): ToolDefinition {
         return { output: t("qualityReportNoChecks") };
       }
 
-      const results = await Promise.all(
-        toRun.map((name) => (hasScript(cctx.directory, name) ? runCheck(name, runner, cctx.directory) : missingScript(name))),
-      );
+      const results: CheckResult[] = [];
+      for (const name of toRun) {
+        results.push(
+          hasScript(cctx.directory, name)
+            ? await runCheck(name, runner, cctx.directory)
+            : missingScript(name),
+        );
+      }
 
       const lines: string[] = [
         t("qualityReportTitle", { directory: cctx.directory }),

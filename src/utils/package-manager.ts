@@ -37,6 +37,7 @@ export interface SpawnPlan {
   args: string[];
   windowsVerbatimArguments: boolean;
   windowsHide: boolean;
+  shell: boolean;
 }
 
 const MANAGERS: PackageManager[] = ["bun", "pnpm", "yarn", "npm"];
@@ -279,17 +280,20 @@ export function resolveSpawnPlan(exe: string, args: string[], context: SpawnCont
   const extension = path.extname(exe).toLowerCase();
   const needsShell = context.platform === "win32" && (extension === ".cmd" || extension === ".bat");
   if (!needsShell) {
-    return { command: exe, args: [...args], windowsVerbatimArguments: false, windowsHide: true };
+    return { command: exe, args: [...args], windowsVerbatimArguments: false, windowsHide: true, shell: false };
   }
   if (isCmdUnsafeArgument(exe)) throw new Error("the command path cannot be carried safely by cmd.exe");
   const unsafe = args.find(isCmdUnsafeArgument);
   if (unsafe !== undefined) throw new Error(`cmd.exe cannot carry the argument safely: ${unsafe}`);
   const api = context.platform === "win32" ? path.win32 : path.posix;
-  const comSpec = context.comSpec && api.isAbsolute(context.comSpec) ? context.comSpec : "cmd.exe";
+  if (!context.comSpec || !api.isAbsolute(context.comSpec)) {
+    throw new Error("ComSpec must be an absolute path to run .cmd or .bat shims");
+  }
   return {
-    command: comSpec,
+    command: context.comSpec,
     args: ["/d", "/s", "/c", buildWindowsCommandLine(exe, args)],
     windowsVerbatimArguments: true,
     windowsHide: true,
+    shell: true,
   };
 }

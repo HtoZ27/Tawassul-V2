@@ -24,7 +24,9 @@ export const PKG_SAFE_SCRIPTS = new Set(["lint", "typecheck", "test", "build"]);
 const DENIED_SCRIPT_FLAGS = new Set([
   "--require", "-r", "--import", "--loader", "--preload", "--exec",
   "-e", "--eval", "--print", "-p", "--cwd", "--filter", "--env-file",
-  "--shell", "--bun",
+  "--shell", "--bun", "--node-options", "--script-shell",
+  "--experimental-loader", "--inspect", "--inspect-brk", "--inspect-wait",
+  "--inspect-port", "--conditions",
 ]);
 
 function flagName(arg: string): string {
@@ -170,7 +172,13 @@ export function probeHostBun(): Promise<string | null> {
 }
 
 function childEnvironment(hostBun: boolean): NodeJS.ProcessEnv {
-  return hostBun ? { ...process.env, BUN_BE_BUN: "1" } : { ...process.env };
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  if (hostBun) {
+    env.BUN_BE_BUN = "1";
+  } else {
+    delete env.BUN_BE_BUN;
+  }
+  return env;
 }
 
 export function runnerEnvironment(runner: Runner): NodeJS.ProcessEnv {
@@ -182,16 +190,22 @@ interface ResolvedBinary {
   env: NodeJS.ProcessEnv;
 }
 
+function binaryNotFound(message: string): Error {
+  const error = new Error(message) as Error & { code: string };
+  error.code = "ENOENT";
+  return error;
+}
+
 async function resolveBinary(binary: string, context: SpawnContext): Promise<ResolvedBinary> {
   if (binary === "bun") {
     const pathExe = findExecutable("bun", context);
     if (pathExe) return { exe: pathExe, env: childEnvironment(false) };
     const hostExe = await probeHostBun();
     if (hostExe) return { exe: hostExe, env: childEnvironment(true) };
-    throw new Error("bun is not available on PATH and the host binary is not a Bun runtime");
+    throw binaryNotFound("bun is not available on PATH and the host binary is not a Bun runtime");
   }
   const exe = findExecutable(binary, context);
-  if (!exe) throw new Error(`${binary} is not available on PATH`);
+  if (!exe) throw binaryNotFound(`${binary} is not available on PATH`);
   return { exe, env: childEnvironment(false) };
 }
 
@@ -202,6 +216,14 @@ interface ExecOptions {
   projectRoot?: string;
 }
 
+export function assertShellSafe(args: string[]): void {
+  for (const arg of args) {
+    if (SHELL_META_PATTERN.test(arg)) {
+      throw new Error(`Shell metacharacters are not allowed in arguments: ${arg}`);
+    }
+  }
+}
+
 async function executeResolved(
   exe: string,
   args: string[],
@@ -209,6 +231,7 @@ async function executeResolved(
   options: ExecOptions,
 ): Promise<{ stdout: string; stderr: string }> {
   const plan = resolveSpawnPlan(exe, args, defaultSpawnContext(options.projectRoot ?? options.cwd));
+  if (plan.shell) assertShellSafe(args);
   const result = await exec(plan.command, plan.args, {
     timeout: options.timeout ?? 30000,
     maxBuffer: options.maxBuffer ?? 1024 * 1024,
@@ -242,12 +265,6 @@ export async function secureExec(
 ): Promise<{ stdout: string; stderr: string }> {
   if (!ALLOWED_BINARIES.has(binary)) {
     throw new Error(`Binary "${binary}" is not allowed`);
-  }
-
-  for (const arg of args) {
-    if (SHELL_META_PATTERN.test(arg)) {
-      throw new Error(`Shell metacharacters are not allowed in arguments: ${arg}`);
-    }
   }
 
   const denied = validateArgs(binary, args);

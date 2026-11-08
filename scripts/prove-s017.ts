@@ -8,7 +8,7 @@ import { FALLBACK_CHAINS, sweepRetiredModelPins } from "../src/services/proxy-fa
 import { HandoffLedger } from "../src/services/handoff-ledger.ts";
 import { ImageRouter } from "../src/services/image-router/index.ts";
 import { AgentValidator } from "../src/services/third-party-validator.ts";
-import { secureExec, probeBunVersion, PKG_SAFE_SCRIPTS, runnerEnvironment } from "../src/utils/secure-exec.ts";
+import { secureExec, probeBunVersion, PKG_SAFE_SCRIPTS, runnerEnvironment, assertShellSafe } from "../src/utils/secure-exec.ts";
 import { BASH_READ_ONLY } from "../src/permissions.ts";
 import {
   findExecutable,
@@ -356,6 +356,36 @@ try {
   assert(unsafeExe, "the win32 shim rejects percent expansion in the command path");
   const exePlan = resolveSpawnPlan(join(winBin, "npm.exe"), ["run", "lint"], winContext);
   assert(exePlan.windowsVerbatimArguments === false, "the win32 .exe lane spawns directly");
+  assert(exePlan.shell === false && cmdPlan.shell === true, "the spawn plan reports whether a shell is used");
+  const missingComSpec = await (async () => {
+    try {
+      resolveSpawnPlan(join(winBin, "npm.cmd"), ["run", "lint"], { ...winContext, comSpec: undefined });
+      return false;
+    } catch {
+      return true;
+    }
+  })();
+  assert(missingComSpec, "the win32 shim fails closed without ComSpec");
+  const relativeComSpec = await (async () => {
+    try {
+      resolveSpawnPlan(join(winBin, "npm.cmd"), ["run", "lint"], { ...winContext, comSpec: "cmd.exe" });
+      return false;
+    } catch {
+      return true;
+    }
+  })();
+  assert(relativeComSpec, "the win32 shim fails closed on a relative ComSpec");
+  const directMeta = resolveSpawnPlan(join(winBin, "npm.exe"), ["diff", "HEAD^!"], winContext);
+  assert(directMeta.args[1] === "HEAD^!", "a direct spawn keeps shell metacharacters literal");
+  const shellMeta = (() => {
+    try {
+      assertShellSafe(["run", "a|b"]);
+      return false;
+    } catch {
+      return true;
+    }
+  })();
+  assert(shellMeta, "the shell lane rejects shell metacharacters in arguments");
 
   assert(isInsideDir("C:\\Proj", "c:\\proj\\src", "win32") === true, "the win32 trust check folds case");
   assert(isInsideDir("C:\\Proj", "C:\\Other", "win32") === false, "the win32 trust check rejects a sibling path");
@@ -364,10 +394,14 @@ try {
   assert((await probeBunVersion("node", async () => "v22.9.0\n")) === false, "the host probe rejects Node version output");
   assert((await probeBunVersion("broken", async () => { throw new Error("nope"); })) === false, "the host probe fails closed");
 
+  const previousBunBeBun = process.env.BUN_BE_BUN;
+  process.env.BUN_BE_BUN = "1";
   const pathEnv = runnerEnvironment({ kind: "path", manager: "npm", exe: join(bin, "npm") });
-  assert(pathEnv.BUN_BE_BUN === process.env.BUN_BE_BUN, "a path runner environment does not add BUN_BE_BUN");
+  assert(!("BUN_BE_BUN" in pathEnv), "a path runner environment drops an inherited BUN_BE_BUN");
   const hostEnv = runnerEnvironment({ kind: "host-bun", exe: "/host/bun" });
   assert(hostEnv.BUN_BE_BUN === "1", "the host Bun environment carries BUN_BE_BUN");
+  if (previousBunBeBun === undefined) delete process.env.BUN_BE_BUN;
+  else process.env.BUN_BE_BUN = previousBunBeBun;
 
   const bunVersion = await secureExec("bun", ["--version"]);
   assert(/^\d+\.\d+\.\d+/.test(bunVersion.stdout.trim()), "the secure exec bun lane returns a Bun version");
@@ -375,6 +409,32 @@ try {
   assert(missingScriptDenied, "bun run rejects a script absent from package.json");
   const declaredScriptRan = await secureExec("bun", ["run", "lint"], { cwd: project }).then(() => true, () => false);
   assert(declaredScriptRan, "bun run executes a declared safe script");
+
+  const savedPath = process.env.PATH;
+  let enoentCode: string | null = null;
+  process.env.PATH = "";
+  try {
+    await secureExec("rg", ["--version"]);
+  } catch (e) {
+    enoentCode = (e as { code?: string }).code ?? null;
+  } finally {
+    process.env.PATH = savedPath;
+  }
+  assert(enoentCode === "ENOENT", "a missing binary reports ENOENT");
+
+  const directMetaMessage = await secureExec("git", ["diff", "--stat", "HEAD^!"], { cwd: repo }).then(
+    () => "",
+    (e: Error) => e.message,
+  );
+  assert(!directMetaMessage.includes("Shell metacharacters"), "a direct spawn accepts the ^! revision syntax");
+
+  for (const flag of ["--node-options", "--script-shell", "--experimental-loader", "--inspect"]) {
+    const message = await secureExec("npm", ["run", "test", flag], { cwd: project }).then(
+      () => "",
+      (e: Error) => e.message,
+    );
+    assert(message.includes("not allowed after a package script"), `npm run rejects ${flag} after the script name`);
+  }
   assert(BASH_READ_ONLY["bun test*"] === "deny", "the permission table denies bare bun test");
   assert(BASH_READ_ONLY["bun run test"] === "allow", "the permission table allows bun run test");
   assert(
@@ -386,6 +446,14 @@ try {
 }
 
 assert(!source("src/utils/package-manager.ts").includes("child_process"), "the resolver module imports no child-process API");
+assert(!source("src/tools/quality-report.ts").includes("Promise.all"), "the quality report runs checks sequentially");
+assert(source("src/tools/quality-report.ts").includes("qualityreport()"), "the quality report advertises its registered name");
+assert(!source("src/tools/quality-report.ts").includes("quality_report"), "the quality report description carries no unregistered name");
+assert(!source("src/services/spec-driven/types.ts").includes("quality_report"), "the spec default uses the registered tool name");
+assert(
+  source("src/tools/search-and-diff.ts").split("cwd: cctx.directory").length - 1 >= 2,
+  "smart grep and git diff pin the project root",
+);
 
 const goalStore = source("src/services/goal-store.ts");
 assert((goalStore.match(/const fresh = this\.goals\.get\(id\)/g) ?? []).length >= 3, "the goal store re-reads inside the lock");
