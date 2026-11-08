@@ -42,7 +42,8 @@ async function runCheck(name: string, runner: Runner, dir: string): Promise<Chec
     const err = e as { stderr?: string; stdout?: string; code?: string; status?: number; message?: string };
     const stderr = err.stderr || "";
     const stdout = err.stdout || "";
-    const output = smartTruncate(stdout + "\n" + stderr, MAX_LINES) || err.message || t("qualityReportCmdFailed");
+    const combined = (stdout + "\n" + stderr).trim();
+    const output = smartTruncate(combined, MAX_LINES) || err.message || t("qualityReportCmdFailed");
     return {
       name,
       passed: false,

@@ -211,7 +211,7 @@ the capability manifest, so both files must be current.
 ### 5. Template and messages
 
 - `src/services/spec-driven/types.ts:328`: keep `runCommand` optional and replace
-  the `"npm test"` default with `quality_report(checks: ["test"])`; update the
+  the `"npm test"` default with `qualityreport(checks: ["test"])`; update the
   description to "Test command or tool invocation". Making it required would
   break `createSpecFromTemplate`, which returns `null` when a required variable
   is missing (`src/services/spec-driven/manager.ts:108-117`); removing the
@@ -242,7 +242,7 @@ the capability manifest, so both files must be current.
     `--preload`, `--env-file`;
   - deny `bun run` with no `cwd` and with a script absent from `package.json`;
   - probe tests with an injected spawner returning Bun output and Node output;
-  - assert `runnerEnvironment` adds `BUN_BE_BUN: "1"` only for the host lane and leaves a path runner unchanged;
+  - assert `runnerEnvironment` adds `BUN_BE_BUN: "1"` only for the host lane and drops an inherited `BUN_BE_BUN` from a path runner;
   - assert a Yarn PnP project without yarn returns `pnp-unavailable` and never reaches Bun or npm;
   - assert the resolver module imports no child-process API;
   - run `secureExec("bun", ["--version"])` to prove the resolved Bun lane.

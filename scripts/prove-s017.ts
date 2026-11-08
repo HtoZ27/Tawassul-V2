@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, mkdtempSync, chmodSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { devNull, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -157,8 +157,6 @@ for (const [binary, args] of deniedCases) {
   if (blocked) denied += 1;
 }
 assert(denied === deniedCases.length, "the secure exec allowlist rejects every forbidden case");
-const meta = await secureExec("git", ["diff", "x;rm"]).then(() => false, () => true);
-assert(meta === true, "the secure exec allowlist rejects shell metacharacters");
 
 const resolverRoot = mkdtempSync(join(tmpdir(), "tawassul-resolver-"));
 try {
@@ -375,8 +373,25 @@ try {
     }
   })();
   assert(relativeComSpec, "the win32 shim fails closed on a relative ComSpec");
-  const directMeta = resolveSpawnPlan(join(winBin, "npm.exe"), ["diff", "HEAD^!"], winContext);
-  assert(directMeta.args[1] === "HEAD^!", "a direct spawn keeps shell metacharacters literal");
+  const quotedComSpec = resolveSpawnPlan(join(winBin, "npm.cmd"), ["run", "lint"], {
+    ...winContext,
+    comSpec: '"D:\\Tools\\cmd.exe"',
+  });
+  assert(quotedComSpec.command === "D:\\Tools\\cmd.exe", "the win32 shim accepts a quoted ComSpec on another drive");
+  const uncComSpec = resolveSpawnPlan(join(winBin, "npm.cmd"), ["run", "lint"], {
+    ...winContext,
+    comSpec: "\\\\server\\share\\cmd.exe",
+  });
+  assert(uncComSpec.command === "\\\\server\\share\\cmd.exe", "the win32 shim accepts a UNC ComSpec");
+  const rootedNoDrive = (() => {
+    try {
+      resolveSpawnPlan(join(winBin, "npm.cmd"), ["run", "lint"], { ...winContext, comSpec: "\\Windows\\System32\\cmd.exe" });
+      return false;
+    } catch {
+      return true;
+    }
+  })();
+  assert(rootedNoDrive, "the win32 shim rejects a drive-relative ComSpec root");
   const shellMeta = (() => {
     try {
       assertShellSafe(["run", "a|b"]);
@@ -396,12 +411,15 @@ try {
 
   const previousBunBeBun = process.env.BUN_BE_BUN;
   process.env.BUN_BE_BUN = "1";
-  const pathEnv = runnerEnvironment({ kind: "path", manager: "npm", exe: join(bin, "npm") });
-  assert(!("BUN_BE_BUN" in pathEnv), "a path runner environment drops an inherited BUN_BE_BUN");
-  const hostEnv = runnerEnvironment({ kind: "host-bun", exe: "/host/bun" });
-  assert(hostEnv.BUN_BE_BUN === "1", "the host Bun environment carries BUN_BE_BUN");
-  if (previousBunBeBun === undefined) delete process.env.BUN_BE_BUN;
-  else process.env.BUN_BE_BUN = previousBunBeBun;
+  try {
+    const pathEnv = runnerEnvironment({ kind: "path", manager: "npm", exe: join(bin, "npm") });
+    assert(!("BUN_BE_BUN" in pathEnv), "a path runner environment drops an inherited BUN_BE_BUN");
+    const hostEnv = runnerEnvironment({ kind: "host-bun", exe: "/host/bun" });
+    assert(hostEnv.BUN_BE_BUN === "1", "the host Bun environment carries BUN_BE_BUN");
+  } finally {
+    if (previousBunBeBun === undefined) delete process.env.BUN_BE_BUN;
+    else process.env.BUN_BE_BUN = previousBunBeBun;
+  }
 
   const bunVersion = await secureExec("bun", ["--version"]);
   assert(/^\d+\.\d+\.\d+/.test(bunVersion.stdout.trim()), "the secure exec bun lane returns a Bun version");
@@ -422,13 +440,59 @@ try {
   }
   assert(enoentCode === "ENOENT", "a missing binary reports ENOENT");
 
-  const directMetaMessage = await secureExec("git", ["diff", "--stat", "HEAD^!"], { cwd: repo }).then(
-    () => "",
-    (e: Error) => e.message,
+  const savedNpmPath = process.env.PATH;
+  let tailMessage = "";
+  process.env.PATH = bin;
+  try {
+    tailMessage = await secureExec("npm", ["run", "test", "--", "--x=$(id)"], { cwd: project }).then(
+      () => "",
+      (e: Error) => e.message,
+    );
+  } finally {
+    process.env.PATH = savedNpmPath;
+  }
+  assert(
+    tailMessage.includes("Shell metacharacters"),
+    "the package-manager lane rejects shell metacharacters in a script tail",
   );
-  assert(!directMetaMessage.includes("Shell metacharacters"), "a direct spawn accepts the ^! revision syntax");
 
-  for (const flag of ["--node-options", "--script-shell", "--experimental-loader", "--inspect"]) {
+  const savedGitConfigGlobal = process.env.GIT_CONFIG_GLOBAL;
+  process.env.GIT_CONFIG_GLOBAL = devNull;
+  let headParent = "";
+  try {
+    const gitRepo = join(resolverRoot, "git-repo");
+    mkdirSync(gitRepo, { recursive: true });
+    const gitEnv = {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: devNull,
+      GIT_CONFIG_NOSYSTEM: "1",
+      GIT_AUTHOR_NAME: "Tawassul Proof",
+      GIT_AUTHOR_EMAIL: "proof@tawassul.test",
+      GIT_COMMITTER_NAME: "Tawassul Proof",
+      GIT_COMMITTER_EMAIL: "proof@tawassul.test",
+    };
+    const firstInit = spawnSync("git", ["init", "-q"], { cwd: gitRepo, env: gitEnv });
+    writeFileSync(join(gitRepo, "one.txt"), "one\n");
+    spawnSync("git", ["add", "one.txt"], { cwd: gitRepo, env: gitEnv });
+    const firstCommit = spawnSync("git", ["commit", "-q", "--no-verify", "-m", "one"], { cwd: gitRepo, env: gitEnv });
+    writeFileSync(join(gitRepo, "two.txt"), "two\n");
+    spawnSync("git", ["add", "two.txt"], { cwd: gitRepo, env: gitEnv });
+    const secondCommit = spawnSync("git", ["commit", "-q", "--no-verify", "-m", "two"], { cwd: gitRepo, env: gitEnv });
+    assert(
+      firstInit.status === 0 && firstCommit.status === 0 && secondCommit.status === 0,
+      "the proof repository records two commits",
+    );
+    headParent = await secureExec("git", ["diff", "--stat", "HEAD^!"], { cwd: gitRepo }).then(
+      (result) => result.stdout,
+      () => "",
+    );
+  } finally {
+    if (savedGitConfigGlobal === undefined) delete process.env.GIT_CONFIG_GLOBAL;
+    else process.env.GIT_CONFIG_GLOBAL = savedGitConfigGlobal;
+  }
+  assert(headParent.includes("two.txt"), "a direct spawn runs git diff with the ^! revision syntax");
+
+  for (const flag of ["--node-options", "--script-shell", "--experimental-loader", "--inspect", "--debug", "--debug-brk"]) {
     const message = await secureExec("npm", ["run", "test", flag], { cwd: project }).then(
       () => "",
       (e: Error) => e.message,
@@ -450,10 +514,17 @@ assert(!source("src/tools/quality-report.ts").includes("Promise.all"), "the qual
 assert(source("src/tools/quality-report.ts").includes("qualityreport()"), "the quality report advertises its registered name");
 assert(!source("src/tools/quality-report.ts").includes("quality_report"), "the quality report description carries no unregistered name");
 assert(!source("src/services/spec-driven/types.ts").includes("quality_report"), "the spec default uses the registered tool name");
-assert(
-  source("src/tools/search-and-diff.ts").split("cwd: cctx.directory").length - 1 >= 2,
-  "smart grep and git diff pin the project root",
+const searchSource = source("src/tools/search-and-diff.ts");
+const smartGrepBody = searchSource.slice(
+  searchSource.indexOf("export function buildSmartGrepTool"),
+  searchSource.indexOf("export function buildGitDiffTool"),
 );
+const gitDiffBody = searchSource.slice(
+  searchSource.indexOf("export function buildGitDiffTool"),
+  searchSource.indexOf("export function buildBatchReadTool"),
+);
+assert(smartGrepBody.includes("cwd: cctx.directory"), "smart grep pins the project root");
+assert(gitDiffBody.includes("cwd: cctx.directory"), "git diff pins the project root");
 
 const goalStore = source("src/services/goal-store.ts");
 assert((goalStore.match(/const fresh = this\.goals\.get\(id\)/g) ?? []).length >= 3, "the goal store re-reads inside the lock");

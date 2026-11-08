@@ -276,6 +276,18 @@ export function buildWindowsCommandLine(exe: string, args: string[]): string {
   return `"${line}"`;
 }
 
+function normalizeComSpec(value: string): string | undefined {
+  const trimmed = value.trim();
+  const unquoted =
+    trimmed.length >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")
+      ? trimmed.slice(1, -1).trim()
+      : trimmed;
+  if (!unquoted) return undefined;
+  const root = path.win32.parse(unquoted).root;
+  if (root.length < 3) return undefined;
+  return unquoted;
+}
+
 export function resolveSpawnPlan(exe: string, args: string[], context: SpawnContext): SpawnPlan {
   const extension = path.extname(exe).toLowerCase();
   const needsShell = context.platform === "win32" && (extension === ".cmd" || extension === ".bat");
@@ -285,12 +297,12 @@ export function resolveSpawnPlan(exe: string, args: string[], context: SpawnCont
   if (isCmdUnsafeArgument(exe)) throw new Error("the command path cannot be carried safely by cmd.exe");
   const unsafe = args.find(isCmdUnsafeArgument);
   if (unsafe !== undefined) throw new Error(`cmd.exe cannot carry the argument safely: ${unsafe}`);
-  const api = context.platform === "win32" ? path.win32 : path.posix;
-  if (!context.comSpec || !api.isAbsolute(context.comSpec)) {
-    throw new Error("ComSpec must be an absolute path to run .cmd or .bat shims");
+  const comSpec = context.comSpec ? normalizeComSpec(context.comSpec) : undefined;
+  if (!comSpec) {
+    throw new Error("ComSpec must be an absolute path rooted at a drive or UNC share to run .cmd or .bat shims");
   }
   return {
-    command: context.comSpec,
+    command: comSpec,
     args: ["/d", "/s", "/c", buildWindowsCommandLine(exe, args)],
     windowsVerbatimArguments: true,
     windowsHide: true,

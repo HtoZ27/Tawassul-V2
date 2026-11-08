@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { promisify } from "node:util";
 import {
   defaultSpawnContext,
@@ -13,6 +14,8 @@ const exec = promisify(execFile);
 
 const ALLOWED_BINARIES = new Set(["rg", "git", "npm", "pnpm", "yarn", "npx", "bun"]);
 
+const RAW_ARGUMENT_BINARIES = new Set(["rg", "git"]);
+
 const NPX_ALLOWED_PACKAGES = new Set([
   "vitest", "eslint", "prettier", "typescript", "c8",
 ]);
@@ -26,7 +29,7 @@ const DENIED_SCRIPT_FLAGS = new Set([
   "-e", "--eval", "--print", "-p", "--cwd", "--filter", "--env-file",
   "--shell", "--bun", "--node-options", "--script-shell",
   "--experimental-loader", "--inspect", "--inspect-brk", "--inspect-wait",
-  "--inspect-port", "--conditions",
+  "--inspect-port", "--conditions", "--debug", "--debug-brk",
 ]);
 
 function flagName(arg: string): string {
@@ -214,6 +217,7 @@ interface ExecOptions {
   maxBuffer?: number;
   cwd?: string;
   projectRoot?: string;
+  strictArgs?: boolean;
 }
 
 export function assertShellSafe(args: string[]): void {
@@ -230,8 +234,11 @@ async function executeResolved(
   env: NodeJS.ProcessEnv,
   options: ExecOptions,
 ): Promise<{ stdout: string; stderr: string }> {
+  if (options.cwd && !existsSync(options.cwd)) {
+    throw new Error(`the working directory does not exist: ${options.cwd}`);
+  }
   const plan = resolveSpawnPlan(exe, args, defaultSpawnContext(options.projectRoot ?? options.cwd));
-  if (plan.shell) assertShellSafe(args);
+  if (plan.shell || options.strictArgs) assertShellSafe(args);
   const result = await exec(plan.command, plan.args, {
     timeout: options.timeout ?? 30000,
     maxBuffer: options.maxBuffer ?? 1024 * 1024,
@@ -255,7 +262,7 @@ export async function runPackageScript(
     throw new Error(`script "${script}" is not defined in package.json`);
   }
   const env = runnerEnvironment(runner);
-  return executeResolved(runner.exe, ["run", script], env, options);
+  return executeResolved(runner.exe, ["run", script], env, { ...options, strictArgs: true });
 }
 
 export async function secureExec(
@@ -283,5 +290,5 @@ export async function secureExec(
   }
 
   const { exe, env } = await resolveBinary(binary, defaultSpawnContext(options.cwd));
-  return executeResolved(exe, args, env, options);
+  return executeResolved(exe, args, env, { ...options, strictArgs: !RAW_ARGUMENT_BINARIES.has(binary) });
 }
