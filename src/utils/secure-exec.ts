@@ -88,7 +88,7 @@ function validateArgs(binary: string, args: string[]): string | null {
         return `git: only diff is allowed`;
       }
       {
-        const SAFE = new Set(["--stat", "--name-only", "--name-status", "--check", "--shortstat", "--no-color", "-p", "--cached", "--staged"]);
+        const SAFE = new Set(["--stat", "--name-only", "--name-status", "--check", "--shortstat", "--no-color", "-p", "--cached", "--staged", "--no-ext-diff", "--no-textconv"]);
         for (let i = 1; i < args.length; i++) {
           const a = args[i] ?? "";
           if (a === "--") continue;

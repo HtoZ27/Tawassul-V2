@@ -186,6 +186,7 @@
   "gitDiffNoChanges": "✅ لا تغييرات لعرضها.",
   "gitDiffNoGit": "⚠️ Git غير مثبّت أو غير موجود في PATH. ثبّت Git لاستخدام هذه الأداة.",
   "gitDiffNotRepo": "⚠️ هذا المجلد ليس مستودع Git. هيّئه بـ`git init` أو استنسخ مستودعًا قائمًا.",
+  "gitDiffStagedCommit": "⚠️ اختر إما staged أو commit، وليس كليهما: يرفض git الجمع بين --cached ومرجع.",
   "gitDiffStats": "📊 تغيّر {files} ملفًا، {insertions} إضافة، {deletions} حذفًا",
   "guardFailClosed": "🚫 انهار الحارس {name} داخليًا — الفشل مغلق (CLOSED). أبلغ المشرف (التفاصيل في السجل).",
   "goalBoardTitle": "🎯 لوحة الأهداف",

@@ -152,13 +152,12 @@ export function buildGitDiffTool(_ctx: TawassulContext): ToolDefinition {
         context?: number;
       };
       const ctxLines = context ?? 3;
-      const gitArgs: string[] = ["diff", "--stat", `--unified=${ctxLines}`, "--no-color", "-p"];
-      if (staged) gitArgs.push("--cached");
-      if (commit) {
-        gitArgs.length = 0;
-        gitArgs.push("diff", "--stat", `--unified=${ctxLines}`, "--no-color", "-p");
-        gitArgs.push(`${commit}^!`);
+      if (staged && commit) {
+        return { output: t("gitDiffStagedCommit") };
       }
+      const gitArgs = ["diff", "--stat", `--unified=${ctxLines}`, "--no-color", "-p", "--no-ext-diff", "--no-textconv"];
+      if (staged) gitArgs.push("--cached");
+      if (commit) gitArgs.push(`${commit}^!`);
       if (file) {
         const safe = await resolveSafe(cctx.directory, file);
         if (safe.error) {

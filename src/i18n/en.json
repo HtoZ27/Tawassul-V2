@@ -186,6 +186,7 @@
   "gitDiffNoChanges": "✅ No changes to show.",
   "gitDiffNoGit": "⚠️ Git is not installed or not found in PATH. Install Git to use this tool.",
   "gitDiffNotRepo": "⚠️ This directory is not a Git repository. Initialize with `git init` or clone an existing repo.",
+  "gitDiffStagedCommit": "⚠️ Choose either staged or commit, not both: git rejects --cached together with a revision.",
   "gitDiffStats": "📊 {files} file(s) changed, {insertions} insertions, {deletions} deletions",
   "guardFailClosed": "🚫 Guard {name} crashed internally — failing CLOSED. Notify the maintainer (details in the log).",
   "goalBoardTitle": "🎯 Goal Board",

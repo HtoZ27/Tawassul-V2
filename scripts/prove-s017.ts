@@ -21,6 +21,8 @@ import {
 import { isInsideDir } from "../src/utils/path-resolver.ts";
 import { HMAC_PREFIX, unwrapWithHmac, wrapWithHmac } from "../src/utils/crypto.ts";
 import { validateAddInput } from "../src/tools/agent-add-helpers.ts";
+import { buildGitDiffTool } from "../src/tools/search-and-diff.ts";
+import { t } from "../src/translations.ts";
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -486,6 +488,36 @@ try {
       (result) => result.stdout,
       () => "",
     );
+    writeFileSync(join(gitRepo, "two.txt"), "two changed\n");
+    const externalDiff = join(resolverRoot, "external-diff.sh");
+    const externalMarker = join(resolverRoot, "external-diff-ran");
+    writeFileSync(externalDiff, `#!/bin/sh\ntouch "${externalMarker}"\nexit 1\n`);
+    chmodSync(externalDiff, 0o755);
+    const savedExternalDiff = process.env.GIT_EXTERNAL_DIFF;
+    process.env.GIT_EXTERNAL_DIFF = externalDiff;
+    let diffOutput = "";
+    try {
+      const diffTool = buildGitDiffTool({} as never);
+      const diffContext = {
+        sessionID: "ses_proof",
+        messageID: "msg_proof",
+        agent: "dev",
+        directory: gitRepo,
+        worktree: gitRepo,
+        abort: new AbortController().signal,
+        metadata() {},
+      } as never;
+      const result = await diffTool.execute({}, diffContext);
+      diffOutput = typeof result === "string" ? result : result.output;
+      const combined = await diffTool.execute({ staged: true, commit: "HEAD" } as never, diffContext);
+      const combinedOutput = typeof combined === "string" ? combined : combined.output;
+      assert(combinedOutput === t("gitDiffStagedCommit"), "git diff rejects staged together with commit");
+    } finally {
+      if (savedExternalDiff === undefined) delete process.env.GIT_EXTERNAL_DIFF;
+      else process.env.GIT_EXTERNAL_DIFF = savedExternalDiff;
+    }
+    assert(!existsSync(externalMarker), "git diff does not run an external diff driver");
+    assert(diffOutput.includes("two changed"), "git diff reports the change with external drivers disabled");
   } finally {
     if (savedGitConfigGlobal === undefined) delete process.env.GIT_CONFIG_GLOBAL;
     else process.env.GIT_CONFIG_GLOBAL = savedGitConfigGlobal;
