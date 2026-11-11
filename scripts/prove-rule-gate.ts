@@ -34,6 +34,17 @@ accepts("src/services/example.ts", "// @ts-ignore\nconst a = 1;\n", "@ts-ignore 
 accepts("src/services/example.ts", "/* eslint-disable no-console */\nconsole.log(1);\n", "eslint-disable directive");
 accepts("src/services/example.ts", "/* eslint-enable no-console */\nconsole.log(1);\n", "eslint-enable directive");
 accepts("src/services/example.ts", "// eslint-disable-next-line no-console\nconsole.log(1);\n", "eslint-disable-next-line directive");
+accepts(
+  "src/core/model-registry.ts",
+  "// @truth provider: the provider is the source of truth, not the registry\nconst a = 1;\n",
+  "the provider-truth directive",
+);
+rejects(
+  "src/services/example.ts",
+  "// @truth registry: the registry is the source of truth\nconst a = 1;\n",
+  "a truth directive naming the wrong source",
+);
+rejects("src/services/example.ts", "// @truth provider:\nconst a = 1;\n", "a truth directive with no sentence");
 accepts("src/services/example.ts", "const u = \"https://example.com//path\";\n", "double slash inside a string literal");
 accepts("src/services/example.ts", "const r = /a\\/\\/b/g;\n", "escaped slashes inside a regex literal");
 

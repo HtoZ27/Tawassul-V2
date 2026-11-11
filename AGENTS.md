@@ -19,14 +19,29 @@ is a retired, read-only reference.
    and `.json` under the gate paths below, including JSDoc and empty comments.
    Only these exact directive shapes are permitted: `// @ts-expect-error`,
    `// @ts-ignore`, `/* eslint-disable ... */`, `// eslint-disable-next-line ... */`,
-   and `/* eslint-enable ... */` (an optional `:` or `--` reason may follow a
-   TypeScript directive; a glued prefix such as `@ts-ignore-everything` is
-   rejected). Enforced by the same checker and proven by `scripts/prove-rule-gate.ts`.
+   `/* eslint-enable ... */`, and `// @truth provider: <English sentence>`
+   (an optional `:` or `--` reason may follow a TypeScript directive; a glued
+   prefix such as `@ts-ignore-everything` is rejected). `@truth provider` has a
+   single purpose: it marks that model availability comes from the provider
+   list, never from `MODEL_CATALOG`. It may carry no other sentence, and every
+   other prose comment stays rejected. Enforced by the same checker and proven
+   by `scripts/prove-rule-gate.ts`.
 3. **Gate scope.** The checker parses `.ts`, `.mjs`, and `.json` under `src/`,
    `scripts/`, `tests/`, plus two root files. Shell, Markdown, and YAML are
    outside its reach. Shell comments are allowed for operational notes and must
    be English; Markdown and YAML may document behaviour. Everything outside the
    scanned extensions is reviewed, not gated.
+4. **Minimum fix.** Apply the smallest change that fixes the defect. Do not
+   expand into adjacent defects, refactors, new mechanisms, or reorganisation
+   unless the user explicitly asks for it, or the fix is impossible without it.
+   Scope expansion is a defect in the change, not a bonus.
+5. **No feature-for-feature trade.** A change must not fix one feature while
+   breaking another. If a fix requires breaking an existing feature, stop and
+   either redesign the fix or obtain an explicit user order authorising the
+   restructuring. The non-regression contract of the active plan is binding.
+
+Rules 4 and 5 are reviewed, not mechanically gated. A change that violates
+either is rejected even if every test passes.
 
 ## Before any work
 

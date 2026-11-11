@@ -7,7 +7,7 @@ export interface ModelCatalogEntry {
   display: string;
 }
 
-export const MODEL_CATALOG: ModelCatalogEntry[] = [
+export const MODEL_CATALOG: ModelCatalogEntry[] = [ // @truth provider: the provider is the source of truth, not the registry
   {
     id: "nvidia/deepseek-ai/deepseek-v4.1-flash",
     suffix: "deep",

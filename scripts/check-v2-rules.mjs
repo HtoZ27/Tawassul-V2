@@ -18,6 +18,7 @@ const ALLOWED_COMMENT_PATTERNS = [
   /^@ts-ignore(?:\s|:|--|$)/,
   /^eslint-disable(?:-next-line)?(?:\s|$)/,
   /^eslint-enable(?:\s|$)/,
+  /^@truth provider:\s+\S/,
 ];
 
 function listFiles(dir) {
