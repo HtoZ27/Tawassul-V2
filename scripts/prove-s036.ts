@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { deriveVariantSpec, parseAddInput } from "../src/tools/agent-add-helpers.ts";
 import { buildAgents } from "../src/scripts/gen-opencode-config.ts";
-import { DELETED_AGENTS } from "../src/security-policy.ts";
 
 let passed = 0;
 
@@ -52,7 +51,8 @@ const cryptoSource = readFileSync("src/utils/crypto.ts", "utf8");
 assert(cryptoSource.includes("randomBytes"), "HMAC keys are generated in-process");
 assert(!cryptoSource.includes("openssl"), "HMAC key generation never shells out to openssl");
 
-assert(DELETED_AGENTS.has("analyst-ling"), "the roster retires the ling variants");
-assert(buildAgents()["analyst-ling"] === undefined, "default generation omits the retired variant");
+const policySource = readFileSync("src/security-policy.ts", "utf8");
+assert(!policySource.includes("DELETED_AGENTS"), "the static deletion list is gone from the security policy");
+assert(buildAgents()["analyst-ling"] !== undefined, "default generation keeps the formerly retired variant");
 
 console.log(`PROOF PASS: the agent-management hardening week is ported (${passed} assertions)`);

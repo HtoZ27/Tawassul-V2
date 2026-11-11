@@ -18,6 +18,7 @@ import { ContextNudgeManager } from "../services/context-nudges.ts";
 import { buildContextSnapshotRecord } from "../services/context-pressure.ts";
 import { DYNAMIC_MODEL_SENTINEL, getDynamicFallbackChainForRole } from "../services/proxy-fallback-chains.ts";
 import { RETIRED_MODEL_IDS } from "../core/variant-names.ts";
+import { modelAvailability } from "../core/model-registry.ts";
 import { resolveRole } from "../utils/agent.ts";
 import type { ToolExecuteServiceClients } from "../hooks/tool-execute-types.ts";
 import type { MessageUpdatedServiceClients } from "../hooks/message-updated-types.ts";
@@ -97,7 +98,7 @@ export function createHooks(
     const raw = tawaCtx.modelManager.agentModelMap[key] as string | undefined;
     const isMissing = !raw;
     const isDynamic = raw === DYNAMIC_MODEL_SENTINEL;
-    const isRetired = raw !== undefined && RETIRED_MODEL_IDS.has(raw);
+    const isRetired = raw !== undefined && modelAvailability(raw) === "absent";
     const failed = tawaCtx.modelManager.tawaPreferences.failedModels[key];
     const isFailed = !!failed && Date.now() - new Date(failed.failedAt).getTime() < 36e5;
     const isCircuitOpen = (() => {

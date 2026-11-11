@@ -13,13 +13,14 @@ import {
   TAWASSUL_ROSTER_FILE_LEGACY,
   type InstallScope,
 } from "./path-resolver.ts";
-import { ALL_AGENTS } from "../agent-templates.ts";
+import { ALL_AGENTS, generateAgentMd } from "../agent-templates.ts";
 import {
   defaultAgentModelForRole,
   DYNAMIC_MODEL_SENTINEL,
   getFallbackChain,
 } from "../services/proxy-fallback-chains.ts";
 import { RETIRED_MODEL_IDS } from "../core/variant-names.ts";
+import { modelAvailability } from "../core/model-registry.ts";
 import { logger } from "./logger.ts";
 import type { Config } from "../plugin-types.ts";
 import { applyPermissionRepairs } from "./agent-permission-repair.ts";
@@ -224,13 +225,15 @@ export function rewriteDynamicAgentModels(raw: string): string {
     const modelMatch = block.match(/"model"\s*:\s*"([^"]+)"/);
     const modelId = modelMatch ? (modelMatch[1] ?? null) : null;
     const isDynamic = block.includes(`"model": "${DYNAMIC_MODEL_SENTINEL}"`);
-    const isRetired = modelId !== null && RETIRED_MODEL_IDS.has(modelId as string);
+    const isRetired = modelId !== null && modelAvailability(modelId) === "absent";
     if (isDynamic || isRetired) {
       const role = resolveRole(name) ?? name;
       let concrete: string;
       if (isRetired) {
         const chain = getFallbackChain(role);
-        concrete = chain.find((m) => !RETIRED_MODEL_IDS.has(m)) ?? defaultAgentModelForRole(role);
+        concrete =
+          chain.find((m) => !RETIRED_MODEL_IDS.has(m) && modelAvailability(m) !== "absent") ??
+          defaultAgentModelForRole(role);
       } else {
         concrete = defaultAgentModelForRole(role);
       }
@@ -300,6 +303,15 @@ export interface EnsureAgentModelsResult {
   backupPath: string | null;
 }
 
+
+export async function ensureBaseAgentFiles(agentsDir: string): Promise<void> {
+  await mkdir(agentsDir, { recursive: true });
+  for (const entry of ALL_AGENTS) {
+    const filePath = resolve(agentsDir, `${entry.name}.md`);
+    if (existsSync(filePath)) continue;
+    await atomicWriteFile(filePath, generateAgentMd(entry), { backup: false });
+  }
+}
 
 export async function ensureAgentModels(projectDir: string): Promise<EnsureAgentModelsResult> {
   try {
@@ -481,13 +493,25 @@ export async function ensureMinimalProjectContract(
       const p = resolve(projectDir, name);
       if (existsSync(p)) return { created: false, configPath: p, reason: "exists" };
     }
+    await ensureBaseAgentFiles(resolve(projectDir, ".opencode", "agents"));
     const doc: Record<string, unknown> = {
       $schema: "https://opencode.ai/config.json",
       experimental: { subagent_depth: 3 },
       agent: {},
     };
     const configPath = resolve(projectDir, "opencode.json");
-    await atomicWriteFile(configPath, JSON.stringify(doc, null, 2) + "\n");
+    const docText = JSON.stringify(doc, null, 2) + "\n";
+    let rendered = docText;
+    try {
+      const { buildExpectedConfig } = await import("../scripts/gen-opencode-config.ts");
+      rendered = buildExpectedConfig(docText, { projectRoot: projectDir, configPath });
+    } catch (e) {
+      logger.warn(
+        `[tawassul] boot: minimal-contract agent expansion failed — writing the minimal agent container ` +
+          `(${e instanceof Error ? e.message : String(e)})`,
+      );
+    }
+    await atomicWriteFile(configPath, rendered);
     logger.warn(`[tawassul] boot: no opencode.json found — generated minimal contract at ${configPath}`);
     return { created: true, configPath, reason: null };
   } finally {

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { existsSync, mkdirSync, unlinkSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve, basename } from "node:path";
-import { resolveSafePath, resolveSafePathSync } from "../utils/path.ts";
+import { resolveSafePath } from "../utils/path.ts";
 import { logger } from "../utils/logger.ts";
 import { releaseFSLock } from "../infra/file-lock.ts";
 import {
@@ -9,6 +9,7 @@ import {
   spliceAgentSection,
   readTawassulRoster,
   writeTawassulRoster,
+  readJsoncObject,
   opencodeConfigLockName,
   acquireOpencodeConfigLock,
 } from "../utils/opencode-config.ts";
@@ -20,7 +21,6 @@ import {
   resolveTawassulConfigPath,
   resolveActiveConfigPath,
   resolveAgentsDir,
-  resolveDeletedAgentsPath,
   resolvePinsPath,
   type InstallScope,
 } from "../utils/path-resolver.ts";
@@ -33,10 +33,10 @@ import { tool } from "../tool.ts";
 import { ASK_UNAVAILABLE } from "../services/ask-channel.ts";
 import { ALL_AGENTS } from "../agent-templates.ts";
 import { defaultAgentModelForRole, getDynamicFallbackChainForRole } from "../services/proxy-fallback-chains.ts";
-import { isGeneratedVariant, RETIRED_MODEL_IDS } from "../core/variant-names.ts";
+import { isGeneratedVariant, RETIRED_MODEL_IDS, generatedVariantNames } from "../core/variant-names.ts";
 import { setDynamicDeletedAgents, pruneUserPreservedAgents } from "../security-policy.ts";
 import { resolveModelAlias, MODEL_ALIASES } from "../services/proxy-models.ts";
-import { MODEL_ID_TO_SUFFIX, shouldWarnUnverifiedModel } from "../core/model-registry.ts";
+import { MODEL_ID_TO_SUFFIX, shouldWarnUnverifiedModel, modelAvailability } from "../core/model-registry.ts";
 import { MAX_DYNAMIC_AGENTS_DEFAULT } from "../context/constants.ts";
 import { t } from "../translations.ts";
 import {
@@ -133,10 +133,6 @@ function mdBackupKey(stateDir: string, tag: string): string {
 
 const tawaModelBackup = new Map<string, string | undefined>();
 
-function deletedAgentsPath(ctx: TawassulContext): string {
-  return resolveDeletedAgentsPath(ctx.stateDir, SCOPE);
-}
-
 async function readDeletedAgentNames(ctx: TawassulContext): Promise<Set<string>> {
   if (SCOPE === "global") {
     const rosterPath = resolveTawassulConfigPath(ctx.stateDir, "global");
@@ -148,28 +144,24 @@ async function readDeletedAgentNames(ctx: TawassulContext): Promise<Set<string>>
       throw new Error(`deleted-agents: failed to read roster at ${rosterPath}: ${(e as Error).message}`, { cause: e });
     }
   }
-  const path = deletedAgentsPath(ctx);
+  const configPath = resolveActiveConfigPath(ctx.stateDir, "project");
   let raw: string;
   try {
-    raw = await readFile(path, "utf-8");
+    raw = await readFile(configPath, "utf-8");
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return new Set();
     throw e;
   }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (e) {
-    throw new Error(`deleted-agents: malformed JSON at ${path}: ${(e as Error).message}`, { cause: e });
-  }
-  const obj = parsed as { deleted?: unknown } | null;
-  if (!obj || !Array.isArray(obj.deleted)) {
-    throw new Error(`deleted-agents: ${path} must be { "deleted": string[] }`);
-  }
-  if (obj.deleted.some((d) => typeof d !== "string")) {
-    throw new Error(`deleted-agents: ${path} "deleted" must be string[]`);
-  }
-  return new Set((obj.deleted as string[]).map((s) => normalizeName(String(s))));
+  const parsed = readJsoncObject(raw);
+  const agents = parsed.agent;
+  if (agents === undefined || agents === null) return new Set();
+  if (typeof agents !== "object" || Array.isArray(agents)) return new Set();
+  const keys = Object.keys(agents as Record<string, unknown>);
+  if (keys.length === 0) return new Set();
+  const present = new Set(keys.map((s) => normalizeName(String(s))));
+  return new Set(
+    generatedVariantNames(SPECIALIZATIONS).filter((name) => !present.has(normalizeName(name))),
+  );
 }
 
 async function writeDeletedAgentNames(ctx: TawassulContext, names: Set<string>): Promise<void> {
@@ -183,18 +175,6 @@ async function writeDeletedAgentNames(ctx: TawassulContext, names: Set<string>):
     return;
   }
   const list = [...names].sort();
-  const path = deletedAgentsPath(ctx);
-  const safe = resolveSafePathSync(path, resolve(ctx.stateDir, ".opencode"));
-  if (!safe) {
-    logger.warn("agent-management: deleted-agents.json path escapes stateDir — skipping write");
-    return;
-  }
-  try {
-    mkdirSync(resolve(ctx.stateDir, ".opencode"), { recursive: true });
-  } catch (e) {
-    logger.warn("agent-management: failed to ensure .opencode dir:", e);
-  }
-  await atomicWriteFile(path, JSON.stringify({ deleted: list }, null, 2) + "\n");
   setDynamicDeletedAgents(list.map((s) => normalizeName(String(s))));
   pruneUserPreservedAgents(list.map((s) => normalizeName(String(s))));
 }
@@ -211,7 +191,7 @@ async function unpersistDeletedAgents(ctx: TawassulContext, specs: readonly stri
   for (const spec of specs) {
     if (names.delete(normalizeName(spec))) changed = true;
   }
-  if (changed) await writeDeletedAgentNames(ctx, names);
+  if (changed || SCOPE === "project") await writeDeletedAgentNames(ctx, names);
 }
 
 function pinsPath(ctx: TawassulContext): string {
@@ -738,7 +718,10 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
                     try {
                       raw = await readFile(opencodePath, "utf-8");
                     } catch (e) {
-                      if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+                      if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+                        throw new Error("addagent: project opencode.json is missing — refusing to write");
+                      }
+                      throw e;
                     }
                     if (raw !== null) {
                       const conf = JSON.parse(cfgName.endsWith(".jsonc") ? stripJsoncComments(raw) : raw);
@@ -860,9 +843,9 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
           try {
             await withConfigWriteLock(ctx, async () => {
               await unpersistDeletedAgents(ctx, variantUndo);
-            });
+            }, { failClosed: true });
           } catch (e) {
-            const msg = `addagent: failed to undo deletion list entry (${variantUndo.join(", ")}) — the variant stays in deleted-agents.json and regen will skip it; re-run the same addagent line to repair: ${(e as Error).message}`;
+            const msg = `addagent: failed to undo deletion list entry (${variantUndo.join(", ")}) — the variant is absent from the project config and regen will skip it; re-run the same addagent line to repair: ${(e as Error).message}`;
             logger.warn(msg, e);
             (result.warnings ??= []).push(msg);
           }
@@ -876,7 +859,7 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
           try {
             await withConfigWriteLock(ctx, async () => {
               await writeBaseRolePins(ctx, pinEntries);
-            });
+            }, { failClosed: true });
           } catch (e) {
             const msg = `addagent: failed to record pins (${pinEntries.map((p) => p.name).join(", ")}) — re-run the same addagent line to repair: ${(e as Error).message}`;
             logger.warn(msg, e);
@@ -1082,18 +1065,16 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
                 );
               }
               {
-                const deadModels = new Set<string>(RETIRED_MODEL_IDS);
                 const removedSet = new Set(result.removed.map((tag) => normalizeName(tag)));
                 const toReassign: Array<{ name: string; oldModel: string; newModel: string }> = [];
                 for (const [name, model] of Object.entries(ctx.agentModelMap)) {
                   const normalized = normalizeName(name);
                   if (removedSet.has(normalized)) continue;
-                  if (deadModels.has(model as string) || RETIRED_MODEL_IDS.has(model as string)) {
+                  if (typeof model === "string" && modelAvailability(model) === "absent") {
                     const role = resolveRole(name) ?? name;
                     const chain = getDynamicFallbackChainForRole(role, ctx);
                     const healthy =
-                      chain.find((m) => !RETIRED_MODEL_IDS.has(m) && !deadModels.has(m)) ??
-                      chain.find((m) => !RETIRED_MODEL_IDS.has(m)) ??
+                      chain.find((m) => !RETIRED_MODEL_IDS.has(m) && modelAvailability(m) !== "absent") ??
                       "opencode/big-pickle";
                     if (healthy && healthy !== model) {
                       toReassign.push({ name: normalized, oldModel: model as string, newModel: healthy });
@@ -1125,12 +1106,11 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
                       if (toReassign.some((r) => r.name === normalized)) continue;
                       const entry = cfg as { model?: unknown } | undefined;
                       const m = entry && typeof entry === "object" ? (entry.model as string | undefined) : undefined;
-                      if (m && (deadModels.has(m) || RETIRED_MODEL_IDS.has(m))) {
+                      if (m && modelAvailability(m) === "absent") {
                         const role = resolveRole(agentName) ?? agentName;
                         const chain = getDynamicFallbackChainForRole(role, ctx);
                         const healthy =
-                          chain.find((mm) => !RETIRED_MODEL_IDS.has(mm) && !deadModels.has(mm)) ??
-                          chain.find((mm) => !RETIRED_MODEL_IDS.has(mm)) ??
+                          chain.find((mm) => !RETIRED_MODEL_IDS.has(mm) && modelAvailability(mm) !== "absent") ??
                           "opencode/big-pickle";
                         if (healthy && healthy !== m) {
                           (entry as { model?: unknown }).model = healthy;
@@ -1176,12 +1156,11 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
                           if (removedSet.has(normalized)) continue;
                           if (toReassign.some((r) => r.name === normalized)) continue;
                           const m = (entry as { model?: unknown } | undefined)?.model as string | undefined;
-                          if (m && (deadModels.has(m) || RETIRED_MODEL_IDS.has(m))) {
+                          if (m && modelAvailability(m) === "absent") {
                             const role = resolveRole(agentName) ?? agentName;
                             const chain = getDynamicFallbackChainForRole(role, ctx);
                             const healthy =
-                              chain.find((mm) => !RETIRED_MODEL_IDS.has(mm) && !deadModels.has(mm)) ??
-                              chain.find((mm) => !RETIRED_MODEL_IDS.has(mm)) ??
+                              chain.find((mm) => !RETIRED_MODEL_IDS.has(mm) && modelAvailability(mm) !== "absent") ??
                               "opencode/big-pickle";
                             if (healthy && healthy !== m) {
                               (entry as { model?: unknown }).model = healthy;

@@ -1,4 +1,4 @@
-import { RETIRED_MODEL_IDS } from "../core/model-registry.ts";
+import { RETIRED_MODEL_IDS, modelAvailability } from "../core/model-registry.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 import { resolveRole } from "../utils/agent.ts";
 
@@ -73,10 +73,12 @@ export interface RetiredPinReassignment {
 export function sweepRetiredModelPins(agentModelMap: Record<string, string>): RetiredPinReassignment[] {
   const reassigned: RetiredPinReassignment[] = [];
   for (const [name, model] of Object.entries(agentModelMap)) {
-    if (typeof model !== "string" || !RETIRED_MODEL_IDS.has(model)) continue;
+    if (typeof model !== "string" || modelAvailability(model) !== "absent") continue;
     const role = resolveRole(name) ?? name;
     const chain = getFallbackChain(role);
-    const healthy = chain.find((m) => !RETIRED_MODEL_IDS.has(m)) ?? defaultAgentModelForRole(role);
+    const healthy =
+      chain.find((m) => !RETIRED_MODEL_IDS.has(m) && modelAvailability(m) !== "absent") ??
+      defaultAgentModelForRole(role);
     if (healthy && healthy !== model) {
       agentModelMap[name] = healthy;
       reassigned.push({ name, oldModel: model, newModel: healthy });

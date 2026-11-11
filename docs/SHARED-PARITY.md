@@ -35,13 +35,13 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-010 | Conflict-marker debris must never reach v2 sources. | - | - | n-a |
 | S-011 | Status changes refresh the board index and carry session provenance. | `src/services/mission-board.ts:153` `scheduleIndexWrite` | `scripts/prove-board-invariants.ts` | verified |
 | S-012 | A completed board cannot be reopened; transitions are close-only. | `src/services/mission-board.ts:269` `isCompleted` | `scripts/prove-board-invariants.ts` | verified |
-| S-013.1 | Role-scoped plugin permissions and record/eval read-back are enforced. | `src/security-policy.ts:458` `checkTawassulToolPermission` | `scripts/prove-s013.ts`, `scripts/prove-e21.ts` | verified |
+| S-013.1 | Role-scoped plugin permissions and record/eval read-back are enforced. | `src/security-policy.ts:412` `checkTawassulToolPermission` | `scripts/prove-s013.ts`, `scripts/prove-e21.ts` | verified |
 | S-013.2 | The MCP boundary is not applicable because v2 ships no MCP server or client. | - | - | n-a |
 | S-014 | A standalone health tool exists in the tawa namespace. | `src/tools/tawa/health.ts:65` `buildHealthTool` | `scripts/prove-e46.ts` | verified |
 | S-015 | The retired kanban-board name must not return. | - | - | n-a |
 | S-016 | Conflict-marker pollutants must not be propagated. | - | - | n-a |
 | S-017 | The three-day hardening batch is ported on merit: model retirements, generator hardening, governance, and runtime rows. | `src/services/proxy-fallback-chains.ts:73` `sweepRetiredModelPins` | `scripts/prove-s017.ts`, `scripts/prove-gen-lock-contention.ts`, `scripts/prove-gen-merge-guards.ts`, `scripts/prove-gen-guard-wal.ts`, `scripts/prove-roster-boundary.ts`, `scripts/prove-event-trust-p1.ts`, `scripts/prove-web-ssrf.ts`, `scripts/prove-s028.ts` | verified |
-| S-018 | R-008, R-009, and R-011 are ported in a v2 shape with first-boot roster seeding. | `src/utils/opencode-config.ts:507` `ensureGlobalRosterSeed` | `scripts/prove-first-boot-seed.ts` | verified |
+| S-018 | R-008, R-009, and R-011 are ported in a v2 shape with first-boot roster seeding. | `src/utils/opencode-config.ts:531` `ensureGlobalRosterSeed` | `scripts/prove-first-boot-seed.ts` | verified |
 | S-019 | The atomic-audit P0 closures are ported: containment, WAL probe, backup environment, and fail-closed gates. | `scripts/opencode-db-maintenance.sh:596` `require_v2_generation` | `scripts/prove-db-retention.ts` | verified |
 | S-020 | The nine-day batch is ported: tool surface, cache generation, guards, and wiring. | `src/context/model-utils.ts:24` `getPortCacheGen` | `scripts/prove-s020.ts` | verified |
 | S-022 | The 37-commit backlog rows are triaged and the actionable ones ported. | `src/services/goal-store.ts:530` `private async mutate` | `scripts/prove-goal-resurrection.ts` | verified |
@@ -51,9 +51,9 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-025 | The round-2 findings are ported and no blocker remains. | `src/services/ask-channel-parse.ts:16` `YES_RE` | `scripts/prove-s024.ts` | verified |
 | S-026 | The rule gate rejects comments, Arabic literals, and glued directives. | `scripts/check-v2-rules.mjs:9` `ARABIC_RE` | `scripts/prove-rule-gate.ts` | verified |
 | S-027 | The S-022 closure was re-verified bilaterally. | - | - | doc-only |
-| S-028 | The provider model cache is the source of truth for suffix governance. | `src/core/model-registry.ts:148` `getProviderModelTokens` | `scripts/prove-s028.ts` | verified |
-| S-029 | R7 variant pins, dispatch precedence, dotted suffixes, and the log default are ported. | `src/tools/agent-management.ts:239` `computePinEntries` | `scripts/prove-s029.ts` | verified |
-| S-030 | The live roster is aligned with the generation-layer retire. | `src/scripts/gen-opencode-config.ts:287` `unionDeletedVariants` | `scripts/prove-s029.ts` | verified |
+| S-028 | The provider model cache is the source of truth for suffix governance. | `src/core/model-registry.ts:158` `getProviderModelTokens` | `scripts/prove-s028.ts` | verified |
+| S-029 | R7 variant pins, dispatch precedence, dotted suffixes, and the log default are ported. | `src/tools/agent-management.ts:219` `computePinEntries` | `scripts/prove-s029.ts` | verified |
+| S-030 | The live roster follows config-derived deletion plus additive generation. | `src/scripts/gen-opencode-config.ts:272` `export function derivedExpectedCount` | `scripts/prove-s029.ts`, `scripts/prove-gen-merge-guards.ts` | verified |
 | S-031 | The documented install path materializes the plugin entry on every build. | `build-v2.mjs:132` `tawassul.js` | `scripts/release-smoke.sh` | verified |
 | S-032 | A stale project-scope copy must not win registration in a shared process. | `src/core/install-scope.ts:56` `claimCoexistence` | `scripts/prove-s038.ts` | verified |
 | S-033.1 | The plugin-side cold-boot wave is ported: quiet resolution, write-behind, save debounce, jitter, logger stamp, quarantine, and save guard. | `src/utils/quiet.ts:6` `forceQuietMode` | `scripts/prove-s033.ts` | verified |
@@ -71,7 +71,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-041.1 | Coexistence items 1 to 6 are implemented in v2 code and gates. | `scripts/opencode-db-maintenance.sh:596` `require_v2_generation` | `scripts/prove-db-retention.ts` | verified |
 | S-041.2 | Item 7 ran as a live dual-generation boot and the v1 guard refused a v2 DB. | `CUTOVER.md:3` `live dual-generation gate` | `CUTOVER.md` | verified |
 | S-042 | Local plugin entries must be deduplicated by the loader, not only by the plugin. | `src/core/install-scope.ts:56` `claimCoexistence` | - | host-bound |
-| S-043 | Legacy config keys no longer produce per-boot normalization warnings. | `src/utils/opencode-config.ts:376` `applyBootRepairs` | `scripts/prove-e02.ts` | verified |
+| S-043 | Legacy config keys no longer produce per-boot normalization warnings. | `src/utils/opencode-config.ts:388` `applyBootRepairs` | `scripts/prove-e02.ts` | verified |
 | S-044 | Select and multiselect elicitation fail closed through the ask bridge. | `src/services/ask-channel-parse.ts:12` `multiselect` | `scripts/prove-v2-ask-bridge.ts` | verified |
 | S-045 | Deferred tool schemas are refreshed after init with a bounded retry. | `src/v2/setup.ts:52` `SCHEMA_RETRY_ATTEMPTS` | `scripts/prove-b02.ts` | verified |
 | S-046 | Unknown permission actions need a host default policy or rule registration. | `src/v2/ask.ts:18` `evaluate` | - | host-bound |
@@ -90,11 +90,11 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-053.7 | Confidentiality at rest for plugin state is a host and OS responsibility, not a plugin feature. | - | - | n-a |
 | S-053.8 | User-level rate limiting is not a single-user local plugin surface. | - | - | n-a |
 | S-053.9 | Shared state is signed with HMAC-SHA256 before it is written and verified on read. | `src/utils/crypto.ts:21` `export const HMAC_PREFIX = "TAWASSUL_V2_HMAC_V1:";` | `scripts/prove-s017.ts` | verified |
-| S-053.10 | Deleted-agent names persist in the user-owned deletion list and survive a seed. | `src/scripts/gen-opencode-config.ts:58` `deletedPath: resolve(root, ".opencode", "deleted-agents.json"),` | `scripts/prove-seed-agents.ts`, `scripts/prove-first-boot-seed.ts` | verified |
+| S-053.10 | In global scope, deleted-agent names persist in roster.deleted and survive a seed; in project scope, absence from config.agent is the record. | `src/scripts/gen-opencode-config.ts:60` `deletedPath: resolve(root, ".opencode", "deleted-agents.json"),` | `scripts/prove-seed-agents.ts`, `scripts/prove-first-boot-seed.ts` | verified |
 | S-054 | The frozen boot-scorecard fixes are ported. | `scripts/boot-scorecard-v2.sh:30` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
 | S-055 | The v1 docs and atomic backlog is triaged before retirement. | - | - | doc-only |
 | S-056 | The legacy state directory and fallback reads are removed; HMAC key and signature compatibility remain. | `src/utils/state-paths.ts:41` `export function statePath(` | `scripts/prove-v2-independence.ts`, `scripts/prove-s017.ts` | verified |
-| S-057 | The addagent advisory consults the provider before warning about an unknown model. | `src/core/model-registry.ts:171` `shouldWarnUnverifiedModel` | `scripts/prove-s028.ts` | verified |
+| S-057 | The addagent advisory consults the provider before warning about an unknown model. | `src/core/model-registry.ts:192` `shouldWarnUnverifiedModel` | `scripts/prove-s028.ts` | verified |
 
 ## Open items
 

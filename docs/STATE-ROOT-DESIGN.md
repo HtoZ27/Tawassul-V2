@@ -100,7 +100,7 @@ This is a hard rule. The project root takes persistence only.
 | `opencode.json(c)` at the project root | `tawassul-state.json` |
 | `.opencode/tawassul.json(c)` roster | `tawassul-sessions/` |
 | `.opencode/agents/` | `tool-run-log.json`, `activity-metrics.json` |
-| `.opencode/deleted-agents.json` | `handoff` ledger, `timeline`, goals, mission board |
+| `.opencode/deleted-agents.json` (inert; project deletion is absence from `opencode.json`) | `handoff` ledger, `timeline`, goals, mission board |
 | `.opencode/tawassul-pins.json` | `collective-memory-*`, `feature-index.json` |
 | `.opencode/tawa-prefs.json` | `checkpoint`, `code-state` index, `cost-transparency.json` |
 | `.opencode/skills/`, `.opencode/plugin(s)/` | `predictive-router.json`, `vector-index.json` |

@@ -103,55 +103,65 @@ interface ProviderTokenCache {
   path: string;
   mtimeMs: number;
   byProvider: Map<string, ReadonlySet<string>>;
+  exactByProvider: Map<string, ReadonlySet<string>>;
 }
 
 let providerTokenCache: ProviderTokenCache | null = null;
 
-function readProviderTokenCache(): Map<string, ReadonlySet<string>> {
+function emptyProviderTokenCache(): ProviderTokenCache {
+  return { path: "", mtimeMs: -1, byProvider: new Map(), exactByProvider: new Map() };
+}
+
+function readProviderTokenCache(): ProviderTokenCache {
   const home = process.env.HOME ?? "";
   const path = process.env.TAWASSUL_MODELS_JSON ?? (home !== "" ? `${home}/.cache/opencode/models.json` : "");
-  if (path === "") return new Map();
+  if (path === "") return emptyProviderTokenCache();
   let mtimeMs: number;
   try {
     const st = statSync(path);
-    if (!st.isFile()) return new Map();
+    if (!st.isFile()) return emptyProviderTokenCache();
     mtimeMs = st.mtimeMs;
   } catch {
-    return new Map();
+    return emptyProviderTokenCache();
   }
   if (providerTokenCache !== null && providerTokenCache.path === path && providerTokenCache.mtimeMs === mtimeMs) {
-    return providerTokenCache.byProvider;
+    return providerTokenCache;
   }
   const byProvider = new Map<string, ReadonlySet<string>>();
+  const exactByProvider = new Map<string, ReadonlySet<string>>();
   try {
     const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, { models?: Record<string, unknown> }>;
     for (const [provider, entry] of Object.entries(raw)) {
       const models = entry?.models;
       if (typeof models !== "object" || models === null) continue;
       const tokens = new Set<string>();
+      const exact = new Set<string>();
       for (const slug of Object.keys(models)) {
         const lower = slug.toLowerCase();
         tokens.add(lower);
+        exact.add(lower);
         for (const part of lower.split(/[-_.]+/)) {
           if (part !== "") tokens.add(part);
         }
       }
-      byProvider.set(provider.toLowerCase(), tokens);
+      const key = provider.toLowerCase();
+      byProvider.set(key, tokens);
+      exactByProvider.set(key, exact);
     }
   } catch {
-    return new Map();
+    return emptyProviderTokenCache();
   }
-  providerTokenCache = { path, mtimeMs, byProvider };
-  return byProvider;
+  providerTokenCache = { path, mtimeMs, byProvider, exactByProvider };
+  return providerTokenCache;
 }
 
 export function getProviderModelTokens(provider: string): ReadonlySet<string> {
-  return readProviderTokenCache().get(provider.trim().toLowerCase()) ?? new Set();
+  return readProviderTokenCache().byProvider.get(provider.trim().toLowerCase()) ?? new Set();
 }
 
 export function getAllProviderModelTokens(): ReadonlySet<string> {
   const union = new Set<string>();
-  for (const tokens of readProviderTokenCache().values()) {
+  for (const tokens of readProviderTokenCache().byProvider.values()) {
     for (const t of tokens) union.add(t);
   }
   return union;
@@ -163,9 +173,20 @@ export function isModelServedByProvider(fullModel: string): boolean {
   if (slash <= 0 || slash === trimmed.length - 1) return false;
   const provider = trimmed.slice(0, slash);
   const slug = trimmed.slice(slash + 1);
-  const tokens = readProviderTokenCache().get(provider);
+  const tokens = readProviderTokenCache().byProvider.get(provider);
   if (!tokens) return false;
   return tokens.has(slug);
+}
+
+export function modelAvailability(fullModel: string): "served" | "absent" | "unknown" {
+  const trimmed = fullModel.trim().toLowerCase();
+  const slash = trimmed.indexOf("/");
+  if (slash <= 0 || slash === trimmed.length - 1) return "unknown";
+  const provider = trimmed.slice(0, slash);
+  const slug = trimmed.slice(slash + 1);
+  const exact = readProviderTokenCache().exactByProvider.get(provider);
+  if (!exact) return "unknown";
+  return exact.has(slug) ? "served" : "absent";
 }
 
 export function shouldWarnUnverifiedModel(fullModel: string, usedAlias: boolean): boolean {

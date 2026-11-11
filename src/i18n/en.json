@@ -26,7 +26,6 @@
   "addagentBadFormat": "❌ Invalid format.\nExample: add dev doc analyst with model gemini from google",
   "addagentCompoundInvalidBase": "❌ \"{base}\" is not a valid base in \"{spec}\". Did you mean \"{suggestion}\"?\nAvailable: {available}",
   "addagentCompoundInvalidSuffix": "❌ Suffix \"{suffix}\" in \"{spec}\" is unknown — ungoverned custom agents are rejected.\nKnown suffixes (from registry): {available}",
-  "addagentDeletedAgent": "⛔ Cannot create \"{spec}\" — this agent was deleted from the system and task routing blocks it.",
   "addagentDidYouMean": "⚠️ Did you mean @addagent?",
   "addagentEmpty": "❌ Specify the specializations, model, and provider.\nExample: add dev with model gemini from google",
   "addagentErrors": "❌ Failed to add: {list}",

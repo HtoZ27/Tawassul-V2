@@ -277,7 +277,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/security-policy.ts",
-            "line": 458,
+            "line": 412,
             "marker": "checkTawassulToolPermission"
           },
           "proofs": [
@@ -397,7 +397,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/utils/opencode-config.ts",
-            "line": 507,
+            "line": 531,
             "marker": "ensureGlobalRosterSeed"
           },
           "proofs": [
@@ -621,7 +621,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/core/model-registry.ts",
-            "line": 148,
+            "line": 158,
             "marker": "getProviderModelTokens"
           },
           "proofs": [
@@ -644,7 +644,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/tools/agent-management.ts",
-            "line": 239,
+            "line": 219,
             "marker": "computePinEntries"
           },
           "proofs": [
@@ -663,18 +663,19 @@
       "sharedLine": 538,
       "requirements": [
         {
-          "text": "The live roster is aligned with the generation-layer retire.",
+          "text": "The live roster follows config-derived deletion plus additive generation.",
           "status": "verified",
           "anchor": {
             "file": "src/scripts/gen-opencode-config.ts",
-            "line": 287,
-            "marker": "unionDeletedVariants"
+            "line": 272,
+            "marker": "export function derivedExpectedCount"
           },
           "proofs": [
-            "scripts/prove-s029.ts"
+            "scripts/prove-s029.ts",
+            "scripts/prove-gen-merge-guards.ts"
           ],
           "issue": null,
-          "note": "Generation excludes retired variants; check:config runs in gate:fast and no dedicated proof asserts the union.",
+          "note": "Project deletion is absence from config.agent; the generator adds only keys already present and skips absent generated variants. prove-gen-merge-guards asserts the 16-key first run and subset keep rules; prove-s029 covers the roster paths.",
           "hostNote": null
         }
       ],
@@ -1022,7 +1023,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/utils/opencode-config.ts",
-            "line": 376,
+            "line": 388,
             "marker": "applyBootRepairs"
           },
           "proofs": [
@@ -1360,11 +1361,11 @@
           "hostNote": null
         },
         {
-          "text": "Deleted-agent names persist in the user-owned deletion list and survive a seed.",
+          "text": "In global scope, deleted-agent names persist in roster.deleted and survive a seed; in project scope, absence from config.agent is the record.",
           "status": "verified",
           "anchor": {
             "file": "src/scripts/gen-opencode-config.ts",
-            "line": 58,
+            "line": 60,
             "marker": "deletedPath: resolve(root, \".opencode\", \"deleted-agents.json\"),"
           },
           "proofs": [
@@ -1372,7 +1373,7 @@
             "scripts/prove-first-boot-seed.ts"
           ],
           "issue": null,
-          "note": "The generator reads the deletion list and rejects malformed shapes; the seed never writes it and never overwrites an agent file.",
+          "note": "The global generator reads roster.deleted and rejects malformed shapes; the project generator reads config.agent and writes no deletion list.",
           "hostNote": null
         }
       ],
@@ -1452,7 +1453,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/core/model-registry.ts",
-            "line": 171,
+            "line": 192,
             "marker": "shouldWarnUnverifiedModel"
           },
           "proofs": [

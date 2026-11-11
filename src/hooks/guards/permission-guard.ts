@@ -102,8 +102,7 @@ export async function checkRosterBoundaryDelete(input: Input, output: StageOutpu
         filePath.endsWith("tawassul.jsonc") ||
         filePath.endsWith("tawassul-state.json") ||
         filePath.endsWith("tawassul-pins.json") ||
-        isAgentVariantMd ||
-        filePath.endsWith("deleted-agents.json"));
+        isAgentVariantMd);
     if (isRosterFile) {
       if (isAgentVariantMd) {
         logger.audit("PERMISSION_BLOCKED", {
@@ -207,8 +206,11 @@ export async function checkRosterBoundaryDelete(input: Input, output: StageOutpu
           });
           return `🚫 Deleting protected agents via ${input.tool} is forbidden — use kick: ${deleted.join(", ")}`;
         }
-        const oldDeletedSet = extractDeletedNames(currentDisk);
-        const newDeletedSet = extractDeletedNames(newContent);
+        const isGlobalRoster =
+          typeof filePath === "string" &&
+          (filePath.endsWith("tawassul.json") || filePath.endsWith("tawassul.jsonc"));
+        const oldDeletedSet = isGlobalRoster ? extractDeletedNames(currentDisk) : null;
+        const newDeletedSet = isGlobalRoster ? extractDeletedNames(newContent) : null;
         if (oldDeletedSet && newDeletedSet) {
           const removedDeletions = [...oldDeletedSet].filter((n) => !newDeletedSet.has(n));
           if (removedDeletions.length > 0) {

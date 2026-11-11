@@ -2,12 +2,12 @@ import { ALL_AGENTS } from "../agent-templates.ts";
 import { ROLE_NAMES } from "../core/agent-data.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 import { resolveModelAlias, MODEL_ALIASES, MODEL_CATALOG, KNOWN_MODEL_SUFFIXES } from "../services/proxy-models.ts";
-import { getProviderModelTokens, MODEL_ID_TO_SUFFIX } from "../core/model-registry.ts";
+import { getProviderModelTokens, MODEL_ID_TO_SUFFIX, modelAvailability } from "../core/model-registry.ts";
 import { buildCapabilitySummary } from "../core/capability-summary.ts";
 import { isGeneratedVariant } from "../core/variant-names.ts";
 import { levenshtein } from "../core/nlp.ts";
-import { DELETED_AGENTS } from "../security-policy.ts";
 import { getAllowedToolsForRole } from "../role-matrix.ts";
+import { logger } from "../utils/logger.ts";
 import { t } from "../translations.ts";
 
 export const BASE_ROLE_NAMES: ReadonlySet<string> = new Set(ALL_AGENTS.map((a) => a.name));
@@ -168,7 +168,8 @@ export function parseAddInput(input: string): ParsedAddInput | null {
 }
 
 export function validateAddInput(specs: string[], model: string): string | null {
-  if (!resolveModelAlias(model)) {
+  const resolved = resolveModelAlias(model);
+  if (!resolved) {
     const aliases = Object.keys(MODEL_ALIASES).join(", ");
     if (model.includes("/")) {
       return t("addagentUnknownModel", { model }) + `\n💡 ${t("addagentAvailableModels", { aliases })}`;
@@ -179,6 +180,17 @@ export function validateAddInput(specs: string[], model: string): string | null 
       return t("addagentModelDidYouMean", { model, suggestion });
     }
     return t("addagentUnknownModel", { model }) + `\n💡 ${t("addagentAvailableModels", { aliases })}`;
+  }
+  const provider = resolved.includes("/") ? resolved.split("/")[0]! : resolved;
+  const availability = modelAvailability(resolved);
+  if (availability === "absent") {
+    return `${provider} does not list ${resolved} — the provider is the source of truth, not the registry`;
+  }
+  if (availability === "unknown") {
+    logger.warn(
+      `${provider} does not list ${resolved} — the provider is the source of truth, not the registry; ` +
+        `allowing ${resolved} unverified`,
+    );
   }
   for (const spec of specs) {
     const normalized = normalizeName(spec);
@@ -193,9 +205,6 @@ export function validateAddInput(specs: string[], model: string): string | null 
     }
     if (OPCODE_BUILTIN_AGENTS.has(normalized)) {
       return t("addagentReservedName", { spec });
-    }
-    if (DELETED_AGENTS.has(normalized)) {
-      return t("addagentDeletedAgent", { spec });
     }
     const compound = parseCompoundSpec(spec);
     if (compound) {

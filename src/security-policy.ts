@@ -111,51 +111,6 @@ export const TASK_PERMISSIONS: Readonly<Record<string, readonly string[]>> = {
 export const GENERAL_REPORT_ONLY_CALLERS: ReadonlySet<string> = new Set(["analyst", "reviewer", "architect"]);
 
 
-export const DELETED_AGENTS: ReadonlySet<string> = Object.freeze(
-  new Set([
-    "dev-north",
-    "analyst-north",
-    "tester-north",
-    "reviewer-north",
-    "architect-north",
-    "dev-nemotron",
-    "analyst-nemotron",
-    "tester-nemotron",
-    "reviewer-nemotron",
-    "architect-nemotron",
-    "dev-proxy",
-    "analyst-hy3",
-    "architect-hy3",
-    "dev-hy3",
-    "reviewer-hy3",
-    "tester-hy3",
-    "designer-hy3",
-    "doc-hy3",
-    "analyst-kimi",
-    "architect-kimi",
-    "dev-kimi",
-    "reviewer-kimi",
-    "tester-kimi",
-    "designer-kimi",
-    "doc-kimi",
-    "analyst-ling",
-    "architect-ling",
-    "designer-ling",
-    "dev-ling",
-    "doc-ling",
-    "reviewer-ling",
-    "tester-ling",
-    "analyst-muse",
-    "architect-muse",
-    "designer-muse",
-    "dev-muse",
-    "doc-muse",
-    "reviewer-muse",
-    "tester-muse",
-  ]),
-) as ReadonlySet<string>;
-
-
 let dynamicDeletedAgents: ReadonlySet<string> = new Set<string>();
 
 export function setDynamicDeletedAgents(agents: ReadonlySet<string> | string[]): void {
@@ -432,8 +387,7 @@ export class SecurityPolicy {
 
     
     if (agentName) {
-      const deleted =
-        (DELETED_AGENTS.has(agentName) || dynamicDeletedAgents.has(agentName)) && !userPreservedAgents.has(agentName);
+      const deleted = dynamicDeletedAgents.has(agentName) && !userPreservedAgents.has(agentName);
       if (deleted) {
         logger.debug(`validateTaskRouting: BLOCKED deleted agent="${agentName}"`);
         return {
@@ -451,7 +405,7 @@ export class SecurityPolicy {
   static checkDeletedAgent(agentName: string): boolean {
     const normalized = normalizeName(agentName);
     if (userPreservedAgents.has(normalized)) return false;
-    return DELETED_AGENTS.has(normalized) || dynamicDeletedAgents.has(normalized);
+    return dynamicDeletedAgents.has(normalized);
   }
 
   

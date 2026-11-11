@@ -97,8 +97,10 @@ export async function removeAgentsFromConfig(ctx: TawassulContext, specs: string
   try {
     raw = await readFile(opencodePath, "utf-8");
   } catch (e) {
-    if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
-    return;
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error("kick: project config is missing — refusing to write");
+    }
+    throw e;
   }
   const conf = JSON.parse(cfgName.endsWith(".jsonc") ? stripJsoncComments(raw) : raw);
   if (!conf.agent || typeof conf.agent !== "object" || Array.isArray(conf.agent)) {

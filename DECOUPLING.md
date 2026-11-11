@@ -10,7 +10,9 @@ After the cutover the v1 tree becomes a read-only reference; no new
 1. Runtime files (agent `.md` prompts, `deleted-agents.json`, `opencode.json`):
    the inventory below is now produced locally: `npm run seed:agents` writes
    the 8 base agents, `opencode.json` comes from `gen-opencode-config.ts`, and
-   `deleted-agents.json` stays user state that no seed overwrites.
+   project deletion is absence from `opencode.json` (the legacy
+   `deleted-agents.json` sidecar is inert; the global lane keeps deletions in
+   `roster.deleted`).
 2. State paths: rename to a v2-specific namespace (see below).
 3. `check-shared-anchors` keeps running until cutover; retirement happens then.
 
@@ -21,7 +23,7 @@ After the cutover the v1 tree becomes a read-only reference; no new
 | `dist/index.js` | `npm run build` (bun) | gitignored, built locally |
 | `opencode.json` (34 agents) | `bun src/scripts/gen-opencode-config.ts` | untracked; `--check` runs in `gate:fast` |
 | `.opencode/agents/*.md` (8 bases) | `npm run seed:agents` → `generateAgentMd` from `ALL_AGENTS` (`src/core/render-agent.ts`) | untracked; never overwrites an existing file, `--force` is explicit; 3 manually added variants sit beside the bases and are never touched |
-| `.opencode/deleted-agents.json` (35 names) | user state; no seed writes it | untracked; the generator reads it and ignores non-variant names |
+| `.opencode/deleted-agents.json` (inert) | compatibility file; no seed writes it | untracked; project deletion is absence from `opencode.json`, so the generator does not read it |
 | `.opencode/tawassul-state.json` | runtime (HMAC-signed envelope) | untracked; created on first boot |
 | HMAC key | runtime (`src/utils/crypto.ts` key code) | machine-local; fresh key per machine |
 | `tawassul.jsonc` (global roster) | boot seed (`ensureGlobalRosterSeed`) and `opencode.json` edits | written once, only when neither `tawassul.jsonc` nor the legacy `tawassul.json` exists |

@@ -4,10 +4,11 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { BASH_READ_ONLY } from "../permissions.ts";
 import { TAWASSUL_TOOL_NAMES } from "../tool-names.ts";
-import { BLOCKED_TOOLS, TAWA_AGENT, DELETED_AGENTS } from "../security-policy.ts";
+import { BLOCKED_TOOLS, TAWA_AGENT } from "../security-policy.ts";
 import { getAllowedToolsForRole } from "../role-matrix.ts";
 import { ALL_AGENTS, ROLE_NAMES } from "../core/agent-data.ts";
 import { MODEL_SUFFIX_MAP, isGeneratedVariant, RETIRED_MODEL_IDS, LEGACY_UNIFIED_HEAD } from "../core/variant-names.ts";
+import { modelAvailability } from "../core/model-registry.ts";
 import { resolveModelAlias, MODEL_ALIASES } from "../services/proxy-models.ts";
 import { defaultAgentModelForRole } from "../services/proxy-fallback-chains.ts";
 import { logger } from "../utils/logger.ts";
@@ -19,6 +20,7 @@ import {
   readTawassulRoster,
   readJsoncObject,
   writeTawassulRoster,
+  ensureBaseAgentFiles,
   type TawassulRoster,
 } from "../utils/opencode-config.ts";
 import {
@@ -71,12 +73,17 @@ export function refuseProjectTarget(configPath: string): string | null {
       `— a global install must pass --project <real-project-dir> (or TAWASSUL_PROJECT_DIR)`
     );
   }
-  const marker = resolve(dirname(configPath), ".opencode", "agents", "tawa.md");
-  if (!existsSync(marker)) {
+  const dir = dirname(configPath);
+  const jsonPath = resolve(dir, "opencode.json");
+  const jsoncPath = resolve(dir, "opencode.jsonc");
+  if (!existsSync(jsonPath) && !existsSync(jsoncPath)) {
     return (
-      `${dirname(configPath)} is not a tawassul project — missing the project marker ${marker} ` +
+      `${dir} is not an opencode project — neither opencode.json nor opencode.jsonc exists ` +
       `(run from the project root or pass --project <dir>)`
     );
+  }
+  if (!existsSync(jsonPath) && existsSync(jsoncPath)) {
+    return `refusing to create opencode.json beside an existing opencode.jsonc in ${dir}`;
   }
   return null;
 }
@@ -252,40 +259,14 @@ export interface GenOptions {
   deleted?: readonly string[];
 }
 
-export function readDeletedAgents(path?: string): string[] {
-  const p = path ?? getDefaultPaths().deletedPath;
-  if (!existsSync(p)) {
-    logger.warn(`[gen-opencode-config] deleted-agents.json not found at ${p} — treating as empty (no deletions)`);
-    return [];
-  }
-  const raw = readFileSync(p, "utf-8");
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (e) {
-    throw new Error(`gen-opencode-config: malformed deleted-agents.json at ${p}: ${(e as Error).message}`, {
-      cause: e,
-    });
-  }
-  const deleted = (parsed as { deleted?: unknown } | null)?.deleted;
-  if (!Array.isArray(deleted) || deleted.some((d) => typeof d !== "string")) {
-    throw new Error(`gen-opencode-config: deleted-agents.json at ${p} must be { "deleted": string[] }`);
-  }
-  return deleted as string[];
-}
-
 export function validateDeletedList(deleted: readonly string[], extend: readonly string[] = EXTEND_AGENTS): void {
   const bad = deleted.filter((name) => !isGeneratedVariant(name, extend));
   if (bad.length > 0) {
     logger.warn(
-      `[gen-opencode-config] deleted-agents.json contains non-variant name(s) — ignoring ${bad.join(", ")} ` +
+      `[gen-opencode-config] deletion list contains non-variant name(s) — ignoring ${bad.join(", ")} ` +
         `(only generated variants "role-suffix" reduce the emission set; freeform names are advisory only)`,
     );
   }
-}
-
-export function unionDeletedVariants(base: readonly string[]): string[] {
-  return [...new Set([...base, ...[...DELETED_AGENTS].filter((n) => isGeneratedVariant(n, EXTEND_AGENTS))])];
 }
 
 export function derivedExpectedCount(deleted: readonly string[]): number {
@@ -505,7 +486,7 @@ function escapeRegex(pattern: string): string {
 export function buildAgents(deleted?: readonly string[], opts?: GenOptions): Record<string, AgentConfig> {
   const paths = opts?.projectRoot ? resolveGenPaths(opts.projectRoot) : getDefaultPaths();
   const agentsDir = opts?.agentsDir ?? paths.agentsDir;
-  const deletedList = deleted ?? unionDeletedVariants(readDeletedAgents(opts?.deletedPath ?? paths.deletedPath));
+  const deletedList = deleted ?? [];
   validateDeletedList(deletedList);
   assertBaseRegistrySync(agentsDir, deletedList);
 
@@ -564,97 +545,129 @@ export function buildAgents(deleted?: readonly string[], opts?: GenOptions): Rec
 
 export const EXPECTED_AGENT_COUNT = BASE_ORDER.length + EXTEND_AGENTS.length * Object.keys(MODEL_SUFFIX_MAP).length + 1;
 
+export function firstRunAgentSet(opts?: GenOptions): Record<string, AgentConfig> {
+  const all = buildAgents([], opts);
+  const firstRun: Record<string, AgentConfig> = {};
+  for (const [name, cfg] of Object.entries(all)) {
+    if (
+      (BASE_ORDER as readonly string[]).includes(name) ||
+      name === "addagent" ||
+      (name.endsWith("-pickle") && isGeneratedVariant(name, EXTEND_AGENTS))
+    ) {
+      firstRun[name] = cfg;
+    }
+  }
+  return firstRun;
+}
+
 export function buildMergedAgents(maybeRaw?: string, opts?: GenOptions): Record<string, AgentConfig> {
   const paths = opts?.projectRoot ? resolveGenPaths(opts.projectRoot) : getDefaultPaths();
   const configPath = opts?.configPath ?? paths.configPath;
   let raw: string;
   if (maybeRaw !== undefined) {
     raw = maybeRaw;
-  } else {
+  } else if (existsSync(configPath)) {
     raw = readFileSync(configPath, "utf-8");
+  } else {
+    return firstRunAgentSet(opts);
   }
-  const agents = buildAgents(opts?.deleted, opts) as Record<string, unknown>;
-  const existing = (() => {
-    try {
-      return readJsoncObject(raw).agent;
-    } catch {
-      return null;
-    }
-  })();
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = readJsoncObject(raw);
+  } catch (e) {
+    throw new Error("opencode.json is present but cannot be parsed; regeneration refused", { cause: e });
+  }
+  const agentValue = parsed.agent;
+  const isContainer = agentValue !== null && typeof agentValue === "object" && !Array.isArray(agentValue);
+  if (
+    agentValue === undefined ||
+    agentValue === null ||
+    (isContainer && Object.keys(agentValue as Record<string, unknown>).length === 0)
+  ) {
+    return firstRunAgentSet(opts);
+  }
+  if (!isContainer) {
+    throw new Error("opencode.json agent must be an object");
+  }
+  const existing = agentValue as Record<string, unknown>;
   const pinned = loadPinnedAgents(opts?.deletedPath ?? paths.deletedPath, opts?.pinsPath);
-  if (existing && typeof existing === "object" && !Array.isArray(existing)) {
-    for (const [name, cfg] of Object.entries(existing as Record<string, unknown>)) {
-      if (name in agents) {
-        const existingCfg = cfg as { model?: string };
-        const generatedCfg = agents[name] as { model?: string } | undefined;
-        const retiredOverride =
-          existingCfg && typeof existingCfg.model === "string" && RETIRED_MODEL_IDS.has(existingCfg.model);
-        const legacyHeadOnBase =
-          existingCfg &&
-          typeof existingCfg.model === "string" &&
-          !pinned.has(normalizeName(name)) &&
-          (BASE_ORDER as readonly string[]).includes(name) &&
-          existingCfg.model === LEGACY_UNIFIED_HEAD &&
-          generatedCfg?.model !== undefined &&
-          generatedCfg.model !== LEGACY_UNIFIED_HEAD;
-        const addagentStale =
-          name === "addagent" &&
-          !pinned.has(normalizeName(name)) &&
-          typeof existingCfg.model === "string" &&
-          existingCfg.model === "opencode/mimo-v2.5-free" &&
-          generatedCfg?.model === "opencode/big-pickle";
-        if (
-          existingCfg &&
-          !retiredOverride &&
-          !legacyHeadOnBase &&
-          !addagentStale &&
-          typeof existingCfg === "object" &&
-          typeof existingCfg.model === "string" &&
-          generatedCfg &&
-          typeof generatedCfg.model === "string" &&
-          existingCfg.model !== generatedCfg.model
-        ) {
-          agents[name] = cfg;
-        }
-        const merged = agents[name] as { permission?: { bash?: unknown } } | undefined;
-        if (
-          merged &&
-          merged.permission &&
-          typeof merged.permission.bash === "object" &&
-          merged.permission.bash !== null &&
-          !Array.isArray(merged.permission.bash)
-        ) {
-          const live = JSON.parse(JSON.stringify(BASH_READ_ONLY)) as Record<string, string>;
-          if (JSON.stringify(merged.permission.bash) !== JSON.stringify(live)) {
-            merged.permission.bash = live;
-          }
-        }
-        if (
-          (name === TAWA_AGENT || name === "addagent") &&
-          merged &&
-          merged.permission &&
-          (typeof merged.permission.bash === "string" || merged.permission.bash === undefined)
-        ) {
-          merged.permission.bash = JSON.parse(JSON.stringify(BASH_READ_ONLY)) as Record<string, string>;
-        }
-        continue;
-      }
-      if (isGeneratedVariant(name, EXTEND_AGENTS)) continue;
-      const dyn = cfg as { permission?: { bash?: unknown } };
+  const agents = buildAgents(opts?.deleted, opts) as Record<string, unknown>;
+  for (const [name, cfg] of Object.entries(existing)) {
+    if (name in agents) {
+      const existingCfg = cfg as { model?: string };
+      const generatedCfg = agents[name] as { model?: string } | undefined;
+      const retiredOverride =
+        existingCfg && typeof existingCfg.model === "string" && modelAvailability(existingCfg.model) === "absent";
+      const legacyHeadOnBase =
+        existingCfg &&
+        typeof existingCfg.model === "string" &&
+        !pinned.has(normalizeName(name)) &&
+        (BASE_ORDER as readonly string[]).includes(name) &&
+        existingCfg.model === LEGACY_UNIFIED_HEAD &&
+        generatedCfg?.model !== undefined &&
+        generatedCfg.model !== LEGACY_UNIFIED_HEAD;
+      const addagentStale =
+        name === "addagent" &&
+        !pinned.has(normalizeName(name)) &&
+        typeof existingCfg.model === "string" &&
+        existingCfg.model === "opencode/mimo-v2.5-free" &&
+        generatedCfg?.model === "opencode/big-pickle" &&
+        modelAvailability(existingCfg.model) === "absent";
       if (
-        dyn &&
-        dyn.permission &&
-        typeof dyn.permission.bash === "object" &&
-        dyn.permission.bash !== null &&
-        !Array.isArray(dyn.permission.bash)
+        existingCfg &&
+        !retiredOverride &&
+        !legacyHeadOnBase &&
+        !addagentStale &&
+        typeof existingCfg === "object" &&
+        typeof existingCfg.model === "string" &&
+        generatedCfg &&
+        typeof generatedCfg.model === "string" &&
+        existingCfg.model !== generatedCfg.model
+      ) {
+        agents[name] = cfg;
+      }
+      const merged = agents[name] as { permission?: { bash?: unknown } } | undefined;
+      if (
+        merged &&
+        merged.permission &&
+        typeof merged.permission.bash === "object" &&
+        merged.permission.bash !== null &&
+        !Array.isArray(merged.permission.bash)
       ) {
         const live = JSON.parse(JSON.stringify(BASH_READ_ONLY)) as Record<string, string>;
-        if (JSON.stringify(dyn.permission.bash) !== JSON.stringify(live)) {
-          dyn.permission.bash = live;
+        if (JSON.stringify(merged.permission.bash) !== JSON.stringify(live)) {
+          merged.permission.bash = live;
         }
       }
-      agents[name] = cfg;
+      if (
+        (name === TAWA_AGENT || name === "addagent") &&
+        merged &&
+        merged.permission &&
+        (typeof merged.permission.bash === "string" || merged.permission.bash === undefined)
+      ) {
+        merged.permission.bash = JSON.parse(JSON.stringify(BASH_READ_ONLY)) as Record<string, string>;
+      }
+      continue;
     }
+    if (isGeneratedVariant(name, EXTEND_AGENTS)) continue;
+    const dyn = cfg as { permission?: { bash?: unknown } };
+    if (
+      dyn &&
+      dyn.permission &&
+      typeof dyn.permission.bash === "object" &&
+      dyn.permission.bash !== null &&
+      !Array.isArray(dyn.permission.bash)
+    ) {
+      const live = JSON.parse(JSON.stringify(BASH_READ_ONLY)) as Record<string, string>;
+      if (JSON.stringify(dyn.permission.bash) !== JSON.stringify(live)) {
+        dyn.permission.bash = live;
+      }
+    }
+    agents[name] = cfg;
+  }
+  for (const name of Object.keys(agents)) {
+    if (!isGeneratedVariant(name, EXTEND_AGENTS)) continue;
+    if (!(name in existing)) delete agents[name];
   }
   const addagentAgent = agents.addagent as { permission?: Record<string, unknown> } | undefined;
   if (addagentAgent && addagentAgent.permission && typeof addagentAgent.permission === "object") {
@@ -690,6 +703,11 @@ export function checkGeneratedConfig(raw?: string, opts?: GenOptions): { ok: boo
   } else {
     return { ok: true, missing: true };
   }
+  const agentsDir = opts?.agentsDir ?? paths.agentsDir;
+  const missingBaseFiles = BASE_ORDER.filter((name) => !existsSync(resolve(agentsDir, `${name}.md`)));
+  if (missingBaseFiles.length > 0) {
+    return { ok: false, diff: `missing base agent files: ${missingBaseFiles.join(", ")}` };
+  }
   let actualObj: Record<string, unknown>;
   try {
     actualObj = readJsoncObject(actualRaw);
@@ -697,10 +715,12 @@ export function checkGeneratedConfig(raw?: string, opts?: GenOptions): { ok: boo
     return { ok: false, diff: `failed to parse opencode.json: ${(e as Error).message}` };
   }
   const agentValue = (actualObj as Record<string, unknown>).agent;
-  if (!agentValue || typeof agentValue !== "object" || Array.isArray(agentValue)) {
-    const expectedAgents = buildMergedAgents(actualRaw, opts);
-    const missing = Object.keys(expectedAgents);
-    return { ok: false, diff: `missing agents: ${missing.join(", ")}` };
+  if (agentValue === undefined || agentValue === null) {
+    const expectedAgents = firstRunAgentSet(opts);
+    return { ok: false, diff: `missing agents: ${Object.keys(expectedAgents).join(", ")}` };
+  }
+  if (typeof agentValue !== "object" || Array.isArray(agentValue)) {
+    return { ok: false, diff: "agent must be an object" };
   }
   const actualAgents = agentValue as Record<string, unknown>;
   const expectedAgents = buildMergedAgents(actualRaw, opts);
@@ -726,9 +746,15 @@ export function checkGeneratedConfig(raw?: string, opts?: GenOptions): { ok: boo
       continue;
     }
     const pureModel = (pureAgents[name] as { model?: string } | undefined)?.model;
-    if (actual.model !== pureModel && !pinned.has(normalizeName(name))) {
+    const actualModel = actual.model;
+    const acceptedModel =
+      actualModel === pureModel ||
+      pinned.has(normalizeName(name)) ||
+      (typeof actualModel === "string" && modelAvailability(actualModel) === "served") ||
+      (typeof actualModel === "string" && RETIRED_MODEL_IDS.has(actualModel) && modelAvailability(actualModel) !== "absent");
+    if (!acceptedModel) {
       mismatched.push(
-        `${name}: model "${String(actual.model ?? "undefined")}" matches neither template ("${String(pureModel ?? "undefined")}") nor pins sidecar`,
+        `${name}: model "${String(actualModel ?? "undefined")}" matches neither template ("${String(pureModel ?? "undefined")}") nor pins sidecar nor provider availability`,
       );
       continue;
     }
@@ -741,26 +767,10 @@ export function checkGeneratedConfig(raw?: string, opts?: GenOptions): { ok: boo
       mismatched.push(`${name}: permission drift vs generated template`);
     }
   }
-  let deletedList: readonly string[] = opts?.deleted ?? [];
-  if (!opts?.deleted) {
-    try {
-      deletedList = readDeletedAgents(opts?.deletedPath ?? paths.deletedPath);
-    } catch {
-      deletedList = [];
-    }
-  }
-  const deletedSet = new Set(deletedList.map((s) => normalizeName(String(s))));
-  const resurrected = Object.keys(actualAgents).filter(
-    (name) => deletedSet.has(normalizeName(name)) && isGeneratedVariant(name, EXTEND_AGENTS),
-  );
-  if (missing.length === 0 && mismatched.length === 0 && resurrected.length === 0) return { ok: true };
+  if (missing.length === 0 && mismatched.length === 0) return { ok: true };
   const parts: string[] = [];
   if (missing.length > 0) parts.push(`missing agents: ${missing.join(", ")}`);
   if (mismatched.length > 0) parts.push(`model mismatches: ${mismatched.join("; ")}`);
-  if (resurrected.length > 0)
-    parts.push(
-      `resurrected deleted variants: ${resurrected.join(", ")} (present in deleted-agents.json but found in opencode.json)`,
-    );
   return { ok: false, diff: parts.join("\n") };
 }
 
@@ -846,40 +856,58 @@ async function main(): Promise<void> {
     return;
   }
 
-  const deleted = unionDeletedVariants(readDeletedAgents(paths.deletedPath));
-  const agents = buildAgents(deleted, opts);
-  const count = Object.keys(agents).length;
-  const expected = derivedExpectedCount(deleted);
-  if (count !== expected) {
-    logger.error(
-      `[gen-opencode-config] FATAL: agent count ${count} != derived expectation ${expected} ` +
-        `(BASE_ORDER=${BASE_ORDER.length}, EXTEND_AGENTS=${EXTEND_AGENTS.length}, ` +
-        `suffixes=${Object.keys(MODEL_SUFFIX_MAP).length}, deleted=${deleted.length})`,
-    );
-    process.exitCode = 1;
-    return;
-  }
+  await ensureBaseAgentFiles(paths.agentsDir);
 
   const locked = await withCliConfigLock(dirname(paths.configPath), async () => {
-    const deletedIn = unionDeletedVariants(readDeletedAgents(paths.deletedPath));
-    const agentsIn = buildAgents(deletedIn, opts);
-    const countIn = Object.keys(agentsIn).length;
-    const expectedIn = derivedExpectedCount(deletedIn);
-    if (countIn !== expectedIn) {
+    const rawDoc = readFileSync(paths.configPath, "utf-8");
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = readJsoncObject(rawDoc);
+    } catch (e) {
       throw new Error(
-        `[gen-opencode-config] FATAL (in-lock): agent count ${countIn} != derived expectation ${expectedIn}`,
+        `opencode.json is present but cannot be parsed; regeneration refused: ${(e as Error).message}`,
+        { cause: e },
       );
     }
-    const expectedTextIn = buildExpectedConfig(undefined, opts);
-    await atomicWriteFile(paths.configPath, expectedTextIn);
+    const agentValue = parsed.agent;
+    const existing =
+      agentValue !== null && typeof agentValue === "object" && !Array.isArray(agentValue)
+        ? (agentValue as Record<string, unknown>)
+        : null;
+    const gated = buildMergedAgents(rawDoc, opts);
+    const firstRun = existing === null || Object.keys(existing).length === 0;
+    if (firstRun) {
+      const expectedFirstRun = Object.keys(firstRunAgentSet(opts)).length;
+      if (Object.keys(gated).length !== expectedFirstRun) {
+        throw new Error(
+          `[gen-opencode-config] FATAL (in-lock): first-run document emitted ${Object.keys(gated).length} agents, ` +
+            `expected ${expectedFirstRun}`,
+        );
+      }
+    } else {
+      for (const name of Object.keys(gated)) {
+        if (isGeneratedVariant(name, EXTEND_AGENTS) && !(name in existing)) {
+          throw new Error(
+            `[gen-opencode-config] FATAL (in-lock): emitted generated variant "${name}" is not a key of the existing agent container`,
+          );
+        }
+      }
+      const deletedSet = new Set((opts.deleted ?? []).map((name) => normalizeName(String(name))));
+      for (const name of Object.keys(existing)) {
+        if (!isGeneratedVariant(name, EXTEND_AGENTS)) continue;
+        if (!(name in gated) && !deletedSet.has(normalizeName(name))) {
+          throw new Error(
+            `[gen-opencode-config] FATAL (in-lock): existing generated variant "${name}" would be dropped without a deletion entry`,
+          );
+        }
+      }
+    }
+    await atomicWriteFile(paths.configPath, spliceAgentSection(rawDoc, gated));
     const verify = checkGeneratedConfig(undefined, opts);
     if (!verify.ok) {
       throw new Error(`[gen-opencode-config] post-write verify FAILED — ${verify.diff ?? ""}`);
     }
-    logger.warn(
-      `[gen-opencode-config] opencode.json regenerated with ${countIn} agents ` +
-        `(${deletedIn.length} deleted variant(s) skipped)`,
-    );
+    logger.warn(`[gen-opencode-config] opencode.json regenerated with ${Object.keys(gated).length} agents`);
   });
   if (!locked) {
     process.exitCode = 1;

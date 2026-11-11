@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, existsSync, mkdirSync, utimesSync, w
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureMinimalProjectContract, ensureGlobalRosterSeed } from "../src/utils/opencode-config.ts";
+import { generateAgentMd, ALL_AGENTS } from "../src/agent-templates.ts";
 import { defaultAgentModelForRole } from "../src/services/proxy-fallback-chains.ts";
 import { StaleDetector } from "../src/services/stale-detector/index.ts";
 
@@ -27,8 +28,26 @@ async function proveMinimalContract(): Promise<void> {
     ) {
       fail("experimental.subagent_depth must be 3");
     }
-    if (!doc["agent"] || typeof doc["agent"] !== "object" || Object.keys(doc["agent"] as object).length !== 0) {
-      fail("agent container must exist and be empty");
+    const agentContainer = doc["agent"];
+    if (!agentContainer || typeof agentContainer !== "object" || Array.isArray(agentContainer)) {
+      fail("agent container must be an object");
+    }
+    const agent = agentContainer as Record<string, unknown>;
+    const keys = Object.keys(agent);
+    if (keys.length !== 16) fail(`first-run contract must hold 16 agents, found ${keys.length}`);
+    for (const entry of ALL_AGENTS) {
+      if (!(entry.name in agent)) fail(`first-run contract is missing base ${entry.name}`);
+    }
+    if (!("addagent" in agent)) fail("first-run contract is missing addagent");
+    if (keys.filter((name) => name.endsWith("-pickle")).length !== 7) {
+      fail("first-run contract must hold the 7 pickle variants");
+    }
+    for (const entry of ALL_AGENTS) {
+      const mdPath = join(dir, ".opencode", "agents", `${entry.name}.md`);
+      if (!existsSync(mdPath)) fail(`base agent file ${entry.name}.md missing`);
+      if (readFileSync(mdPath, "utf-8") !== generateAgentMd(entry)) {
+        fail(`base agent file ${entry.name}.md drifted from the generated template`);
+      }
     }
     if ("mcp" in doc) fail("mcp must be absent without a bundle");
     const second = await ensureMinimalProjectContract(dir, "project");
@@ -36,6 +55,26 @@ async function proveMinimalContract(): Promise<void> {
     const scoped = await ensureMinimalProjectContract(dir, "global");
     if (scoped.created || scoped.reason !== "non-project-scope") fail("global scope must refuse");
     console.log("minimal-contract ok");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+async function proveModifiedBasePreserved(): Promise<void> {
+  const dir = mkdtempSync(join(tmpdir(), "tawassul-seed-modified-"));
+  try {
+    const agentsDir = join(dir, ".opencode", "agents");
+    mkdirSync(agentsDir, { recursive: true });
+    const dev = ALL_AGENTS.find((entry) => entry.name === "dev");
+    if (!dev) fail("dev template missing");
+    const modified = generateAgentMd(dev) + "\nmodified-marker\n";
+    writeFileSync(join(agentsDir, "dev.md"), modified, "utf-8");
+    const result = await ensureMinimalProjectContract(dir, "project");
+    if (!result.created) fail("contract with a pre-existing modified dev.md not created");
+    if (readFileSync(join(agentsDir, "dev.md"), "utf-8") !== modified) {
+      fail("a pre-existing modified dev.md must not be rewritten");
+    }
+    console.log("modified-base-preserved ok");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -159,6 +198,7 @@ async function proveStaleSignal(): Promise<void> {
 }
 
 await proveMinimalContract();
+await proveModifiedBasePreserved();
 await proveOptOut();
 await proveGlobalSeed();
 await proveGlobalSeedPreservesManualRoster();

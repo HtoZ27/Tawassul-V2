@@ -60,15 +60,47 @@ for (const [role, chain] of Object.entries(FALLBACK_CHAINS)) {
 assert(FALLBACK_CHAINS.architect?.includes("opencode/mimo-v2.6-flash-free") === true, "the architect head targets mimo 2.6");
 assert(FALLBACK_CHAINS.architect?.some((model) => model.includes("minimax")) === false, "the architect head drops minimax");
 
-const pins: Record<string, string> = {
-  "architect-pickle": "cloudflare-workers-ai/@cf/moonshotai/kimi-k2.7-code",
-  "dev-gemini": "opencode/mimo-v2.5-free",
-  "analyst-pickle": "opencode/big-pickle",
-};
-const reassigned = sweepRetiredModelPins(pins);
-assert(reassigned.length === 2, "the sweep reassigns both retired pins");
-assert(pins["analyst-pickle"] === "opencode/big-pickle", "the sweep keeps a healthy pin");
-assert(!Object.values(pins).some((model) => RETIRED_MODEL_IDS.has(model)), "the sweep leaves no retired pin");
+const modelsDir = mkdtempSync(join(tmpdir(), "tawassul-s017-models-"));
+const savedModelsEnv = process.env.TAWASSUL_MODELS_JSON;
+try {
+  const absentFixture = join(modelsDir, "absent.json");
+  writeFileSync(
+    absentFixture,
+    JSON.stringify({ opencode: { models: { "big-pickle": {} } }, "cloudflare-workers-ai": { models: {} } }),
+  );
+  process.env.TAWASSUL_MODELS_JSON = absentFixture;
+  const pins: Record<string, string> = {
+    "architect-pickle": "cloudflare-workers-ai/@cf/moonshotai/kimi-k2.7-code",
+    "dev-gemini": "opencode/mimo-v2.5-free",
+    "analyst-pickle": "opencode/big-pickle",
+  };
+  const reassigned = sweepRetiredModelPins(pins);
+  assert(reassigned.length === 2, "the sweep reassigns both absent pins");
+  assert(pins["analyst-pickle"] === "opencode/big-pickle", "the sweep keeps a healthy pin");
+  assert(!Object.values(pins).some((model) => RETIRED_MODEL_IDS.has(model)), "the sweep leaves no absent pin");
+
+  const servedFixture = join(modelsDir, "served.json");
+  writeFileSync(
+    servedFixture,
+    JSON.stringify({
+      opencode: { models: { "mimo-v2.5-free": {}, "big-pickle": {} } },
+      "cloudflare-workers-ai": { models: { "@cf/moonshotai/kimi-k2.7-code": {} } },
+    }),
+  );
+  process.env.TAWASSUL_MODELS_JSON = servedFixture;
+  const servedPins: Record<string, string> = {
+    "architect-pickle": "cloudflare-workers-ai/@cf/moonshotai/kimi-k2.7-code",
+    "dev-gemini": "opencode/mimo-v2.5-free",
+    "analyst-pickle": "opencode/big-pickle",
+  };
+  const kept = sweepRetiredModelPins(servedPins);
+  assert(kept.length === 0, "a served retired pin is kept");
+  assert(servedPins["dev-gemini"] === "opencode/mimo-v2.5-free", "the served retired pin is unchanged");
+} finally {
+  if (savedModelsEnv === undefined) delete process.env.TAWASSUL_MODELS_JSON;
+  else process.env.TAWASSUL_MODELS_JSON = savedModelsEnv;
+  rmSync(modelsDir, { recursive: true, force: true });
+}
 const sweepSource = source("scripts/sweep-state-retired-pins.ts");
 assert(sweepSource.includes("unwrapWithHmac") && sweepSource.includes("wrapWithHmac"), "the residue sweep re-signs through the key code");
 assert(sweepSource.includes("sweepRetiredModelPins"), "the residue sweep reuses the registry sweep");

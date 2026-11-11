@@ -126,7 +126,10 @@ installer did not write. Neither installer edits `opencode.json` or
 | `~/.config/opencode/tawassul-runtime/VERSION` | Marker: version, hashes, owner, host | Yes |
 
 The installer records what it wrote, so an uninstall removes exactly that set
-and nothing else. It never edits `opencode.json` or `opencode.jsonc`.
+and nothing else. It never edits `opencode.json` or `opencode.jsonc`. At boot
+the plugin repairs a workspace that already has `opencode.json` by refreshing
+its `agent` block and creating any missing `.opencode/agents/*.md`; a directory
+without `opencode.json` is never touched.
 
 ### Environment overrides
 

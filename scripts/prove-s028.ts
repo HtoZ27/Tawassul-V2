@@ -1,11 +1,15 @@
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getProviderModelTokens, getAllProviderModelTokens, shouldWarnUnverifiedModel } from "../src/core/model-registry.ts";
+import {
+  getProviderModelTokens,
+  getAllProviderModelTokens,
+  shouldWarnUnverifiedModel,
+  modelAvailability,
+} from "../src/core/model-registry.ts";
 import { parseAddInput, validateAddInput } from "../src/tools/agent-add-helpers.ts";
 import { parseKickInput } from "../src/tools/agent-kick-helpers.ts";
 import { resolveRole } from "../src/utils/agent.ts";
-import { DELETED_AGENTS } from "../src/security-policy.ts";
 
 let passed = 0;
 function assert(cond: boolean, msg: string): void {
@@ -79,7 +83,8 @@ try {
 
   useCache("absent.json");
   assert(validateAddInput(["analyst-mimo"], "opencode/mimo-v2.6-flash-free") === null, "static suffix accepted without cache");
-  assert(validateAddInput(["analyst-fledge"], "opencode/fledge-alpha-free") !== null, "missing cache degrades to static set fail-closed");
+  assert(validateAddInput(["analyst-fledge"], "opencode/fledge-alpha-free") !== null, "missing cache leaves custom suffixes ungoverned and rejected");
+  assert(validateAddInput(["analyst-ling"], "opencode/ling-3.0-flash-fin-free") === null, "known suffix with an unknown model warns and allows");
   assert(resolveRole("analyst-fledge") === null, "no provider union without cache");
 
   useCache("malformed.json", "{invalid");
@@ -91,11 +96,17 @@ try {
   process.env.TAWASSUL_MODELS_JSON = adir;
   assert(getProviderModelTokens("opencode").size === 0, "directory cache path yields empty set");
 
-  const retired = ["analyst-ling", "architect-ling", "designer-ling", "dev-ling", "doc-ling", "reviewer-ling", "tester-ling"];
-  for (const name of retired) {
-    assert(DELETED_AGENTS.has(name), `retired variant listed: ${name}`);
-  }
-  assert(validateAddInput(["analyst-ling"], "opencode/ling-3.0-flash-fin-free") !== null, "retired ling variant refused at add time");
+  useCache("provider.json");
+  assert(modelAvailability("opencode/ling-3.0-flash-fin-free") === "absent", "the provider omits the ling slug");
+  assert(validateAddInput(["analyst-ling"], "opencode/ling-3.0-flash-fin-free") !== null, "provider-absent ling variant refused at add time");
+
+  useCache(
+    "exact.json",
+    JSON.stringify({ opencode: { models: { "big-pickle": {} } }, broken: {} }),
+  );
+  assert(modelAvailability("opencode/big-pickle") === "served", "an exact provider slug is served");
+  assert(modelAvailability("opencode/pickle") === "absent", "a slug fragment is not a model");
+  assert(modelAvailability("broken/anything") === "unknown", "a provider without a models object stays unknown");
 } finally {
   if (savedEnv === undefined) delete process.env.TAWASSUL_MODELS_JSON;
   else process.env.TAWASSUL_MODELS_JSON = savedEnv;

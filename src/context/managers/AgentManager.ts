@@ -12,7 +12,7 @@ import {
   EVALUATION_DEFAULTS,
   AGENTS_MD_DEFAULT,
 } from "../constants.ts";
-import { generateAgentMd } from "../../agent-templates.ts";
+import { generateAgentMd, ALL_AGENTS } from "../../agent-templates.ts";
 import { normalizeName } from "../../utils/name-utils.ts";
 import type { AgentTemplate } from "../../agent-templates.ts";
 import type { BashPerm } from "../../permissions.ts";
@@ -23,10 +23,10 @@ import {
   resolveAgentsDir,
   resolveActiveConfigPath,
   resolveTawassulConfigPath,
-  resolveDeletedAgentsPath,
   type InstallScope,
 } from "../../utils/path-resolver.ts";
-import { readTawassulRoster, stripJsoncComments } from "../../utils/opencode-config.ts";
+import { readTawassulRoster, stripJsoncComments, readJsoncObject } from "../../utils/opencode-config.ts";
+import { generatedVariantNames } from "../../core/variant-names.ts";
 import { setDynamicDeletedAgents, setUserPreservedAgents, pruneUserPreservedAgents } from "../../security-policy.ts";
 
 export class AgentManager {
@@ -46,6 +46,8 @@ export class AgentManager {
   private _deletedRosterCache: Set<string> | null = null;
   private _deletedRosterCacheAt = 0;
   private _deletedRosterCacheMtime = -1;
+  private _deletedRosterCachePath = "";
+  private _deletedRosterCacheSize = -1;
   private static DELETED_ROSTER_TTL_MS = 15_000;
 
   private _refreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -311,49 +313,63 @@ export class AgentManager {
     const srcPath =
       this.scope === "global"
         ? resolveTawassulConfigPath(this.stateDir, "global")
-        : resolveDeletedAgentsPath(this.stateDir, "project");
-    let mtime: number;
+        : resolveActiveConfigPath(this.stateDir, "project");
+    let mtime = -1;
+    let size = -1;
     try {
-      mtime = statSync(srcPath).mtimeMs;
+      const st = statSync(srcPath);
+      mtime = st.mtimeMs;
+      size = st.size;
     } catch {
       mtime = -1;
+      size = -1;
     }
     if (
       this._deletedRosterCache &&
       now - this._deletedRosterCacheAt < AgentManager.DELETED_ROSTER_TTL_MS &&
-      this._deletedRosterCacheMtime === mtime
+      this._deletedRosterCacheMtime === mtime &&
+      this._deletedRosterCachePath === srcPath &&
+      this._deletedRosterCacheSize === size
     ) {
       return this._deletedRosterCache;
     }
+    const recordEmpty = (resetProcessSet: boolean): Set<string> => {
+      const empty = new Set<string>();
+      this._deletedRosterCache = empty;
+      this._deletedRosterCacheAt = now;
+      this._deletedRosterCacheMtime = mtime;
+      this._deletedRosterCachePath = srcPath;
+      this._deletedRosterCacheSize = size;
+      if (resetProcessSet) {
+        setDynamicDeletedAgents([]);
+        pruneUserPreservedAgents([]);
+      }
+      return empty;
+    };
     try {
       let deleted: Set<string>;
       if (this.scope === "global") {
-        if (!existsSync(srcPath)) {
-          this._deletedRosterCache = new Set();
-          this._deletedRosterCacheAt = now;
-          this._deletedRosterCacheMtime = mtime;
-          return this._deletedRosterCache;
-        }
+        if (!existsSync(srcPath)) return recordEmpty(true);
         const raw = readTawassulRoster(srcPath).roster.deleted;
         deleted = new Set(raw.map((s) => normalizeName(String(s))));
       } else {
-        if (!existsSync(srcPath)) {
-          this._deletedRosterCache = new Set();
-          this._deletedRosterCacheAt = now;
-          this._deletedRosterCacheMtime = mtime;
-          return this._deletedRosterCache;
-        }
+        if (!existsSync(srcPath)) return recordEmpty(true);
         const rawContent = readFileSync(srcPath, "utf-8");
-        let parsed: unknown;
+        let parsed: Record<string, unknown>;
         try {
-          parsed = JSON.parse(rawContent);
+          parsed = readJsoncObject(rawContent);
         } catch {
-          return new Set();
+          return recordEmpty(false);
         }
-        const obj = parsed as { deleted?: unknown } | null;
-        if (!obj || !Array.isArray(obj.deleted)) return new Set();
+        const agent = parsed.agent;
+        if (agent === undefined || agent === null) return recordEmpty(true);
+        if (typeof agent !== "object" || Array.isArray(agent)) return recordEmpty(true);
+        const keys = Object.keys(agent as Record<string, unknown>);
+        if (keys.length === 0) return recordEmpty(true);
+        const present = new Set(keys.map((s) => normalizeName(String(s))));
+        const bases = ALL_AGENTS.filter((a) => a.name !== "tawa").map((a) => a.name);
         deleted = new Set(
-          (obj.deleted as unknown[]).filter((d) => typeof d === "string").map((s) => normalizeName(String(s))),
+          generatedVariantNames(bases).filter((name) => !present.has(normalizeName(name))),
         );
       }
       setDynamicDeletedAgents([...deleted]);
@@ -361,6 +377,8 @@ export class AgentManager {
       this._deletedRosterCache = deleted;
       this._deletedRosterCacheAt = now;
       this._deletedRosterCacheMtime = mtime;
+      this._deletedRosterCachePath = srcPath;
+      this._deletedRosterCacheSize = size;
       return deleted;
     } catch {
       return new Set();
@@ -407,6 +425,8 @@ export class AgentManager {
     this._deletedRosterCache = null;
     this._deletedRosterCacheAt = 0;
     this._deletedRosterCacheMtime = -1;
+    this._deletedRosterCachePath = "";
+    this._deletedRosterCacheSize = -1;
     this._kickOpencodeWarm();
   }
 

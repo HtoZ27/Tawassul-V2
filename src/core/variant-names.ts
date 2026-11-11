@@ -12,3 +12,7 @@ export function isGeneratedVariant(name: string, extendAgents: readonly string[]
   const suffix = name.slice(idx + 1);
   return extendAgents.includes(base) && suffix in MODEL_SUFFIX_MAP;
 }
+
+export function generatedVariantNames(bases: readonly string[]): string[] {
+  return bases.flatMap((base) => Object.keys(MODEL_SUFFIX_MAP).map((suffix) => `${base}-${suffix}`));
+}

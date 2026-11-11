@@ -1,5 +1,6 @@
-import { readFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkRosterBoundaryDelete } from "../src/hooks/guards/permission-guard.ts";
 
@@ -35,6 +36,19 @@ async function main(): Promise<void> {
   await check("empty-wipe", "write", "dev", { filePath: "opencode.json", content: "   " }, true);
   await check("oldstring-miss", "edit", "dev", { filePath: "opencode.json", oldString: "NOPE-NOT-ON-DISK-zzz", newString: "y" }, true);
   await check("nonroster-passthrough", "edit", "dev", { filePath: "src/foo.ts", oldString: "a", newString: "b" }, false);
+
+  const work = mkdtempSync(join(tmpdir(), "tawassul-roster-boundary-"));
+  try {
+    mkdirSync(join(work, ".opencode"), { recursive: true });
+    const sidecar = join(work, ".opencode", "deleted-agents.json");
+    writeFileSync(sidecar, JSON.stringify({ deleted: ["dev-ling"] }), "utf8");
+    await check("sidecar-shrink-passthrough", "write", "dev", { filePath: sidecar, content: '{"deleted":[]}' }, false);
+    const globalRoster = join(work, "tawassul.jsonc");
+    writeFileSync(globalRoster, JSON.stringify({ agents: {}, deleted: ["dev-ling"] }), "utf8");
+    await check("global-roster-shrink-blocked", "write", "dev", { filePath: globalRoster, content: '{"deleted":[]}' }, true);
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
 
   console.log("PROOF PASS: roster boundary delete guard");
 }

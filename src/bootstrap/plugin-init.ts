@@ -43,6 +43,7 @@ import { resolveProjectIdentity } from "../utils/project-identity.ts";
 import { prepareProjectState } from "../utils/project-state-migration.ts";
 import {
   acquireOpencodeConfigLock,
+  ensureBaseAgentFiles,
   ensureGlobalRosterSeed,
   ensureMinimalProjectContract,
   repairProjectConfigBoot,
@@ -721,9 +722,11 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
         try {
           const { checkGeneratedConfig, buildExpectedConfig, resolveGenPaths } =
             await import("../scripts/gen-opencode-config.ts");
+          const paths = resolveGenPaths();
+          if (!existsSync(paths.configPath)) return;
+          await ensureBaseAgentFiles(paths.agentsDir);
           const chk = checkGeneratedConfig();
           if (chk.ok) return;
-          const paths = resolveGenPaths();
           const raw = readFileSync(paths.configPath, "utf-8");
           const expected = buildExpectedConfig(raw);
           if (expected !== raw) {
