@@ -661,13 +661,15 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   
   
   
-  void repairProjectConfigBoot(ctx.directory).then((bootResult) => {
-    if (bootResult.changed) {
-      logger.info(
-        `[tawassul] Boot repair done: ${bootResult.fixes.join(" + ")} in ${bootResult.configPath} (backup: ${bootResult.backupPath})`,
-      );
-    }
-  });
+  if (coexistenceScope === "project") {
+    void repairProjectConfigBoot(ctx.directory).then((bootResult) => {
+      if (bootResult.changed) {
+        logger.info(
+          `[tawassul] Boot repair done: ${bootResult.fixes.join(" + ")} in ${bootResult.configPath} (backup: ${bootResult.backupPath})`,
+        );
+      }
+    });
+  }
 
   if (coexistenceScope === "global") {
     void ensureGlobalRosterSeed().then((r) => {
@@ -719,6 +721,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
       
       
       void (async () => {
+        if (coexistenceScope !== "project") return;
         try {
           const { checkGeneratedConfig, buildExpectedConfig, resolveGenPaths } =
             await import("../scripts/gen-opencode-config.ts");

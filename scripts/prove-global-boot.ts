@@ -15,6 +15,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TOOL_COUNT, TOOL_NAME_SET_HASH } from "../src/generated/tool-tripwire.ts";
+import { DYNAMIC_MODEL_SENTINEL } from "../src/services/proxy-fallback-chains.ts";
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 const PROJECT_ENTRY = join(REPO, ".opencode", "plugins", "tawassul.js");
@@ -221,6 +222,17 @@ try {
 
   const globalWorkspace = join(ROOT, "global", "ws-empty");
   mkdirSync(globalWorkspace, { recursive: true });
+  const globalWorkspaceConfig = join(globalWorkspace, "opencode.json");
+  const globalWorkspaceBytes =
+    JSON.stringify(
+      {
+        $schema: "https://opencode.ai/config.json",
+        agent: { tawa: { model: DYNAMIC_MODEL_SENTINEL, permission: { edit: "allow" } } },
+      },
+      null,
+      2,
+    ) + "\n";
+  writeFileSync(globalWorkspaceConfig, globalWorkspaceBytes);
   const hostLog = join(globalEnv.XDG_DATA_HOME as string, "opencode", "log", "opencode.log");
   rmSync(hostLog, { force: true });
   const beforeGlobal = Date.now() - 1;
@@ -236,6 +248,18 @@ try {
   const globalSpan = lineTime(registered) - lineTime(loadLine);
   console.log(`INFO  global bundle boot: load->registered ${Math.max(globalSpan, 0)} ms, initPlugin=${initMs?.[1] ?? "?"} ms`);
   assert(globalSpan >= 0, "the global load-to-registered span is measurable");
+  assert(
+    readFileSync(globalWorkspaceConfig, "utf-8") === globalWorkspaceBytes,
+    "a global-scope boot leaves the workspace config byte-identical",
+  );
+  assert(
+    !existsSync(join(globalWorkspace, ".opencode", "agents")),
+    "a global-scope boot seeds no workspace agent files",
+  );
+  assert(
+    countSince(globalEnv.TAWASSUL_LOG_FILE as string, /Boot repair done:|F6 passive regen:/, beforeGlobal) === 0,
+    "a global-scope boot runs neither project writer",
+  );
 
   const tools = run(globalEnv, BUN, ["-e", directToolProbe()], ROOT, {
     SMOKE_ENTRY: globalTarget,
