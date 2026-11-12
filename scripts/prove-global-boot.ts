@@ -313,6 +313,17 @@ try {
   const projectEntry = join(projectWorkspace, ".opencode", "plugins", "tawassul.js");
   copyFileSync(PROJECT_ENTRY, projectEntry);
   symlinkSync(join(REPO, ".opencode", "node_modules"), join(projectWorkspace, ".opencode", "node_modules"), "dir");
+  const projectConfigPath = join(projectWorkspace, "opencode.json");
+  const projectConfigBytes =
+    JSON.stringify(
+      {
+        $schema: "https://opencode.ai/config.json",
+        agent: { tawa: { model: DYNAMIC_MODEL_SENTINEL, permission: { edit: "allow" } } },
+      },
+      null,
+      2,
+    ) + "\n";
+  writeFileSync(projectConfigPath, projectConfigBytes);
   const projectHostLog = join(projectEnv.XDG_DATA_HOME as string, "opencode", "log", "opencode.log");
   rmSync(projectHostLog, { force: true });
   const beforeProject = Date.now() - 1;
@@ -329,6 +340,24 @@ try {
   const projectSpan = lineTime(projectRegistered) - lineTime(projectLoad);
   console.log(`INFO  project bundle boot: load->registered ${Math.max(projectSpan, 0)} ms`);
   assert(projectSpan >= 0, "the project load-to-registered span is measurable");
+  const projectConfigRaw = readFileSync(projectConfigPath, "utf-8");
+  assert(projectConfigRaw !== projectConfigBytes, "a project-scope boot repairs the drifted workspace config");
+  assert(
+    firstSince(projectEnv.TAWASSUL_LOG_FILE as string, /Boot repair done:/, beforeProject).length > 0,
+    "a project-scope boot runs boot repair",
+  );
+  assert(
+    firstSince(projectEnv.TAWASSUL_LOG_FILE as string, /F6 passive regen: drift auto-fixed/, beforeProject).length > 0,
+    "a project-scope boot runs F6 passive regen",
+  );
+  const projectConfig = JSON.parse(projectConfigRaw) as {
+    agent?: Record<string, { permission?: { edit?: string } }>;
+  };
+  assert(
+    projectConfig.agent?.tawa?.permission?.edit === "deny",
+    "the project-scope boot tightens the tawa edit permission",
+  );
+  assert(projectConfig.agent?.dev !== undefined, "the project-scope boot restores the generated roster");
 
   console.log(
     `PROOF PASS: isolated global install, one effective plugin in coexistence, and direct tools (${passed} assertions)`,

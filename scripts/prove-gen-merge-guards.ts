@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildExpectedConfig, buildMergedAgents, checkGeneratedConfig } from "../src/scripts/gen-opencode-config.ts";
+import { buildKickTool } from "../src/tools/agent-management.ts";
 import { RETIRED_MODEL_IDS, MODEL_SUFFIX_MAP } from "../src/core/variant-names.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -137,33 +138,73 @@ function proveNonObjectAgent(): void {
   console.log("non-object-agent ok");
 }
 
-function proveKickOmission(): void {
-  const emptyRaw = JSON.stringify({ $schema: "https://opencode.ai/config.json", agent: {} });
-  const seeded = buildMergedAgents(emptyRaw, { projectRoot: REPO });
-  const withVariant: Record<string, unknown> = {
-    ...seeded,
-    "dev-ling": { description: "Developer ling", model: "opencode/ling-3.0-flash-fin-free", mode: "subagent" },
-  };
-  const before = buildExpectedConfig(
-    JSON.stringify({ $schema: "https://opencode.ai/config.json", agent: withVariant }),
-    { projectRoot: REPO },
-  );
-  if (!("dev-ling" in (JSON.parse(before) as { agent: Record<string, unknown> }).agent)) {
-    fail("the kick fixture must start with dev-ling");
+async function proveKickOmission(): Promise<void> {
+  const dir = mkdtempSync(join(tmpdir(), "tawassul-kick-omission-"));
+  try {
+    const emptyRaw = JSON.stringify({ $schema: "https://opencode.ai/config.json", agent: {} });
+    const seeded = buildMergedAgents(emptyRaw, { projectRoot: REPO });
+    const withVariant: Record<string, unknown> = {
+      ...seeded,
+      "dev-ling": { description: "Developer ling", model: "opencode/ling-3.0-flash-fin-free", mode: "subagent" },
+    };
+    const configPath = join(dir, "opencode.json");
+    const preKickRaw = JSON.stringify({ $schema: "https://opencode.ai/config.json", agent: withVariant });
+    writeFileSync(configPath, preKickRaw);
+    const before = buildExpectedConfig(preKickRaw, { projectRoot: REPO });
+    if (!("dev-ling" in (JSON.parse(before) as { agent: Record<string, unknown> }).agent)) {
+      fail("the kick fixture must start with dev-ling");
+    }
+    const ctx = {
+      config: { team: [] },
+      dynamicAgents: [],
+      agentRatings: {},
+      agentModelMap: {},
+      errorManager: { agentErrors: {} },
+      seenAgents: new Map(),
+      handoffs: new Map(),
+      stateDir: dir,
+      agentManager: { hasConfigAgent: () => true, clearReadCache: () => undefined },
+      askChannelInstance: {
+        hasPending: () => false,
+        askForRoot: async () => false,
+        currentSessionOverride: undefined,
+      },
+      saveState: () => undefined,
+      modelManager: { markModelFailed: () => undefined },
+    } as never;
+    const toolCtx = {
+      sessionID: "kick-omission-session",
+      messageID: "kick-omission-message",
+      agent: "",
+      directory: dir,
+      worktree: dir,
+      abort: new AbortController().signal,
+      metadata: () => undefined,
+      ask: async () => undefined,
+    } as never;
+    const result = (await buildKickTool(ctx).execute(
+      { agent: "remove dev-ling with model ling-3.0-flash-fin-free from opencode" },
+      toolCtx,
+    )) as { output: string };
+    if (!result.output.includes("Removed") || !result.output.includes("@dev-ling")) {
+      fail(`the kick must report the removal, got ${result.output}`);
+    }
+    const kickedRaw = readFileSync(configPath, "utf-8");
+    const kickedConfig = JSON.parse(kickedRaw) as { agent: Record<string, unknown> };
+    if ("dev-ling" in kickedConfig.agent) fail("the kick must remove dev-ling from the config");
+    const first = JSON.parse(buildExpectedConfig(kickedRaw, { projectRoot: REPO })) as {
+      agent: Record<string, unknown>;
+    };
+    const second = JSON.parse(buildExpectedConfig(kickedRaw, { projectRoot: REPO })) as {
+      agent: Record<string, unknown>;
+    };
+    if ("dev-ling" in first.agent || "dev-ling" in second.agent) {
+      fail("both post-kick generations must omit dev-ling");
+    }
+    console.log("kick-omission ok");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
-  const kicked = { ...withVariant };
-  delete kicked["dev-ling"];
-  const kickedRaw = JSON.stringify({ $schema: "https://opencode.ai/config.json", agent: kicked });
-  const first = JSON.parse(buildExpectedConfig(kickedRaw, { projectRoot: REPO })) as {
-    agent: Record<string, unknown>;
-  };
-  const second = JSON.parse(buildExpectedConfig(kickedRaw, { projectRoot: REPO })) as {
-    agent: Record<string, unknown>;
-  };
-  if ("dev-ling" in first.agent || "dev-ling" in second.agent) {
-    fail("both post-kick generations must omit dev-ling");
-  }
-  console.log("kick-omission ok");
 }
 
 function proveServedRetired(): void {
@@ -212,7 +253,7 @@ try {
   await proveRetiredMigration();
   proveEmptyAndSubset();
   proveNonObjectAgent();
-  proveKickOmission();
+  await proveKickOmission();
   await proveHybridPins();
   proveServedRetired();
   proveUnknownRetired();

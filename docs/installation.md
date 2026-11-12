@@ -127,10 +127,11 @@ installer did not write. Neither installer edits `opencode.json` or
 
 The installer records what it wrote, so an uninstall removes exactly that set
 and nothing else. It never edits `opencode.json` or `opencode.jsonc`. At boot
-a project-scope install repairs a workspace that already has `opencode.json` by
-refreshing its `agent` block and creating any missing `.opencode/agents/*.md`;
-a global-scope install never writes into the workspace, and a directory
-without `opencode.json` is never touched.
+a project-scope install repairs an existing `opencode.json` or `opencode.jsonc`
+and creates any missing `.opencode/agents/*.md`; when the workspace has neither
+config, the first-boot seed creates a minimal `opencode.json` unless
+`TAWASSUL_NO_AUTOCONFIG=1` is set. A global-scope install never writes project
+config or project agent files.
 
 ### Environment overrides
 
