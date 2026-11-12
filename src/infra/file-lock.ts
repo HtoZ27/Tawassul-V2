@@ -1,6 +1,6 @@
 import type { FileLock } from "../conflict-resolver/types.ts";
-import { mkdir, writeFile, readFile, readdir, unlink, rmdir, access } from "node:fs/promises";
-import { unlinkSync, rmdirSync, statSync } from "node:fs";
+import { mkdir, writeFile, readFile, readdir, unlink, rmdir, access, rename } from "node:fs/promises";
+import { unlinkSync, rmdirSync, statSync, readFileSync } from "node:fs";
 import { resolve, basename } from "node:path";
 import { tmpdir, userInfo, hostname } from "node:os";
 import { createHash } from "node:crypto";
@@ -45,7 +45,7 @@ function lockDirFor(lockName: string): string {
 }
 
 
-const acquiredFSLocks: Set<string> = new Set();
+const acquiredFSLocks: Map<string, string> = new Map();
 let exitCleanupRegistered = false;
 const _signalHandlers: Array<{ signal: string; handler: () => void }> = [];
 
@@ -63,8 +63,16 @@ function registerExitCleanup(): void {
   exitCleanupRegistered = true;
 
   const cleanup = () => {
-    for (const lockName of acquiredFSLocks) {
+    for (const [lockName, ownerId] of acquiredFSLocks) {
       const lockDir = lockDirFor(lockName);
+      let currentOwner: string | null = null;
+      try {
+        currentOwner = readFileSync(resolve(lockDir, "owner"), "utf-8");
+      } catch (e) {
+        logger.debug(`[file-lock] exit cleanup: owner read failed for "${lockName}": ${String(e)}`);
+        continue;
+      }
+      if (currentOwner !== ownerId) continue;
       try {
         unlinkSync(resolve(lockDir, "lock"));
       } catch {
@@ -180,7 +188,7 @@ async function tryAcquire(
     await writeFile(resolve(lockDir, "owner"), ownerId, "utf-8");
     await writeFile(resolve(lockDir, "expires"), String(Date.now() + ttlMs), "utf-8");
     if (filePath) await writeFile(resolve(lockDir, "path"), filePath, "utf-8");
-    acquiredFSLocks.add(lockName);
+    acquiredFSLocks.set(lockName, ownerId);
     
     startHeartbeat(lockName, ownerId, ttlMs);
     return true;
@@ -209,33 +217,90 @@ async function readOwner(lockDir: string): Promise<string | null> {
 }
 
 
-async function removeStaleLock(lockDir: string): Promise<void> {
+const STALE_GRACE_MS = 3000;
+let staleSeq = 0;
+
+
+function ownerPid(owner: string | null): number | null {
+  if (!owner) return null;
+  const match = owner.match(/(?:^|::)pid-(\d+)$/);
+  if (!match) return null;
+  const pid = parseInt(match[1]!, 10);
+  return Number.isNaN(pid) ? null : pid;
+}
+
+
+function ownerIsAlive(owner: string | null): boolean {
+  const pid = ownerPid(owner);
+  return pid !== null && isProcessAlive(pid);
+}
+
+
+async function quarantineStaleLock(lockDir: string, observedOwner: string | null): Promise<string | null> {
+  const lockName = basename(lockDir);
+  const currentOwner = await readOwner(lockDir);
+  if (currentOwner !== observedOwner) {
+    logger.debug(`[file-lock] "${lockName}": owner changed before reclaim — leaving the lock in place`);
+    return null;
+  }
+  if (ownerIsAlive(currentOwner)) {
+    logger.debug(`[file-lock] "${lockName}": owner pid is alive — leaving the lock in place`);
+    return null;
+  }
+  let syncOwner: string | null = null;
+  try {
+    syncOwner = readFileSync(resolve(lockDir, "owner"), "utf-8");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+      logger.debug(`[file-lock] "${lockName}": owner re-read failed — leaving the lock in place: ${String(e)}`);
+      return null;
+    }
+  }
+  if (syncOwner !== observedOwner) {
+    logger.debug(`[file-lock] "${lockName}": owner changed at quarantine — leaving the lock in place`);
+    return null;
+  }
+  const quarantineDir = `${lockDir}.stale-${process.pid}-${Date.now()}-${staleSeq++}`;
+  try {
+    await rename(lockDir, quarantineDir);
+  } catch (e) {
+    logger.debug(`[file-lock] "${lockName}": quarantine rename failed — leaving the lock in place: ${String(e)}`);
+    return null;
+  }
+  return quarantineDir;
+}
+
+
+async function removeStaleLock(lockDir: string, observedOwner: string | null): Promise<boolean> {
   stopHeartbeat(basename(lockDir));
+  const quarantineDir = await quarantineStaleLock(lockDir, observedOwner);
+  if (!quarantineDir) return false;
   try {
-    await unlink(resolve(lockDir, "lock"));
+    await unlink(resolve(quarantineDir, "lock"));
   } catch {
 
   }
   try {
-    await unlink(resolve(lockDir, "owner"));
+    await unlink(resolve(quarantineDir, "owner"));
   } catch {
 
   }
   try {
-    await unlink(resolve(lockDir, "expires"));
+    await unlink(resolve(quarantineDir, "expires"));
   } catch {
 
   }
   try {
-    await unlink(resolve(lockDir, "path"));
+    await unlink(resolve(quarantineDir, "path"));
   } catch {
 
   }
   try {
-    await rmdir(lockDir);
+    await rmdir(quarantineDir);
   } catch {
 
   }
+  return true;
 }
 
 
@@ -258,6 +323,8 @@ async function acquireFSLock(
     
     const expiry = await readExpiry(lockDir);
     if (expiry === null) {
+      const currentOwner = await readOwner(lockDir);
+      if (ownerIsAlive(currentOwner)) return false;
       
       
       
@@ -267,30 +334,18 @@ async function acquireFSLock(
       } catch {
 
       }
-      if (dirAge < 3000) return false;
-      await removeStaleLock(lockDir);
+      if (dirAge < STALE_GRACE_MS) return false;
+      await removeStaleLock(lockDir, currentOwner);
       return tryAcquire(lockDir, ownerId, ttlMs, lockName, filePath);
     }
     if (!isNaN(expiry) && Date.now() <= expiry) return false;
 
     
     const currentOwner = await readOwner(lockDir);
-    if (currentOwner) {
-      const pidMatch = currentOwner.match(/(?:^|::)pid-(\d+)$/);
-      if (pidMatch) {
-        const pid = parseInt(pidMatch[1]!, 10);
-        if (!isNaN(pid)) {
-          if (isProcessAlive(pid)) return false; 
-
-        }
-      } else {
-        
-        return false;
-      }
-    }
+    if (ownerIsAlive(currentOwner)) return false;
 
     
-    await removeStaleLock(lockDir);
+    await removeStaleLock(lockDir, currentOwner);
 
     
     return tryAcquire(lockDir, ownerId, ttlMs, lockName, filePath);
@@ -343,13 +398,13 @@ async function releaseFSLock(lockName: string, ownerId: string): Promise<boolean
     } catch {
 
     }
-    acquiredFSLocks.delete(lockName);
-    
-    stopHeartbeat(lockName);
     return true;
   } catch (e) {
     logger.warn(`[file-lock] releaseFSLock failed for "${lockName}":`, e);
     return false;
+  } finally {
+    acquiredFSLocks.delete(lockName);
+    stopHeartbeat(lockName);
   }
 }
 
@@ -365,21 +420,9 @@ async function checkFSLock(lockName: string): Promise<{ locked: boolean; owner?:
     const expiry = await readExpiry(lockDir);
     if (expiry !== null) {
       if (isNaN(expiry) || Date.now() > expiry) {
-        
         const owner = await readOwner(lockDir);
-        const pidMatch = owner?.match(/(?:^|::)pid-(\d+)$/);
-        if (pidMatch) {
-          const pid = parseInt(pidMatch[1]!, 10);
-          if (!isNaN(pid)) {
-            if (isProcessAlive(pid)) return { locked: true, owner: owner ?? undefined, expiresAt: expiry }; 
-
-          }
-        } else if (owner) {
-          
-          return { locked: true, owner, expiresAt: expiry };
-        }
-        
-        await removeStaleLock(lockDir);
+        if (ownerIsAlive(owner)) return { locked: true, owner: owner ?? undefined, expiresAt: expiry };
+        await removeStaleLock(lockDir, owner);
         return { locked: false };
       }
       const owner = await readOwner(lockDir);
@@ -387,14 +430,16 @@ async function checkFSLock(lockName: string): Promise<{ locked: boolean; owner?:
     }
     
     
+    const staleOwner = await readOwner(lockDir);
+    if (ownerIsAlive(staleOwner)) return { locked: true, owner: staleOwner ?? undefined };
     let dirAge = Infinity;
     try {
       dirAge = Date.now() - statSync(lockDir).birthtimeMs;
     } catch {
       return { locked: false };
     }
-    if (dirAge < 3000) return { locked: true };
-    await removeStaleLock(lockDir);
+    if (dirAge < STALE_GRACE_MS) return { locked: true };
+    await removeStaleLock(lockDir, staleOwner);
     return { locked: false };
   } catch (e) {
     logger.warn(`[file-lock] checkFSLock failed for "${lockName}":`, e);
@@ -420,35 +465,40 @@ async function removeFSLockDir(lockName: string): Promise<boolean> {
     return true;
   }
   const owner = await readOwner(lockDir);
-  const ownerPid = owner?.match(/(?:^|::)pid-(\d+)$/)?.[1];
-  if (ownerPid) {
-    const pid = parseInt(ownerPid, 10);
-    if (!isNaN(pid)) {
-      if (isProcessAlive(pid)) return false; 
+  if (ownerIsAlive(owner)) return false;
+  if (owner === null || ownerPid(owner) === null) {
+    let dirAge = Infinity;
+    try {
+      dirAge = Date.now() - statSync(lockDir).birthtimeMs;
+    } catch {
+      return false;
     }
+    if (dirAge < STALE_GRACE_MS) return false;
   }
+  const quarantineDir = await quarantineStaleLock(lockDir, owner);
+  if (!quarantineDir) return false;
   try {
-    await unlink(resolve(lockDir, "lock"));
+    await unlink(resolve(quarantineDir, "lock"));
   } catch {
 
   }
   try {
-    await unlink(resolve(lockDir, "owner"));
+    await unlink(resolve(quarantineDir, "owner"));
   } catch {
 
   }
   try {
-    await unlink(resolve(lockDir, "expires"));
+    await unlink(resolve(quarantineDir, "expires"));
   } catch {
 
   }
   try {
-    await unlink(resolve(lockDir, "path"));
+    await unlink(resolve(quarantineDir, "path"));
   } catch {
 
   }
   try {
-    await rmdir(lockDir);
+    await rmdir(quarantineDir);
   } catch {
 
   }
@@ -517,28 +567,21 @@ export class FileLockManager {
           const expiry = await readExpiry(lockDir);
           if (expiry !== null) {
             if (isNaN(expiry) || Date.now() > expiry) {
-              
-              
-              
               const owner = await readOwner(lockDir);
-              const pidMatch = owner?.match(/(?:^|::)pid-(\d+)$/);
-              if (pidMatch) {
-                const pid = parseInt(pidMatch[1]!, 10);
-                if (!isNaN(pid) && isProcessAlive(pid)) continue; 
-              }
-              await removeStaleLock(lockDir);
+              if (ownerIsAlive(owner)) continue;
+              await removeStaleLock(lockDir, owner);
             }
           } else {
-            
-            
+            const owner = await readOwner(lockDir);
+            if (ownerIsAlive(owner)) continue;
             let dirAge = Infinity;
             try {
               dirAge = Date.now() - statSync(lockDir).birthtimeMs;
             } catch {
-              await removeStaleLock(lockDir);
+              await removeStaleLock(lockDir, owner);
               continue;
             }
-            if (dirAge >= 3000) await removeStaleLock(lockDir);
+            if (dirAge >= STALE_GRACE_MS) await removeStaleLock(lockDir, owner);
           }
         }
       }

@@ -1,15 +1,25 @@
 
 
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { logger } from "../utils/logger.ts";
 import { safeHomedir } from "../utils/path-resolver.ts";
 import { isIsolationActiveSync } from "./isolation.ts";
+import { atomicWriteFile } from "../infra/disk-utils.ts";
+import { acquireFSLock, releaseFSLock } from "../infra/file-lock.ts";
+import { opencodeConfigLockName } from "../utils/opencode-config.ts";
 
 
 function resolveSecretsDir(): string {
   return join(safeHomedir(), ".tawassul");
+}
+
+
+async function readSecretsFile(file: string): Promise<Record<string, string>> {
+  const parsed = JSON.parse(await readFile(file, "utf8")) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+  return parsed as Record<string, string>;
 }
 
 
@@ -52,16 +62,28 @@ export async function getSecret(name: string): Promise<string | null> {
   }
 
   
-  try {
-    const file = join(resolveSecretsDir(), "secrets.json");
-    if (existsSync(file)) {
-      const data = JSON.parse(await readFile(file, "utf8"));
-      if (name in data) {
-        return data[name];
+  const file = join(resolveSecretsDir(), "secrets.json");
+  if (existsSync(file)) {
+    const lockName = opencodeConfigLockName(file);
+    const owner = `keyring-read::pid-${process.pid}`;
+    const locked = await acquireFSLock(lockName, owner, 10000);
+    try {
+      const data = await readSecretsFile(file);
+      if (Object.hasOwn(data, name)) {
+        const value = data[name];
+        if (typeof value === "string") return value;
+      }
+    } catch (err) {
+      logger.warn(`[keyring] Failed to read secrets file: ${err}`);
+    } finally {
+      if (locked) {
+        try {
+          await releaseFSLock(lockName, owner);
+        } catch (e) {
+          logger.debug(`[keyring] read lock release failed: ${String(e)}`);
+        }
       }
     }
-  } catch (err) {
-    logger.warn(`[keyring] Failed to read secrets file: ${err}`);
   }
 
   return null;
@@ -82,20 +104,34 @@ export async function setSecret(name: string, value: string): Promise<void> {
   }
 
   const file = join(dir, "secrets.json");
-  let data: Record<string, string> = {};
-  try {
-    if (existsSync(file)) {
-      data = JSON.parse(await readFile(file, "utf8"));
-    }
-  } catch {
-
+  const lockName = opencodeConfigLockName(file);
+  const owner = `keyring-write::pid-${process.pid}`;
+  const locked = await acquireFSLock(lockName, owner, 10000);
+  if (!locked) {
+    logger.warn(
+      `[keyring] setSecret("${name}") blocked: secrets lock busy — refusing an unlocked write`,
+    );
+    return;
   }
+  try {
+    let data: Record<string, string> = {};
+    try {
+      if (existsSync(file)) {
+        data = await readSecretsFile(file);
+      }
+    } catch {
 
-  data[name] = value;
-  await writeFile(file, JSON.stringify(data, null, 2), {
-    encoding: "utf8",
-    mode: 0o600,
-  });
+    }
+
+    data[name] = value;
+    await atomicWriteFile(file, JSON.stringify(data, null, 2));
+  } finally {
+    try {
+      await releaseFSLock(lockName, owner);
+    } catch (e) {
+      logger.debug(`[keyring] write lock release failed: ${String(e)}`);
+    }
+  }
 }
 
 

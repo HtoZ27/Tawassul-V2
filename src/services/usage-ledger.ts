@@ -1,7 +1,10 @@
 import { appendFile, mkdir, readFile, rename, stat } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { logger } from "../utils/logger.ts";
 import { statePath, v2DataRoot } from "../utils/state-paths.ts";
+import { acquireFSLock, releaseFSLock } from "../infra/file-lock.ts";
+import { opencodeConfigLockName } from "../utils/opencode-config.ts";
 
 export const USAGE_LEDGER_VERSION = 1;
 export const USAGE_LEDGER_ENV = "TAWASSUL_USAGE_LEDGER";
@@ -9,6 +12,8 @@ export const USAGE_LEDGER_MAX_BYTES = 32 * 1024 * 1024;
 export const USAGE_LEDGER_PAGE_LIMIT = 500;
 export const USAGE_LEDGER_MAX_PAGES = 10;
 export const USAGE_LEDGER_FLUSH_MS = 250;
+
+let rotationSeq = 0;
 
 export interface UsageWeights {
   read: number;
@@ -830,14 +835,35 @@ export class UsageLedger {
   private async append(text: string): Promise<void> {
     const dir = dirname(this.path);
     await mkdir(dir, { recursive: true, mode: 0o700 });
-    try {
-      const size = (await stat(this.path)).size;
-      if (size > this.maxBytes) await rename(this.path, `${this.path}.1`);
-    } catch {
-      const ignored = undefined;
-      void ignored;
+    const lockName = opencodeConfigLockName(this.path);
+    const owner = `usage-ledger::pid-${process.pid}`;
+    const locked = await acquireFSLock(lockName, owner, 10000);
+    if (!locked) {
+      await appendFile(this.path, text, { mode: 0o600 });
+      return;
     }
-    await appendFile(this.path, text, { mode: 0o600 });
+    try {
+      try {
+        const size = (await stat(this.path)).size;
+        if (size > this.maxBytes) {
+          const rotated = `${this.path}.1`;
+          if (existsSync(rotated)) {
+            await rename(rotated, `${rotated}.${process.pid}-${Date.now()}-${rotationSeq++}`);
+          }
+          await rename(this.path, rotated);
+        }
+      } catch {
+        const ignored = undefined;
+        void ignored;
+      }
+      await appendFile(this.path, text, { mode: 0o600 });
+    } finally {
+      try {
+        await releaseFSLock(lockName, owner);
+      } catch (e) {
+        logger.debug(`[tawassul] usage ledger lock release failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
   }
 
   async dispose(): Promise<void> {

@@ -397,7 +397,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/utils/opencode-config.ts",
-            "line": 531,
+            "line": 550,
             "marker": "ensureGlobalRosterSeed"
           },
           "proofs": [
@@ -784,7 +784,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/hooks/n2-auto.ts",
-            "line": 40,
+            "line": 43,
             "marker": "assistantMessages"
           },
           "proofs": [
@@ -918,7 +918,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/hooks/n2-auto.ts",
-            "line": 40,
+            "line": 43,
             "marker": "assistantMessages"
           },
           "proofs": [
@@ -1023,7 +1023,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/utils/opencode-config.ts",
-            "line": 388,
+            "line": 407,
             "marker": "applyBootRepairs"
           },
           "proofs": [

@@ -1,12 +1,15 @@
-import { appendFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { logger } from "../utils/logger.ts";
 import { v2DataRoot, v2NamespaceRoot } from "../utils/state-paths.ts";
+import { acquireFSLock, releaseFSLock } from "../infra/file-lock.ts";
+import { opencodeConfigLockName } from "../utils/opencode-config.ts";
 
 const MAX_BYTES = 512 * 1024;
 const KEEP_LINES = 200;
 const PROCESS_START_MS = Date.now();
+let persistSeq = 0;
 
 export function n2AutoLogPath(): string {
   const override = process.env.TAWASSUL_N2_LOG;
@@ -47,13 +50,13 @@ export function createN2AutoHook() {
     assistantMessages.add(id);
   };
 
-  const persist = (input: {
+  const persist = async (input: {
     sessionId: string | null;
     messageId: string | null;
     partId: string | null;
     len: number;
     source: N2AutoSource;
-  }): void => {
+  }): Promise<void> => {
     done = true;
     const ts = Date.now();
     const rec: N2AutoRecord = {
@@ -68,20 +71,35 @@ export function createN2AutoHook() {
       source: input.source,
       role_gate: true,
     };
+    const file = n2AutoLogPath();
+    mkdirSync(dirname(file), { recursive: true });
+    const lockName = opencodeConfigLockName(file);
+    const owner = `n2-auto::pid-${process.pid}`;
+    const locked = await acquireFSLock(lockName, owner, 10000);
     try {
-      const file = n2AutoLogPath();
-      mkdirSync(dirname(file), { recursive: true });
-      try {
-        if (statSync(file).size > MAX_BYTES) {
-          const tail = readFileSync(file, "utf8").split("\n").slice(-KEEP_LINES).join("\n");
-          writeFileSync(file, tail, { mode: 0o600 });
+      if (locked) {
+        try {
+          if (statSync(file).size > MAX_BYTES) {
+            const tail = readFileSync(file, "utf8").split("\n").slice(-KEEP_LINES).join("\n");
+            const tmp = `${file}.${process.pid}-${Date.now()}-${persistSeq++}.tmp`;
+            writeFileSync(tmp, tail, { mode: 0o600 });
+            renameSync(tmp, file);
+          }
+        } catch (e) {
+          logger.debug(`[n2-auto] rotate skipped: ${String(e)}`);
         }
-      } catch (e) {
-        logger.debug(`[n2-auto] rotate skipped: ${String(e)}`);
       }
       appendFileSync(file, JSON.stringify(rec) + "\n", { mode: 0o600 });
     } catch (e) {
       logger.debug(`[n2-auto] write failed: ${String(e)}`);
+    } finally {
+      if (locked) {
+        try {
+          await releaseFSLock(lockName, owner);
+        } catch (e) {
+          logger.debug(`[n2-auto] lock release failed: ${String(e)}`);
+        }
+      }
     }
   };
 
@@ -114,7 +132,7 @@ export function createN2AutoHook() {
       const len = deltaLen > 0 ? deltaLen : textLen > 0 ? textLen : ev.type === "session.text.started" ? 1 : 0;
       if (len <= 0) return;
       const ordinal = typeof data.ordinal === "number" ? data.ordinal : null;
-      persist({
+      await persist({
         sessionId: typeof data.sessionID === "string" ? data.sessionID : null,
         messageId,
         partId: ordinal === null ? messageId : `${messageId}:text:${ordinal}`,
@@ -152,7 +170,7 @@ export function createN2AutoHook() {
     if (part.synthetic === true || part.ignored === true) return;
     if (typeof part.text !== "string" || part.text.length === 0) return;
     if (typeof part.messageID !== "string" || !assistantMessages.has(part.messageID)) return;
-    persist({
+    await persist({
       sessionId: part.sessionID ?? null,
       messageId: part.messageID,
       partId: part.id ?? null,

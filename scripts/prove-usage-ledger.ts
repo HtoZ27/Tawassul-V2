@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -329,6 +329,15 @@ try {
   await rotating.flush();
   assert(existsSync(`${rotationPath}.1`), "an oversized ledger rotates to .1");
   await rotating.dispose();
+  const backupRotation = new UsageLedger({ path: rotationPath, now, maxBytes: 1 });
+  await backupRotation.start();
+  await backupRotation.handleEvent(usage("rot-c", { input: 3, output: 3 }));
+  await backupRotation.flush();
+  await backupRotation.dispose();
+  assert(
+    readdirSync(work).some((name) => name.startsWith("rotation.jsonl.1.")),
+    "an existing .1 is moved to a unique backup before rotation",
+  );
   const rotationReload = new UsageLedger({ path: rotationPath, now });
   await rotationReload.start();
   equal(rotationReload.sessionCount(), 2, "reload reads the rotated file and the active file");

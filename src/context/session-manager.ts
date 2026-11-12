@@ -48,7 +48,7 @@ export class SessionManager {
   async start(): Promise<void> {
     const registryFileEarly = resolve(this.sessionRegistryPath, "registry.json");
     const lockName = `tawassul-session-registry-${createHash("sha1").update(registryFileEarly).digest("hex").slice(0, 16)}`;
-    const lockOwner = `session-manager:${this.sessionId}`;
+    const lockOwner = `session-manager:${this.sessionId}::pid-${process.pid}`;
     let locked = false;
     try {
       locked = await acquireFSLock(lockName, lockOwner, 10000);

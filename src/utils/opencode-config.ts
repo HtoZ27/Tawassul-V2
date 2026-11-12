@@ -1,8 +1,8 @@
 
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, realpathSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
-import { resolve } from "node:path";
+import { resolve, dirname, basename } from "node:path";
 import { createHash } from "node:crypto";
 import { atomicWriteFile } from "./atomic.ts";
 import { acquireFSLock, releaseFSLock } from "../infra/file-lock.ts";
@@ -258,8 +258,27 @@ export function rewriteDynamicAgentModels(raw: string): string {
 
 
 
+function canonicalAnchor(anchor: string): string {
+  const resolved = resolve(anchor);
+  let current = resolved;
+  const tail: string[] = [];
+  for (;;) {
+    try {
+      const real = realpathSync.native(current);
+      return tail.length === 0 ? real : resolve(real, ...tail);
+    } catch (err) {
+      logger.debug(`[tawassul] canonicalAnchor: ${(err as Error).message}`);
+    }
+    const parent = dirname(current);
+    if (parent === current) return resolved;
+    tail.unshift(basename(current));
+    current = parent;
+  }
+}
+
+
 export function opencodeConfigLockName(anchor: string): string {
-  return `tawassul-opencode-lock-${createHash("sha1").update(resolve(anchor)).digest("hex").slice(0, 16)}`;
+  return `tawassul-opencode-lock-${createHash("sha1").update(canonicalAnchor(anchor)).digest("hex").slice(0, 16)}`;
 }
 
 
@@ -543,11 +562,26 @@ export async function ensureGlobalRosterSeed(): Promise<GlobalRosterSeedResult> 
     agents[a.name] = { description: a.description, model: defaultAgentModelForRole(a.name) };
   }
   await mkdir(dir, { recursive: true });
-  if (existsSync(canonical)) return { created: false, path: canonical };
-  if (existsSync(legacy)) return { created: false, path: legacy };
-  await atomicWriteFile(canonical, JSON.stringify({ agents, deleted: [] }, null, 2) + "\n");
-  logger.info(`[tawassul] boot: no global roster — seeded minimal ${canonical}`);
-  return { created: true, path: canonical };
+  const { acquired, lockName, owner } = await acquireOpencodeConfigLock(canonical);
+  if (!acquired) {
+    logger.debug("[tawassul] boot: global-roster seed skipped — config write lock busy");
+    return { created: false, path: null };
+  }
+  try {
+    if (existsSync(canonical)) return { created: false, path: canonical };
+    if (existsSync(legacy)) return { created: false, path: legacy };
+    await atomicWriteFile(canonical, JSON.stringify({ agents, deleted: [] }, null, 2) + "\n");
+    logger.info(`[tawassul] boot: no global roster — seeded minimal ${canonical}`);
+    return { created: true, path: canonical };
+  } finally {
+    try {
+      await releaseFSLock(lockName, owner);
+    } catch (e) {
+      logger.debug(
+        `[tawassul] boot: global-roster seed lock release failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
 }
 
 
