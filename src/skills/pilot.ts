@@ -6,6 +6,18 @@ import contextContinueBody from "../../skills/tawassul-context-continue/SKILL.md
 import goalReviewBody from "../../skills/tawassul-goal-review/SKILL.md" with { type: "text" };
 import handoffTriageBody from "../../skills/tawassul-handoff-triage/SKILL.md" with { type: "text" };
 import integrationEngineerBody from "../../skills/tawassul-integration-engineer/SKILL.md" with { type: "text" };
+import adversarialReviewBody from "../../skills/tawassul-adversarial-review/SKILL.md" with { type: "text" };
+import enrichTaskBody from "../../skills/tawassul-enrich-task/SKILL.md" with { type: "text" };
+import stepBackBody from "../../skills/tawassul-step-back/SKILL.md" with { type: "text" };
+import diagnosingBugsBody from "../../skills/tawassul-diagnosing-bugs/SKILL.md" with { type: "text" };
+import verificationPlanningBody from "../../skills/tawassul-verification-planning/SKILL.md" with { type: "text" };
+import codeExplorerBody from "../../skills/tawassul-code-explorer/SKILL.md" with { type: "text" };
+import incidentResponseBody from "../../skills/tawassul-incident-response/SKILL.md" with { type: "text" };
+import toTicketsBody from "../../skills/tawassul-to-tickets/SKILL.md" with { type: "text" };
+import retroBody from "../../skills/tawassul-retro/SKILL.md" with { type: "text" };
+import writingForAgentsBody from "../../skills/tawassul-writing-for-agents/SKILL.md" with { type: "text" };
+import codebaseDesignBody from "../../skills/tawassul-codebase-design/SKILL.md" with { type: "text" };
+import interfaceDesignBody from "../../skills/tawassul-interface-design/SKILL.md" with { type: "text" };
 import { logger } from "../utils/logger.ts";
 import type { V2Context, V2Registration } from "../v2/types.ts";
 
@@ -22,6 +34,18 @@ const BODIES: Record<string, string> = {
   "tawassul-handoff-triage": handoffTriageBody,
   "tawassul-context-continue": contextContinueBody,
   "tawassul-integration-engineer": integrationEngineerBody,
+  "tawassul-adversarial-review": adversarialReviewBody,
+  "tawassul-enrich-task": enrichTaskBody,
+  "tawassul-step-back": stepBackBody,
+  "tawassul-diagnosing-bugs": diagnosingBugsBody,
+  "tawassul-verification-planning": verificationPlanningBody,
+  "tawassul-code-explorer": codeExplorerBody,
+  "tawassul-incident-response": incidentResponseBody,
+  "tawassul-to-tickets": toTicketsBody,
+  "tawassul-retro": retroBody,
+  "tawassul-writing-for-agents": writingForAgentsBody,
+  "tawassul-codebase-design": codebaseDesignBody,
+  "tawassul-interface-design": interfaceDesignBody,
 };
 
 export const PILOT_SKILLS: readonly PilotSkill[] = manifest.skills.flatMap((skill) => {

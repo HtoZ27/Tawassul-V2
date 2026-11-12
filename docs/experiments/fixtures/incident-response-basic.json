@@ -1,0 +1,51 @@
+{
+  "id": "incident-response-basic",
+  "skillId": "tawassul-incident-response",
+  "sessions": [
+    {
+      "name": "incident-response-session",
+      "request": "The host broke after the last build. Run incident response.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        {
+          "tool": "show_board",
+          "args": {}
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "incident",
+            "title": "incident opened",
+            "detail": "severity, blast radius and owner",
+            "severity": "severe"
+          }
+        },
+        {
+          "tool": "handoff",
+          "args": {
+            "to": "@tawa",
+            "task": "contain the blast radius",
+            "context": "the incident record carries the severity and the blast radius"
+          }
+        },
+        {
+          "tool": "timeline",
+          "args": {
+            "view": "recent",
+            "limit": 20
+          }
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "incident",
+            "title": "incident closed",
+            "detail": "recovery evidence, the watch window and the follow-ups",
+            "severity": "moderate"
+          }
+        }
+      ]
+    }
+  ]
+}

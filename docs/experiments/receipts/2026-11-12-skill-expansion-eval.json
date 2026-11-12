@@ -1,0 +1,205 @@
+{
+  "date": "2026-11-12",
+  "method": "offline replay of the authored fixture transcript against the shipped procedure text; the live load rate was measured on an isolated host on 2026-11-12 by the E1 method, with XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_STATE_HOME, XDG_CACHE_HOME, OPENCODE_DB, TAWASSUL_STATE_DIR and TAWASSUL_HMAC_KEY_DIR redirected under one root",
+  "bundle": {
+    "host": "opencode v2.2.7",
+    "model": "opencode/deepseek-v4.1-flash-free",
+    "sha256": "e388dde124e02dbf59c2166ebed661a4c72b7d528413f8beff32b35661b61c4e"
+  },
+  "fixtures": [
+    {
+      "evalId": "adversarial-review-basic",
+      "skillId": "tawassul-adversarial-review",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 7
+    },
+    {
+      "evalId": "enrich-task-basic",
+      "skillId": "tawassul-enrich-task",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 5
+    },
+    {
+      "evalId": "step-back-basic",
+      "skillId": "tawassul-step-back",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 4
+    },
+    {
+      "evalId": "diagnosing-bugs-basic",
+      "skillId": "tawassul-diagnosing-bugs",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 5
+    },
+    {
+      "evalId": "verification-planning-basic",
+      "skillId": "tawassul-verification-planning",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 5
+    },
+    {
+      "evalId": "code-explorer-basic",
+      "skillId": "tawassul-code-explorer",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 4
+    },
+    {
+      "evalId": "incident-response-basic",
+      "skillId": "tawassul-incident-response",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 5
+    },
+    {
+      "evalId": "to-tickets-basic",
+      "skillId": "tawassul-to-tickets",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 4
+    },
+    {
+      "evalId": "retro-basic",
+      "skillId": "tawassul-retro",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 5
+    },
+    {
+      "evalId": "writing-for-agents-basic",
+      "skillId": "tawassul-writing-for-agents",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 5
+    },
+    {
+      "evalId": "codebase-design-basic",
+      "skillId": "tawassul-codebase-design",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 4
+    },
+    {
+      "evalId": "interface-design-basic",
+      "skillId": "tawassul-interface-design",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 4
+    }
+  ],
+  "replayLoadRate": {
+    "relevant": 12,
+    "loaded": 12,
+    "rate": 1
+  },
+  "liveLoadRate": {
+    "sessions": [
+      {
+        "evalId": "adversarial-review-basic",
+        "session": "adversarial-review-on",
+        "agent": "reviewer",
+        "loaded": true
+      },
+      {
+        "evalId": "enrich-task-basic",
+        "session": "enrich-task-on",
+        "agent": "tawa",
+        "loaded": true
+      },
+      {
+        "evalId": "step-back-basic",
+        "session": "step-back-on",
+        "agent": "analyst",
+        "loaded": true
+      },
+      {
+        "evalId": "diagnosing-bugs-basic",
+        "session": "diagnosing-bugs-on",
+        "agent": "dev",
+        "loaded": true
+      },
+      {
+        "evalId": "verification-planning-basic",
+        "session": "verification-planning-on",
+        "agent": "tester",
+        "loaded": true
+      },
+      {
+        "evalId": "code-explorer-basic",
+        "session": "code-explorer-on",
+        "agent": "dev",
+        "loaded": true
+      },
+      {
+        "evalId": "incident-response-basic",
+        "session": "incident-response-on",
+        "agent": "analyst",
+        "loaded": true
+      },
+      {
+        "evalId": "to-tickets-basic",
+        "session": "to-tickets-on",
+        "agent": "tawa",
+        "loaded": true
+      },
+      {
+        "evalId": "retro-basic",
+        "session": "retro-on",
+        "agent": "analyst",
+        "loaded": true
+      },
+      {
+        "evalId": "writing-for-agents-basic",
+        "session": "writing-for-agents-on",
+        "agent": "doc",
+        "loaded": true
+      },
+      {
+        "evalId": "codebase-design-basic",
+        "session": "codebase-design-on",
+        "agent": "architect",
+        "loaded": true
+      },
+      {
+        "evalId": "interface-design-basic",
+        "session": "interface-design-on",
+        "agent": "designer",
+        "loaded": true
+      }
+    ],
+    "relevant": 12,
+    "loaded": 12,
+    "rate": 1,
+    "skillsOff": 0
+  },
+  "notes": "One isolated workspace per the E1 harness shape under /tmp/opencode/skill-eval-20261112: the repo opencode.json, .opencode/agents and the built dist/global.js were copied into the workspace, and every XDG root, the database and the Tawassul state were redirected under the same root. Each session ran the installed host with --standalone --auto --format json --agent <role> --model opencode/deepseek-v4.1-flash-free, and the prompt named one skill id and asked for its title and first procedure step. The recorded transcript contains the skill tool result starting with <skill_content name=\"<Title>\"> and the body's first step, so each row records a real load. The live host, the live state root, the live database and the global install were untouched. The skills-off control is zero by construction because this build always registers the shipped skills."
+}

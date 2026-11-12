@@ -240,6 +240,6 @@ assert(
   toolNameSetHash(TAWASSUL_TOOL_NAMES) === TOOL_NAME_SET_HASH,
   "the 44-tool name set is unchanged by skill registration",
 );
-assert(PILOT_SKILLS.length === 4, "the pilot ships exactly four skills");
+assert(PILOT_SKILLS.length === 16, "the pilot ships exactly sixteen skills");
 
 console.log(`PROOF PASS: skill and command registration is isolated and leaves the tool surface untouched (${passed} assertions)`);

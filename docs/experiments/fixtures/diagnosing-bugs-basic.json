@@ -1,0 +1,54 @@
+{
+  "id": "diagnosing-bugs-basic",
+  "skillId": "tawassul-diagnosing-bugs",
+  "sessions": [
+    {
+      "name": "diagnosing-bugs-session",
+      "request": "This gate failure resisted the obvious fix. Diagnose it.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        {
+          "tool": "timeline",
+          "args": {
+            "view": "recent",
+            "limit": 20
+          }
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "note",
+            "title": "red loop",
+            "detail": "the exact command and the observed failure"
+          }
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "note",
+            "title": "ranked hypotheses",
+            "detail": "falsifiable causes ordered by the evidence"
+          }
+        },
+        {
+          "tool": "handoff",
+          "args": {
+            "to": "@tester",
+            "task": "add the regression test at the seam",
+            "context": "the reproduction command and the ranked causes are in the record ledger"
+          }
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "fix",
+            "title": "root cause",
+            "detail": "the cause, the fix and the regression evidence",
+            "severity": "moderate"
+          }
+        }
+      ]
+    }
+  ]
+}

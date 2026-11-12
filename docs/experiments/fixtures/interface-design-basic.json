@@ -1,0 +1,42 @@
+{
+  "id": "interface-design-basic",
+  "skillId": "tawassul-interface-design",
+  "sessions": [
+    {
+      "name": "interface-design-session",
+      "request": "Set the direction for the new settings screen and critique the result.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        {
+          "tool": "show_board",
+          "args": {}
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "decision",
+            "title": "design direction",
+            "detail": "the aesthetic direction, the tokens, the counter-default moves and the rationale for each"
+          }
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "note",
+            "title": "interface critique",
+            "detail": "each dimension scored, its severity and the repair"
+          }
+        },
+        {
+          "tool": "handoff",
+          "args": {
+            "to": "@dev",
+            "task": "implement the interface spec",
+            "context": "the direction and the critique are in the record ledger"
+          }
+        }
+      ]
+    }
+  ]
+}

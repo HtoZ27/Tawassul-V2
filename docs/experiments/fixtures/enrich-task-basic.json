@@ -1,0 +1,56 @@
+{
+  "id": "enrich-task-basic",
+  "skillId": "tawassul-enrich-task",
+  "sessions": [
+    {
+      "name": "enrich-task-session",
+      "request": "Turn this request into a goal a builder can start from.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        {
+          "tool": "goal",
+          "args": {
+            "list": true
+          }
+        },
+        {
+          "tool": "show_board",
+          "args": {}
+        },
+        {
+          "tool": "goal",
+          "args": {
+            "create": "the request restated as a goal",
+            "items": [
+              "scope",
+              "out of scope",
+              "reuse",
+              "requirements",
+              "acceptance"
+            ],
+            "acceptance": [
+              "the request is implementable without a follow-up question"
+            ]
+          }
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "note",
+            "title": "scope and open questions",
+            "detail": "the boundaries, the reused surfaces and the questions the request leaves open"
+          }
+        },
+        {
+          "tool": "handoff",
+          "args": {
+            "to": "@architect",
+            "task": "review the enriched scope",
+            "context": "the goal carries items and acceptance criteria; the note carries the open questions"
+          }
+        }
+      ]
+    }
+  ]
+}

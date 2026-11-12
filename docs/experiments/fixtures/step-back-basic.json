@@ -1,0 +1,41 @@
+{
+  "id": "step-back-basic",
+  "skillId": "tawassul-step-back",
+  "sessions": [
+    {
+      "name": "step-back-session",
+      "request": "The fixes keep stacking. Step back and reassess the direction.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        {
+          "tool": "timeline",
+          "args": {
+            "view": "recent",
+            "limit": 30
+          }
+        },
+        {
+          "tool": "show_board",
+          "args": {}
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "decision",
+            "title": "direction reassessment",
+            "detail": "the drift, the cleaner alternative and the recommendation with its cost"
+          }
+        },
+        {
+          "tool": "handoff",
+          "args": {
+            "to": "@tawa",
+            "task": "decide the direction",
+            "context": "the reassessment and its grounds are in the record ledger"
+          }
+        }
+      ]
+    }
+  ]
+}

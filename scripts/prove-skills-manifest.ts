@@ -70,7 +70,7 @@ const definitions: Record<string, ToolDefinition> = {
 };
 
 assert(manifest.version === 1, "the skills manifest uses schema version 1");
-assert(manifest.skills.length === 4, `the pilot ships four skills (${manifest.skills.length})`);
+assert(manifest.skills.length === 16, `the pilot ships sixteen skills (${manifest.skills.length})`);
 assert(manifest.commands.length === 1, `the pilot ships one command (${manifest.commands.length})`);
 assert(ledger.version === 1, "the eval ledger uses schema version 1");
 

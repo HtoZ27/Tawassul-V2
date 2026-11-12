@@ -1,0 +1,67 @@
+{
+  "id": "adversarial-review-basic",
+  "skillId": "tawassul-adversarial-review",
+  "sessions": [
+    {
+      "name": "adversarial-review-session",
+      "request": "Attack the current diff and tell me whether it is safe to accept.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        {
+          "tool": "show_board",
+          "args": {}
+        },
+        {
+          "tool": "timeline",
+          "args": {
+            "view": "recent",
+            "limit": 20
+          }
+        },
+        {
+          "tool": "goal",
+          "args": {
+            "list": true
+          }
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "note",
+            "title": "review coverage",
+            "detail": "every changed file reviewed or listed as skipped with a reason"
+          }
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "fix",
+            "title": "review findings",
+            "detail": "file, line, failing input and severity for each finding",
+            "severity": "moderate"
+          }
+        },
+        {
+          "tool": "handoff",
+          "args": {
+            "to": "@dev",
+            "task": "repair the review findings",
+            "context": "the coverage note and the findings record carry the repair brief",
+            "files": [
+              "src/index.ts"
+            ]
+          }
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "note",
+            "title": "review verdict",
+            "detail": "safe or not safe, with the grounds for the verdict"
+          }
+        }
+      ]
+    }
+  ]
+}

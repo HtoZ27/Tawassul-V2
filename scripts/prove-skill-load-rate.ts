@@ -45,7 +45,7 @@ function receiptFor(path: string): Receipt {
   return parsed;
 }
 
-assert(manifest.skills.length === 4, "the manifest ships four skills");
+assert(manifest.skills.length === 16, "the manifest ships sixteen skills");
 
 for (const skill of manifest.skills) {
   const label = skill.id;

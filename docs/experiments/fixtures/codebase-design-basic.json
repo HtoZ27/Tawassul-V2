@@ -1,0 +1,48 @@
+{
+  "id": "codebase-design-basic",
+  "skillId": "tawassul-codebase-design",
+  "sessions": [
+    {
+      "name": "codebase-design-session",
+      "request": "Review this module boundary ahead of the change.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        {
+          "tool": "show_board",
+          "args": {}
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "decision",
+            "title": "module boundary",
+            "detail": "the interface, the seam and the deletion test result"
+          }
+        },
+        {
+          "tool": "goal",
+          "args": {
+            "create": "deepen the module",
+            "items": [
+              "the interface",
+              "the seam",
+              "the test surface"
+            ],
+            "acceptance": [
+              "the deletion test names what the module hides"
+            ]
+          }
+        },
+        {
+          "tool": "handoff",
+          "args": {
+            "to": "@dev",
+            "task": "apply the module boundary",
+            "context": "the decision and the goal items carry the design"
+          }
+        }
+      ]
+    }
+  ]
+}

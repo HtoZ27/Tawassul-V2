@@ -86,7 +86,7 @@ bun scripts/install-global.ts --verify
 
 ## Skills
 
-Four procedures ship in-process and load only when the task matches them.
+Sixteen procedures ship in-process and load only when the task matches them.
 Nothing is copied into a skills directory, and an uninstall leaves no skill
 files behind.
 
@@ -96,6 +96,18 @@ files behind.
 | `tawassul-handoff-triage` | handoff lifecycle triage across the board, timeline and ledger | `show_board`, `timeline`, `record`, `handoff` | `handoff-triage-basic` | 0.5 |
 | `tawassul-context-continue` | portable context handoff across pack, read and continue | `thread`, `record` | `context-continue-basic` | 0.5 |
 | `tawassul-integration-engineer` | safe change integration across dependencies, invariants, execution paths and regression verification | `goal`, `show_board`, `timeline`, `record`, `handoff` | `integration-engineer-basic` | 0.5 |
+| `tawassul-adversarial-review` | adversarial review across changed-file coverage, attack dimensions, fact-check and verdict | `show_board`, `timeline`, `goal`, `record`, `handoff` | `adversarial-review-basic` | 0.5 |
+| `tawassul-enrich-task` | request intake across scope, reuse, requirements, acceptance and open questions | `goal`, `show_board`, `record`, `handoff` | `enrich-task-basic` | 0.5 |
+| `tawassul-step-back` | direction reassessment across drift signals, the cleaner alternative and the decision | `timeline`, `show_board`, `record`, `handoff` | `step-back-basic` | 0.5 |
+| `tawassul-diagnosing-bugs` | root-cause diagnosis across reproduction, ranked hypotheses, probes and the regression seam | `timeline`, `record`, `handoff` | `diagnosing-bugs-basic` | 0.5 |
+| `tawassul-verification-planning` | verification planning across claims, failure modes, evidence paths and budget | `goal`, `record`, `handoff` | `verification-planning-basic` | 0.5 |
+| `tawassul-code-explorer` | feature tracing across entry points, flow, dependencies and extension points | `show_board`, `timeline`, `record`, `handoff` | `code-explorer-basic` | 0.5 |
+| `tawassul-incident-response` | incident handling across classification, containment, evidence, communication and close-out | `show_board`, `record`, `handoff`, `timeline` | `incident-response-basic` | 0.5 |
+| `tawassul-to-tickets` | decomposition across vertical slices, blocking edges and dispatch order | `goal`, `record`, `handoff` | `to-tickets-basic` | 0.5 |
+| `tawassul-retro` | session retrospective across navigation, checks, standards, context bloat, tool economy and information access | `timeline`, `show_board`, `record`, `goal`, `handoff` | `retro-basic` | 0.5 |
+| `tawassul-writing-for-agents` | agent-facing writing across pointers, load budgets, completion criteria, leading words and pruning | `show_board`, `record`, `goal`, `handoff` | `writing-for-agents-basic` | 0.5 |
+| `tawassul-codebase-design` | module design across interface depth, seams, adapters and testability | `show_board`, `record`, `goal`, `handoff` | `codebase-design-basic` | 0.5 |
+| `tawassul-interface-design` | interface direction and critique across aesthetic intent, tokens, accessibility and generic-output tests | `show_board`, `record`, `handoff` | `interface-design-basic` | 0.5 |
 <!-- /generated -->
 
 More in [docs/skills.md](docs/skills.md).

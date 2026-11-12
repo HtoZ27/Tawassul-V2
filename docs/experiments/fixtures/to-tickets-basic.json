@@ -1,0 +1,50 @@
+{
+  "id": "to-tickets-basic",
+  "skillId": "tawassul-to-tickets",
+  "sessions": [
+    {
+      "name": "to-tickets-session",
+      "request": "This plan is too large for one handoff. Cut it into slices.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        {
+          "tool": "goal",
+          "args": {
+            "list": true
+          }
+        },
+        {
+          "tool": "goal",
+          "args": {
+            "create": "the plan as slices",
+            "items": [
+              "slice one",
+              "slice two",
+              "slice three"
+            ],
+            "acceptance": [
+              "each slice is demoable on its own"
+            ]
+          }
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "note",
+            "title": "slice edges",
+            "detail": "each slice and the slices that gate it"
+          }
+        },
+        {
+          "tool": "handoff",
+          "args": {
+            "to": "@dev",
+            "task": "start the unblocked slice",
+            "context": "the slice edges are in the record ledger"
+          }
+        }
+      ]
+    }
+  ]
+}

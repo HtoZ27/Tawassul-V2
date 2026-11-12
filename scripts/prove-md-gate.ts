@@ -81,10 +81,10 @@ try {
 }
 
 const real = checkShippedMarkdown();
-assert(real.files === 4, `the repository ships four skill bodies (${real.files})`);
+assert(real.files === 16, `the repository ships sixteen skill bodies (${real.files})`);
 assert(real.errors.length === 0, "every shipped skill body passes the markdown branch");
 assert(
-  real.files === 4 && !real.errors.some((error) => error.includes("SHARED.md")),
+  real.files === 16 && !real.errors.some((error) => error.includes("SHARED.md")),
   "the repository scan never reaches a frozen document",
 );
 
