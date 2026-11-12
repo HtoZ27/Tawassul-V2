@@ -229,6 +229,13 @@ export function buildToolRegistry(
       },
       () => tawaCtx.saveState(),
       (entry) => tawaCtx.sharedMemory.addDecision(entry),
+      () => {
+        const tracker = services?.healthTracker;
+        if (!tracker) return;
+        for (const status of tracker.getAllStatuses()) {
+          if (tracker.isAutoPaused(status.agent)) tracker.resumeAgent(status.agent);
+        }
+      },
     ),
   };
 

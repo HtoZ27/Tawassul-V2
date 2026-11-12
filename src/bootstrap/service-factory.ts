@@ -26,6 +26,7 @@ import { join, dirname, resolve } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { getWriteBlockReason } from "../services/isolation.ts";
 import { schedulePersist } from "../services/persist-utils.ts";
+import { canAutoPauseOverwrite } from "../tools/system-controls.ts";
 
 import { getCollectiveMemoryStore } from "../services/collective-memory/store.ts";
 import type { CollectiveMemoryStoreImpl } from "../services/collective-memory/store.ts";
@@ -595,6 +596,7 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
   tawaCtx.lifecycleManager.addCleanupCallback(() => stuckDetectionAbort.abort());
   healthTracker.onAutoPause((agent, reason) => {
     logger.warn(`Agent ${agent} auto-paused: ${reason}`);
+    if (!canAutoPauseOverwrite(tawaCtx.pauseState)) return;
     tawaCtx.pauseState = {
       active: true,
       reason: `Auto-paused: ${reason}`,

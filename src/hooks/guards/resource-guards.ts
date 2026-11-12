@@ -28,13 +28,18 @@ export const firstResponseGuard = guard("first-response-guard", (ctx, input) => 
 });
 
 export const pauseStateGuard = guard("pause-state", (ctx, input) =>
-  ctx.pauseState?.active && !PAUSE_BYPASS_TOOLS.has(input.tool)
+  ctx.pauseState?.active &&
+  ctx.pauseState.scope !== "agent" &&
+  !PAUSE_BYPASS_TOOLS.has(input.tool)
     ? `⏸️ System paused: "${ctx.pauseState.reason}". Use resume() to continue.`
     : null,
 );
 
 export const agentAutoPauseGuard = guard("agent-auto-pause", (ctx, input) =>
-  ctx.healthTracker?.isAutoPaused && input.agent && ctx.healthTracker.isAutoPaused(input.agent)
+  ctx.healthTracker?.isAutoPaused &&
+  input.agent &&
+  ctx.healthTracker.isAutoPaused(input.agent) &&
+  !PAUSE_BYPASS_TOOLS.has(input.tool)
     ? `⏸️ Agent "${input.agent}" is auto-paused (stuck). Use resume() to continue.`
     : null,
 );

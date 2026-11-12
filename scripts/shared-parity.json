@@ -1287,7 +1287,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/tools/system-controls.ts",
-            "line": 79,
+            "line": 83,
             "marker": "const pauseState: PauseState = {"
           },
           "proofs": [

@@ -18,6 +18,10 @@ export type PauseState = {
   originalStatuses?: Record<string, string>;
 };
 
+export function canAutoPauseOverwrite(current: PauseState | null): boolean {
+  return !current?.active || current.scope === "agent";
+}
+
 interface HandoffLike {
   id: string;
   status: string;
@@ -123,6 +127,7 @@ export function buildResumeTool(
     tags: string[];
     importance: "low" | "medium" | "high";
   }) => void,
+  onResumed?: () => void,
 ) {
   return tool({
     description: [
@@ -139,6 +144,7 @@ export function buildResumeTool(
     async execute(_args, cctx) {
       const current = getPauseState();
       if (!current?.active) {
+        onResumed?.();
         return { output: `✅ System is already running. No pause to resume from.` };
       }
       const affectedIds = current.affectedHandoffs;
@@ -159,13 +165,17 @@ export function buildResumeTool(
         tags: ["resume", "workflow"],
         importance: "high",
       });
+      onResumed?.();
       saveState();
+      const agentScope = current.scope === "agent";
       return {
         output: [
-          `▶️ **System resumed**`,
+          agentScope ? `▶️ **Agent auto-pause lifted**` : `▶️ **System resumed**`,
           ``,
           `- **Previously paused:** ${current.reason}`,
-          `- **Reactivated:** ${affectedIds.length} handoffs`,
+          agentScope
+            ? `- **Affected:** ${affectedIds.length} handoffs`
+            : `- **Reactivated:** ${affectedIds.length} handoffs`,
           `- **Resumed by:** ${cctx.agent}`,
         ].join("\n"),
       };

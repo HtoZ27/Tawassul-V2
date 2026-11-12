@@ -1,8 +1,12 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildPauseTool, buildResumeTool, type PauseState } from "../src/tools/system-controls.ts";
+import { buildPauseTool, buildResumeTool, canAutoPauseOverwrite, type PauseState } from "../src/tools/system-controls.ts";
 import { buildImageGenTool } from "../src/tools/image-gen.ts";
+import { HealthTracker } from "../src/services/agent-health.ts";
+import { EventHub } from "../src/services/event-hub.ts";
+import { AgentAvailabilityManager } from "../src/services/agent-availability.ts";
+import { agentAutoPauseGuard, pauseStateGuard } from "../src/hooks/guards/resource-guards.ts";
 import { TASK_TIMEOUT_MS, armTaskTimeout, clearTaskTimeout } from "../src/hooks/tool-execute.ts";
 import { _taskTimeouts } from "../src/services/lifecycle-drain.ts";
 import { logger } from "../src/utils/logger.ts";
@@ -100,11 +104,165 @@ assert(handoffs.filter((h) => h.status === "paused").length === 2, "the refused 
 
 const resumed = (await resumeTool.execute({}, { agent: "dev" } as never)) as { output: string };
 assert(resumed.output.includes("System resumed"), "resume reports the transition");
+assert(resumed.output.includes("Reactivated:"), "a manual resume reports reactivated handoffs");
 assert(pauseState === null, "resume clears the pause state");
 assert(handoffs.find((h) => h.id === "H-1")?.status === "pending", "resume restores pending");
 assert(handoffs.find((h) => h.id === "H-2")?.status === "accepted", "resume restores accepted");
 assert(saves === 2, "resume persists state once");
 assert(decisions.length === 1, "resume records one decision");
+
+const healthHub = new EventHub();
+const tracker = new HealthTracker(1000, 1, healthHub);
+const recoveredAgents: string[] = [];
+healthHub.on("AGENT_RECOVERED", (event) => {
+  recoveredAgents.push(event.agent);
+});
+const autoPauseNotices: string[] = [];
+tracker.onAutoPause((agent) => autoPauseNotices.push(agent));
+const staleHandoff = {
+  id: "H-A1",
+  status: "pending",
+  to: "build",
+  timestamp: new Date(Date.now() - 5000).toISOString(),
+};
+const autoPaused = tracker.autoPauseStuckAgents([staleHandoff] as never);
+assert(autoPaused.join(",") === "build", "a stale handoff auto-pauses its recipient");
+assert(tracker.isAutoPaused("build"), "the recipient is auto-paused");
+assert(autoPauseNotices.join(",") === "build", "the auto-pause callback names the recipient");
+
+const availability = new AgentAvailabilityManager({ healthTracker: tracker }, healthHub);
+assert(availability.getAvailability("build") === "paused", "an auto-paused agent is unavailable");
+
+let autoPauseState: PauseState | null = {
+  active: true,
+  reason: "Auto-paused: Agent stuck for 5s",
+  pausedAt: new Date().toISOString(),
+  pausedBy: "system",
+  scope: "agent",
+  affectedHandoffs: ["H-A1"],
+};
+let autoHandoffs: Handoff[] = [{ id: "H-A1", status: "pending" }];
+let autoSaves = 0;
+let resumeCallbacks = 0;
+let stateSeenByCallback: PauseState | null | undefined;
+const autoResumeTool = buildResumeTool(
+  () => autoPauseState,
+  (state) => {
+    autoPauseState = state;
+  },
+  () => autoHandoffs,
+  (next) => {
+    autoHandoffs = next as Handoff[];
+  },
+  async () => {
+    autoSaves += 1;
+  },
+  () => {},
+  () => {
+    resumeCallbacks += 1;
+    stateSeenByCallback = autoPauseState;
+    for (const status of tracker.getAllStatuses()) {
+      if (tracker.isAutoPaused(status.agent)) tracker.resumeAgent(status.agent);
+    }
+  },
+);
+
+const autoResumed = (await autoResumeTool.execute({}, { agent: "dev" } as never)) as { output: string };
+assert(autoResumed.output.includes("Agent auto-pause lifted"), "resume reports the auto-pause transition");
+assert(!autoResumed.output.includes("System resumed"), "an agent auto-pause is not reported as a system resume");
+assert(autoResumed.output.includes("Affected:** 1 handoffs"), "an agent auto-pause reports affected handoffs");
+assert(stateSeenByCallback === null, "the recovery callback runs after the pause is cleared");
+assert(!tracker.isAutoPaused("build"), "resume clears the auto-pause");
+assert(String(tracker.getStatus("build")?.state) === "HEALTHY", "the resumed agent returns to HEALTHY");
+assert(recoveredAgents.includes("build"), "resume emits AGENT_RECOVERED");
+assert(availability.getAvailability("build") === "available", "the resumed agent is available again");
+assert(resumeCallbacks === 1, "the recovery callback runs once");
+assert(autoHandoffs[0]?.status === "pending", "auto-pause never rewrites the stale handoff");
+
+tracker.autoPauseStuckAgents([staleHandoff] as never);
+assert(tracker.isAutoPaused("build"), "a second stale handoff auto-pauses again");
+const alreadyRunning = (await autoResumeTool.execute({}, { agent: "dev" } as never)) as { output: string };
+assert(alreadyRunning.output.includes("already running"), "the no-pause path reports no pause");
+assert(!tracker.isAutoPaused("build"), "the no-pause path still clears the auto-pause");
+assert(resumeCallbacks === 2, "the recovery callback runs on the no-pause path too");
+
+tracker.autoPauseStuckAgents([staleHandoff] as never);
+assert(
+  await agentAutoPauseGuard.check(
+    { healthTracker: tracker } as never,
+    { tool: "resume", agent: "build", sessionID: "s" },
+    { args: {} },
+  ),
+  "the auto-pause guard lets resume through",
+);
+assert(
+  !(await agentAutoPauseGuard.check(
+    { healthTracker: tracker } as never,
+    { tool: "edit", agent: "build", sessionID: "s" },
+    { args: {} },
+  )),
+  "the auto-pause guard still blocks edit",
+);
+assert(autoSaves === 1, "the auto-pause resume persists the cleared pause state");
+
+const agentScopePause = {
+  active: true,
+  reason: "Auto-paused: Agent stuck for 5s",
+  pausedAt: new Date().toISOString(),
+  pausedBy: "system",
+  scope: "agent" as const,
+  affectedHandoffs: ["H-A1"],
+};
+assert(
+  await pauseStateGuard.check(
+    { pauseState: agentScopePause } as never,
+    { tool: "edit", agent: "analyst", sessionID: "s" },
+    { args: {} },
+  ),
+  "an agent-scope pause leaves other agents free",
+);
+assert(
+  !(await pauseStateGuard.check(
+    { pauseState: { ...agentScopePause, scope: "all" as const } } as never,
+    { tool: "edit", agent: "analyst", sessionID: "s" },
+    { args: {} },
+  )),
+  "an all-scope pause still blocks every agent",
+);
+assert(
+  !(await agentAutoPauseGuard.check(
+    { healthTracker: tracker } as never,
+    { tool: "edit", agent: "build", sessionID: "s" },
+    { args: {} },
+  )),
+  "an agent-scope pause still blocks the stuck agent",
+);
+assert(
+  await agentAutoPauseGuard.check(
+    { healthTracker: tracker } as never,
+    { tool: "edit", agent: "analyst", sessionID: "s" },
+    { args: {} },
+  ),
+  "an agent-scope pause leaves an unrelated agent free",
+);
+assert(
+  await pauseStateGuard.check(
+    { pauseState: null } as never,
+    { tool: "edit", agent: "analyst", sessionID: "s" },
+    { args: {} },
+  ),
+  "no pause state never blocks",
+);
+assert(canAutoPauseOverwrite(null), "auto-pause may write when nothing is paused");
+assert(canAutoPauseOverwrite(agentScopePause), "auto-pause may replace another agent-scope pause");
+assert(
+  !canAutoPauseOverwrite({ ...agentScopePause, scope: "all" as const }),
+  "auto-pause never replaces a global pause",
+);
+assert(
+  !canAutoPauseOverwrite({ ...agentScopePause, scope: "handoffs" as const }),
+  "auto-pause never replaces a handoff pause",
+);
 
 assert(TASK_TIMEOUT_MS === 420_000, "the task timeout bound is 420 seconds");
 

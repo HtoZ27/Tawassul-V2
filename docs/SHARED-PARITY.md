@@ -84,7 +84,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-053.1 | The watcher policy is owned by the v2 launcher with env over pinned over auto and one decision line. | `scripts/opencode-v2-iso.sh:302` `[launcher] watcher mode=` | `scripts/prove-boot-gate.ts` | verified |
 | S-053.2 | DB retention prunes event rows and the backup probe counts both session tables. | `scripts/opencode-db-maintenance.sh:91` `EVENT_KEEP` | `scripts/prove-db-retention.ts` | verified |
 | S-053.3 | The seven-item unchecked-task census is either ported as tests or recorded as out of scope. | `ISSUES.md:2978` `### E-53` | `scripts/prove-handoff-rescue.ts`, `scripts/prove-seed-agents.ts` | verified |
-| S-053.4 | Pause during a live session halts dispatch and persists the paused handoff set. | `src/tools/system-controls.ts:79` `const pauseState: PauseState = {` | `scripts/prove-s053.ts` | verified |
+| S-053.4 | Pause during a live session halts dispatch and persists the paused handoff set. | `src/tools/system-controls.ts:83` `const pauseState: PauseState = {` | `scripts/prove-s053.ts` | verified |
 | S-053.5 | A task that runs longer than 420 seconds is tracked by the task timeout. | `src/hooks/tool-execute.ts:74` `export const TASK_TIMEOUT_MS = 420_000;` | `scripts/prove-s053.ts` | verified |
 | S-053.6 | An image-generation 401 refreshes the token once and fails closed on a second 401. | `src/tools/image-gen.ts:190` `const refreshed = await refreshAndUpdateToken();` | `scripts/prove-s053.ts` | verified |
 | S-053.7 | Confidentiality at rest for plugin state is a host and OS responsibility, not a plugin feature. | - | - | n-a |
