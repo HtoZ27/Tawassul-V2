@@ -1057,6 +1057,7 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
                 await removeAgentsFromConfig(
                   ctx,
                   result.removed.map((tag) => normalizeName(tag)),
+                  SCOPE,
                 );
               }
               if (variantsToPersist.length > 0) {
@@ -1200,7 +1201,7 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
               }
               if (result.removed.length > 0) ctx.agentManager.clearReadCache();
               for (const tag of result.removed) {
-                removeAgentMd(ctx, normalizeName(tag));
+                removeAgentMd(ctx, normalizeName(tag), SCOPE);
               }
             },
             { failClosed: true },

@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { normalizeName } from "../utils/name-utils.ts";
 import { logger } from "../utils/logger.ts";
 import type { TawassulContext } from "../context.ts";
-import { SCOPE } from "./agent-management.ts";
+import type { InstallScope } from "../utils/path-resolver.ts";
 import { resolveAgentsDir, resolveTawassulConfigPath, resolveActiveConfigPath } from "../utils/path-resolver.ts";
 import { resolveSafePath, resolveSafePathSync } from "../utils/path.ts";
 import {
@@ -40,9 +40,9 @@ export function dropAgentState(ctx: TawassulContext, tag: string): void {
 }
 
 
-export function removeAgentMd(ctx: TawassulContext, spec: string): void {
+export function removeAgentMd(ctx: TawassulContext, spec: string, scope: InstallScope): void {
   try {
-    const agentsDir = resolveAgentsDir(ctx.stateDir, SCOPE);
+    const agentsDir = resolveAgentsDir(ctx.stateDir, scope);
     const mdPath = resolve(agentsDir, `${normalizeName(spec)}.md`);
     const safeMdPath = resolveSafePathSync(mdPath, agentsDir);
     if (safeMdPath && existsSync(safeMdPath)) unlinkSync(safeMdPath);
@@ -51,8 +51,8 @@ export function removeAgentMd(ctx: TawassulContext, spec: string): void {
   }
 }
 
-export async function removeAgentsFromConfig(ctx: TawassulContext, specs: string[]): Promise<void> {
-  if (SCOPE === "global") {
+export async function removeAgentsFromConfig(ctx: TawassulContext, specs: string[], scope: InstallScope): Promise<void> {
+  if (scope === "global") {
     const rosterPath = resolveTawassulConfigPath(ctx.stateDir, "global");
     let rosterData;
     try {
@@ -86,7 +86,7 @@ export async function removeAgentsFromConfig(ctx: TawassulContext, specs: string
     }
     return;
   }
-  const cfgPath = resolveActiveConfigPath(ctx.stateDir, SCOPE);
+  const cfgPath = resolveActiveConfigPath(ctx.stateDir, scope);
   const cfgName = basename(cfgPath);
   const opencodePath = cfgPath;
   const safeOpencodePath = await resolveSafePath(opencodePath, ctx.stateDir);
