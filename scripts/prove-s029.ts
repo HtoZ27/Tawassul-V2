@@ -9,6 +9,7 @@ import type { ToolContext, ToolResult } from "../src/tool.ts";
 import { defaultAgentModelForRole } from "../src/services/proxy-fallback-chains.ts";
 import { sameRoleDistributionGuard, deletedAgentGuard } from "../src/hooks/guards/dispatch-guards.ts";
 import { isKnownDynamicAgent } from "../src/scripts/gen-opencode-config.ts";
+import { stripJsoncComments } from "../src/utils/opencode-config.ts";
 import {
   buildAgents,
 } from "../src/scripts/gen-opencode-config.ts";
@@ -190,6 +191,119 @@ function runLoggerChild(extraEnv: Record<string, string>, dropKeys: string[] = [
     if (savedModelsEnv === undefined) delete process.env.TAWASSUL_MODELS_JSON;
     else process.env.TAWASSUL_MODELS_JSON = savedModelsEnv;
     rmSync(projectDir, { recursive: true, force: true });
+  }
+}
+
+{
+  const globalDir = mkdtempSync(join(tmpdir(), "s029-project-global-"));
+  const globalJson = join(globalDir, "opencode.json");
+  const globalJsonc = join(globalDir, "opencode.jsonc");
+  const globalJsonBody = '{\n  "agent": {}\n}\n';
+  const globalJsoncBody = '{\n  "agent": {}\n}\n';
+  writeFileSync(globalJson, globalJsonBody);
+  writeFileSync(globalJsonc, globalJsoncBody);
+  const previousGlobal = process.env.TAWASSUL_GLOBAL_DIR;
+  process.env.TAWASSUL_GLOBAL_DIR = globalDir;
+  const makeCtx = (dir: string): TawassulContext =>
+    ({
+      config: { team: [] },
+      dynamicAgents: [],
+      agentModelMap: {},
+      agentRatings: {},
+      errorManager: { agentErrors: {} },
+      seenAgents: new Map(),
+      handoffs: new Map(),
+      stateDir: dir,
+      agentManager: {
+        hasConfigAgent: () => false,
+        clearReadCache: () => undefined,
+        writeAgentMd: async () => undefined,
+      },
+      askChannelInstance: {
+        hasPending: () => false,
+        askForRoot: async () => false,
+        currentSessionOverride: undefined,
+      },
+      saveState: () => undefined,
+      modelManager: { markModelFailed: () => undefined },
+    }) as unknown as TawassulContext;
+  const makeToolCtx = (dir: string): ToolContext =>
+    ({
+      sessionID: "s029-project-session",
+      messageID: "s029-project-message",
+      agent: "",
+      directory: dir,
+      worktree: dir,
+      abort: new AbortController().signal,
+      metadata: () => undefined,
+      ask: async () => undefined,
+    }) as unknown as ToolContext;
+  try {
+    const jsonDir = mkdtempSync(join(tmpdir(), "s029-project-json-"));
+    const jsonPath = join(jsonDir, "opencode.json");
+    const jsonBody =
+      JSON.stringify({ $schema: "https://opencode.ai/config.json", agent: {} }, null, 2) + "\n";
+    writeFileSync(jsonPath, jsonBody);
+    try {
+      const addText = toolOutput(
+        await buildAddAgentTool(makeCtx(jsonDir)).execute(
+          { name: "dev-ling with model ling-3.0-flash-fin-free from opencode" },
+          makeToolCtx(jsonDir),
+        ),
+      );
+      assert(addText.includes("Added"), "a project add with an existing config writes it");
+      const afterAdd = JSON.parse(readFileSync(jsonPath, "utf-8")) as { agent?: Record<string, unknown> };
+      assert(afterAdd.agent?.["dev-ling"] !== undefined, "a project add records the agent in opencode.json");
+      const kickText = toolOutput(
+        await buildKickTool(makeCtx(jsonDir)).execute(
+          { agent: "remove dev-ling with model ling-3.0-flash-fin-free from opencode" },
+          makeToolCtx(jsonDir),
+        ),
+      );
+      assert(kickText.includes("Removed"), "a project kick with an existing config writes it");
+      const afterKick = JSON.parse(readFileSync(jsonPath, "utf-8")) as { agent?: Record<string, unknown> };
+      assert(afterKick.agent?.["dev-ling"] === undefined, "a project kick removes the agent from opencode.json");
+    } finally {
+      rmSync(jsonDir, { recursive: true, force: true });
+    }
+
+    const jsoncDir = mkdtempSync(join(tmpdir(), "s029-project-jsonc-"));
+    const jsoncPath = join(jsoncDir, "opencode.jsonc");
+    const jsoncBody =
+      '{\n  // project config\n  "$schema": "https://opencode.ai/config.json",\n  "agent": {}\n}\n';
+    writeFileSync(jsoncPath, jsoncBody);
+    try {
+      const addText = toolOutput(
+        await buildAddAgentTool(makeCtx(jsoncDir)).execute(
+          { name: "dev-mimo with model mimo from opencode" },
+          makeToolCtx(jsoncDir),
+        ),
+      );
+      assert(addText.includes("Added"), "a project add writes an existing opencode.jsonc");
+      const afterAdd = stripJsoncComments(readFileSync(jsoncPath, "utf-8"));
+      assert(afterAdd !== stripJsoncComments(jsoncBody), "a project add changes opencode.jsonc");
+      assert(
+        (JSON.parse(afterAdd) as { agent?: Record<string, unknown> }).agent?.["dev-mimo"] !== undefined,
+        "a project add records the agent in opencode.jsonc",
+      );
+      assert(!existsSync(join(jsoncDir, "opencode.json")), "a project add creates no opencode.json beside jsonc");
+    } finally {
+      rmSync(jsoncDir, { recursive: true, force: true });
+    }
+
+    assert(
+      readFileSync(globalJson, "utf-8") === globalJsonBody,
+      "a project add leaves the global opencode.json byte-identical",
+    );
+    assert(
+      readFileSync(globalJsonc, "utf-8") === globalJsoncBody,
+      "a project add leaves the global opencode.jsonc byte-identical",
+    );
+    assert(!existsSync(join(globalDir, "tawassul.jsonc")), "a project add creates no global roster");
+  } finally {
+    if (previousGlobal === undefined) delete process.env.TAWASSUL_GLOBAL_DIR;
+    else process.env.TAWASSUL_GLOBAL_DIR = previousGlobal;
+    rmSync(globalDir, { recursive: true, force: true });
   }
 }
 
