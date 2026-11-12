@@ -1,8 +1,10 @@
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { computePinEntries, formatAddResult } from "../src/tools/agent-management.ts";
+import { buildAddAgentTool, buildKickTool, computePinEntries, formatAddResult } from "../src/tools/agent-management.ts";
+import type { TawassulContext } from "../src/context.ts";
+import type { ToolContext, ToolResult } from "../src/tool.ts";
 import { defaultAgentModelForRole } from "../src/services/proxy-fallback-chains.ts";
 import { sameRoleDistributionGuard, deletedAgentGuard } from "../src/hooks/guards/dispatch-guards.ts";
 import { isKnownDynamicAgent } from "../src/scripts/gen-opencode-config.ts";
@@ -23,6 +25,10 @@ function assert(cond: boolean, msg: string): void {
 
 function eq(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function toolOutput(result: ToolResult): string {
+  return typeof result === "string" ? result : result.output;
 }
 
 const out1 = computePinEntries(
@@ -127,6 +133,63 @@ function runLoggerChild(extraEnv: Record<string, string>, dropKeys: string[] = [
   const home = join(root, "fakehome2");
   assert(runLoggerChild({ TAWASSUL_LOG_FILE: "", HOME: home }, ["XDG_DATA_HOME"]) === 0, "logger child exits clean when opted out");
   assert(!existsSync(join(home, ".local", "share", "tawassul-v2", "tawassul", "tawassul.log")), "empty variable opts the sink out");
+}
+
+{
+  const projectDir = mkdtempSync(join(tmpdir(), "s029-noconfig-"));
+  const savedModelsEnv = process.env.TAWASSUL_MODELS_JSON;
+  try {
+    delete process.env.TAWASSUL_MODELS_JSON;
+    const noconfigCtx = {
+      config: { team: [] },
+      dynamicAgents: [],
+      agentModelMap: {},
+      stateDir: projectDir,
+      agentManager: {
+        hasConfigAgent: () => false,
+        clearReadCache: () => undefined,
+        writeAgentMd: async () => undefined,
+      },
+      askChannelInstance: {
+        hasPending: () => false,
+        askForRoot: async () => false,
+        currentSessionOverride: undefined,
+      },
+      saveState: () => undefined,
+      modelManager: { markModelFailed: () => undefined },
+    } as unknown as TawassulContext;
+    const toolCtx = {
+      sessionID: "s029-noconfig-session",
+      messageID: "s029-noconfig-message",
+      agent: "",
+      directory: projectDir,
+      worktree: projectDir,
+      abort: new AbortController().signal,
+      metadata: () => undefined,
+      ask: async () => undefined,
+    } as unknown as ToolContext;
+    const addText = toolOutput(
+      await buildAddAgentTool(noconfigCtx).execute(
+        { name: "dev-ling with model ling-3.0-flash-fin-free from opencode" },
+        toolCtx,
+      ),
+    );
+    assert(addText.includes("refusing to write"), "a project add without a config refuses to write");
+    assert(!addText.includes("Added"), "a refused project add is not reported as added");
+    assert(!existsSync(join(projectDir, "opencode.json")), "a refused project add creates no config");
+    const kickText = toolOutput(
+      await buildKickTool(noconfigCtx).execute(
+        { agent: "remove dev-ling with model ling-3.0-flash-fin-free from opencode" },
+        toolCtx,
+      ),
+    );
+    assert(kickText.includes("project config is missing"), "a project kick without a config refuses to write");
+    assert(!kickText.includes("Removed"), "a refused project kick is not reported as removed");
+  } finally {
+    if (savedModelsEnv === undefined) delete process.env.TAWASSUL_MODELS_JSON;
+    else process.env.TAWASSUL_MODELS_JSON = savedModelsEnv;
+    rmSync(projectDir, { recursive: true, force: true });
+  }
 }
 
 console.log(`PROOF PASS: s029 pins, dispatch precedence, dynamic suffix, log default, retire census (${passed} assertions)`);

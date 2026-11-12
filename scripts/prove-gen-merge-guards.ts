@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, copyFileSy
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildMergedAgents, checkGeneratedConfig } from "../src/scripts/gen-opencode-config.ts";
+import { buildExpectedConfig, buildMergedAgents, checkGeneratedConfig } from "../src/scripts/gen-opencode-config.ts";
 import { RETIRED_MODEL_IDS, MODEL_SUFFIX_MAP } from "../src/core/variant-names.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -105,6 +105,67 @@ function subsetConfig(): { agent: Record<string, { model?: string }> } {
   return { agent };
 }
 
+function proveEmptyAndSubset(): void {
+  const emptyRaw = JSON.stringify({ $schema: "https://opencode.ai/config.json", agent: {} });
+  const emptyMerged = buildMergedAgents(emptyRaw, { projectRoot: REPO });
+  const emptyCount = Object.keys(emptyMerged).length;
+  if (emptyCount !== 16) fail(`an empty agent container must yield 16, got ${emptyCount}`);
+  const subset = subsetConfig();
+  const subsetRaw = JSON.stringify({ $schema: "https://opencode.ai/config.json", agent: subset.agent });
+  const subsetMerged = buildMergedAgents(subsetRaw, { projectRoot: REPO });
+  const subsetNames = Object.keys(subsetMerged).sort();
+  const expected = [...BASE_AGENTS, "addagent"].sort();
+  if (JSON.stringify(subsetNames) !== JSON.stringify(expected)) {
+    fail(`a subset config must keep only its own keys, got ${subsetNames.join(", ")}`);
+  }
+  console.log("empty-container-and-subset ok");
+}
+
+function proveNonObjectAgent(): void {
+  const raw = JSON.stringify({ $schema: "https://opencode.ai/config.json", agent: [] });
+  let threw = false;
+  try {
+    buildMergedAgents(raw, { projectRoot: REPO });
+  } catch (e) {
+    threw = String((e as Error).message).includes("agent must be an object");
+  }
+  if (!threw) fail("a non-object agent container must throw in buildMergedAgents");
+  const check = checkGeneratedConfig(raw, { projectRoot: REPO });
+  if (check.ok || check.diff !== "agent must be an object") {
+    fail(`a non-object agent container must be reported verbatim, got ${String(check.diff)}`);
+  }
+  console.log("non-object-agent ok");
+}
+
+function proveKickOmission(): void {
+  const emptyRaw = JSON.stringify({ $schema: "https://opencode.ai/config.json", agent: {} });
+  const seeded = buildMergedAgents(emptyRaw, { projectRoot: REPO });
+  const withVariant: Record<string, unknown> = {
+    ...seeded,
+    "dev-ling": { description: "Developer ling", model: "opencode/ling-3.0-flash-fin-free", mode: "subagent" },
+  };
+  const before = buildExpectedConfig(
+    JSON.stringify({ $schema: "https://opencode.ai/config.json", agent: withVariant }),
+    { projectRoot: REPO },
+  );
+  if (!("dev-ling" in (JSON.parse(before) as { agent: Record<string, unknown> }).agent)) {
+    fail("the kick fixture must start with dev-ling");
+  }
+  const kicked = { ...withVariant };
+  delete kicked["dev-ling"];
+  const kickedRaw = JSON.stringify({ $schema: "https://opencode.ai/config.json", agent: kicked });
+  const first = JSON.parse(buildExpectedConfig(kickedRaw, { projectRoot: REPO })) as {
+    agent: Record<string, unknown>;
+  };
+  const second = JSON.parse(buildExpectedConfig(kickedRaw, { projectRoot: REPO })) as {
+    agent: Record<string, unknown>;
+  };
+  if ("dev-ling" in first.agent || "dev-ling" in second.agent) {
+    fail("both post-kick generations must omit dev-ling");
+  }
+  console.log("kick-omission ok");
+}
+
 function proveServedRetired(): void {
   process.env.TAWASSUL_MODELS_JSON = servedFixture;
   const config = subsetConfig();
@@ -149,6 +210,9 @@ function proveUnknownRetired(): void {
 
 try {
   await proveRetiredMigration();
+  proveEmptyAndSubset();
+  proveNonObjectAgent();
+  proveKickOmission();
   await proveHybridPins();
   proveServedRetired();
   proveUnknownRetired();

@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, existsSync, mkdirSync, utimesSync, w
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureMinimalProjectContract, ensureGlobalRosterSeed } from "../src/utils/opencode-config.ts";
+import { checkGeneratedConfig, resolveGenPaths } from "../src/scripts/gen-opencode-config.ts";
 import { generateAgentMd, ALL_AGENTS } from "../src/agent-templates.ts";
 import { defaultAgentModelForRole } from "../src/services/proxy-fallback-chains.ts";
 import { StaleDetector } from "../src/services/stale-detector/index.ts";
@@ -56,6 +57,32 @@ async function proveMinimalContract(): Promise<void> {
     if (scoped.created || scoped.reason !== "non-project-scope") fail("global scope must refuse");
     console.log("minimal-contract ok");
   } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+async function proveProjectDirResolution(): Promise<void> {
+  const dir = mkdtempSync(join(tmpdir(), "tawassul-seed-project-"));
+  const previous = process.env.TAWASSUL_PROJECT_DIR;
+  try {
+    const configPath = join(dir, "opencode.json");
+    writeFileSync(configPath, JSON.stringify({ $schema: "https://opencode.ai/config.json", agent: {} }) + "\n", "utf-8");
+    process.env.TAWASSUL_PROJECT_DIR = dir;
+    const paths = resolveGenPaths();
+    if (paths.agentsDir !== join(dir, ".opencode", "agents")) {
+      fail("TAWASSUL_PROJECT_DIR must resolve paths.agentsDir under the project");
+    }
+    if (paths.configPath !== configPath) fail("TAWASSUL_PROJECT_DIR must resolve the project config path");
+    if (!existsSync(paths.configPath)) fail("the F6 seed predicate must see the project config");
+    rmSync(configPath);
+    if (existsSync(paths.configPath)) fail("the project config must be absent for the F6 predicate check");
+    const check = checkGeneratedConfig();
+    if (!check.ok || !check.missing) fail("without opencode.json the F6 seed predicate must be false");
+    if (existsSync(paths.agentsDir)) fail("without opencode.json F6 must not seed agent files");
+    console.log("project-dir-resolution ok");
+  } finally {
+    if (previous === undefined) delete process.env.TAWASSUL_PROJECT_DIR;
+    else process.env.TAWASSUL_PROJECT_DIR = previous;
     rmSync(dir, { recursive: true, force: true });
   }
 }
@@ -198,6 +225,7 @@ async function proveStaleSignal(): Promise<void> {
 }
 
 await proveMinimalContract();
+await proveProjectDirResolution();
 await proveModifiedBasePreserved();
 await proveOptOut();
 await proveGlobalSeed();

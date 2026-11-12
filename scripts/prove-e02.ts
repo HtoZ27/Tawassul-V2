@@ -151,8 +151,50 @@ async function main(): Promise<void> {
   assert(appliedConfig.agent?.tawa?.model !== DYNAMIC_MODEL_SENTINEL, "the dynamic model becomes concrete");
   assert(appliedConfig.agent?.tawa?.permission?.["bash"] === "deny", "the same pass denies bash for tawa");
 
+  const modelsDir = mkdtempSync(join(tmpdir(), "tawassul-e02-models-"));
+  const savedModels = process.env.TAWASSUL_MODELS_JSON;
+  try {
+    const absentModels = join(modelsDir, "absent.json");
+    writeFileSync(
+      absentModels,
+      JSON.stringify({ opencode: { models: {} }, "cloudflare-workers-ai": { models: {} } }),
+    );
+    process.env.TAWASSUL_MODELS_JSON = absentModels;
+    const pinnedRaw = JSON.stringify(
+      {
+        $schema: "https://opencode.ai/config.json",
+        agent: { dev: { model: "opencode/mimo-v2.5-free" } },
+      },
+      null,
+      2,
+    );
+    const absentRepair = applyBootRepairs(pinnedRaw);
+    assert(absentRepair.fixes.includes("dynamic-models"), "boot repair rewrites an absent dynamic model");
+    assert(
+      (JSON.parse(absentRepair.next) as Config).agent?.dev?.model !== "opencode/mimo-v2.5-free",
+      "an absent dynamic model is replaced",
+    );
+    const servedModels = join(modelsDir, "served.json");
+    writeFileSync(
+      servedModels,
+      JSON.stringify({ opencode: { models: { "mimo-v2.5-free": {} } }, "cloudflare-workers-ai": { models: {} } }),
+    );
+    process.env.TAWASSUL_MODELS_JSON = servedModels;
+    const servedRepair = applyBootRepairs(pinnedRaw);
+    assert(!servedRepair.fixes.includes("dynamic-models"), "boot repair keeps a served dynamic model");
+    assert(
+      (JSON.parse(servedRepair.next) as Config).agent?.dev?.model === "opencode/mimo-v2.5-free",
+      "a served dynamic model stays pinned",
+    );
+  } finally {
+    if (savedModels === undefined) delete process.env.TAWASSUL_MODELS_JSON;
+    else process.env.TAWASSUL_MODELS_JSON = savedModels;
+    rmSync(modelsDir, { recursive: true, force: true });
+  }
+
   const repo = dirname(dirname(fileURLToPath(import.meta.url)));
   const generated = buildAgents(undefined, { projectRoot: resolve(repo) });
+  assert(Object.keys(generated).length === 58, "full-capacity generation is 58 keys");
   assert(
     caseInsensitiveDuplicates(BASH_READ_ONLY).length === 0,
     "the read-only bash map carries no case-insensitive duplicate keys",

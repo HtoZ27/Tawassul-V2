@@ -343,6 +343,23 @@ try {
   equal(rotationReload.sessionCount(), 2, "reload reads the rotated file and the active file");
   await rotationReload.dispose();
 
+  const sharedPath = join(work, "shared-ledger.jsonl");
+  const sharedA = new UsageLedger({ path: sharedPath, now });
+  const sharedB = new UsageLedger({ path: sharedPath, now });
+  await sharedA.start();
+  await sharedB.start();
+  await sharedA.handleEvent(usage("ses-shared-a", { input: 1, output: 1 }));
+  await sharedB.handleEvent(usage("ses-shared-b", { input: 2, output: 2 }));
+  await Promise.all([sharedA.flush(), sharedB.flush()]);
+  await sharedA.dispose();
+  await sharedB.dispose();
+  const sharedReload = new UsageLedger({ path: sharedPath, now });
+  await sharedReload.start();
+  equal(sharedReload.sessionCount(), 2, "two ledger instances on one path keep both batches");
+  assert(sharedReload.sessionSnapshot("ses-shared-a") !== undefined, "the first instance batch survives");
+  assert(sharedReload.sessionSnapshot("ses-shared-b") !== undefined, "the second instance batch survives");
+  await sharedReload.dispose();
+
   const repo = dirname(dirname(fileURLToPath(import.meta.url)));
   const setup = readFileSync(join(repo, "src", "v2", "setup.ts"), "utf8");
   assert(setup.includes("installUsageLedger"), "the v2 setup installs the ledger");
