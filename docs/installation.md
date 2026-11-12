@@ -131,7 +131,9 @@ a project-scope install repairs an existing `opencode.json` or `opencode.jsonc`
 and creates any missing `.opencode/agents/*.md`; when the workspace has neither
 config, the first-boot seed creates a minimal `opencode.json` unless
 `TAWASSUL_NO_AUTOCONFIG=1` is set. A global-scope install never writes project
-config or project agent files.
+config or project agent files. Global `addagent` and `kick` write the roster to
+`~/.config/opencode/tawassul.jsonc`; the global `opencode.json` and
+`opencode.jsonc` are never written.
 
 ### Environment overrides
 

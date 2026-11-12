@@ -397,7 +397,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/utils/opencode-config.ts",
-            "line": 550,
+            "line": 559,
             "marker": "ensureGlobalRosterSeed"
           },
           "proofs": [
@@ -489,7 +489,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/tools/agent-management.ts",
-            "line": 63,
+            "line": 64,
             "marker": "tawaFallbackPermission"
           },
           "proofs": [
@@ -644,7 +644,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/tools/agent-management.ts",
-            "line": 219,
+            "line": 223,
             "marker": "computePinEntries"
           },
           "proofs": [
@@ -1023,7 +1023,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/utils/opencode-config.ts",
-            "line": 407,
+            "line": 408,
             "marker": "applyBootRepairs"
           },
           "proofs": [

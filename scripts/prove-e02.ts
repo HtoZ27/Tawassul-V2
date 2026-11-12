@@ -124,6 +124,14 @@ async function main(): Promise<void> {
         readFileSync(globalPath, "utf-8") === globalBytes,
         "a project boot repair leaves the global config byte-identical",
       );
+      const refused = await repairProjectConfigBoot(globalDir);
+      assert(refused.configPath === globalPath, "the boot repair finds the global config it must not write");
+      assert(!refused.changed, "the boot repair refuses to rewrite a global config");
+      assert(refused.fixes.length === 0, "the boot repair reports no fixes for a global config");
+      assert(
+        readFileSync(globalPath, "utf-8") === globalBytes,
+        "a direct global boot repair leaves the config byte-identical",
+      );
     } finally {
       if (previousGlobal === undefined) delete process.env.TAWASSUL_GLOBAL_DIR;
       else process.env.TAWASSUL_GLOBAL_DIR = previousGlobal;

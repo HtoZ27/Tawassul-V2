@@ -121,6 +121,23 @@ async function proveOptOut(): Promise<void> {
   }
 }
 
+async function proveGlobalPathRefusal(): Promise<void> {
+  const dir = mkdtempSync(join(tmpdir(), "tawassul-seed-global-path-"));
+  const previous = process.env.TAWASSUL_GLOBAL_DIR;
+  try {
+    process.env.TAWASSUL_GLOBAL_DIR = dir;
+    const r = await ensureMinimalProjectContract(dir, "project");
+    if (r.created) fail("the minimal contract must refuse the global config dir");
+    if (r.reason !== "global-path") fail(`the refusal reason must be global-path, got ${r.reason}`);
+    if (existsSync(join(dir, "opencode.json"))) fail("a global-path refusal must not write opencode.json");
+    console.log("global-path-refusal ok");
+  } finally {
+    if (previous === undefined) delete process.env.TAWASSUL_GLOBAL_DIR;
+    else process.env.TAWASSUL_GLOBAL_DIR = previous;
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 async function proveGlobalSeed(): Promise<void> {
   const dir = mkdtempSync(join(tmpdir(), "tawassul-seed-global-"));
   try {
@@ -228,6 +245,7 @@ await proveMinimalContract();
 await proveProjectDirResolution();
 await proveModifiedBasePreserved();
 await proveOptOut();
+await proveGlobalPathRefusal();
 await proveGlobalSeed();
 await proveGlobalSeedPreservesManualRoster();
 await proveGlobalSeedOptOut();

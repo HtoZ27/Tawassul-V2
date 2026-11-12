@@ -1,7 +1,8 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { buildAddAgentTool, buildKickTool, computePinEntries, formatAddResult } from "../src/tools/agent-management.ts";
 import type { TawassulContext } from "../src/context.ts";
 import type { ToolContext, ToolResult } from "../src/tool.ts";
@@ -189,6 +190,101 @@ function runLoggerChild(extraEnv: Record<string, string>, dropKeys: string[] = [
     if (savedModelsEnv === undefined) delete process.env.TAWASSUL_MODELS_JSON;
     else process.env.TAWASSUL_MODELS_JSON = savedModelsEnv;
     rmSync(projectDir, { recursive: true, force: true });
+  }
+}
+
+{
+  const repo = dirname(dirname(fileURLToPath(import.meta.url)));
+  const globalDir = mkdtempSync(join(tmpdir(), "s029-global-"));
+  const configPath = join(globalDir, "opencode.jsonc");
+  const rosterPath = join(globalDir, "tawassul.jsonc");
+  const configBody =
+    '{\n  "$schema": "https://opencode.ai/config.json",\n  "model": "opencode/big-pickle"\n}\n';
+  writeFileSync(configPath, configBody);
+  writeFileSync(rosterPath, '{\n  "agents": {}\n}\n');
+  const childSource = `
+import { buildAddAgentTool, buildKickTool } from ${JSON.stringify(join(repo, "src", "tools", "agent-management.ts"))};
+
+const dir = process.env.TAWASSUL_PROOF_DIR as string;
+const mode = process.env.TAWASSUL_PROOF_MODE;
+const ctx = {
+  config: { team: [] },
+  dynamicAgents: [],
+  agentModelMap: {},
+  agentRatings: {},
+  errorManager: { agentErrors: {} },
+  seenAgents: new Map(),
+  handoffs: new Map(),
+  stateDir: dir,
+  agentManager: {
+    hasConfigAgent: () => false,
+    clearReadCache: () => undefined,
+    writeAgentMd: async () => undefined,
+  },
+  askChannelInstance: { hasPending: () => false, askForRoot: async () => false, currentSessionOverride: undefined },
+  saveState: () => undefined,
+  modelManager: { markModelFailed: () => undefined },
+} as never;
+const cctx = {
+  sessionID: "s029-global-session",
+  messageID: "s029-global-message",
+  agent: "",
+  directory: dir,
+  worktree: dir,
+  abort: new AbortController().signal,
+  metadata: () => undefined,
+  ask: async () => undefined,
+} as never;
+const out =
+  mode === "add"
+    ? await buildAddAgentTool(ctx).execute(
+        { name: "dev-ling with model ling-3.0-flash-fin-free from opencode" },
+        cctx,
+      )
+    : await buildKickTool(ctx).execute(
+        { agent: "remove dev-ling with model ling-3.0-flash-fin-free from opencode" },
+        cctx,
+      );
+const text = typeof out === "string" ? out : out.output;
+console.log(text);
+`;
+  const childPath = join(root, "s029-global-child.ts");
+  writeFileSync(childPath, childSource);
+  const runChild = (mode: "add" | "kick"): { code: number; out: string } => {
+    const env: Record<string, string> = {};
+    for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
+    env.TAWASSUL_SCOPE = "global";
+    env.TAWASSUL_GLOBAL_DIR = globalDir;
+    env.TAWASSUL_PROOF_DIR = globalDir;
+    env.TAWASSUL_PROOF_MODE = mode;
+    env.TAWASSUL_LOG_FILE = join(root, `s029-global-${mode}.log`);
+    const res = spawnSync("bun", [childPath], { env, encoding: "utf-8" });
+    return { code: res.status ?? 1, out: `${res.stdout ?? ""}${res.stderr ?? ""}` };
+  };
+  try {
+    const add = runChild("add");
+    assert(add.code === 0, `a global add child exits clean (${add.out.trim().slice(-200)})`);
+    assert(add.out.includes("Added"), "a global add reports the addition");
+    const afterAdd = JSON.parse(readFileSync(rosterPath, "utf-8")) as { agents?: Record<string, unknown> };
+    assert(afterAdd.agents?.["dev-ling"] !== undefined, "a global add writes the roster to tawassul.jsonc");
+    assert(readFileSync(configPath, "utf-8") === configBody, "a global add leaves global opencode.jsonc byte-identical");
+    assert(!existsSync(join(globalDir, "opencode.json")), "a global add creates no global opencode.json");
+    const kick = runChild("kick");
+    assert(kick.code === 0, `a global kick child exits clean (${kick.out.trim().slice(-200)})`);
+    assert(kick.out.includes("Removed"), "a global kick reports the removal");
+    const afterKick = JSON.parse(readFileSync(rosterPath, "utf-8")) as {
+      agents?: Record<string, unknown>;
+      deleted?: unknown;
+    };
+    assert(afterKick.agents?.["dev-ling"] === undefined, "a global kick drops the roster entry from tawassul.jsonc");
+    assert(
+      Array.isArray(afterKick.deleted) && afterKick.deleted.includes("dev-ling"),
+      "a global kick records the deletion in tawassul.jsonc",
+    );
+    assert(readFileSync(configPath, "utf-8") === configBody, "a global kick leaves global opencode.jsonc byte-identical");
+    assert(!existsSync(join(globalDir, "opencode.json")), "a global kick creates no global opencode.json");
+  } finally {
+    rmSync(globalDir, { recursive: true, force: true });
   }
 }
 

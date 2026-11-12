@@ -9,6 +9,7 @@ import { acquireFSLock, releaseFSLock } from "../infra/file-lock.ts";
 import { resolveRole } from "./agent.ts";
 import {
   globalConfigDir,
+  isInsideGlobalConfigDir,
   TAWASSUL_ROSTER_FILE,
   TAWASSUL_ROSTER_FILE_LEGACY,
   type InstallScope,
@@ -442,6 +443,10 @@ export async function repairProjectConfigBoot(projectDir: string): Promise<Repai
       logger.warn(`[tawassul] boot repair: no opencode.json/jsonc found in ${projectDir} — skipping both fixes`);
       return { configPath: null, changed: false, backupPath: null, fixes: [] };
     }
+    if (isInsideGlobalConfigDir(configPath)) {
+      logger.debug(`[tawassul] boot repair: refusing to write the global config ${configPath}`);
+      return { configPath, changed: false, backupPath: null, fixes: [] };
+    }
 
     
     const raw0 = readFileSync(configPath, "utf-8");
@@ -485,7 +490,7 @@ export async function repairProjectConfigBoot(projectDir: string): Promise<Repai
 export interface MinimalContractResult {
   created: boolean;
   configPath: string | null;
-  reason: "exists" | "opted-out" | "non-project-scope" | "lock-busy" | null;
+  reason: "exists" | "opted-out" | "non-project-scope" | "global-path" | "lock-busy" | null;
 }
 
 export async function ensureMinimalProjectContract(
@@ -496,6 +501,10 @@ export async function ensureMinimalProjectContract(
   if (process.env.TAWASSUL_NO_AUTOCONFIG === "1") {
     logger.debug("[tawassul] boot: minimal-contract generation opted out (TAWASSUL_NO_AUTOCONFIG=1)");
     return { created: false, configPath: null, reason: "opted-out" };
+  }
+  if (isInsideGlobalConfigDir(resolve(projectDir, "opencode.json"))) {
+    logger.debug(`[tawassul] boot: refusing to create a project contract inside the global config dir ${projectDir}`);
+    return { created: false, configPath: null, reason: "global-path" };
   }
   for (const name of ["opencode.jsonc", "opencode.json"]) {
     const p = resolve(projectDir, name);

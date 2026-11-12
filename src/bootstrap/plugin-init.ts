@@ -52,6 +52,7 @@ import {
 import { releaseFSLock } from "../infra/file-lock.ts";
 import { createHandoffEntry } from "../services/handoff-entry.ts";
 import { resolveAgentModelRef } from "../services/model-refs.ts";
+import { isInsideGlobalConfigDir } from "../utils/path-resolver.ts";
 import { setContextHandoffConfig } from "../services/context-pack/index.ts";
 import { configureContinuity } from "../services/continuity/owner.ts";
 import { detectInterrupted, resetContinuity } from "../services/continuity/detect.ts";
@@ -726,6 +727,10 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
           const { checkGeneratedConfig, buildExpectedConfig, resolveGenPaths } =
             await import("../scripts/gen-opencode-config.ts");
           const paths = resolveGenPaths();
+          if (isInsideGlobalConfigDir(paths.configPath)) {
+            logger.debug(`[tawassul] F6 passive regen: refusing to write the global config ${paths.configPath}`);
+            return;
+          }
           if (!existsSync(paths.configPath)) return;
           await ensureBaseAgentFiles(paths.agentsDir);
           const chk = checkGeneratedConfig();

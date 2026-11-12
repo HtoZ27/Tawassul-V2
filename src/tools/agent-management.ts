@@ -17,6 +17,7 @@ import { detectInstallScope } from "../core/install-scope.ts";
 import { levenshtein } from "../core/nlp.ts";
 import {
   globalConfigDir,
+  isInsideGlobalConfigDir,
   isTawassulGlobalSpace,
   resolveTawassulConfigPath,
   resolveActiveConfigPath,
@@ -80,6 +81,9 @@ function withConfigWriteLock<T>(
   opts?: { failClosed?: boolean },
 ): Promise<T> {
   const executeWithFsLock = async (): Promise<T> => {
+    if (SCOPE === "project" && isInsideGlobalConfigDir(resolve(ctx.stateDir))) {
+      throw new Error("refusing to write a project config inside the global config dir");
+    }
     const anchor = SCOPE === "global" ? resolveTawassulConfigPath(ctx.stateDir, "global") : resolve(ctx.stateDir);
     const { acquired, lockName, owner } = await acquireOpencodeConfigLock(anchor);
     if (!acquired) {

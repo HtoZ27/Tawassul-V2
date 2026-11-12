@@ -41,18 +41,18 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-015 | The retired kanban-board name must not return. | - | - | n-a |
 | S-016 | Conflict-marker pollutants must not be propagated. | - | - | n-a |
 | S-017 | The three-day hardening batch is ported on merit: model retirements, generator hardening, governance, and runtime rows. | `src/services/proxy-fallback-chains.ts:73` `sweepRetiredModelPins` | `scripts/prove-s017.ts`, `scripts/prove-gen-lock-contention.ts`, `scripts/prove-gen-merge-guards.ts`, `scripts/prove-gen-guard-wal.ts`, `scripts/prove-roster-boundary.ts`, `scripts/prove-event-trust-p1.ts`, `scripts/prove-web-ssrf.ts`, `scripts/prove-s028.ts` | verified |
-| S-018 | R-008, R-009, and R-011 are ported in a v2 shape with first-boot roster seeding. | `src/utils/opencode-config.ts:550` `ensureGlobalRosterSeed` | `scripts/prove-first-boot-seed.ts` | verified |
+| S-018 | R-008, R-009, and R-011 are ported in a v2 shape with first-boot roster seeding. | `src/utils/opencode-config.ts:559` `ensureGlobalRosterSeed` | `scripts/prove-first-boot-seed.ts` | verified |
 | S-019 | The atomic-audit P0 closures are ported: containment, WAL probe, backup environment, and fail-closed gates. | `scripts/opencode-db-maintenance.sh:596` `require_v2_generation` | `scripts/prove-db-retention.ts` | verified |
 | S-020 | The nine-day batch is ported: tool surface, cache generation, guards, and wiring. | `src/context/model-utils.ts:24` `getPortCacheGen` | `scripts/prove-s020.ts` | verified |
 | S-022 | The 37-commit backlog rows are triaged and the actionable ones ported. | `src/services/goal-store.ts:530` `private async mutate` | `scripts/prove-goal-resurrection.ts` | verified |
-| S-021 | The 37-commit sweep remainders are ported: invocation fallback, scoped budgets, honest cost, and the MAX doctrine. | `src/tools/agent-management.ts:63` `tawaFallbackPermission` | `scripts/prove-s021.ts` | verified |
+| S-021 | The 37-commit sweep remainders are ported: invocation fallback, scoped budgets, honest cost, and the MAX doctrine. | `src/tools/agent-management.ts:64` `tawaFallbackPermission` | `scripts/prove-s021.ts` | verified |
 | S-023 | The reconciliation remainders are ported: iteration budgets, timers, torn reads, and abort. | `src/services/iteration-budget.ts:63` `applyIterationBudgets` | `scripts/prove-s021.ts` | verified |
 | S-024 | The atomic-audit findings are ported and the gate hole is closed. | `src/services/timeline-store.ts:161` `getFlushStats` | `scripts/prove-s024.ts` | verified |
 | S-025 | The round-2 findings are ported and no blocker remains. | `src/services/ask-channel-parse.ts:16` `YES_RE` | `scripts/prove-s024.ts` | verified |
 | S-026 | The rule gate rejects comments, Arabic literals, and glued directives. | `scripts/check-v2-rules.mjs:9` `ARABIC_RE` | `scripts/prove-rule-gate.ts` | verified |
 | S-027 | The S-022 closure was re-verified bilaterally. | - | - | doc-only |
 | S-028 | The provider model cache is the source of truth for suffix governance. | `src/core/model-registry.ts:158` `getProviderModelTokens` | `scripts/prove-s028.ts` | verified |
-| S-029 | R7 variant pins, dispatch precedence, dotted suffixes, and the log default are ported. | `src/tools/agent-management.ts:219` `computePinEntries` | `scripts/prove-s029.ts` | verified |
+| S-029 | R7 variant pins, dispatch precedence, dotted suffixes, and the log default are ported. | `src/tools/agent-management.ts:223` `computePinEntries` | `scripts/prove-s029.ts` | verified |
 | S-030 | The live roster follows config-derived deletion plus additive generation. | `src/scripts/gen-opencode-config.ts:272` `export function derivedExpectedCount` | `scripts/prove-s029.ts`, `scripts/prove-gen-merge-guards.ts` | verified |
 | S-031 | The documented install path materializes the plugin entry on every build. | `build-v2.mjs:132` `tawassul.js` | `scripts/release-smoke.sh` | verified |
 | S-032 | A stale project-scope copy must not win registration in a shared process. | `src/core/install-scope.ts:56` `claimCoexistence` | `scripts/prove-s038.ts` | verified |
@@ -71,7 +71,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-041.1 | Coexistence items 1 to 6 are implemented in v2 code and gates. | `scripts/opencode-db-maintenance.sh:596` `require_v2_generation` | `scripts/prove-db-retention.ts` | verified |
 | S-041.2 | Item 7 ran as a live dual-generation boot and the v1 guard refused a v2 DB. | `CUTOVER.md:3` `live dual-generation gate` | `CUTOVER.md` | verified |
 | S-042 | Local plugin entries must be deduplicated by the loader, not only by the plugin. | `src/core/install-scope.ts:56` `claimCoexistence` | - | host-bound |
-| S-043 | Legacy config keys no longer produce per-boot normalization warnings. | `src/utils/opencode-config.ts:407` `applyBootRepairs` | `scripts/prove-e02.ts` | verified |
+| S-043 | Legacy config keys no longer produce per-boot normalization warnings. | `src/utils/opencode-config.ts:408` `applyBootRepairs` | `scripts/prove-e02.ts` | verified |
 | S-044 | Select and multiselect elicitation fail closed through the ask bridge. | `src/services/ask-channel-parse.ts:12` `multiselect` | `scripts/prove-v2-ask-bridge.ts` | verified |
 | S-045 | Deferred tool schemas are refreshed after init with a bounded retry. | `src/v2/setup.ts:52` `SCHEMA_RETRY_ATTEMPTS` | `scripts/prove-b02.ts` | verified |
 | S-046 | Unknown permission actions need a host default policy or rule registration. | `src/v2/ask.ts:18` `evaluate` | - | host-bound |
