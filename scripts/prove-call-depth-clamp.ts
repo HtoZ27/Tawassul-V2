@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { configLoadConfig } from "../src/context/facades/config-facade.ts";
 import { configSchema } from "../src/context/config-schema.ts";
-import { callDepthGuard } from "../src/hooks/guards/dispatch-guards.ts";
+import { callDepthGuard, sessionBudgetGuard } from "../src/hooks/guards/dispatch-guards.ts";
 import {
   HOST_CALL_DEPTH_CEILING,
   MAX_CALL_DEPTH,
@@ -14,7 +14,13 @@ import {
   setMaxTotalTasks,
 } from "../src/hooks/guards/shared/limits.ts";
 import { PipelineState } from "../src/hooks/PipelineState.ts";
-import { DEFAULT_CAP, checkCap } from "../src/services/iteration-budget.ts";
+import {
+  BUDGET_ZONE_EDGES,
+  DEFAULT_CAP,
+  budgetZone,
+  checkCap,
+  tokenBudget,
+} from "../src/services/iteration-budget.ts";
 import {
   clearUsageLedger,
   installUsageLedger,
@@ -162,7 +168,7 @@ for (const ceiling of [1, 2, 3]) {
     );
     if (expectedAllowed) {
       assert(
-        checkCap("dev", depth, 0, 0) === null,
+        checkCap("dev", depth, 0) === null,
         `ceiling ${ceiling}: allowed depth ${depth} agrees with checkCap`,
       );
     } else {
@@ -188,7 +194,7 @@ assert(
   uncappedOutput.error?.includes("cannot exceed 5") !== true,
   "the MAX_CALL_DEPTH branch does not reject depth 4 when the knob is 5",
 );
-const uncappedCap = checkCap("dev", 4, 0, 0);
+const uncappedCap = checkCap("dev", 4, 0);
 assert(
   uncappedCap !== null && uncappedCap.includes("max depth (3)"),
   "checkCap is the source that rejects depth 4, reproducing D13",
@@ -267,19 +273,30 @@ assert(
 
 assert(DEFAULT_CAP.maxSubagents === 5, "the default subagent cap is the shipped 5 live children");
 assert(
-  DEFAULT_CAP.maxTokens === 200_000_000,
-  "the default token cap is twice the observed session maximum",
+  DEFAULT_CAP.maxRootTokens === 149_841_699,
+  "the root budget is 1.5x the largest observed tree",
 );
-assert(checkCap("dev", 1, 5, 0) === null, "five live subagents are allowed");
 assert(
-  (checkCap("dev", 1, 6, 0) ?? "").includes("max subagents (5)"),
+  DEFAULT_CAP.maxChildTokens === 5_866_687,
+  "the child budget is 1.5x the largest observed child",
+);
+assert(checkCap("dev", 1, 5) === null, "five live subagents are allowed");
+assert(
+  (checkCap("dev", 1, 6) ?? "").includes("max subagents (5)"),
   "six live subagents hit the subagent cap",
 );
-assert(checkCap("dev", 1, 0, DEFAULT_CAP.maxTokens) === null, "a session at the token ceiling is allowed");
-assert(
-  (checkCap("dev", 1, 0, DEFAULT_CAP.maxTokens + 1) ?? "").includes("token limit"),
-  "a session above the token ceiling is blocked",
-);
+assert(BUDGET_ZONE_EDGES.yellow === 0.5, "the yellow edge is 50 percent");
+assert(BUDGET_ZONE_EDGES.orange === 0.75, "the orange edge is 75 percent");
+assert(BUDGET_ZONE_EDGES.red === 0.9, "the red edge is 90 percent");
+assert(budgetZone(49, 100) === "green", "under half the budget is green");
+assert(budgetZone(50, 100) === "yellow", "half the budget enters yellow");
+assert(budgetZone(75, 100) === "orange", "three quarters of the budget enters orange");
+assert(budgetZone(90, 100) === "red", "ninety percent of the budget enters red");
+assert(budgetZone(100, 0) === "green", "a zero budget fails open");
+const rootReading = tokenBudget("dev", DEFAULT_CAP.maxRootTokens / 2, true);
+assert(rootReading.scope === "root" && rootReading.zone === "yellow", "a root session reads the root budget");
+const childReading = tokenBudget("dev", DEFAULT_CAP.maxChildTokens, false);
+assert(childReading.scope === "child" && childReading.zone === "red", "a child session reads the child budget");
 
 const guardSource = readFileSync(join(repo, "src", "hooks", "guards", "dispatch-guards.ts"), "utf8");
 assert(
@@ -287,8 +304,16 @@ assert(
   "the depth guard feeds the live child count into checkCap",
 );
 assert(
-  guardSource.includes("getUsageLedger()?.sessionSnapshot(input.sessionID)?.billable"),
-  "the depth guard feeds the ledger billable into checkCap",
+  guardSource.includes("tokenBudget(agent, snapshot.billable, false)"),
+  "the budget guard reads the child billable from the ledger",
+);
+assert(
+  guardSource.includes("tokenBudget(agent, treeBillable, true)"),
+  "the budget guard charges the tree to the root budget",
+);
+assert(
+  guardSource.includes("input.tool !== \"task\""),
+  "the budget guard blocks task dispatches only",
 );
 
 const work = mkdtempSync(join(tmpdir(), "tawassul-call-depth-"));
@@ -321,23 +346,108 @@ try {
   ledger.ingest({
     sessionID: session,
     cost: 0,
-    tokens: { input: DEFAULT_CAP.maxTokens + 2, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
+    tokens: { input: Math.round(DEFAULT_CAP.maxRootTokens * 0.8), output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
   });
   const tokenOutput: { args: Record<string, unknown>; error?: string } = { args: { subagent: "tester" } };
   assert(
-    !(await callDepthGuard.check(ctx, { tool: "task", agent: "dev", sessionID: session }, tokenOutput)),
-    "a session over the token ceiling blocks the dispatch",
+    !(await sessionBudgetGuard.check(ctx, { tool: "task", agent: "dev", sessionID: session }, tokenOutput)),
+    "a root session in orange blocks a new task",
   );
-  assert(tokenOutput.error?.includes("token limit") === true, "the block names the token cap");
+  assert(tokenOutput.error?.includes("orange") === true, "the block names the orange zone");
+  assert(tokenOutput.error?.includes("weighted tokens") === true, "the block names the weighted-token unit");
+  const rootHandoffOutput: { args: Record<string, unknown>; error?: string } = { args: { subagent: "tester" } };
+  assert(
+    await sessionBudgetGuard.check(ctx, { tool: "handoff", agent: "dev", sessionID: session }, rootHandoffOutput),
+    "a handoff in orange is allowed so the session is not trapped",
+  );
+
+  await clearUsageLedger();
+  const childID = "sess-call-depth-child";
+  const lineage = installUsageLedger({
+    path: join(work, "lineage.jsonl"),
+    getSession: async (id) => {
+      if (id === childID) return { id, parentID: session };
+      if (id === session) return { id, parentID: null };
+      return null;
+    },
+  });
+  await lineage.handleEvent({
+    sessionID: childID,
+    cost: 0,
+    tokens: { input: 1000, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
+  });
+  const tree = lineage.treeSnapshot(childID);
+  assert(tree?.rootID === session, "the tree snapshot resolves the root session");
+  assert(tree?.sessions === 2, "the tree snapshot counts the root and its child");
+  assert(tree?.billable === 1000, "the tree snapshot sums the child usage");
+  assert(lineage.treeSnapshot("sess-unknown") === undefined, "an unknown session has no tree");
+
+  lineage.ingest({
+    sessionID: session,
+    cost: 0,
+    tokens: { input: Math.round(DEFAULT_CAP.maxRootTokens * 0.8), output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
+  });
+  const childTaskOutput: { args: Record<string, unknown>; error?: string } = { args: { subagent: "tester" } };
+  assert(
+    !(await sessionBudgetGuard.check(ctx, { tool: "task", agent: "dev", sessionID: childID }, childTaskOutput)),
+    "a child over the root tree budget blocks a new task",
+  );
+  assert(childTaskOutput.error?.includes("root budget") === true, "the child block names the root tree budget");
+  const rootTreeOutput: { args: Record<string, unknown>; error?: string } = { args: { subagent: "tester" } };
+  assert(
+    !(await sessionBudgetGuard.check(ctx, { tool: "task", agent: "dev", sessionID: session }, rootTreeOutput)),
+    "a root over the tree budget blocks a new task",
+  );
+  assert(rootTreeOutput.error?.includes("root budget") === true, "the root block names the root tree budget");
+
+  lineage.ingest({
+    sessionID: childID,
+    cost: 0,
+    tokens: {
+      input: Math.round(DEFAULT_CAP.maxChildTokens * 0.9),
+      output: 0,
+      reasoning: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+    },
+  });
+  const childOwnOutput: { args: Record<string, unknown>; error?: string } = { args: { subagent: "tester" } };
+  assert(
+    !(await sessionBudgetGuard.check(ctx, { tool: "task", agent: "dev", sessionID: childID }, childOwnOutput)),
+    "a child over the child budget blocks a new task",
+  );
+  assert(childOwnOutput.error?.includes("child budget") === true, "the child block names the child budget");
+
+  const yellowSession = "sess-call-depth-yellow";
+  lineage.ingest({
+    sessionID: yellowSession,
+    cost: 0,
+    tokens: {
+      input: Math.round(DEFAULT_CAP.maxRootTokens * 0.5),
+      output: 0,
+      reasoning: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+    },
+  });
+  const yellowOutput: { args: Record<string, unknown>; error?: string } = { args: { subagent: "tester" } };
+  assert(
+    await sessionBudgetGuard.check(ctx, { tool: "task", agent: "dev", sessionID: yellowSession }, yellowOutput),
+    "a yellow session still dispatches",
+  );
+  assert(
+    state.markBudgetAdvisory(yellowSession) === false,
+    "the yellow advisory fires once per session",
+  );
 
   await clearUsageLedger();
   const failOpenOutput: { args: Record<string, unknown>; error?: string } = { args: { subagent: "tester" } };
   assert(
-    await callDepthGuard.check(ctx, { tool: "task", agent: "dev", sessionID: session }, failOpenOutput),
-    "an absent ledger leaves the counters at zero and fails open",
+    await sessionBudgetGuard.check(ctx, { tool: "task", agent: "dev", sessionID: session }, failOpenOutput),
+    "an absent ledger leaves the budget at zero and fails open",
   );
 } finally {
   rmSync(work, { recursive: true, force: true });
 }
 
-console.log("PROOF PASS: call-depth clamp covers validation, wiring, guard branches, and checkCap agreement");
+console.log("PROOF PASS: call-depth clamp and the calibrated budget cover validation, wiring, zones, trees, and checkCap agreement");

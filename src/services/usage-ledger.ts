@@ -765,6 +765,49 @@ export class UsageLedger {
     };
   }
 
+  treeSnapshot(sessionID: string): {
+    rootID: string;
+    billable: number;
+    cost: number;
+    sessions: number;
+  } | undefined {
+    const start = this.states.get(sessionID);
+    if (!start) return undefined;
+    let root = start;
+    const lineage = new Set<string>([start.id]);
+    while (root.parentID) {
+      if (lineage.has(root.parentID)) return undefined;
+      lineage.add(root.parentID);
+      const parent = this.states.get(root.parentID);
+      if (!parent) return undefined;
+      root = parent;
+    }
+    const children = new Map<string, string[]>();
+    for (const state of this.states.values()) {
+      if (!state.parentID) continue;
+      const list = children.get(state.parentID);
+      if (list) list.push(state.id);
+      else children.set(state.parentID, [state.id]);
+    }
+    let billable = 0;
+    let cost = 0;
+    let sessions = 0;
+    const stack: string[] = [root.id];
+    const seen = new Set<string>();
+    while (stack.length > 0) {
+      const id = stack.pop();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      const state = this.states.get(id);
+      if (!state) continue;
+      billable += computeBillable(state.raw, this.weights);
+      cost += state.raw.cost;
+      sessions += 1;
+      for (const child of children.get(id) ?? []) stack.push(child);
+    }
+    return { rootID: root.id, billable, cost, sessions };
+  }
+
   private async ensureLineage(sessionID: string, seen: Set<string>): Promise<void> {
     if (!this.getSession || seen.has(sessionID)) return;
     seen.add(sessionID);

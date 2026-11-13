@@ -187,11 +187,55 @@ export function sweepStaleBudgets(): void {
 interface CapRule {
   maxDepth: number;
   maxSubagents: number;
-  maxTokens: number;
+  maxRootTokens: number;
+  maxChildTokens: number;
 }
 
+export type BudgetZone = "green" | "yellow" | "orange" | "red";
+
+export const BUDGET_ZONE_EDGES = { yellow: 0.5, orange: 0.75, red: 0.9 } as const;
+
+const CALIBRATED_ROOT_TOKENS = 99_894_466.3;
+const CALIBRATED_CHILD_TOKENS = 3_911_124.8;
+const BUDGET_HEADROOM = 1.5;
+
 const caps = new Map<string, CapRule>();
-export const DEFAULT_CAP: CapRule = { maxDepth: 3, maxSubagents: 5, maxTokens: 200_000_000 };
+export const DEFAULT_CAP: CapRule = {
+  maxDepth: 3,
+  maxSubagents: 5,
+  maxRootTokens: Math.round(CALIBRATED_ROOT_TOKENS * BUDGET_HEADROOM),
+  maxChildTokens: Math.round(CALIBRATED_CHILD_TOKENS * BUDGET_HEADROOM),
+};
+
+export interface TokenBudgetReading {
+  scope: "root" | "child";
+  used: number;
+  budget: number;
+  ratio: number;
+  zone: BudgetZone;
+}
+
+export function budgetZone(used: number, budget: number): BudgetZone {
+  if (!(budget > 0)) return "green";
+  const ratio = used / budget;
+  if (ratio >= BUDGET_ZONE_EDGES.red) return "red";
+  if (ratio >= BUDGET_ZONE_EDGES.orange) return "orange";
+  if (ratio >= BUDGET_ZONE_EDGES.yellow) return "yellow";
+  return "green";
+}
+
+export function tokenBudget(agent: string, used: number, isRoot: boolean): TokenBudgetReading {
+  const rule = getCap(agent);
+  const budget = isRoot ? rule.maxRootTokens : rule.maxChildTokens;
+  const safeUsed = Number.isFinite(used) && used > 0 ? used : 0;
+  return {
+    scope: isRoot ? "root" : "child",
+    used: safeUsed,
+    budget,
+    ratio: budget > 0 ? safeUsed / budget : 0,
+    zone: budgetZone(safeUsed, budget),
+  };
+}
 
 export function setCap(agent: string, rule: Partial<CapRule>): void {
   const key = normalizeName(agent);
@@ -203,11 +247,10 @@ export function getCap(agent: string): CapRule {
   return caps.get(normalizeName(agent)) ?? DEFAULT_CAP;
 }
 
-export function checkCap(agent: string, depth: number, subagentCount: number, tokens: number): string | null {
+export function checkCap(agent: string, depth: number, subagentCount: number): string | null {
   const rule = getCap(agent);
   if (depth > rule.maxDepth) return `Exceeded max depth (${rule.maxDepth})`;
   if (subagentCount > rule.maxSubagents) return `Exceeded max subagents (${rule.maxSubagents})`;
-  if (tokens > rule.maxTokens) return `Exceeded token limit (${rule.maxTokens})`;
   return null;
 }
 

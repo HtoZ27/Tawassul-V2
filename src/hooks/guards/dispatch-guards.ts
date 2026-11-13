@@ -19,7 +19,7 @@ import {
   normalizeName,
   isRootLikeAgent,
 } from "./shared.ts";
-import { remaining, checkCap, assignTier } from "../../services/iteration-budget.ts";
+import { remaining, checkCap, assignTier, tokenBudget } from "../../services/iteration-budget.ts";
 import { analyzeEffort } from "../../services/effort-analyzer.ts";
 import { TASK_TOOL_NAMES, GENERAL_REPORT_ONLY_CALLERS } from "../../security-policy.ts";
 import { t } from "../../translations.ts";
@@ -48,9 +48,39 @@ export const callDepthGuard = guard("call-depth", (ctx, input, output) => {
     return `🚫 Call depth exceeded: cannot exceed ${MAX_CALL_DEPTH} levels of nested calls. Return your result to your caller so it can decide the next step.`;
   }
   const subagentCount = state.pendingAgentLocks.get(input.sessionID)?.size ?? 0;
-  const tokens = getUsageLedger()?.sessionSnapshot(input.sessionID)?.billable ?? 0;
-  const cap = checkCap(input.agent ?? "", currentDepth, subagentCount, tokens);
+  const cap = checkCap(input.agent ?? "", currentDepth, subagentCount);
   return cap ? `🚫 ${cap}. Return your result to your caller instead of opening another branch.` : null;
+});
+
+export const sessionBudgetGuard = guard("session-budget", (ctx, input) => {
+  if (!TASK_TOOL_NAMES.includes(input.tool) || !input.sessionID) return null;
+  const ledger = getUsageLedger();
+  const snapshot = ledger?.sessionSnapshot(input.sessionID);
+  if (!ledger || !snapshot) return null;
+  const agent = input.agent ?? "";
+  const isRoot = !snapshot.parentID;
+  const tree = ledger.treeSnapshot(input.sessionID);
+  const treeBillable = tree?.billable ?? snapshot.billable;
+  const readings = isRoot
+    ? [tokenBudget(agent, treeBillable, true)]
+    : [tokenBudget(agent, snapshot.billable, false), tokenBudget(agent, treeBillable, true)];
+  const worst = readings.reduce((left, right) => (right.ratio > left.ratio ? right : left));
+  const pct = Math.round(worst.ratio * 100);
+  if (worst.zone === "orange" || worst.zone === "red") {
+    if (input.tool !== "task") {
+      logger.warn(
+        `[tawassul] session budget ${worst.zone} at ${pct}% of the ${worst.scope} budget; ${input.tool} is allowed so the session is not trapped`,
+      );
+      return null;
+    }
+    return `🚫 Session budget ${worst.zone} at ${pct}% of the ${worst.scope} budget (${Math.round(worst.used)} of ${worst.budget} weighted tokens). Finish your current work, write your result, and return it to your caller.`;
+  }
+  if (worst.zone === "yellow" && ctx.pipelineState?.markBudgetAdvisory(input.sessionID) === true) {
+    logger.warn(
+      `[tawassul] session budget yellow at ${pct}% of the ${worst.scope} budget (${Math.round(worst.used)} of ${worst.budget} weighted tokens)`,
+    );
+  }
+  return null;
 });
 
 export const selfCallGuard = guard("self-call", (_ctx, input, output) => {

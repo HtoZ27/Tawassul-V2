@@ -31,6 +31,7 @@ export class PipelineState {
   private readonly _concurrentLocks = new Map<string, number>();
   readonly pendingAgentLocks = new Map<string, Set<string>>();
   readonly sessionExemptCalls = new Map<string, number>();
+  private readonly _budgetAdvisories = new Set<string>();
   readonly routing = new Map<string, RoutingRecord>();
   readonly promptRing: PromptRingEntry[] = [];
   private timers: TimerManagerLike | null = null;
@@ -133,6 +134,16 @@ export class PipelineState {
     this.sessionExemptCalls.delete(sessionId);
   }
 
+  markBudgetAdvisory(sessionId: string): boolean {
+    if (this._budgetAdvisories.has(sessionId)) return false;
+    this._budgetAdvisories.add(sessionId);
+    return true;
+  }
+
+  resetBudgetAdvisory(sessionId: string): void {
+    this._budgetAdvisories.delete(sessionId);
+  }
+
   recordUserMessage(sessionId: string, content: string, directAgent: string | null = null): RoutingRecord {
     const now = Date.now();
     this.purgePromptRing(now);
@@ -190,6 +201,7 @@ export class PipelineState {
     }
     this.pendingAgentLocks.delete(sessionId);
     this.resetSessionExemptCalls(sessionId);
+    this.resetBudgetAdvisory(sessionId);
     resetTaskCallCount(sessionId);
   }
 
@@ -226,6 +238,7 @@ export class PipelineState {
     for (const k of this._concurrentLocks.keys()) addSid(k);
     for (const k of this._tawaCallers.keys()) addSid(k);
     for (const k of this.sessionExemptCalls.keys()) addSid(k);
+    for (const k of this._budgetAdvisories) addSid(k);
     for (const k of this.routing.keys()) addSid(k);
     if (staleSessions.size <= this.MAX_SESSIONS) return;
 
@@ -244,6 +257,7 @@ export class PipelineState {
       this.pendingAgentLocks.delete(sessionId);
       this.resetAgentResponded(sessionId);
       this.resetSessionExemptCalls(sessionId);
+      this.resetBudgetAdvisory(sessionId);
       this.routing.delete(sessionId);
       for (let i = this.promptRing.length - 1; i >= 0; i -= 1) {
         if (this.promptRing[i]?.dispatcherSessionID === sessionId) this.promptRing.splice(i, 1);
@@ -297,6 +311,7 @@ export class PipelineState {
     this.pendingAgentLocks.clear();
     this._tawaCallers.clear();
     this.sessionExemptCalls.clear();
+    this._budgetAdvisories.clear();
     this.routing.clear();
     this.promptRing.length = 0;
   }

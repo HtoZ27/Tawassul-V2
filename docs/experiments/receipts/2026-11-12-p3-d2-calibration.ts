@@ -41,14 +41,17 @@ try {
   const billable = sessions.map((row) => computeBillable(row.raw));
   const roots = sessions.filter((row) => !row.parentID).map((row) => computeBillable(row.raw));
   const children = sessions.filter((row) => row.parentID).map((row) => computeBillable(row.raw));
-  const overCap = billable.filter((value) => value > DEFAULT_CAP.maxTokens);
+  const overRoot = roots.filter((value) => value > DEFAULT_CAP.maxRootTokens);
+  const overChild = children.filter((value) => value > DEFAULT_CAP.maxChildTokens);
 
   console.log(JSON.stringify({
     readingAt: new Date().toISOString(),
+    budgetModel: "root_child",
     sessions: sessions.length,
     roots: roots.length,
     children: children.length,
-    maxTokens: DEFAULT_CAP.maxTokens,
+    maxRootTokens: DEFAULT_CAP.maxRootTokens,
+    maxChildTokens: DEFAULT_CAP.maxChildTokens,
     maxSubagents: DEFAULT_CAP.maxSubagents,
     all: {
       p50: percentile(billable, 50),
@@ -68,12 +71,15 @@ try {
       p99: percentile(children, 99),
       max: children.length > 0 ? Math.max(...children) : null,
     },
-    sessionsOverTokenCap: overCap.length,
-    falsePositiveCheck: overCap.length === 0,
+    sessionsOverRootCap: overRoot.length,
+    sessionsOverChildCap: overChild.length,
+    falsePositiveCheck: overRoot.length === 0 && overChild.length === 0,
   }, null, 1));
 
-  if (overCap.length > 0) {
-    console.error(`PROOF FAIL: ${overCap.length} sessions exceed the token cap`);
+  if (overRoot.length > 0 || overChild.length > 0) {
+    console.error(
+      `PROOF FAIL: ${overRoot.length} root(s) and ${overChild.length} child(ren) exceed the calibrated budgets`,
+    );
     process.exitCode = 1;
   }
 } finally {

@@ -148,11 +148,14 @@ Not supported:
 | `src/services/iteration-budget.ts:11-16` | tiers: shallow 60, moderate 100, deep 160, analyze-first 320 |
 | `src/services/iteration-budget.ts:25-26` | adaptive: +50% per exhaustion, ceiling 4x |
 | `src/services/iteration-budget.ts:129-149` | `consume` grows the limit, then blocks when exhausted |
-| `src/services/iteration-budget.ts:194` | `DEFAULT_CAP = { maxDepth: 3, maxSubagents: 5, maxTokens: 200000000 }` (Revision 2.9 recalibration) |
-| `src/services/iteration-budget.ts:196-200` | `setCap` has no callers |
-| `src/services/iteration-budget.ts:206-212` | `checkCap(agent, depth, subagentCount, tokens)` |
-| `src/hooks/guards/dispatch-guards.ts:49-51` | feeds `checkCap` the live-child count and the ledger billable; the subagent and token branches fire (Revision 2.9) |
-| `src/hooks/guards/dispatch-guards.ts:207-221` | `budgetGuard` assigns a tier from `analyzeEffort(desc)` then checks `remaining` |
+| `src/services/iteration-budget.ts:203-208` | `DEFAULT_CAP = { maxDepth: 3, maxSubagents: 5, maxRootTokens: 149841699, maxChildTokens: 5866687 }` (Revision 2.10) |
+| `src/services/iteration-budget.ts:218-237` | `budgetZone` and `tokenBudget`: 50 / 75 / 90 zone edges, root and child scopes, fail open on a zero budget |
+| `src/services/iteration-budget.ts:240-244` | `setCap` has no callers |
+| `src/services/iteration-budget.ts:250-255` | `checkCap(agent, depth, subagentCount)` |
+| `src/services/usage-ledger.ts:768-810` | `treeSnapshot` walks `parentID` to the root, sums the subtree, and returns undefined when lineage is unknown |
+| `src/hooks/guards/dispatch-guards.ts:38-53` | the depth guard feeds `checkCap` the live-child count; the token ceiling moved to the budget layer (Revision 2.10) |
+| `src/hooks/guards/dispatch-guards.ts:55-82` | `sessionBudgetGuard` reads the session and tree billable, blocks `task` in orange and red, warns a handoff, and logs one yellow advisory per session |
+| `src/hooks/guards/dispatch-guards.ts:248-262` | `budgetGuard` assigns a tier from `analyzeEffort(desc)` then checks `remaining` |
 | `src/hooks/guards/tool-loop-guard.ts:9-16,193-207` | repeat-result counter: every successful result for a named agent is recorded and warned at 3 when the result is a string; failures reset the run; the block at 4 covers every tool except `task_control` (`REPEAT_BLOCK_EXEMPT`); window 8 (Revision 2.2; narrowed 2.3; widened 2.9) |
 | `src/hooks/guards/tool-loop-guard.ts:123-127` | no-progress counter, fed only from the tool-failure branch at `tool-execute.ts:581`; it cannot see a tool-free S1 echo (Revision 2.2) |
 | `src/hooks/tool-execute.ts:265-287` | `consume(agent, sessionID)` on every tool of a named agent; `refund` on heartbeat failure |
@@ -164,7 +167,7 @@ Not supported:
 | `src/services/cost-transparency/tracker.ts:57` | `recordOperation` exists and supports `cacheReadTokens` |
 | `src/context/config-schema.ts:16-20` | `adaptiveBudgets`, `budgetStepPercent`, `budgetCeilingFactor`, `budgetTiers` |
 | `src/hooks/PipelineState.ts:42` | `MAX_EXEMPT_CALLS = 20` |
-| `src/hooks/guards/dispatch-guards.ts:236-252` | `callDepth` increments the parent session only; exempt recon does not increment |
+| `src/hooks/guards/dispatch-guards.ts:277-293` | `callDepth` increments the parent session only; exempt recon does not increment |
 | `docs/experiments/receipts/2026-11-05-schema-payload.json` | live tool-schema payload: 44 tools, 24,513 bytes, 6,129 estimated tokens per request (Revision 2) |
 | `src/hooks/session.ts:291-373,431,524` | compaction digest, Session Index, and recent decisions are injected into context; only the Session Index has a 90k compaction-time ceiling; the digest, decisions, and R1 clause are unmeasured (Revision 2.1) |
 | `docs/plan-report-path-to-tawa.md` Section 4.3 | the R1 report clause is injected on every routed dispatch; its recurring token cost is unmeasured (Revision 2) |
@@ -174,7 +177,7 @@ Not supported:
 | ID | Defect | Evidence | Consequence |
 | --- | --- | --- | --- |
 | D1 | Budget multiplies with fan-out | key is `agent@session`, `iteration-budget.ts:80-83` | 5 agents = 5 independent budgets; children each get a fresh 60 |
-| D2 | Token and subagent caps are dead | `checkCap(..., 0, 0)`, `dispatch-guards.ts:42` | the two fields specifically meant for this problem never fire. Resolved in Revision 2.9: the guard feeds the live-child count (`pendingAgentLocks`) and the ledger billable, and `maxTokens` is recalibrated to twice the observed session maximum |
+| D2 | Token and subagent caps are dead | `checkCap(..., 0, 0)`, `dispatch-guards.ts:42` | the two fields specifically meant for this problem never fire. Resolved in Revision 2.9: the guard fed the live-child count (`pendingAgentLocks`) into `checkCap` and the ledger billable into `maxTokens`, recalibrated to twice the observed session maximum. Revision 2.10 replaced the single ceiling with the calibrated root and child budgets (Section 24) |
 | D3 | No consumer for host usage | `grep "usage.updated" src/` returns zero | the authoritative token numbers are unused |
 | D4 | Context nudge is user-turn-only and estimated | `message-updated.ts:452-458` | blind to S1, and measures text length, not billed tokens |
 | D5 | Cost telemetry is fabricated | `event-integrations.ts:226-232` | no decision can be based on current cost reports |
@@ -837,8 +840,9 @@ The echo signature uses no tool call + no file change + n-gram overlap; the fres
 diagnostic, not a trigger, and a turn is a completed assistant response with no tool call. The
 output cap writes the full child result to a durable pointer and injects a bounded summary plus the
 pointer; it never truncates in place. D2 is folded here only after the P2 gate: feed the ledger's
-`maxSubagents` and `maxTokens` counters, and reconcile the `checkCap` depth branch with
-`MAX_CALL_DEPTH` (D13) before enabling it; the resolution is the wiring-point clamp in 17.3.
+`maxSubagents` counter, and reconcile the `checkCap` depth branch with `MAX_CALL_DEPTH` (D13) before
+enabling it; the resolution is the wiring-point clamp in 17.3. The token counter D2 added is
+replaced by the calibrated root and child budgets in P5 (Section 24).
 
 **Layer 3 — Conditional budget (P5).** Only if the ledger's p99 data supports it. Scope `C4` if
 Probe 0 proves child usage events and `parentID`; otherwise `C3`, stated as such. Unit: cost first,
@@ -933,7 +937,7 @@ The original phase table in Section 11 stays as written. Revision 2 order:
 | P2 | Ledger shadow | original Phase 1 plus backfill, self-injection audit, and shadow repeat/echo/fan-out detectors | 7 days or 30 sessions; report works; shadow readings exist |
 | P3 | Behavioural guards | original Phase 3; enforce the detectors the P2 gate sets to enforce; D2 after the ledger gate and the D13 reconciliation (clamp at the wiring point, 17.3) | chaos proofs; zero false positives on replay |
 | P4 | Context pressure | original Phase 2, context half | nudge fires on a synthetic echo loop using real fields |
-| P5 | Budget | original Phase 4; C4 if the probe supports it, else C3 | Section 9 gate: p99(root) < 300k cancels P5 |
+| P5 | Budget | original Phase 4; C4 because Probe 0 proved lineage and child usage (Section 24) | Section 9 gate: p99(root) < 300k cancels P5; met at 99,894,466.3 |
 
 The gate after P2 answers four numbers: p99(root), p99(child), echo-flagged sessions per 30
 sessions, and the repeat detector's false-positive rate. P5 proceeds only if the slow,
@@ -1982,8 +1986,8 @@ The two dead cap fields now receive counters at the wiring point:
 
 ### 23.3 Token-cap calibration
 
-`DEFAULT_CAP.maxTokens` was a placeholder of 10,000, far below any real session. It is recalibrated to
-**200,000,000 weighted tokens**, twice the largest session in the ledger:
+`DEFAULT_CAP.maxTokens` was a placeholder of 10,000, far below any real session. Revision 2.9
+recalibrated it to **200,000,000 weighted tokens**, twice the largest session in the ledger:
 
 | Scope | p50 | p90 | p99 | max |
 | --- | ---: | ---: | ---: | ---: |
@@ -1991,15 +1995,90 @@ The two dead cap fields now receive counters at the wiring point:
 | Roots (27) | 5,039,419.2 | 22,612,838 | 99,894,466.3 | 99,894,466.3 |
 | Children (178) | 182,407.2 | 775,854.4 | 2,134,580.2 | 3,911,124.8 |
 
-Zero of the 205 sessions exceed the cap, so the token branch has no false positive on the observed
-distribution while it still bounds a runaway session. `docs/experiments/receipts/2026-11-12-p3-d2-calibration.ts`
-is the reading; `scripts/prove-call-depth-clamp.ts` pins the counter and the ceiling. The P5 budget
-layer replaces this single ceiling with the calibrated root and child budgets.
+Zero of the 205 sessions exceed that ceiling, so the D2 token branch had no false positive on the
+observed distribution while it still bounded a runaway session. `docs/experiments/receipts/2026-11-12-p3-d2-calibration.ts`
+is the reading and now reports the root and child caps. Revision 2.10 (Section 24) replaces the
+single ceiling with the calibrated root and child budgets.
 
 ### 23.4 P3 status
 
 P3 is complete once the full gate is green. The echo detector stays in shadow per the gate, so P3
 enforces exactly the three surfaces the gate approved.
+
+---
+
+## 24. P5 — the calibrated budget layer
+
+### 24.1 Scope
+
+P5 is C4: Probe 0's Q3 and Q6 are answered by the ledger itself. At 2026-11-13T04:19Z the ledger
+holds 205 sessions, 27 roots and 178 children, with **0 orphan children**, so `parentID` is stable
+and a child's usage is observable with the child `sessionID`. The budget therefore charges a tree
+to its root, and each child to its own child budget. The single `maxTokens` ceiling is gone.
+
+### 24.2 Calibration
+
+Section 9 sets each budget at 1.5x the measured value. The root budget is charged against the
+**tree** total, so the root reading is the per-tree distribution, not the per-root-session one:
+
+| Reading | p50 | p90 | p99 | max | Budget (1.5x) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Tree billable, 27 trees | 5,039,419.2 | 28,387,829.3 | 99,894,466.3 | 99,894,466.3 | **149,841,699** (`maxRootTokens`) |
+| Child billable, 178 children | 182,407.2 | 775,854.4 | 2,134,580.2 | 3,911,124.8 | **5,866,687** (`maxChildTokens`) |
+
+The child budget uses 1.5x the observed maximum, not 1.5x p99. `p99(child) x 1.5 = 3,201,870`
+would place the largest legitimate child (3,911,124.8, 1.83x p99) in red, which violates the
+Section 9 acceptance rule of zero legitimate red sessions. For roots the two rules coincide because
+p99(root) equals the maximum. The numbers live as `CALIBRATED_ROOT_TOKENS`,
+`CALIBRATED_CHILD_TOKENS`, and `BUDGET_HEADROOM` in `src/services/iteration-budget.ts`, so a
+re-reading moves the budget by changing one constant.
+
+### 24.3 Zones and enforcement
+
+| Zone | Edge | Behaviour |
+| --- | --- | --- |
+| Green | < 50% | measure only |
+| Yellow | >= 50% | one advisory per session; the dispatch is allowed |
+| Orange | >= 75% | `task` is blocked; `handoff` and `fasttrack` are allowed and warned |
+| Red | >= 90% | same as orange: new branches stop, the session can still finish and report |
+
+`sessionBudgetGuard` runs for `task`, `handoff`, and `fasttrack`. A child session is read twice:
+its own usage against `maxChildTokens`, and its tree total against `maxRootTokens`; the worse of the
+two readings decides. A root session is read once, tree total against `maxRootTokens`. The block
+message names the zone, the scope, the used and budgeted weighted tokens, and tells the agent to
+finish and return its result.
+
+Edits, writes, `record`, and the final report are never blocked: the guard only sees the three
+dispatch tools, so the rest of the pipeline is untouched. A handoff or fasttrack is warned rather
+than blocked in orange and red. The plan allows a handoff to a cheaper target and forbids trapping a
+red session; with 19 priced sessions out of 205 and a maximum session cost of $0.043, there is no
+data to price a target, so the tie goes to not trapping the session. The warning is the plan's
+"warned, not blocked" branch.
+
+### 24.4 Acceptance
+
+`docs/experiments/receipts/2026-11-13-p5-budget-calibration.ts` replays the live ledger through
+`tokenBudget` and `treeSnapshot`:
+
+| Zone | Sessions |
+| --- | ---: |
+| Green | 203 |
+| Yellow | 2 |
+| Orange | 0 |
+| Red | 0 |
+
+Zero orange and zero red on 205 sessions satisfies "fewer than 1% enter Orange; zero enter Red".
+Both yellow readings are the largest tree (99,894,466.3, 66.7% of the root budget) and the largest
+child (3,911,124.8, 66.7% of the child budget).
+
+### 24.5 Unit and what is not enforced
+
+The enforced unit is weighted tokens, per Section 14.6: input + output + 0.10 x cacheRead + 1.25 x
+cacheWrite. Cost is recorded in the ledger and in `treeSnapshot`, but it is not enforced. The priced
+sample is 19 of 205 sessions with a maximum of $0.043, so a USD ceiling calibrated from it would
+block the first real paid session; a cost budget waits for a priced sample. Reads larger than 20% of
+the window are not blocked either: the read size is unknown before execution, and the P4 deferral
+already caps a large result after the fact.
 
 ---
 
@@ -2034,15 +2113,16 @@ enforces exactly the three surfaces the gate approved.
 | --- | --- | --- |
 | Budget limits and growth | `src/services/iteration-budget.ts` | 5-6, 25-26, 129-149 |
 | Budget key | `src/services/iteration-budget.ts` | 80-83 |
-| Caps and thresholds | `src/services/iteration-budget.ts` | 194, 206-212 (fed since Revision 2.9) |
-| Cap feed and depth guard | `src/hooks/guards/dispatch-guards.ts` | 38-52 |
+| Caps and thresholds | `src/services/iteration-budget.ts` | 196-237 (zone edges, calibration constants, `DEFAULT_CAP`, `budgetZone`, `tokenBudget`) |
+| Cap feed and depth guard | `src/hooks/guards/dispatch-guards.ts` | 38-82 |
 | Cap knob | `src/context/config-schema.ts`; `src/hooks/guards/shared/limits.ts` | 14; 12-15 |
-| Tier assignment | `src/hooks/guards/dispatch-guards.ts` | 207-221 |
+| Tier assignment | `src/hooks/guards/dispatch-guards.ts` | 248-262 |
 | Per-tool consumption | `src/hooks/tool-execute.ts` | 265-287 |
 | Missing-agent bypass | `src/hooks/tool-execute.ts` | 265 |
 | Repeat and no-progress guards | `src/hooks/guards/tool-loop-guard.ts` | 9-16, 123-127, 193-207; wired at `tool-execute.ts:217,581` |
 | Dispatch output cap | `src/services/dispatch-output.ts`; `src/hooks/tool-execute.ts` | 1-35; 800-809 |
-| Depth semantics | `src/hooks/guards/dispatch-guards.ts` | 236-252 |
+| Depth semantics | `src/hooks/guards/dispatch-guards.ts` | 277-293 |
+| Tree billable | `src/services/usage-ledger.ts` | 768-810 |
 | Depth constant | `src/hooks/guards/shared/limits.ts` | 12-19 |
 | Context nudge thresholds | `src/services/context-nudges.ts` | 3-19, 31-40 |
 | Nudge evaluation | `src/hooks/message-updated.ts` | 420-495 |

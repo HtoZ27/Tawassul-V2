@@ -43,6 +43,7 @@ import { taskRejectionGuard } from "./guards/task-rejection-guard.ts";
 import {
   taskToolAuthorizationGuard,
   callDepthGuard,
+  sessionBudgetGuard,
   selfCallGuard,
   tawaRedirectGuard,
   sessionRequiredGuard,
@@ -130,7 +131,7 @@ export const VALIDATION_PIPELINE = [
   cognitiveEffectsEffect,
   consentGateGuard,
   combinedStage("agent-guards", [deletedAgentGuard, circuitBreakerGuard]),
-  combinedStage("rate-checks", [budgetGuard, rateLimitGuard]),
+  combinedStage("rate-checks", [sessionBudgetGuard, budgetGuard, rateLimitGuard]),
   commitCallDepthEffect,
   recordDispatchPromptEffect,
 ];
