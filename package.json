@@ -13,7 +13,7 @@
     "gate:proofs": "bun scripts/gate.ts proofs",
     "gate:proofs:1": "bun scripts/gate.ts proofs --shard 1 --nice 10",
     "gate:proofs:2": "bun scripts/gate.ts proofs --shard 2 --nice 10",
-    "gate:proofs:3": "bun scripts/gate.ts proofs --shard 3 --nice 10",
+    "gate:proofs:3": "bun scripts/gate.ts proofs --shard 3",
     "gate:proofs:4": "bun scripts/gate.ts proofs --shard 4 --nice 10",
     "gate:proofs:bg": "bash scripts/gate-proofs-bg.sh start",
     "gate:proofs:bg:status": "bash scripts/gate-proofs-bg.sh status",

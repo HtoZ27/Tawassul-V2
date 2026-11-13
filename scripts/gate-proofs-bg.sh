@@ -16,9 +16,10 @@ usage: gate-proofs-bg.sh start [shard ...]
        gate-proofs-bg.sh stop
 
 Runs the balanced proof shards sequentially in a detached process.
-Shards are 1-4 (default: all four). Each shard uses its npm script and
-runs at niceness 10. Logs live under /tmp/opencode/gate-proofs unless
-TAWASSUL_GATE_BG_DIR points elsewhere.
+Shards are 1-4 (default: all four). Each shard uses its npm script;
+shards 1, 2 and 4 run at niceness 10 and shard 3 runs at normal
+priority for the boot timing contract. Logs live under
+/tmp/opencode/gate-proofs unless TAWASSUL_GATE_BG_DIR points elsewhere.
 USAGE
 }
 

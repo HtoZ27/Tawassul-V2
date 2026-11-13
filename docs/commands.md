@@ -73,8 +73,11 @@ they are the commands an operator actually runs.
 
 A foreground `npm run gate:proofs` prints one line per step and is the CI path.
 When the session must stay responsive, run `gate:proofs:bg`: it executes the
-balanced shards at niceness 10 and keeps the logs under
-`/tmp/opencode/gate-proofs` unless `TAWASSUL_GATE_BG_DIR` points elsewhere.
+balanced shards detached and keeps the logs under `/tmp/opencode/gate-proofs`
+unless `TAWASSUL_GATE_BG_DIR` points elsewhere. Shards 1, 2, and 4 run at
+niceness 10; shard 3 runs at normal priority because `boot-budget` measures
+wall-clock boot time against its pinned 2000 ms contract, and a lowered
+priority makes that measurement fail on an otherwise idle machine.
 
 ## Argument shapes
 

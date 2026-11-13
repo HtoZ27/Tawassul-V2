@@ -318,10 +318,14 @@ assert(
   maxEstimate <= meanEstimate * 1.1,
   `proof shards stay within 10% of the mean (max ${maxEstimate}ms, mean ${Math.round(meanEstimate)}ms)`,
 );
+const normalPriorityShard = "3";
 for (const entry of shardFile.shards) {
+  const nice = entry.name === normalPriorityShard ? "" : " --nice 10";
   assert(
-    scripts[`gate:proofs:${entry.name}`] === `bun scripts/gate.ts proofs --shard ${entry.name} --nice 10`,
-    `gate:proofs:${entry.name} runs shard ${entry.name} at low priority`,
+    scripts[`gate:proofs:${entry.name}`] === `bun scripts/gate.ts proofs --shard ${entry.name}${nice}`,
+    entry.name === normalPriorityShard
+      ? `gate:proofs:${entry.name} runs shard ${entry.name} at normal priority for its timing contract`
+      : `gate:proofs:${entry.name} runs shard ${entry.name} at low priority`,
   );
 }
 const bgRunner = "scripts/gate-proofs-bg.sh";
