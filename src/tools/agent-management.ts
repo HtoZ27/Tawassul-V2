@@ -889,7 +889,7 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
     description: [
       "Remove one or more specialist agents — the only tool alongside addagent inside withConfigWriteLock (no edit/bash needed).",
       "Format: remove spec1 spec2 ... with model model from provider",
-      "Shorthand: remove all / all / * with model model from provider — removes all seven agents at once (tawa excluded); bulk removal of unprotected variants shows a confirmation card in the main session (fail-closed without it).",
+      "Shorthand: remove all / all / * with model model from provider — removes all seven agents at once (tawa excluded); removing two or more agents shows a confirmation card in the main session (fail-closed without it).",
       "Note: the agent saying 'I don't have kick' is RBAC for the main user only — run as @addagent or @tawa in the main session (see kickNotAnalystHint).",
       kickExamplesText(),
     ].join("\n"),

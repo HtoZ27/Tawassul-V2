@@ -62,7 +62,7 @@
           "kind": "prerequisite",
           "baseline": "Creates N handoffs to N different agents, all with the same task",
           "require": [
-            "N copies to N different agents with the same task"
+            "N total results: primary plus N-1 copies"
           ]
         },
         {

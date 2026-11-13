@@ -27,7 +27,7 @@ export const MAX_DYNAMIC_AGENTS_DEFAULT = 50;
 
 export const MAX_TASK_LENGTH = 1024;
 
-export const MAX_PARALLEL_COPIES = 5;
+export const DEFAULT_PARALLEL_COPIES = 5;
 
 export const LOCALE_MAP: Record<string, string> = {
   en: "en-US",

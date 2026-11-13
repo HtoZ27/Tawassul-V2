@@ -15,6 +15,7 @@ and how it protects your work.
 | [Upgrade](upgrade.md) | You are moving an existing install to a new build |
 | [Compatibility](compatibility.md) | You need to know which host and platform are supported |
 | [User guide](user-guide.md) | You want the working rhythm: goals, handoffs, reviews, long sessions |
+| [End-user guide](end-user-guide.md) | You want the complete team guide: agents, parallel comparison, memory, locks, tools, skills |
 | [Configuration](configuration.md) | You need the config file, its keys, or an environment variable |
 | [Environment](environment.md) | You need an environment variable's precedence or its contract |
 | [Agents](agents.md) | You want to know who does what, and how routing works |

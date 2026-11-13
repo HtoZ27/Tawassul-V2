@@ -49,7 +49,7 @@ export function buildPauseTool(
       "",
       "When paused:",
       "- No new handoffs will be created",
-      "- Existing handoffs continue until completion",
+      "- Pending/accepted pause; active turns finish",
       "- Use resume() to continue",
       "",
       "EXAMPLES:",

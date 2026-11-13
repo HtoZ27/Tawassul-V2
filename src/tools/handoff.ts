@@ -14,7 +14,7 @@ import { ParallelAggregator } from "../services/parallel-aggregator.ts";
 import { getFallbackChain } from "../services/proxy-fallback-chains.ts";
 import { logger } from "../utils/logger.ts";
 import { resolveRole } from "../utils/agent.ts";
-import { MAX_PARALLEL_COPIES } from "../context/constants.ts";
+import { DEFAULT_PARALLEL_COPIES } from "../context/constants.ts";
 import { attachPackToHandoff } from "../services/context-pack/index.ts";
 import { resolveAgentModelRef } from "../services/model-refs.ts";
 import { clearOwner, clearRunFlags, continuityEnabled, stampOwner } from "../services/continuity/owner.ts";
@@ -246,7 +246,7 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
       "",
       "Exactly ONE action per call:",
       "• create — Required: to, task, context. Optional: files[], checkpoint, parallelCopies.",
-      "  parallelCopies — N copies to N different agents with the same task; results side by side.",
+      "  parallelCopies — N total results: primary plus N-1 copies; results side by side.",
       "• completeHandoff — Required: completeHandoff (the handoff ID). Optional: result (summary).",
       "• undo — Required: undo (the handoff ID); reverts accepted to pending.",
       "• rescue — Required: rescue (handoff ID), to (new agent), context (reason); @analyst only.",
@@ -267,9 +267,10 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
         .number()
         .int()
         .min(2)
-        .max(MAX_PARALLEL_COPIES)
         .optional()
-        .describe("N copies to N agents (2-5)"),
+        .describe(
+          `N total (2+; ${DEFAULT_PARALLEL_COPIES} when open)`,
+        ),
       result: tool.schema.string().optional().describe("Completion result"),
       checkpoint: tool.schema
         .object({
@@ -909,7 +910,7 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
           const routingResult = ctx.predictiveRouter.predict(routingRequest);
           ctx.memoryRoutingIntegration?.learnFromRouting(routingResult, routingRequest, true, 0);
           selectedAgents = routingResult.allPredictions
-            .slice(0, Math.min(parallelCount - 1, agents.length, 5))
+            .slice(0, Math.min(parallelCount - 1, agents.length))
             .map((p) => p.agent);
           if (selectedAgents.length < parallelCount - 1) {
             const remaining = agents.filter((a) => !selectedAgents.includes(a));
@@ -920,7 +921,7 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
             const j = Math.floor(secureRandom() * (i + 1));
             [agents[i], agents[j]] = [agents[j]!, agents[i]!];
           }
-          selectedAgents = agents.slice(0, Math.min(parallelCount - 1, agents.length, 5));
+          selectedAgents = agents.slice(0, Math.min(parallelCount - 1, agents.length));
         }
         for (const agent of selectedAgents) {
           const copy = {

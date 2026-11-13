@@ -5,7 +5,7 @@ import { ASK_UNAVAILABLE } from "../services/ask-channel.ts";
 
 export function buildHelpTool() {
   return tool({
-    description: "Show help for available tools — each tool has a built-in description in its definition",
+    description: "Show a short overview of the available tool families and where the full reference lives.",
     args: {},
     async execute() {
       return { title: "ℹ️ Help", output: t("helpOverview") };

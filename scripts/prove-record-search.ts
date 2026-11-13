@@ -76,9 +76,9 @@ async function main(): Promise<void> {
 
     const handoffBytes = Buffer.byteLength(buildHandoffTool({} as TawassulContext).description ?? "");
     const recordBytes = Buffer.byteLength(buildRecordTool({} as TawassulContext).description ?? "");
-    eq(handoffBytes, 1126, "the handoff description measures 1,126 bytes");
+    eq(handoffBytes, 1117, "the handoff description measures 1,117 bytes");
     eq(recordBytes, 541, "the record description measures 541 bytes");
-    eq(handoffBytes + recordBytes, 1667, "the pair measures 1,667 bytes, 16 above the previous surface");
+    eq(handoffBytes + recordBytes, 1658, "the pair measures 1,658 bytes, 16 above the previous surface");
 
     const ranked: RecordEntry[] = [
       record("R-001", "minor", "2026-01-05T00:00:00.000Z", "needle in the title", "plain detail"),
