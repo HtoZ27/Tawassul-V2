@@ -22,8 +22,9 @@ snapshots, and no forced compaction). Revision 2.8 adds Section 22: the applied 
 (19,534 B / 4,884 tokens, -21.0%), the per-tool cut ledger, and the retry argument.
 No Revision 1, 2, 2.1, 2.2, 2.3, 2.4, or 2.5 item is removed; every correction is appended and
 marked with its revision.
-Status: D13, the P2 ledger shadow slice, the P4 nudge mechanism, and the P1 fixed-cost cut are
-implemented and proven; enforcement remains proposal only.
+Status: D13, the P1 fixed-cost cut, the P2 ledger shadow slice, the P3 guards, the P4 nudge
+mechanism, and the P5 calibrated budget are implemented and proven. P3 and P5 enforce on the
+dispatch tools, and P4 is calibrated against the completed window (Section 21.4).
 Date: 2026-11-07 (Revision 2.8, schema payload cut)
 Target: Tawassul V2, this tree, OpenCode host >= 2.2.0
 Audience: independent models and agents asked to score the options and produce a verdict.
@@ -1852,15 +1853,22 @@ confirms the suppression, and a drop under 0.65 lets the next crossing fire agai
 
 ### 21.4 Evidence
 
-`scripts/prove-context-pressure.ts` carries 75 assertions: host parsing (including aliases, clamps,
+`scripts/prove-context-pressure.ts` carries 82 assertions: host parsing (including aliases, clamps,
 and a null fallback), usage conversion, threshold actions, the echo loop, per-session isolation,
 the 12,000-character cap, assistant-role evaluation, host-sourced snapshots, the durable record
 shape, the absence of a host compaction call, and the tool-hook wiring. It is proof 180, assigned
 to shard 2 with a +2,000 ms estimate (total 396,341 ms). `npm run verify` is the integration
 receipt.
 
-P4 is implemented but not calibrated: the 70/85/95 thresholds and the 12,000-character cap stay as
-written until the P5 30-session run reports p99 and the 1.5x rule can adjust them.
+P4 is calibrated against the completed window: 79 sessions carry assistant tokens (17,960
+messages). Session max fill is p50 25.41%, p90 90.13%, p99 100%; the 70/85/95 thresholds map to
+p73 / p79 / p95 and sit at the boundary of the long-session cluster, so they stay. Non-task tool
+outputs in messages at or above 70% fill measure p99 13,011 characters over 6,130 outputs, so the
+12,000-character cap truncates only the extreme 1.26% and stays. The 1.5x rule is not applied to
+the percentage thresholds because a bounded window saturates at 100%; the 1.5x cap reading of
+19,517 characters is recorded but not adopted, because deferral preserves the full output behind a
+pointer and raising the cap would weaken the burn control without preventing data loss. Receipt:
+`docs/experiments/receipts/2026-11-13-p4-context-calibration.md`.
 
 ## 22. Applied schema cut (Revision 2.8)
 
