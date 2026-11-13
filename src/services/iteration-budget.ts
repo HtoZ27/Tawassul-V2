@@ -191,7 +191,7 @@ interface CapRule {
 }
 
 const caps = new Map<string, CapRule>();
-export const DEFAULT_CAP: CapRule = { maxDepth: 3, maxSubagents: 5, maxTokens: 10000 };
+export const DEFAULT_CAP: CapRule = { maxDepth: 3, maxSubagents: 5, maxTokens: 200_000_000 };
 
 export function setCap(agent: string, rule: Partial<CapRule>): void {
   const key = normalizeName(agent);

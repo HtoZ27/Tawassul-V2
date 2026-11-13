@@ -13,7 +13,7 @@ export const REPEAT_RESULT_WARN_AT = 3;
 export const REPEAT_RESULT_BLOCK_AT = 4;
 export const REPEAT_RESULT_WINDOW = 8;
 
-export const REPEAT_BLOCK_TOOLS: readonly string[] = ["read", "grep", "glob"];
+export const REPEAT_BLOCK_EXEMPT: readonly string[] = ["task_control"];
 
 const _failureCounts = new Map<string, Map<string, number>>();
 const _noProgressCounts = new Map<string, number>();
@@ -197,7 +197,7 @@ export function isRepeatResultBlocked(
   signature: string,
 ): string | null {
   if (BYPASS_ALL) return null;
-  if (!REPEAT_BLOCK_TOOLS.includes(tool)) return null;
+  if (REPEAT_BLOCK_EXEMPT.includes(tool)) return null;
   const count = repeatResultCount(sessionID, agent, tool, signature);
   if (count < REPEAT_RESULT_BLOCK_AT) return null;
   return (

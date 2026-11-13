@@ -148,12 +148,12 @@ Not supported:
 | `src/services/iteration-budget.ts:11-16` | tiers: shallow 60, moderate 100, deep 160, analyze-first 320 |
 | `src/services/iteration-budget.ts:25-26` | adaptive: +50% per exhaustion, ceiling 4x |
 | `src/services/iteration-budget.ts:129-149` | `consume` grows the limit, then blocks when exhausted |
-| `src/services/iteration-budget.ts:194` | `DEFAULT_CAP = { maxDepth: 3, maxSubagents: 5, maxTokens: 10000 }` |
+| `src/services/iteration-budget.ts:194` | `DEFAULT_CAP = { maxDepth: 3, maxSubagents: 5, maxTokens: 200000000 }` (Revision 2.9 recalibration) |
 | `src/services/iteration-budget.ts:196-200` | `setCap` has no callers |
 | `src/services/iteration-budget.ts:206-212` | `checkCap(agent, depth, subagentCount, tokens)` |
-| `src/hooks/guards/dispatch-guards.ts:42` | calls `checkCap(agent, depth, 0, 0)` — subagent and token branches are dead |
+| `src/hooks/guards/dispatch-guards.ts:49-51` | feeds `checkCap` the live-child count and the ledger billable; the subagent and token branches fire (Revision 2.9) |
 | `src/hooks/guards/dispatch-guards.ts:207-221` | `budgetGuard` assigns a tier from `analyzeEffort(desc)` then checks `remaining` |
-| `src/hooks/guards/tool-loop-guard.ts:9-16,193-207` | repeat-result counter: every successful result for a named agent is recorded and warned at 3 when the result is a string; failures reset the run; the block at 4 is limited to `REPEAT_BLOCK_TOOLS` (`read|grep|glob`); window 8 (Revision 2.2; narrowed 2.3) |
+| `src/hooks/guards/tool-loop-guard.ts:9-16,193-207` | repeat-result counter: every successful result for a named agent is recorded and warned at 3 when the result is a string; failures reset the run; the block at 4 covers every tool except `task_control` (`REPEAT_BLOCK_EXEMPT`); window 8 (Revision 2.2; narrowed 2.3; widened 2.9) |
 | `src/hooks/guards/tool-loop-guard.ts:123-127` | no-progress counter, fed only from the tool-failure branch at `tool-execute.ts:581`; it cannot see a tool-free S1 echo (Revision 2.2) |
 | `src/hooks/tool-execute.ts:265-287` | `consume(agent, sessionID)` on every tool of a named agent; `refund` on heartbeat failure |
 | `src/services/context-nudges.ts:3-7` | thresholds 0.70 / 0.85 / 0.95 |
@@ -174,16 +174,16 @@ Not supported:
 | ID | Defect | Evidence | Consequence |
 | --- | --- | --- | --- |
 | D1 | Budget multiplies with fan-out | key is `agent@session`, `iteration-budget.ts:80-83` | 5 agents = 5 independent budgets; children each get a fresh 60 |
-| D2 | Token and subagent caps are dead | `checkCap(..., 0, 0)`, `dispatch-guards.ts:42` | the two fields specifically meant for this problem never fire |
+| D2 | Token and subagent caps are dead | `checkCap(..., 0, 0)`, `dispatch-guards.ts:42` | the two fields specifically meant for this problem never fire. Resolved in Revision 2.9: the guard feeds the live-child count (`pendingAgentLocks`) and the ledger billable, and `maxTokens` is recalibrated to twice the observed session maximum |
 | D3 | No consumer for host usage | `grep "usage.updated" src/` returns zero | the authoritative token numbers are unused |
 | D4 | Context nudge is user-turn-only and estimated | `message-updated.ts:452-458` | blind to S1, and measures text length, not billed tokens |
 | D5 | Cost telemetry is fabricated | `event-integrations.ts:226-232` | no decision can be based on current cost reports |
-| D6 | Identical-repeat blocking covers only read-only search tools | `tool-loop-guard.ts:9-16,193-207`; every successful result for a normalized agent is recorded and warned at 3 (`tool-execute.ts:564-575`), the warning is appended only when the result is a string (`:574`), and failures reset the run (`:577-580`); `REPEAT_BLOCK_TOOLS` is `read/grep/glob` | non-read loops (`bash`, MCP) are warned but never blocked; failed repeats are not counted; assistant-turn echo is uncovered; S2 is only partially covered (Revision 2.2; narrowed 2.3) |
+| D6 | Identical-repeat blocking covers only read-only search tools | `tool-loop-guard.ts:9-16,193-207`; every successful result for a normalized agent is recorded and warned at 3 (`tool-execute.ts:564-575`), the warning is appended only when the result is a string (`:574`), and failures reset the run (`:577-580`); `REPEAT_BLOCK_EXEMPT` is `task_control` | fixed in Revision 2.9: every tool except `task_control` blocks at 4; failed repeats are still not counted and assistant-turn echo is uncovered, so that part is only closed by the echo detector (Revision 2.2; narrowed 2.3; widened 2.9) |
 | D7 | The no-progress counter is tool-failure-only | `tool-loop-guard.ts:123-127`; the sole call is `tool-execute.ts:581` | a tool-free S1 echo never increments it; "absent" was too strong, "covered" is too strong (Revision 2.2) |
 | D8 | Nudge does not trigger compaction or deferral | `context-nudges.ts` only logs or injects text | warning without mechanism; resolved in Revision 2.7: deferral caps tool output at 12,000 chars, summarize/save write a durable note, and compaction is deliberately not forced |
 | D9 | `consume` counts spend-neutral and spend-increasing tools identically | `tool-execute.ts:268` | the quota blocks a final report as readily as a new subagent |
 | D10 | The permanent schema payload has no owner in this plan | `docs/experiments/receipts/2026-11-05-schema-payload.json`: 24,513 B / 6,129 tokens for 44 tools; the archived 13,868 B undercounts because it used the src zod instance | the largest fixed per-request cost is absent from the option space (Revision 2) |
-| D11 | Dispatch results are uncapped | `TASK_TOOL_NAMES` at `security-policy.ts:14`; the 50k truncation excludes all three at `tool-execute.ts:771-772`; `!quarantineApplied` at `:771` is a second bypass | a `task`, `handoff`, or `fasttrack` result can enter the parent arbitrarily large, and quarantined output bypasses the same cap (Revision 2.2; widened 2.3) |
+| D11 | Dispatch results are uncapped | `TASK_TOOL_NAMES` at `security-policy.ts:14`; the 50k truncation excludes all three at `tool-execute.ts:771-772`; `!quarantineApplied` at `:771` is a second bypass | a `task`, `handoff`, or `fasttrack` result can enter the parent arbitrarily large, and quarantined output bypasses the same cap. Resolved in Revision 2.9: every dispatch result over 8,000 chars that reaches the parent is capped with a durable pointer and the full text is preserved; quarantined output is already replaced by a short notice (Revision 2.2; widened 2.3; resolved 2.9) |
 | D12 | A missing agent is a total budget bypass | `tool-execute.ts:265` wraps `consume`; dedup at `:200` and the loop guard at `:217` also require `normalizedAgent` | no-agent calls skip dedup, loop guard, and budget while the pipeline still runs (Revision 2.2) |
 | D13 | `checkCap`'s depth branch duplicates `MAX_CALL_DEPTH` and silently diverges from the knob | depth guard at `dispatch-guards.ts:39-41`, `checkCap(..., 0, 0)` at `:42` (the guard is `task`-only, `:32`); `DEFAULT_CAP.maxDepth = 3` at `iteration-budget.ts:194`; knob 1..20 at `config-schema.ts:14`, wired at `src/context/facades/config-facade.ts:60` and `src/hooks/guards/shared/limits.ts:12-15` | at 4+, the guard passes depth 4 and `checkCap` rejects it with "max depth (3)"; the knob is silently clamped, the subagent and token branches stay dead, and two sources disagree. Reconciliation: K3 is the ceiling; the knob is clamped at the wiring point (17.3) (Revision 2.2; resolved 2.3) |
 | D14 | The usage event is ephemeral and carries no agent | `event-manifest.d.ts:1136`; payload at `:1120-1132` | no replay after a disconnect; lineage must come from `session.get`; every gap must be labelled (Revision 2.2) |
@@ -1954,6 +1954,55 @@ injection budgets proven. Enforcement remains proposal only; the P2 gate is the 
 
 ---
 
+## 23. P3 behavioural guards and the D2 resolution (Revision 2.9)
+
+### 23.1 What P3 enforces
+
+The P2 gate set three detectors to enforce and left one in shadow. P3 applies exactly that verdict:
+
+| Surface | Behaviour in P3 | Evidence |
+| --- | --- | --- |
+| Identical repeat | warns at 3, blocks at 4, window 8; every tool except `task_control` (`REPEAT_BLOCK_EXEMPT`); `read`/`grep`/`glob` are no longer a special case | `src/hooks/guards/tool-loop-guard.ts`; `scripts/prove-repeat-guard.ts` |
+| Fan-out | a dispatch whose live cluster reached 6 near-duplicate dispatches (>= 80% task-text similarity, 10-minute window) is blocked on every further over-cap call | `UsageShadow.fanoutBlocked`; `src/hooks/tool-execute.ts`; `scripts/prove-usage-shadow.ts` |
+| Dispatch output | every `task`/`handoff`/`fasttrack` result over 8,000 chars that reaches the parent is capped, the full text is written to a durable pointer under `statePath("dispatch-output")` with mode `0o600`, and a failed write keeps the full result; a quarantined result is already replaced by a short notice | `src/services/dispatch-output.ts`; `scripts/prove-context-pressure.ts` |
+| Echo | stays in shadow, as the gate decided (0 echo sessions in 146 forward sessions) | `UsageShadow`; `scripts/prove-usage-shadow.ts` |
+
+### 23.2 D2 is fed real counters
+
+The two dead cap fields now receive counters at the wiring point:
+
+- **Live subagents** come from the existing agent locks: `ps(ctx).pendingAgentLocks.get(sessionID)?.size`.
+  The plan's Option 2b asked for a concurrent-child cap "beside the existing agent locks", and the
+  locks are acquired after `callDepthGuard` runs, so the count is the children already live when the
+  next dispatch is evaluated. `maxSubagents` stays at the shipped 5.
+- **Tokens** come from the ledger: `getUsageLedger()?.sessionSnapshot(sessionID)?.billable`. An absent
+  ledger, an unobserved session, or a disabled ledger yields 0 and fails open.
+- **Depth** is unchanged: the guard blocks at `MAX_CALL_DEPTH` first, and `checkCap` remains the single
+  source that agrees with the clamp from 17.3.
+
+### 23.3 Token-cap calibration
+
+`DEFAULT_CAP.maxTokens` was a placeholder of 10,000, far below any real session. It is recalibrated to
+**200,000,000 weighted tokens**, twice the largest session in the ledger:
+
+| Scope | p50 | p90 | p99 | max |
+| --- | ---: | ---: | ---: | ---: |
+| All (205) | 224,269.4 | 1,527,020.6 | 22,612,838 | 99,894,466.3 |
+| Roots (27) | 5,039,419.2 | 22,612,838 | 99,894,466.3 | 99,894,466.3 |
+| Children (178) | 182,407.2 | 775,854.4 | 2,134,580.2 | 3,911,124.8 |
+
+Zero of the 205 sessions exceed the cap, so the token branch has no false positive on the observed
+distribution while it still bounds a runaway session. `docs/experiments/receipts/2026-11-12-p3-d2-calibration.ts`
+is the reading; `scripts/prove-call-depth-clamp.ts` pins the counter and the ceiling. The P5 budget
+layer replaces this single ceiling with the calibrated root and child budgets.
+
+### 23.4 P3 status
+
+P3 is complete once the full gate is green. The echo detector stays in shadow per the gate, so P3
+enforces exactly the three surfaces the gate approved.
+
+---
+
 ## Appendix A — Evidence with numbers
 
 | Claim | Number | Source | Confidence |
@@ -1985,14 +2034,14 @@ injection budgets proven. Enforcement remains proposal only; the P2 gate is the 
 | --- | --- | --- |
 | Budget limits and growth | `src/services/iteration-budget.ts` | 5-6, 25-26, 129-149 |
 | Budget key | `src/services/iteration-budget.ts` | 80-83 |
-| Dead caps | `src/services/iteration-budget.ts` | 194, 206-212 |
-| Dead cap call and depth guard | `src/hooks/guards/dispatch-guards.ts` | 39-42 |
+| Caps and thresholds | `src/services/iteration-budget.ts` | 194, 206-212 (fed since Revision 2.9) |
+| Cap feed and depth guard | `src/hooks/guards/dispatch-guards.ts` | 38-52 |
 | Cap knob | `src/context/config-schema.ts`; `src/hooks/guards/shared/limits.ts` | 14; 12-15 |
 | Tier assignment | `src/hooks/guards/dispatch-guards.ts` | 207-221 |
 | Per-tool consumption | `src/hooks/tool-execute.ts` | 265-287 |
 | Missing-agent bypass | `src/hooks/tool-execute.ts` | 265 |
 | Repeat and no-progress guards | `src/hooks/guards/tool-loop-guard.ts` | 9-16, 123-127, 193-207; wired at `tool-execute.ts:217,581` |
-| Dispatch output cap exclusion | `src/hooks/tool-execute.ts`; `src/security-policy.ts` | 771-772; 14 |
+| Dispatch output cap | `src/services/dispatch-output.ts`; `src/hooks/tool-execute.ts` | 1-35; 800-809 |
 | Depth semantics | `src/hooks/guards/dispatch-guards.ts` | 236-252 |
 | Depth constant | `src/hooks/guards/shared/limits.ts` | 12-19 |
 | Context nudge thresholds | `src/services/context-nudges.ts` | 3-19, 31-40 |

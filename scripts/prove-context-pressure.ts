@@ -1,4 +1,6 @@
-import { readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { injectContextEngine } from "../src/hooks/message-updated.ts";
 import type { MessageUpdatedContext } from "../src/hooks/message-updated-types.ts";
 import {
@@ -16,6 +18,7 @@ import {
   type ContextSnapshot,
 } from "../src/services/context-pressure.ts";
 import { truncateToolOutput } from "../src/services/context-compressor.ts";
+import { capDispatchOutput, DISPATCH_OUTPUT_CHARS } from "../src/services/dispatch-output.ts";
 
 let passed = 0;
 
@@ -25,7 +28,7 @@ function fail(message: string): never {
   throw new Error(message);
 }
 
-function assert(condition: unknown, message: string): void {
+function assert(condition: unknown, message: string): asserts condition {
   if (!condition) fail(message);
   passed++;
   console.log(`ok ${message}`);
@@ -184,5 +187,42 @@ const capped = truncateToolOutput(longOutput, DEFERRED_TOOL_OUTPUT_CHARS);
 assert(capped.length < longOutput.length, "a deferred tool output is truncated");
 assert(capped.includes("chars truncated"), "the deferred tool output marks the removed span");
 assert(capped.length <= DEFERRED_TOOL_OUTPUT_CHARS + 200, "the deferred tool output stays near its cap");
+
+const dispatchState = mkdtempSync(join(tmpdir(), "tawassul-dispatch-"));
+const previousStateDir = process.env.TAWASSUL_V2_STATE_DIR;
+try {
+  process.env.TAWASSUL_V2_STATE_DIR = dispatchState;
+  const fullDispatch = "d".repeat(DISPATCH_OUTPUT_CHARS + 4_000);
+  const dispatchCapped = capDispatchOutput({
+    text: fullDispatch,
+    sessionID: "ses_dispatch",
+    callID: "call_1",
+    tool: "task",
+    now: 1_760_000_000_000,
+  });
+  assert(dispatchCapped !== undefined, "a large dispatch result is capped");
+  assert(dispatchCapped.text.length <= DISPATCH_OUTPUT_CHARS, "the dispatch summary stays within its cap");
+  assert(dispatchCapped.text.includes("saved to"), "the dispatch summary names the durable pointer");
+  assert(existsSync(dispatchCapped.path), "the dispatch pointer file exists");
+  equal(readFileSync(dispatchCapped.path, "utf8"), fullDispatch, "the dispatch pointer preserves the full result");
+  equal(
+    capDispatchOutput({ text: "short", sessionID: "ses_dispatch", callID: "call_2", tool: "task" }),
+    undefined,
+    "a short dispatch result is not capped",
+  );
+
+  const blocker = join(dispatchState, "blocker");
+  writeFileSync(blocker, "x");
+  process.env.TAWASSUL_V2_STATE_DIR = blocker;
+  equal(
+    capDispatchOutput({ text: fullDispatch, sessionID: "ses_dispatch", callID: "call_3", tool: "task" }),
+    undefined,
+    "a failed durable write keeps the full result",
+  );
+} finally {
+  if (previousStateDir === undefined) delete process.env.TAWASSUL_V2_STATE_DIR;
+  else process.env.TAWASSUL_V2_STATE_DIR = previousStateDir;
+  rmSync(dispatchState, { recursive: true, force: true });
+}
 
 console.log(`PROOF PASS: context pressure reads host tokens, nudges with hysteresis, defers output, and records snapshots (${passed} assertions)`);

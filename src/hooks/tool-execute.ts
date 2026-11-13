@@ -27,6 +27,7 @@ import { evaluateDuplicateGuard } from "./duplicate-guard.ts";
 import { scanToolOutput } from "./guards/threat_patterns.ts";
 import { ps } from "./guards/shared.ts";
 import { TASK_TOOL_NAMES } from "../security-policy.ts";
+import { capDispatchOutput } from "../services/dispatch-output.ts";
 
 import { truncateToolOutput } from "../services/context-compressor.ts";
 
@@ -186,7 +187,14 @@ export function createToolExecuteBeforeHook(ctx: ToolExecuteBeforeContext) {
 
       if (input.sessionID && input.tool) {
         if (!normalizedAgent) getUsageLedger()?.recordNoAgent({ sessionID: input.sessionID, tool: input.tool });
-        getUsageShadow()?.observeDispatch({ sessionID: input.sessionID, tool: input.tool, args: output.args });
+        const shadow = getUsageShadow();
+        shadow?.observeDispatch({ sessionID: input.sessionID, tool: input.tool, args: output.args });
+        const fanout = shadow?.fanoutBlocked({ sessionID: input.sessionID, tool: input.tool, args: output.args });
+        if (fanout) {
+          blockTool(
+            `🚫 Fan-out guard: ${fanout.count} near-duplicate ${input.tool} dispatches in ${Math.round(fanout.windowMs / 60_000)} minutes. Reuse the existing result or change the task text.`,
+          );
+        }
       }
 
       if (isTawassulTool(input.tool)) {
@@ -788,6 +796,16 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
           deferredCap !== undefined
             ? svc.truncateToolOutput(deliveredText, deferredCap)
             : svc.truncateToolOutput(deliveredText);
+      }
+
+      if (!quarantineApplied && deliveredText && TASK_TOOL_NAMES.includes(input.tool)) {
+        const capped = capDispatchOutput({
+          text: deliveredText,
+          sessionID: input.sessionID,
+          callID: input.callID,
+          tool: input.tool,
+        });
+        if (capped) output.output = capped.text;
       }
 
       if (!isTawassulTool(input.tool)) return;

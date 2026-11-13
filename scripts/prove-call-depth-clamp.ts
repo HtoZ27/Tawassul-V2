@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { configLoadConfig } from "../src/context/facades/config-facade.ts";
@@ -13,7 +14,11 @@ import {
   setMaxTotalTasks,
 } from "../src/hooks/guards/shared/limits.ts";
 import { PipelineState } from "../src/hooks/PipelineState.ts";
-import { checkCap } from "../src/services/iteration-budget.ts";
+import { DEFAULT_CAP, checkCap } from "../src/services/iteration-budget.ts";
+import {
+  clearUsageLedger,
+  installUsageLedger,
+} from "../src/services/usage-ledger.ts";
 
 function fail(message: string): never {
   console.error(`PROOF FAIL: ${message}`);
@@ -259,5 +264,80 @@ assert(
   schemaSource.includes("bounded by the host ceiling of 3"),
   "the config description documents the clamp",
 );
+
+assert(DEFAULT_CAP.maxSubagents === 5, "the default subagent cap is the shipped 5 live children");
+assert(
+  DEFAULT_CAP.maxTokens === 200_000_000,
+  "the default token cap is twice the observed session maximum",
+);
+assert(checkCap("dev", 1, 5, 0) === null, "five live subagents are allowed");
+assert(
+  (checkCap("dev", 1, 6, 0) ?? "").includes("max subagents (5)"),
+  "six live subagents hit the subagent cap",
+);
+assert(checkCap("dev", 1, 0, DEFAULT_CAP.maxTokens) === null, "a session at the token ceiling is allowed");
+assert(
+  (checkCap("dev", 1, 0, DEFAULT_CAP.maxTokens + 1) ?? "").includes("token limit"),
+  "a session above the token ceiling is blocked",
+);
+
+const guardSource = readFileSync(join(repo, "src", "hooks", "guards", "dispatch-guards.ts"), "utf8");
+assert(
+  guardSource.includes("pendingAgentLocks.get(input.sessionID)?.size"),
+  "the depth guard feeds the live child count into checkCap",
+);
+assert(
+  guardSource.includes("getUsageLedger()?.sessionSnapshot(input.sessionID)?.billable"),
+  "the depth guard feeds the ledger billable into checkCap",
+);
+
+const work = mkdtempSync(join(tmpdir(), "tawassul-call-depth-"));
+try {
+  setMaxCallDepth(3);
+  state.resetCallDepth(session);
+  for (const child of ["tester", "analyst", "architect", "reviewer", "designer"]) {
+    state.acquireAgentLock(session, child);
+  }
+  const fiveOutput: { args: Record<string, unknown>; error?: string } = { args: { subagent: "tester" } };
+  assert(
+    await callDepthGuard.check(ctx, { tool: "task", agent: "dev", sessionID: session }, fiveOutput),
+    "five live children leave the dispatch allowed",
+  );
+  state.acquireAgentLock(session, "doc");
+  const sixOutput: { args: Record<string, unknown>; error?: string } = { args: { subagent: "tester" } };
+  assert(
+    !(await callDepthGuard.check(ctx, { tool: "task", agent: "dev", sessionID: session }, sixOutput)),
+    "six live children block the dispatch",
+  );
+  assert(
+    sixOutput.error?.includes("max subagents (5)") === true,
+    "the block names the live-child cap",
+  );
+  for (const child of ["tester", "analyst", "architect", "reviewer", "designer", "doc"]) {
+    state.releaseAgentLock(session, child);
+  }
+
+  const ledger = installUsageLedger({ path: join(work, "usage-ledger.jsonl") });
+  ledger.ingest({
+    sessionID: session,
+    cost: 0,
+    tokens: { input: DEFAULT_CAP.maxTokens + 2, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
+  });
+  const tokenOutput: { args: Record<string, unknown>; error?: string } = { args: { subagent: "tester" } };
+  assert(
+    !(await callDepthGuard.check(ctx, { tool: "task", agent: "dev", sessionID: session }, tokenOutput)),
+    "a session over the token ceiling blocks the dispatch",
+  );
+  assert(tokenOutput.error?.includes("token limit") === true, "the block names the token cap");
+
+  await clearUsageLedger();
+  const failOpenOutput: { args: Record<string, unknown>; error?: string } = { args: { subagent: "tester" } };
+  assert(
+    await callDepthGuard.check(ctx, { tool: "task", agent: "dev", sessionID: session }, failOpenOutput),
+    "an absent ledger leaves the counters at zero and fails open",
+  );
+} finally {
+  rmSync(work, { recursive: true, force: true });
+}
 
 console.log("PROOF PASS: call-depth clamp covers validation, wiring, guard branches, and checkCap agreement");

@@ -42,11 +42,15 @@ export const callDepthGuard = guard("call-depth", (ctx, input, output) => {
   if (targetsAreExploreOrGeneral(targets)) {
     if (ps(ctx).getExemptCallCount(input.sessionID) < ps(ctx).MAX_EXEMPT_CALLS) return null;
   }
-  const currentDepth = (ps(ctx).callDepth.get(input.sessionID) ?? 0) + 1;
+  const state = ps(ctx);
+  const currentDepth = (state.callDepth.get(input.sessionID) ?? 0) + 1;
   if (currentDepth > MAX_CALL_DEPTH) {
     return `🚫 Call depth exceeded: cannot exceed ${MAX_CALL_DEPTH} levels of nested calls. Return your result to your caller so it can decide the next step.`;
   }
-  return checkCap(input.agent ?? "", currentDepth, 0, 0);
+  const subagentCount = state.pendingAgentLocks.get(input.sessionID)?.size ?? 0;
+  const tokens = getUsageLedger()?.sessionSnapshot(input.sessionID)?.billable ?? 0;
+  const cap = checkCap(input.agent ?? "", currentDepth, subagentCount, tokens);
+  return cap ? `🚫 ${cap}. Return your result to your caller instead of opening another branch.` : null;
 });
 
 export const selfCallGuard = guard("self-call", (_ctx, input, output) => {

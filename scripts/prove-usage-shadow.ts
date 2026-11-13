@@ -252,6 +252,21 @@ try {
     "a seventh dispatch adds no second trip",
   );
   equal(
+    fanShadow.fanoutBlocked({ sessionID: "fan", tool: "task", args: { task: base } })?.count,
+    7,
+    "the enforcement check sees the tripped cluster after the seventh dispatch",
+  );
+  equal(
+    fanShadow.fanoutBlocked({ sessionID: "fan", tool: "task", args: { task: unrelated } }),
+    undefined,
+    "the enforcement check ignores a dissimilar task",
+  );
+  equal(
+    fanShadow.fanoutBlocked({ sessionID: "fan", tool: "read", args: { task: base } }),
+    undefined,
+    "the enforcement check ignores a non-dispatch tool",
+  );
+  equal(
     fanShadow.observeDispatch({ sessionID: "fan", tool: "read", args: { task: base } }),
     undefined,
     "a non-dispatch tool is ignored",
@@ -266,6 +281,11 @@ try {
   }
   equal(fanRows.length, 1, "five distinct dispatches do not trip");
   clock.value += SHADOW_FANOUT_WINDOW_MS + 1;
+  equal(
+    fanShadow.fanoutBlocked({ sessionID: "fan", tool: "task", args: { task: base } }),
+    undefined,
+    "the enforcement check forgets an expired cluster",
+  );
   for (let call = 1; call <= 5; call += 1) {
     fanShadow.observeDispatch({ sessionID: "fan", tool: "task", args: { task: base } });
   }

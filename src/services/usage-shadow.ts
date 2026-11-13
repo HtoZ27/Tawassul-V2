@@ -245,6 +245,26 @@ export class UsageShadow {
     return undefined;
   }
 
+  fanoutBlocked(input: {
+    sessionID: string;
+    tool: string;
+    args?: Record<string, unknown>;
+  }): { count: number; windowMs: number } | undefined {
+    if (!input.sessionID) return undefined;
+    if (!SHADOW_DISPATCH_TOOLS.includes(input.tool)) return undefined;
+    const text = taskTextOf(input.args);
+    if (!text) return undefined;
+    const now = this.now();
+    for (const cluster of this.fanout.get(input.sessionID) ?? []) {
+      if (now - cluster.at > this.fanoutWindowMs) continue;
+      if (cluster.count < this.fanoutTripCount) continue;
+      if (similarity(cluster.text, text) >= this.overlap) {
+        return { count: cluster.count, windowMs: this.fanoutWindowMs };
+      }
+    }
+    return undefined;
+  }
+
   private flushEcho(sessionID: string): void {
     const state = this.echo.get(sessionID);
     if (!state || state.pending.size === 0) return;

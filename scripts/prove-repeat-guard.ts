@@ -62,7 +62,7 @@ assert(blocked !== null, "the read tool is blocked at the threshold");
 assert(blocked?.includes("identical result"), "the block names the reason");
 assert(isToolLoopBlocked(S, "dev", "read", args) !== null, "the before hook refuses the same call");
 assert(isToolLoopBlocked(S, "dev", "read", "different-args") === null, "a different call is not refused");
-assert(isToolLoopBlocked(S, "dev", "bash", args) === null, "a non read tool is never repeat-blocked");
+assert(isToolLoopBlocked(S, "dev", "bash", "fresh-args") === null, "an unrecorded call is not refused");
 
 assert(recordToolResult(S, "dev", "read", "different-args", sig) === 1, "a new input starts its own run");
 assert(
@@ -93,18 +93,17 @@ assert(failureBlock !== null, "the existing failure block still fires");
 assert(failureBlock?.includes("failed 3 consecutive times"), "the failure block keeps its wording");
 
 resetToolLoopState();
-const readonly = ["read", "grep", "glob"];
-for (const tool of readonly) {
+const blockedTools = ["read", "grep", "glob", "bash", "edit", "write", "task", "handoff", "fasttrack"];
+for (const tool of blockedTools) {
   for (let i = 0; i < REPEAT_RESULT_BLOCK_AT; i += 1) recordToolResult(S, "loop", tool, "sig", "out");
   assert(isRepeatResultBlocked(S, "loop", tool, "sig") !== null, `${tool} blocks on an identical run`);
 }
 resetToolLoopState();
-for (let i = 0; i < REPEAT_RESULT_BLOCK_AT; i += 1) recordToolResult(S, "loop", "bash", "sig", "out");
-assert(isRepeatResultBlocked(S, "loop", "bash", "sig") === null, "bash never blocks on repeated output");
-for (const tool of ["edit", "write", "task", "task_status"]) {
-  for (let i = 0; i < REPEAT_RESULT_BLOCK_AT; i += 1) recordToolResult(S, "loop", tool, "sig", "out");
-  assert(isRepeatResultBlocked(S, "loop", tool, "sig") === null, `${tool} stays out of the hard block`);
-}
+for (let i = 0; i < REPEAT_RESULT_BLOCK_AT; i += 1) recordToolResult(S, "loop", "task_control", "sig", "out");
+assert(
+  isRepeatResultBlocked(S, "loop", "task_control", "sig") === null,
+  "task_control stays out of the hard block",
+);
 
 resetToolLoopState();
 for (let i = 0; i < REPEAT_RESULT_WARN_AT; i += 1) recordToolResult(S, "warn", "grep", "sig", "out");
@@ -178,4 +177,4 @@ assert(
   "the disabled guard does not block the identical read result",
 );
 
-console.log("PROOF PASS: an identical tool result warns then blocks the read-only loop");
+console.log("PROOF PASS: an identical tool result warns then blocks the repeated loop");
