@@ -67,6 +67,14 @@ they are the commands an operator actually runs.
 | `bun scripts/install-global.ts --uninstall` | Remove exactly what the installer recorded |
 | `npm run verify` | Fast gate plus build |
 | `npm run ci` | Fast gate, every proof, and the release smoke |
+| `npm run gate:proofs:bg` | Run the four proof shards detached, one after another |
+| `npm run gate:proofs:bg:status` | Show the latest detached proof run |
+| `npm run gate:proofs:bg:wait` | Wait for the detached run and return its result |
+
+A foreground `npm run gate:proofs` prints one line per step and is the CI path.
+When the session must stay responsive, run `gate:proofs:bg`: it executes the
+balanced shards at niceness 10 and keeps the logs under
+`/tmp/opencode/gate-proofs` unless `TAWASSUL_GATE_BG_DIR` points elsewhere.
 
 ## Argument shapes
 

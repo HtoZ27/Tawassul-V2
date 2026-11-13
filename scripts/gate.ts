@@ -203,6 +203,18 @@ function killTree(pid: number | undefined, force: boolean): void {
   }
 }
 
+function reapGroup(pid: number | undefined): void {
+  if (pid === undefined || process.platform === "win32") return;
+  try {
+    process.kill(-pid, 0);
+  } catch {
+    return;
+  }
+  try {
+    process.kill(-pid, "SIGTERM");
+  } catch {}
+}
+
 function abortActiveChild(): void {
   if (activeChildPid === null) return;
   const pid = activeChildPid;
@@ -224,10 +236,12 @@ function runChild(argv: string[], env: NodeJS.ProcessEnv, timeoutMs: number): Pr
     const started = Date.now();
     const child = spawn(argv[0] as string, argv.slice(1), {
       cwd: repo,
-      stdio: "inherit",
+      stdio: ["ignore", "pipe", "pipe"],
       env,
       detached: process.platform !== "win32",
     });
+    child.stdout?.on("data", (chunk: Buffer) => process.stdout.write(chunk));
+    child.stderr?.on("data", (chunk: Buffer) => process.stderr.write(chunk));
     activeChildPid = child.pid ?? null;
     let timedOut = false;
     let settled = false;
@@ -242,6 +256,11 @@ function runChild(argv: string[], env: NodeJS.ProcessEnv, timeoutMs: number): Pr
       settled = true;
       clearTimeout(timer);
       if (graceTimer !== null) clearTimeout(graceTimer);
+      if (timedOut) {
+        killTree(child.pid, true);
+      } else {
+        reapGroup(child.pid);
+      }
       if (activeChildPid === (child.pid ?? null)) activeChildPid = null;
       resolve({ code, signal, error, timedOut, elapsedMs: Date.now() - started });
     };
@@ -437,15 +456,29 @@ async function runStage(name: string): Promise<boolean> {
   activeBudget = budget;
   activeMaxRssKb = 0;
   activeRssMeasured = false;
-  for (const step of selected) {
-    const remaining = budget === null ? null : budget.wallMs - (Date.now() - started);
-    const result = await runStep(step, remaining);
-    results.push(result);
-    if (result.status !== "pass") {
-      activeBudget = null;
-      writeStageRecord(recordName, startedAt, Date.now() - started, false, results);
-      return false;
+  const wallMs = budget?.wallMs ?? 0;
+  const watchdog =
+    budget === null
+      ? null
+      : setTimeout(() => {
+          console.error(`FAIL ${label}: the ${wallMs}ms budget watchdog fired`);
+          abortActiveChild();
+          writeStageRecord(recordName, startedAt, Date.now() - started, false, results);
+          process.exit(1);
+        }, wallMs + KILL_GRACE_MS * 2);
+  try {
+    for (const step of selected) {
+      const remaining = budget === null ? null : budget.wallMs - (Date.now() - started);
+      const result = await runStep(step, remaining);
+      results.push(result);
+      if (result.status !== "pass") {
+        activeBudget = null;
+        writeStageRecord(recordName, startedAt, Date.now() - started, false, results);
+        return false;
+      }
     }
+  } finally {
+    if (watchdog !== null) clearTimeout(watchdog);
   }
   const elapsed = Date.now() - started;
   activeBudget = null;

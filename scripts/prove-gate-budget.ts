@@ -91,6 +91,22 @@ const hangScript = [
   "setTimeout(() => {}, 30000);",
 ].join("\n");
 
+const stubbornScript = [
+  'const { spawn } = require("node:child_process");',
+  'const { writeFileSync } = require("node:fs");',
+  'const child = spawn(process.execPath, ["-e", "process.on(\\"SIGTERM\\", () => {}); setInterval(() => {}, 1000)"], { stdio: "ignore" });',
+  'writeFileSync(process.env.PIDFILE, String(child.pid));',
+  "setTimeout(() => {}, 30000);",
+].join("\n");
+
+const inheritScript = [
+  'const { spawn } = require("node:child_process");',
+  'const { writeFileSync } = require("node:fs");',
+  'const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "inherit" });',
+  "child.unref();",
+  'writeFileSync(process.env.PIDFILE, String(child.pid));',
+].join("\n");
+
 try {
   const generous = runGate({ stage: "evals", budget: { evals: { wallMs: 90_000, rssMb: 256 } } });
   assert(generous.status === 0, "a stage inside its budget passes");
@@ -110,6 +126,8 @@ try {
   assert(!unmeasured.output.includes("GATE BUDGET: evals peak RSS"), "a stage with no RSS budget reports no peak");
 
   const pidFile = join(work, "grandchild.pid");
+  const stubbornPid = join(work, "stubborn.pid");
+  const inheritPid = join(work, "inherit.pid");
   const manifest = join(work, "timeout-manifest.json");
   writeFileSync(
     manifest,
@@ -121,6 +139,16 @@ try {
             name: "hang",
             cmd: [process.execPath, "-e", hangScript],
             env: { PIDFILE: pidFile },
+          },
+          {
+            name: "stubborn",
+            cmd: [process.execPath, "-e", stubbornScript],
+            env: { PIDFILE: stubbornPid },
+          },
+          {
+            name: "inherit",
+            cmd: [process.execPath, "-e", inheritScript],
+            env: { PIDFILE: inheritPid },
           },
         ],
       },
@@ -164,6 +192,28 @@ try {
   assert(existsSync(pidFile), "the stage-capped step recorded its grandchild");
   const cappedChild = Number.parseInt(readFileSync(pidFile, "utf-8"), 10);
   assert(await waitGone(cappedChild, 5_000), "the stage-capped step's grandchild is gone");
+
+  rmSync(stubbornPid, { force: true });
+  const stubborn = runGate({
+    stage: "timeout",
+    manifest,
+    only: "stubborn",
+    env: { TAWASSUL_GATE_STEP_TIMEOUT_MS: "800" },
+  });
+  assert(stubborn.status !== 0, "a step that ignores the timeout signal fails");
+  assert(existsSync(stubbornPid), "the stubborn step recorded its grandchild");
+  const stubbornChild = Number.parseInt(readFileSync(stubbornPid, "utf-8"), 10);
+  assert(await waitGone(stubbornChild, 8_000), "the timed-out step's SIGTERM-ignoring grandchild is killed");
+
+  rmSync(inheritPid, { force: true });
+  const inheritStarted = Date.now();
+  const inherited = runGate({ stage: "timeout", manifest, only: "inherit" });
+  const inheritElapsed = Date.now() - inheritStarted;
+  assert(inherited.status === 0, "a step that leaves an inherited-stdio child passes");
+  assert(inheritElapsed < 10_000, `the gate returns without waiting for the inherited child (${inheritElapsed}ms)`);
+  assert(existsSync(inheritPid), "the inheriting step recorded its grandchild");
+  const inheritChild = Number.parseInt(readFileSync(inheritPid, "utf-8"), 10);
+  assert(await waitGone(inheritChild, 5_000), "the step's inherited-stdio grandchild is reaped");
 
   console.log(`PROOF PASS: the gate enforces its stage budgets and step timeouts and fails closed (${passed} assertions)`);
 } finally {
