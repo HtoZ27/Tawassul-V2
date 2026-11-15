@@ -28,7 +28,7 @@ five-line `help` output, the `addagent` first line, and the explicit
 | --- | --- | --- |
 | `help` description | 88 B, names Tawassul and both roster tools | `prove-constraint-retention` 395 assertions |
 | `help` output | 5 lines, 501 B English and 785 B Arabic, no missing path; the smoke canary checks the overview's identity line | Measured from `helpOverview`; `prove-e27` 11; `release-smoke.sh` and `prove-global-boot` |
-| Description trims (11 tools) | Live total 15,857 B, cut 288 B (1.78%) from 16,145 B; schema 19,548 B unchanged | `prove-context-diet` 71; receipt `2026-11-15-schema-payload.json` |
+| Description trims (11 tools) | Live total 15,857 B: 288 B below the pre-plan 16,145 B and 4,410 B (21.760%) below the frozen 20,267 B baseline; schema 19,548 B unchanged | `prove-context-diet` 71; receipt `2026-11-15-schema-payload.json` |
 | Orientation skill | Withdrawn; 16 skills ship; no eval ledger entry | Probe receipt `2026-11-15-orientation-probe.json`; `prove-skills-manifest` 348; `prove-md-gate` 15 |
 | Skill registration | 44-tool name set unchanged; no filesystem writer | `prove-skill-registration` 92 |
 | Skill load rate and pilot replay | 16/16 shipped skills meet threshold; fixture replay pass | `prove-skill-load-rate` 164; `prove-pilot-eval` 328 |

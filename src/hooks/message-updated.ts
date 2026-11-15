@@ -180,7 +180,7 @@ function injectRoutingGuidance(
   }
   const explicitIntent = ctx.userMentionedTawa || ctx.directRoutingAgent !== null || ctx.userExplicitDispatch === true;
   const addagentAddressed = /^\s*@addagent\b/i.test(content ?? "");
-  const addagentActive = (agent ?? "").toLowerCase() === "addagent";
+  const addagentActive = normalizeName(agent ?? "") === "addagent";
   const guidanceAllowed =
     routing.directAgent === "addagent" ? addagentAddressed && !addagentActive : Boolean(agent);
   if (routing.guidance && explicitIntent && guidanceAllowed) {
