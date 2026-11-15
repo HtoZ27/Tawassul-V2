@@ -27,14 +27,14 @@ five-line `help` output, the `addagent` first line, and the explicit
 | Item | Final state | Evidence |
 | --- | --- | --- |
 | `help` description | 88 B, names Tawassul and both roster tools | `prove-constraint-retention` 395 assertions |
-| `help` output | 5 lines, 501 B English and 785 B Arabic, no missing path; the smoke canary checks the overview's identity line | Measured from `helpOverview`; `prove-e27` 11; `release-smoke.sh` and `prove-global-boot` |
+| `help` output | 5 lines, 477 B English and 750 B Arabic, no missing path; the smoke canary checks the overview's identity line | Measured from `helpOverview`; `prove-e27` 11; `release-smoke.sh` and `prove-global-boot` |
 | Description trims (11 tools) | Live total 15,857 B: 288 B below the pre-plan 16,145 B and 4,410 B (21.760%) below the frozen 20,267 B baseline; schema 19,548 B unchanged | `prove-context-diet` 71; receipt `2026-11-15-schema-payload.json` |
 | Orientation skill | Withdrawn; 16 skills ship; no eval ledger entry | Probe receipt `2026-11-15-orientation-probe.json`; `prove-skills-manifest` 348; `prove-md-gate` 15 |
 | Skill registration | 44-tool name set unchanged; no filesystem writer | `prove-skill-registration` 92 |
 | Skill load rate and pilot replay | 16/16 shipped skills meet threshold; fixture replay pass | `prove-skill-load-rate` 164; `prove-pilot-eval` 328 |
 | Capability warning | One `logger.warn` per process when `ctx.skill.transform` is absent | `src/skills/pilot.ts`; build and typecheck |
 | `@addagent` guidance | Main session calls `subagent` with `agent: "addagent"` and passes the request unchanged; limited to a leading mention and never sent to the addagent agent | Final live `out14`: parent `ses_e1fdffa0cffemPU5iF1QzRxetC` quoted the guidance and called `subagent(agent=addagent)`; child `ses_e1fdfdad3ffe8HeYrje7wgqMh7` called `addagent` itself, got the zero-write "All agents already exist: @designer-mimo", then `check`; receipt `2026-11-15-addagent-guidance-probe.json` |
-| Seeded `@addagent` description | 479 B dispatcher wording; new projects only | `check:config` green; existing `opencode.json` keeps its description |
+| Seeded `@addagent` description | 501 B dispatcher wording; new projects only | `check:config` green; existing `opencode.json` keeps its description |
 | Consent copy | Wait for the user's reply, then retry once; gate logic untouched | `check:rules` 632 files |
 | v1 guard | Retired v1 tree no longer blocks `install:global` | `prove-global-install`; `prove:independence` |
 | Proof count | 183, no new proof file | `npm run ci`: fast 16 steps, proofs 183 steps (461,408 ms), smoke 6 steps (60,987 ms), `GATE PASS: fast + proofs + smoke`; `docs/CI-TRANSCRIPT.md` has 0 FAIL rows |
@@ -303,8 +303,8 @@ self-delegate.
 | Orientation skill body (withdrawn) | 0 | 0 | 0 |
 | Session injection | 0 | 0 | 0 |
 | Net steady state | | | −288 B (~−72 tokens) |
-| `help` output on call | 283 B | 501 B | ~+55 tokens, on demand only |
-| `help` output, Arabic | 764 B | 785 B | +21 B, on demand only |
+| `help` output on call | 283 B | 477 B | ~+49 tokens, on demand only |
+| `help` output, Arabic | 764 B | 750 B | −14 B, on demand only |
 
 The skill entry is costed from the fields the plugin supplies and the host's XML
 wrapper:
@@ -393,20 +393,20 @@ this line is visible before any skill loads.
 `src/i18n/en.json:261`, key `helpOverview`. Replace the sentence with:
 
 ```
-Tawassul is an in-process team plugin; no plugin files exist here. Handoffs, records, goals, and state live behind these tools: the workspace holds no copy.
+Tawassul is an in-process team plugin; its handoffs, records, goals, and state live behind these tools. The workspace holds no copy.
 Loop: direct, or @tawa routes it to one specialist; long work resumes from a handoff checkpoint.
 Ledgers: handoff (agent work), record (decisions), goal (objectives + DoD).
 Start with check, show_board, status. Skills carry the procedures.
 Roster: write @addagent <spec> with model <model> from <provider>; files are generated, not hand-edited.
 ```
 
-The value is the five lines joined by newlines: 501 bytes, no trailing newline.
+The value is the five lines joined by newlines: 477 bytes, no trailing newline.
 The fenced block adds one formatting newline that is not part of the value.
 
 `src/i18n/ar.json`, same key. Arabic table entry:
 
 ```
-توسّل إضافة فريق تعمل داخل العملية؛ لا ملفات إضافة هنا. السجلات والأهداف والـ handoffs والحالة تعيش خلف هذه الأدوات: مساحة العمل لا تحتفظ بنسخة.
+توسّل إضافة فريق تعمل داخل العملية؛ السجلات والأهداف والـ handoffs والحالة تعيش خلف هذه الأدوات. مساحة العمل لا تحتفظ بنسخة.
 الحلقة: الطلب مباشر، أو @tawa يوجّهه إلى مختص واحد؛ العمل الطويل يستأنف من checkpoint.
 السجلات: handoff (عمل الوكلاء)، record (القرارات)، goal (الأهداف + تعريف الإنجاز).
 ابدأ بـ check وshow_board وstatus. المهارات تحمل الإجراءات.
@@ -414,7 +414,7 @@ The fenced block adds one formatting newline that is not part of the value.
 ```
 
 The Arabic file is the only place Arabic is permitted in this change. The block
-is 785 bytes, carries no bidi control characters, and keeps the key count at 638.
+is 750 bytes, carries no bidi control characters, and keeps the key count at 638.
 
 ### 3. Description trims (funding)
 

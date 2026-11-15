@@ -520,7 +520,7 @@ export function buildAgents(deleted?: readonly string[], opts?: GenOptions): Rec
 
   agents.addagent = {
     description:
-      "Agent roster dispatcher — the dedicated path for add, patch, and remove. Main sessions invoke this agent with subagent(agent: \"addagent\") and pass the user's request unchanged; this agent calls addagent and kick itself and writes `.opencode/agents/<tag>.md` plus `opencode.json` programmatically. Never hand-edit agent files. Base roles: analyst, dev, tester, reviewer, architect, designer, doc. A removal asks the user for consent first. Tawa is singular; `tawa-*` is blocked.",
+      "Agent roster dispatcher — the dedicated path for add, patch, and remove. Main sessions invoke this agent with subagent(agent: \"addagent\") and pass the user's request unchanged; this agent calls addagent and kick itself and writes `.opencode/agents/<tag>.md` plus `opencode.json` programmatically. Never hand-edit agent files. Base roles: analyst, dev, tester, reviewer, architect, designer, doc. A removal of two or more agents asks the user for consent first. Tawa is singular; `tawa-*` is blocked.",
     model: ADDAGENT_MODEL,
     mode: "subagent",
     permission: {

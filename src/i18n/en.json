@@ -258,7 +258,7 @@
   "handoffUndoReverted": "↩️ **{id}** reverted to pending",
   "hangingHandoff": "⏳ You have handoff **{id}** → {to} not yet completed. It will be completed automatically.",
   "heartbeatCheckFailed": "🚫 Failed to run heartbeat monitor — tool blocked (fail-closed)",
-  "helpOverview": "Tawassul is an in-process team plugin; no plugin files exist here. Handoffs, records, goals, and state live behind these tools: the workspace holds no copy.\nLoop: direct, or @tawa routes it to one specialist; long work resumes from a handoff checkpoint.\nLedgers: handoff (agent work), record (decisions), goal (objectives + DoD).\nStart with check, show_board, status. Skills carry the procedures.\nRoster: write @addagent <spec> with model <model> from <provider>; files are generated, not hand-edited.",
+  "helpOverview": "Tawassul is an in-process team plugin; its handoffs, records, goals, and state live behind these tools. The workspace holds no copy.\nLoop: direct, or @tawa routes it to one specialist; long work resumes from a handoff checkpoint.\nLedgers: handoff (agent work), record (decisions), goal (objectives + DoD).\nStart with check, show_board, status. Skills carry the procedures.\nRoster: write @addagent <spec> with model <model> from <provider>; files are generated, not hand-edited.",
   "helpRequestBody": "{agent} is asking for your help calling a tool.",
   "helpRequestComplete": "After executing the tool, the handoff will be completed automatically.",
   "helpRequestDetails": "Details:",
