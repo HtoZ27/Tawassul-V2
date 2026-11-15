@@ -574,7 +574,7 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
           parentSessionID,
           callID: input.callID ?? "",
           targets,
-          startedAt: startedAt ?? Date.now(),
+          startedAt: startedAt ?? 0,
           onTerminal: (outcome) => {
             if (dispatchingAgent && outcome === "completed") recordToolSuccess(dispatchingAgent, "task");
             for (const target of targets) {

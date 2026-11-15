@@ -1,6 +1,6 @@
 # Tawassul V2 — Host 2.2.6–2.3.0 Dispatch Defects Plan
 
-Status: revision 21. Phases 0-4 complete on host 2.3.0, variant B selected;
+Status: revision 22. Phases 0-4 complete on host 2.3.0, variant B selected;
 phase 5 open and deferred; `D5` accepted open. Phase 0 evidence is
 `docs/phase0-dispatch-capture-2026-11-13.jsonl`, reconstructed read-only from
 the host database (`session_message`, `session_v2`) after the JSONL log file
@@ -14,8 +14,10 @@ relay is mandatory. Revision 19 raises the host floor to 2.3.0 by owner order,
 so the 2.2.x line is refused and its foreground proof is dropped. Revision 20
 fixes review finding 7(c) and records the R2, R8 and R10 fixes from the
 agent-visibility ledger. Revision 21 fixes finding 7(a) after a 5/5 panel vote
-and accepts finding 7(b) after a 3/5 vote; only 7(d) remains open.
-Date: 2026-11-13 (revisions 17-18: 2026-11-14; revisions 19-21: 2026-11-15)
+and accepts finding 7(b) after a 3/5 vote. Revision 22 fixes the stale-child
+and eviction shapes of finding 7(d) and records the unregistered-idle shape as
+an accepted residual.
+Date: 2026-11-13 (revisions 17-18: 2026-11-14; revisions 19-22: 2026-11-15)
 Owner: user
 Scope: fix the defects surfaced by the 2.2.6 / 2.2.7 / 2.3.0 review and the
 six-analyst panel, without changing foreground 2.3.0 behaviour, task-control,
@@ -630,9 +632,16 @@ reverts the registry and CI entries.
    clearing the dispatcher's failure and no-progress counters. It now runs only
    when the terminal outcome is `completed` (`tool-execute.ts:579`), and
    `prove-task-dispatch` asserts that a failed terminal keeps the counters
-   blocking. (d) Open: the early buffer accepts any session's idle, can evict a
-   real early completion, and a stale entry can finalize a later dispatch on a
-   reused child ID (`dispatch-ledger.ts:101-128,53-57`).
+   blocking. (d) Partly fixed in revision 22: a stale early terminal could
+   finalize a later dispatch on a reused child ID, and a registration at the cap
+   could evict a buffered early completion. `recordDispatch` now drops an early
+   terminal older than the dispatch start when the start is known, and
+   `makeRoom` no longer evicts early entries, so a full ledger refuses the new
+   dispatch instead of destroying a buffered terminal. What remains, by design:
+   the buffer still accepts the idle of any unknown session, because before the
+   registration exists the plugin has no host signal that separates a dispatch
+   child from any other session. Such an entry expires after 60 s, can no longer
+   evict anything, and can no longer complete a dispatch whose start is known.
 
 ---
 
@@ -1028,6 +1037,36 @@ Revision 21 (2026-11-15), findings (a) and (b) after a five-analyst vote:
   passed 183 of 183 steps.
 - Findings (c) and (d): (c) was fixed in revision 20; (d) remains open.
 
+Revision 22 (2026-11-15), finding 7(d) by owner order:
+
+- Stale-child shape fixed. `DispatchRegistration.startedAt` now separates a
+  genuine early idle from a stale one when the call start is known. The
+  after-hook stores the tracked call start and falls back to `0` (unknown), and
+  `recordDispatch` drops a buffered terminal whose timestamp predates the
+  dispatch start instead of finalizing the new dispatch with it
+  (`dispatch-ledger.ts:83-89`). The dropped entry is consumed, so it cannot be
+  replayed.
+- Eviction shape fixed. `makeRoom` no longer evicts early entries; it frees a
+  finalized entry and otherwise refuses, so a full ledger can no longer destroy
+  a buffered completion to admit a new dispatch. `prove-task-finalize` fills the
+  ledger to the cap with one buffered completion present, proves the new
+  dispatch is refused, then proves the buffered completion still finalizes once
+  a finalized entry frees room.
+- Unregistered-idle shape accepted as a residual. Before a registration exists
+  the plugin has no host signal that distinguishes a dispatch child from any
+  other session, so the buffer keeps accepting idle for unknown sessions. Such
+  an entry expires after 60 s, can no longer evict anything, and can no longer
+  complete a dispatch whose start is known.
+- Proofs: `prove-task-finalize` gains eight assertions in its existing step
+  (37 in total) for the timestamp, the silent drop, the single terminal, the
+  cap refusal, the surviving completion and the late idle. Two existing early
+  cases now pass an explicit start earlier than the buffered idle, which is the
+  real ordering. No proof file was added; the 183-step count is unchanged.
+- Expected behaviour change: an early terminal that predates its dispatch start
+  is dropped with a debug line instead of completing the dispatch, and a full
+  ledger refuses a new dispatch instead of discarding a buffered terminal.
+  Neither path is reachable on a 2.3.0 foreground session.
+
 
 ---
 
@@ -1069,3 +1108,10 @@ no agent was parsed. Finding 7(b) is accepted by a 3/5 vote and documented
 above. Criterion 4 is re-asserted for this tree by `npm run verify` and
 `npm run gate:proofs`; only finding 7(d) remains open, and it is not proven to
 fire on a 2.3.0 foreground session.
+
+Status 2026-11-15 (revision 22): finding 7(d) is fixed for the stale-child and
+eviction shapes and accepted for the unregistered-idle shape, all three proven
+inside the existing `prove-task-finalize` step (37 assertions). The dispatch
+ledger, the after-hook start stamp and `makeRoom` are the only touched paths.
+Criteria 1 and 2 keep their evidence; criterion 4 is re-asserted by
+`npm run verify` and `npm run gate:proofs`. No review finding remains open.

@@ -50,11 +50,6 @@ function makeRoom(): boolean {
       return true;
     }
   }
-  const oldestEarly = _early.keys().next().value;
-  if (oldestEarly !== undefined) {
-    _early.delete(oldestEarly);
-    return true;
-  }
   return false;
 }
 
@@ -82,10 +77,16 @@ export function recordDispatch(registration: DispatchRegistration, now = Date.no
     return;
   }
   const early = _early.get(registration.childSessionID);
-  _early.delete(registration.childSessionID);
+  if (early) _early.delete(registration.childSessionID);
   const entry: DispatchEntry = { ...registration, targets: [...registration.targets] };
   _entries.set(registration.childSessionID, entry);
-  if (early) finalize(entry, early.outcome, now);
+  if (early) {
+    if (registration.startedAt > 0 && early.at < registration.startedAt) {
+      logger.debug(`[tawassul] early terminal for ${registration.childSessionID} predates its dispatch; dropped`);
+      return;
+    }
+    finalize(entry, early.outcome, now);
+  }
 }
 
 export function finalizeDispatchOnIdle(

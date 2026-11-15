@@ -27,13 +27,13 @@ function assert(cond: boolean, name: string): void {
 
 type Terminal = { child: string; outcome: DispatchOutcome };
 
-function register(child: string, terminals: Terminal[], parent = "ses_parent"): void {
+function register(child: string, terminals: Terminal[], parent = "ses_parent", startedAt = Date.now()): void {
   recordDispatch({
     childSessionID: child,
     parentSessionID: parent,
     callID: `call-${child}`,
     targets: ["@dev"],
-    startedAt: Date.now(),
+    startedAt,
     onTerminal: (outcome) => terminals.push({ child, outcome }),
   });
 }
@@ -50,10 +50,11 @@ function main(): void {
   assert(pendingDispatchCount() === 0, "the finalized dispatch is no longer pending");
 
   resetDispatchLedger();
+  const earlyAt = Date.now();
   finalizeDispatchOnIdle("ses_child_2");
   assert(earlyDispatchCount() === 1, "a child idle that beats the ledger write is buffered");
   const early: Terminal[] = [];
-  register("ses_child_2", early);
+  register("ses_child_2", early, "ses_parent", earlyAt - 1000);
   assert(early.length === 1 && early[0]!.outcome === "completed", "the buffered idle finalizes when the entry appears");
   assert(earlyDispatchCount() === 0, "the buffered idle is consumed once");
 
@@ -132,8 +133,9 @@ function main(): void {
 
   resetDispatchLedger();
   const prefailed: Terminal[] = [];
+  const prefailedAt = Date.now();
   noteDispatchLifecycleEvent({ type: "session.execution.failed", data: { sessionID: "ses_child_9" } });
-  register("ses_child_9", prefailed);
+  register("ses_child_9", prefailed, "ses_parent", prefailedAt - 1000);
   assert(
     prefailed.length === 1 && prefailed[0]!.outcome === "failed",
     "a failure that beats the ledger write is buffered and applied once",
@@ -160,6 +162,47 @@ function main(): void {
   finalizeDispatchFailure("ses_child_12", "failed");
   assert(before === 0 && pendingDispatchCount() === 0, "a failure for an unknown child stays buffered, not invented");
   assert(earlyDispatchCount() === 1, "the unknown failure is buffered for a later dispatch");
+
+  resetDispatchLedger();
+  const stale: Terminal[] = [];
+  finalizeDispatchOnIdle("ses_child_stale", undefined, 1_000);
+  assert(earlyDispatchCount() === 1, "an idle for an unregistered child carries its timestamp");
+  recordDispatch(
+    {
+      childSessionID: "ses_child_stale",
+      parentSessionID: "ses_parent",
+      callID: "call-stale",
+      targets: ["@dev"],
+      startedAt: 2_000,
+      onTerminal: (outcome) => stale.push({ child: "ses_child_stale", outcome }),
+    },
+    2_500,
+  );
+  assert(stale.length === 0, "an early terminal older than the dispatch start never completes it");
+  finalizeDispatchOnIdle("ses_child_stale", undefined, 3_000);
+  assert(stale.length === 1, "the reused child completes exactly once from its own idle");
+  finalizeDispatchOnIdle("ses_child_stale", undefined, 4_000);
+  assert(stale.length === 1, "the dropped early entry is not replayed");
+
+  resetDispatchLedger();
+  const survivors: Terminal[] = [];
+  const survivorAt = Date.now();
+  finalizeDispatchOnIdle("ses_early_keep", undefined, survivorAt);
+  for (let i = 0; i < MAX_DISPATCH_SESSIONS - 1; i++) register(`ses_keep_${i}`, []);
+  assert(earlyDispatchCount() === 1, "a buffered completion survives the ledger reaching its cap");
+  const pendingAtCap = pendingDispatchCount();
+  register("ses_cap_extra", []);
+  assert(
+    pendingDispatchCount() === pendingAtCap && earlyDispatchCount() === 1,
+    "a dispatch at the cap is refused instead of evicting the buffered completion",
+  );
+  finalizeDispatchOnIdle("ses_keep_0");
+  register("ses_cap_extra", []);
+  finalizeDispatchOnIdle("ses_keep_1");
+  register("ses_early_keep", survivors, "ses_parent", survivorAt - 1);
+  assert(survivors.length === 1, "the buffered completion still finalizes once room returns");
+  finalizeDispatchOnIdle("ses_early_keep");
+  assert(survivors.length === 1, "the completion stays one terminal after the late idle");
 }
 
 try {
