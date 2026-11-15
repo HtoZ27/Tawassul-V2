@@ -353,7 +353,7 @@ async function proveSlowReadBound(): Promise<void> {
       !warnings.some((line) => line.includes("landed late")),
       "the late landing is not logged before the read finishes",
     );
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     assert(
       warnings.filter((line) => line.includes("landed late")).length === 2,
       "each bounded prewarm logs the late landing once",

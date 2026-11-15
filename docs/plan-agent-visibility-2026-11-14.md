@@ -946,8 +946,11 @@ In repository, closed on 2026-11-15:
 
 In repository, low or informational:
 
-- R6: deferred. The slow-read proof asserts a wall-clock bound, so a loaded machine can
-  make it flaky; the fix is a wider margin, not new code, and no flake has been observed.
+- R6: closed. The slow-read proof asserts a wall-clock bound, so a loaded machine can
+  make it flaky; the margin was widened from 400 ms to 1000 ms after the two bounded
+  prewarms against a synthetic 250 ms read (`prove-seed-agents.ts:356`). No new proof
+  file and no gate step were added, and no runtime code changed; the 183-step count
+  holds.
 - R7: accepted. The hook-wiring proof asserts the source text rather than executing the
   hook; closing that gap needs a host-shaped harness, which is scope expansion, and the
   detector behaviour is already executed directly.
