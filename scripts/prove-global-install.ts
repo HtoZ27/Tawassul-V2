@@ -501,13 +501,14 @@ try {
   assert(!isCoexistenceOwner("global", "global-token", workspace), "global copy yields to the project copy");
   releaseCoexistence("project", "project-token", workspace);
 
-  mkdirSync(join(HOME, ".opencode"), { recursive: true });
-  const refused = run([]);
-  assert(
-    refused.code !== 0 && refused.out.includes("v1 artifacts"),
-    "install refuses while a v1 artifact exists",
+  mkdirSync(join(HOME, ".opencode", "plan"), { recursive: true });
+  writeFileSync(
+    join(HOME, ".opencode", "package.json"),
+    `${JSON.stringify({ dependencies: { "@opencode-ai/plugin": "0.0.0" } })}\n`,
   );
-  assert(existsSync(TARGET), "refusal leaves the install intact");
+  const archived = run([]);
+  assert(archived.code === 0, "a retired v1 tree does not block the install");
+  assert(existsSync(TARGET), "the install stays in place beside the archive");
   rmSync(join(HOME, ".opencode"), { recursive: true, force: true });
 
   mkdirSync(LEGACY, { recursive: true });

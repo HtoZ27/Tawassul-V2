@@ -225,7 +225,7 @@ if (!healthOut.includes("Event-loop lag") || !healthOut.includes("RSS")) {
 }
 const help = await hooks.tool.help.execute({}, {});
 const helpOut = String(help && typeof help === "object" && "output" in help ? help.output : help);
-if (!helpOut.includes("Available tools")) {
+if (!helpOut.includes("Tawassul is an in-process team plugin")) {
   console.error("release-smoke: help tool output is not the expected catalog");
   process.exit(4);
 }

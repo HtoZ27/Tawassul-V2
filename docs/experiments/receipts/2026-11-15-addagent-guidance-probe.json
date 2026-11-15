@@ -1,0 +1,55 @@
+{
+  "date": "2026-11-15",
+  "probe": "addagent-delegation-guidance",
+  "method": "Live foreign-project probe against the final global-equivalent bundle. The scratch directory sits outside the repository and holds only the built bundle at .opencode/plugins/tawassul.js plus the generated roster. The prompt ran through opencode-cli 2.3.0 with --standalone --archived --format json and the model opencode/big-pickle. The parent and child transcripts were read from the JSON event streams and from the v2 session table.",
+  "environment": {
+    "host": "opencode-cli 2.3.0-x64",
+    "model": "opencode/big-pickle",
+    "standalone": true,
+    "scratch": "/tmp/opencode/probe",
+    "timeoutSeconds": 180,
+    "defaultModelNote": "The host default inclusionai/ling-3.2-flash returned provider.rate-limit 429 because its daily cap was exhausted, so the probe pinned opencode/big-pickle. The release smoke replied with the same model."
+  },
+  "bundle": {
+    "sha256": "2352401855cf0303a4da5e5960d0793f8c4559d36d8e8e37b6218d2103255e6a",
+    "bytes": 2808272,
+    "path": "scratch/.opencode/plugins/tawassul.js",
+    "matchesInstalledGlobal": true
+  },
+  "positive": {
+    "prompt": "@addagent add an agent named designer with model mimo from opencode.",
+    "parentSession": "ses_e1fdffa0cffemPU5iF1QzRxetC",
+    "parentAgent": "build",
+    "parentReasoning": "The user addressed @addagent. I should call the subagent tool with agent \"addagent\" and pass the request unchanged.",
+    "parentTool": {
+      "name": "subagent",
+      "agent": "addagent",
+      "description": "Add designer agent"
+    },
+    "childSession": "ses_e1fdfdad3ffe8HeYrje7wgqMh7",
+    "childAgent": "addagent",
+    "childPrompt": "You are a subagent spawned by another session.\nadd an agent named designer with model mimo from opencode.",
+    "childTools": [
+      {
+        "name": "addagent",
+        "input": { "name": "designer with model mimo from opencode" },
+        "output": "All agents already exist: @designer-mimo",
+        "title": "0 agent(s)"
+      },
+      {
+        "name": "check",
+        "input": {}
+      }
+    ],
+    "childSelfDelegation": false,
+    "writes": 0,
+    "finish": "succeeded"
+  },
+  "negativeGuard": {
+    "leadingMentionOnly": "The guidance branch requires the user text to start with @addagent (^\\s*@addagent\\b).",
+    "activeAgentExclusion": "The branch never sends the guidance to the addagent agent itself.",
+    "source": "src/hooks/message-updated.ts:182-185",
+    "note": "The child prompt arrived host-wrapped, so it did not begin with @addagent. The active-agent exclusion is verified from the guard branch rather than observed live in this round."
+  },
+  "interpretation": "The leading @addagent mention injected the delegation guidance, the parent called subagent with agent addagent, and the child executed the roster tool itself instead of delegating again. The requested agent was already present from the earlier probe, so the tool returned its identical re-add message and wrote nothing; that is the documented zero-write re-add path."
+}

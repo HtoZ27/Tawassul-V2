@@ -520,7 +520,7 @@ export function buildAgents(deleted?: readonly string[], opts?: GenOptions): Rec
 
   agents.addagent = {
     description:
-      "Add new agents at runtime — dispatcher only. Call the `addagent` tool directly with the user's request as `name` (e.g. `analyst with model ling-3.0-flash-fin-free from opencode-zen`). The tool writes `.opencode/agents/*.md` and `opencode.json` programmatically (no edit/bash needed, no delegation to dev). If the role exists (analyst) it patches the model in-place; otherwise it creates a new `<base>-<suffix>.md` variant. Base roles: analyst, dev, tester, reviewer, architect, designer, doc. Tawa is singular and preserves mode:all; `tawa-*` is blocked.",
+      "Agent roster dispatcher — the dedicated path for add, patch, and remove. Main sessions invoke this agent with subagent(agent: \"addagent\") and pass the user's request unchanged; this agent calls addagent and kick itself and writes `.opencode/agents/<tag>.md` plus `opencode.json` programmatically. Never hand-edit agent files. Base roles: analyst, dev, tester, reviewer, architect, designer, doc. A removal asks the user for consent first. Tawa is singular; `tawa-*` is blocked.",
     model: ADDAGENT_MODEL,
     mode: "subagent",
     permission: {

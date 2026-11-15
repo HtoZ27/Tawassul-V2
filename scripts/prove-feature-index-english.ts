@@ -187,7 +187,7 @@ assert(
   "every dispatcher message is Arabic in the Arabic table",
 );
 const guideKeys = englishKeys.filter((key) => key.startsWith("guide."));
-assert(guideKeys.length === 33, "the routing guidance lives in the shared table");
+assert(guideKeys.length === 34, "the routing guidance lives in the shared table");
 assert(
   guideKeys.every((key) => ARABIC_RE.test(arabic[key] ?? "") || arabic[key] === english[key]),
   "every routing guidance line is Arabic or a role-only plan",

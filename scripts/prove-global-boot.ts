@@ -382,7 +382,7 @@ function directToolProbe(): string {
     'if (!healthOut.includes("Event-loop lag") || !healthOut.includes("RSS")) process.exit(4);',
     "const help = await hooks.tool.help.execute({}, {});",
     'const helpOut = String(help && typeof help === "object" && "output" in help ? help.output : help);',
-    'if (!helpOut.includes("Available tools")) process.exit(4);',
+    'if (!helpOut.includes("Tawassul is an in-process team plugin")) process.exit(4);',
     'console.log("tools-ok");',
   ].join("\n");
 }

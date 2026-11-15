@@ -110,7 +110,7 @@ installed.
 
 | Tool | Purpose |
 | --- | --- |
-| `help` | Show the tool surface with each tool's built-in description |
+| `help` | Print the plugin map: identity, ledgers, state, and the roster rule |
 
 ## Notes on behaviour
 

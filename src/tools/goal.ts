@@ -34,7 +34,7 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
   return tool({
     description: [
       "Goal Ledger — the caller-agnostic source of truth for objectives; disk-backed, survives compaction and restarts.",
-      "⚠️ THIS IS THE ONLY interface to goals/items/DoD — never search data files, plugin files or the MCP server: read with goal(list/board), write here.",
+      "⚠️ THIS IS THE ONLY interface to goals/items/DoD — never search data files, plugin files or the MCP server: read with goal(list/board).",
       "",
       "create: goal(create: <title>) [+ detail, items, acceptance, linkedRecords, linkedHandoffs, parentId]",
       "update: <G-xxx> [+ title, detail, state, itemId+itemState/itemTitle/itemEvidence, acceptId+acceptState, acceptRetireId+acceptRetireReason, itemsAdd, acceptanceAdd, pinned]",
@@ -48,7 +48,7 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
       "  goal(list: true) → active goals (+ filter: all|open|partial|blocked|completed|verified|dropped|stale)",
       "  goal(board: true) → tiered digest: attention + roster + counts",
       "",
-      'HOST (read-only): goal(host: true) / goal(get: "host") reads the host /goal for this session; goal(board: true) appends it. Never sets, pauses, resumes or clears it — use /goal pause|resume|clear.',
+      'HOST (read-only): goal(host: true) / goal(get: "host") reads the host /goal; goal(board: true) appends it. Never sets, pauses, resumes or clears it — use /goal pause|resume|clear.',
       "",
       "RULES: evidence ≥8 chars, no duplicates, ≤100/goal. A goal with no items and no acceptance criteria can never close. progressPct is derived from items.",
     ].join("\n"),

@@ -28,7 +28,7 @@ function fmtEntry(e: { timestamp: string; type: TimelineEntryType; summary: stri
 export function buildTimelineTool(store: TimelineStore): ToolDefinition {
   return tool({
     description: [
-      "View the activity timeline — tasks, handoffs, discussions, checkpoints by time/date.",
+      "View the activity timeline — tasks, handoffs, discussions, checkpoints.",
       toolScopeOnlyHint("The timeline lives ONLY behind this tool", "it"),
       "",
       'VIEWS: timeline() last 20 events; timeline(view: "day") today; timeline(view: "agent", agent: "@dev") one agent; timeline(view: "range", from: "...", to: "...") a date range; timeline(view: "achievements") milestones per agent. All accept limit.',

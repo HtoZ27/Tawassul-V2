@@ -5,7 +5,7 @@ import { ASK_UNAVAILABLE } from "../services/ask-channel.ts";
 
 export function buildHelpTool() {
   return tool({
-    description: "Show a short overview of the available tool families and where the full reference lives.",
+    description: "Tawassul help: overview, ledgers, state. Agent changes use addagent and kick, not files.",
     args: {},
     async execute() {
       return { title: "ℹ️ Help", output: t("helpOverview") };

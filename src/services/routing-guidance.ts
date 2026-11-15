@@ -68,7 +68,9 @@ export function buildGuidance(
 
   if (directAgent) {
     lines.push(t("guide.directRouting", { agent: directAgent }));
-    if (directAgent !== "tawa") {
+    if (directAgent === "addagent") {
+      lines.push(t("guide.directAddagent"));
+    } else if (directAgent !== "tawa") {
       lines.push(t("guide.directNote", { agent: directAgent }));
     }
   } else {

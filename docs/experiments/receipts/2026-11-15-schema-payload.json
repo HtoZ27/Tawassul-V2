@@ -1,0 +1,468 @@
+{
+  "version": 1,
+  "date": "2026-11-15",
+  "commit": "7a8f7387fcf17c7693c934824414ed8792ac8741",
+  "phase": "orientation channel: roster trigger in the help description and output, funded by description trims",
+  "recordedDuring": "orientation-basic: the help description carries the roster rule at 88 B, the help output gains a roster line, and twenty-four redundant phrases were trimmed across eleven budgeted tool descriptions to fund the new skill entry. Measured on the working tree at HEAD, booting initPlugin from src in an isolated XDG root.",
+  "method": "initPlugin from src, wait for readiness, collectToolSchemas(hooks.tool), measureSchemaPayload and measureDescriptionText; this is the same buildToolJsonSchema path the tool.definition hook uses, so the number matches the payload the host receives. The per-tool ledger lists every tool's schema and description bytes, and both arrays sum to the recorded totals.",
+  "toolCount": 44,
+  "toolNameSetHash": "1c1f4d27508a7a3f6f3b50d1e10f8ae0cf8801c7ce3d73df9cd29783ee7c3bb2",
+  "schemaPayload": {
+    "bytes": 19548,
+    "estimatedTokens": 4887
+  },
+  "schemaPreCut": {
+    "bytes": 24740,
+    "estimatedTokens": 6185
+  },
+  "descriptionBytes": 15857,
+  "schemaLines": [
+    {
+      "name": "addagent",
+      "bytes": 128,
+      "estimatedTokens": 32
+    },
+    {
+      "name": "astquery",
+      "bytes": 285,
+      "estimatedTokens": 72
+    },
+    {
+      "name": "batchread",
+      "bytes": 233,
+      "estimatedTokens": 59
+    },
+    {
+      "name": "check",
+      "bytes": 33,
+      "estimatedTokens": 9
+    },
+    {
+      "name": "checkpoint",
+      "bytes": 366,
+      "estimatedTokens": 92
+    },
+    {
+      "name": "codestate",
+      "bytes": 353,
+      "estimatedTokens": 89
+    },
+    {
+      "name": "dashboard",
+      "bytes": 236,
+      "estimatedTokens": 59
+    },
+    {
+      "name": "depmap",
+      "bytes": 328,
+      "estimatedTokens": 82
+    },
+    {
+      "name": "directresponse",
+      "bytes": 133,
+      "estimatedTokens": 34
+    },
+    {
+      "name": "discussion",
+      "bytes": 724,
+      "estimatedTokens": 181
+    },
+    {
+      "name": "divide",
+      "bytes": 678,
+      "estimatedTokens": 170
+    },
+    {
+      "name": "evaluationreport",
+      "bytes": 1415,
+      "estimatedTokens": 354
+    },
+    {
+      "name": "evidence",
+      "bytes": 878,
+      "estimatedTokens": 220
+    },
+    {
+      "name": "fasttrack",
+      "bytes": 402,
+      "estimatedTokens": 101
+    },
+    {
+      "name": "gitdiff",
+      "bytes": 437,
+      "estimatedTokens": 110
+    },
+    {
+      "name": "goal",
+      "bytes": 2799,
+      "estimatedTokens": 700
+    },
+    {
+      "name": "handoff",
+      "bytes": 1464,
+      "estimatedTokens": 366
+    },
+    {
+      "name": "health",
+      "bytes": 33,
+      "estimatedTokens": 9
+    },
+    {
+      "name": "help",
+      "bytes": 33,
+      "estimatedTokens": 9
+    },
+    {
+      "name": "image_route",
+      "bytes": 272,
+      "estimatedTokens": 68
+    },
+    {
+      "name": "imagegen",
+      "bytes": 420,
+      "estimatedTokens": 105
+    },
+    {
+      "name": "kick",
+      "bytes": 203,
+      "estimatedTokens": 51
+    },
+    {
+      "name": "moa",
+      "bytes": 246,
+      "estimatedTokens": 62
+    },
+    {
+      "name": "override",
+      "bytes": 258,
+      "estimatedTokens": 65
+    },
+    {
+      "name": "panic",
+      "bytes": 102,
+      "estimatedTokens": 26
+    },
+    {
+      "name": "pause",
+      "bytes": 226,
+      "estimatedTokens": 57
+    },
+    {
+      "name": "projectmap",
+      "bytes": 196,
+      "estimatedTokens": 49
+    },
+    {
+      "name": "propose",
+      "bytes": 624,
+      "estimatedTokens": 156
+    },
+    {
+      "name": "qualityreport",
+      "bytes": 172,
+      "estimatedTokens": 43
+    },
+    {
+      "name": "readsymbol",
+      "bytes": 396,
+      "estimatedTokens": 99
+    },
+    {
+      "name": "record",
+      "bytes": 710,
+      "estimatedTokens": 178
+    },
+    {
+      "name": "report",
+      "bytes": 183,
+      "estimatedTokens": 46
+    },
+    {
+      "name": "resume",
+      "bytes": 33,
+      "estimatedTokens": 9
+    },
+    {
+      "name": "review",
+      "bytes": 257,
+      "estimatedTokens": 65
+    },
+    {
+      "name": "self_heal",
+      "bytes": 134,
+      "estimatedTokens": 34
+    },
+    {
+      "name": "show_board",
+      "bytes": 173,
+      "estimatedTokens": 44
+    },
+    {
+      "name": "smartgrep",
+      "bytes": 324,
+      "estimatedTokens": 81
+    },
+    {
+      "name": "status",
+      "bytes": 33,
+      "estimatedTokens": 9
+    },
+    {
+      "name": "task_control",
+      "bytes": 368,
+      "estimatedTokens": 92
+    },
+    {
+      "name": "task_orchestrate",
+      "bytes": 253,
+      "estimatedTokens": 64
+    },
+    {
+      "name": "thread",
+      "bytes": 378,
+      "estimatedTokens": 95
+    },
+    {
+      "name": "timeline",
+      "bytes": 458,
+      "estimatedTokens": 115
+    },
+    {
+      "name": "vote",
+      "bytes": 372,
+      "estimatedTokens": 93
+    },
+    {
+      "name": "web",
+      "bytes": 1799,
+      "estimatedTokens": 450
+    }
+  ],
+  "descriptionLines": [
+    {
+      "name": "addagent",
+      "bytes": 1077,
+      "estimatedTokens": 270
+    },
+    {
+      "name": "astquery",
+      "bytes": 349,
+      "estimatedTokens": 88
+    },
+    {
+      "name": "batchread",
+      "bytes": 242,
+      "estimatedTokens": 61
+    },
+    {
+      "name": "check",
+      "bytes": 143,
+      "estimatedTokens": 36
+    },
+    {
+      "name": "checkpoint",
+      "bytes": 62,
+      "estimatedTokens": 16
+    },
+    {
+      "name": "codestate",
+      "bytes": 132,
+      "estimatedTokens": 33
+    },
+    {
+      "name": "dashboard",
+      "bytes": 97,
+      "estimatedTokens": 25
+    },
+    {
+      "name": "depmap",
+      "bytes": 427,
+      "estimatedTokens": 107
+    },
+    {
+      "name": "directresponse",
+      "bytes": 175,
+      "estimatedTokens": 44
+    },
+    {
+      "name": "discussion",
+      "bytes": 376,
+      "estimatedTokens": 94
+    },
+    {
+      "name": "divide",
+      "bytes": 415,
+      "estimatedTokens": 104
+    },
+    {
+      "name": "evaluationreport",
+      "bytes": 673,
+      "estimatedTokens": 169
+    },
+    {
+      "name": "evidence",
+      "bytes": 457,
+      "estimatedTokens": 115
+    },
+    {
+      "name": "fasttrack",
+      "bytes": 220,
+      "estimatedTokens": 55
+    },
+    {
+      "name": "gitdiff",
+      "bytes": 438,
+      "estimatedTokens": 110
+    },
+    {
+      "name": "goal",
+      "bytes": 1535,
+      "estimatedTokens": 384
+    },
+    {
+      "name": "handoff",
+      "bytes": 1008,
+      "estimatedTokens": 252
+    },
+    {
+      "name": "health",
+      "bytes": 195,
+      "estimatedTokens": 49
+    },
+    {
+      "name": "help",
+      "bytes": 88,
+      "estimatedTokens": 22
+    },
+    {
+      "name": "image_route",
+      "bytes": 108,
+      "estimatedTokens": 27
+    },
+    {
+      "name": "imagegen",
+      "bytes": 111,
+      "estimatedTokens": 28
+    },
+    {
+      "name": "kick",
+      "bytes": 761,
+      "estimatedTokens": 191
+    },
+    {
+      "name": "moa",
+      "bytes": 80,
+      "estimatedTokens": 20
+    },
+    {
+      "name": "override",
+      "bytes": 595,
+      "estimatedTokens": 149
+    },
+    {
+      "name": "panic",
+      "bytes": 413,
+      "estimatedTokens": 104
+    },
+    {
+      "name": "pause",
+      "bytes": 323,
+      "estimatedTokens": 81
+    },
+    {
+      "name": "projectmap",
+      "bytes": 245,
+      "estimatedTokens": 62
+    },
+    {
+      "name": "propose",
+      "bytes": 286,
+      "estimatedTokens": 72
+    },
+    {
+      "name": "qualityreport",
+      "bytes": 284,
+      "estimatedTokens": 71
+    },
+    {
+      "name": "readsymbol",
+      "bytes": 482,
+      "estimatedTokens": 121
+    },
+    {
+      "name": "record",
+      "bytes": 496,
+      "estimatedTokens": 124
+    },
+    {
+      "name": "report",
+      "bytes": 287,
+      "estimatedTokens": 72
+    },
+    {
+      "name": "resume",
+      "bytes": 173,
+      "estimatedTokens": 44
+    },
+    {
+      "name": "review",
+      "bytes": 78,
+      "estimatedTokens": 20
+    },
+    {
+      "name": "self_heal",
+      "bytes": 51,
+      "estimatedTokens": 13
+    },
+    {
+      "name": "show_board",
+      "bytes": 180,
+      "estimatedTokens": 45
+    },
+    {
+      "name": "smartgrep",
+      "bytes": 315,
+      "estimatedTokens": 79
+    },
+    {
+      "name": "status",
+      "bytes": 73,
+      "estimatedTokens": 19
+    },
+    {
+      "name": "task_control",
+      "bytes": 556,
+      "estimatedTokens": 139
+    },
+    {
+      "name": "task_orchestrate",
+      "bytes": 81,
+      "estimatedTokens": 21
+    },
+    {
+      "name": "thread",
+      "bytes": 849,
+      "estimatedTokens": 213
+    },
+    {
+      "name": "timeline",
+      "bytes": 424,
+      "estimatedTokens": 106
+    },
+    {
+      "name": "vote",
+      "bytes": 241,
+      "estimatedTokens": 61
+    },
+    {
+      "name": "web",
+      "bytes": 256,
+      "estimatedTokens": 64
+    }
+  ],
+  "archivedBaseline": {
+    "file": "docs/experiments/baselines/2026-10-31-context-baseline.json",
+    "bytes": 13868,
+    "note": "The archived baseline and the 2026-11-04 zod receipt measured the built entry with the src zod instance, which drops property descriptions during conversion and undercounts the payload. This receipt measures one instance, as the shipped hook does."
+  }
+}

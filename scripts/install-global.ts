@@ -278,24 +278,6 @@ function checkHosts(): Host {
   return selected;
 }
 
-function v1Artifacts(): string[] {
-  const out: string[] = [];
-  const terminal = join(HOME, ".opencode");
-  if (existsSync(terminal)) out.push(`${terminal} (v1 terminal install)`);
-  const bunPackage = join(HOME, ".bun", "install", "global", "node_modules", "opencode-ai");
-  if (existsSync(bunPackage)) out.push(`${bunPackage} (v1 Bun package)`);
-  const bunBinary = join(HOME, ".bun", "bin", "opencode");
-  if (existsSync(bunBinary)) out.push(`${bunBinary} (v1 binary on PATH)`);
-  const globalPackage = join(GLOBAL_DIR, "package.json");
-  if (existsSync(globalPackage)) {
-    const raw = readFileSync(globalPackage, "utf-8");
-    if (raw.includes("@opencode-ai/plugin")) {
-      out.push(`${globalPackage} (v1 plugin SDK pin)`);
-    }
-  }
-  return out;
-}
-
 function refuseLegacyPackage(): void {
   if (existsSync(LEGACY_PACKAGE)) {
     fail(
@@ -942,10 +924,6 @@ function install(): void {
   const lane = installLane(process.platform);
   const posixDb = usesPosixDatabaseLane(lane);
   const host = checkHosts();
-  const artifacts = v1Artifacts();
-  if (artifacts.length > 0) {
-    fail(`v1 artifacts must be removed before a global install:\n  ${artifacts.join("\n  ")}`);
-  }
   refuseLegacyPackage();
   refuseProjectDuplicate();
   refuseForeignOwner();

@@ -56,7 +56,7 @@ type PayloadReceipt = {
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const BASELINE_FILE = "2026-10-31-context-baseline.json";
-const PAYLOAD_RECEIPT = join(repo, "docs", "experiments", "receipts", "2026-11-13-schema-payload.json");
+const PAYLOAD_RECEIPT = join(repo, "docs", "experiments", "receipts", "2026-11-15-schema-payload.json");
 const FROZEN_BASELINE_BYTES = 20267;
 const TARGET_BYTES = 16213;
 const MIN_CUT = FROZEN_BASELINE_BYTES - TARGET_BYTES;

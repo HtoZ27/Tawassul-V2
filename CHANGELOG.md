@@ -9,6 +9,16 @@ pre-stable.
 
 ### Added
 
+- The roster rule in the `help` description and output: a foreign-project model
+  now learns that `addagent` and `kick` change the roster and that the generated
+  agent files are not hand-edited. Funded by description trims; the steady-state
+  description total falls from 16,145 to 15,857 bytes. The provisional
+  `tawassul-orientation` skill was retired by its probe: it loaded in one of eight
+  foreign-project sessions, below its 0.5 kill threshold.
+- A seeded `@addagent` agent description that presents the agent as the roster
+  dispatcher: main sessions delegate with `subagent(agent: "addagent")` and pass
+  the request unchanged. Only new projects receive it; existing `opencode.json`
+  descriptions are preserved.
 - A native Windows receipt for the bundle and wasm lane: install, verify,
   in-place upgrade, uninstall, purge, `icacls` ACL, a profile path with a space,
   a 275-character path, `C:`/`D:`/`F:` drives, host discovery, a live host load,
@@ -47,6 +57,20 @@ pre-stable.
 
 ### Fixed
 
+- An explicit `@addagent` request now reaches the model as delegation guidance:
+  the main session calls the `subagent` tool with `agent: "addagent"` and passes
+  the request unchanged instead of calling `addagent` or `kick` itself. The
+  guidance is limited to a leading `@addagent` mention and is not sent to the
+  addagent agent, so a quoted mention or the child session cannot trigger a
+  self-delegation loop.
+- Consent-gate messages now tell the model to wait for the user's reply before
+  retrying; the gate itself is unchanged and still blocks high-impact tools.
+- The release smoke and the global-boot proof now recognize the rewritten `help`
+  overview, which no longer contains the old "Available tools" phrase. The smoke
+  canary asserts the overview's identity line instead; the help bytes are
+  unchanged.
+- `install-global` no longer refuses on a retired v1 tree. The v1 folder is a
+  reference archive, not a conflict: the installer proceeds beside it.
 - The native Windows build failed with a zod locale cycle because the locale
   guard split `args.path` on `/` only; it now accepts `\` as well.
 - Host discovery missed

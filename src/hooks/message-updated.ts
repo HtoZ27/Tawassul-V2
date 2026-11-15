@@ -167,6 +167,7 @@ function injectRoutingGuidance(
   ctx: MessageUpdatedContext,
   output: { parts: { type: string; text?: string; [key: string]: unknown }[] },
   agent?: string,
+  content?: string,
 ): void {
   const routing = (ctx as unknown as { _lastRouting?: ReturnType<MessageUpdatedServiceClients["analyzeMessage"]> })
     ._lastRouting;
@@ -178,7 +179,11 @@ function injectRoutingGuidance(
     });
   }
   const explicitIntent = ctx.userMentionedTawa || ctx.directRoutingAgent !== null || ctx.userExplicitDispatch === true;
-  if (routing.guidance && explicitIntent && agent) {
+  const addagentAddressed = /^\s*@addagent\b/i.test(content ?? "");
+  const addagentActive = (agent ?? "").toLowerCase() === "addagent";
+  const guidanceAllowed =
+    routing.directAgent === "addagent" ? addagentAddressed && !addagentActive : Boolean(agent);
+  if (routing.guidance && explicitIntent && guidanceAllowed) {
     output.parts.push({
       type: "text" as const,
       text: `\n\n💡 ${routing.guidance}`,
@@ -707,6 +712,7 @@ export function createMessageUpdatedHook(ctx: MessageUpdatedContext) {
             ctx,
             output as unknown as { parts: { type: string; text?: string; [key: string]: unknown }[] },
             input.agent,
+            content,
           );
           logger.debug(`[message-updated] deferred — parked user message in session=${input.sessionID}`);
           return;
@@ -717,6 +723,7 @@ export function createMessageUpdatedHook(ctx: MessageUpdatedContext) {
           ctx,
           output as unknown as { parts: { type: string; text?: string; [key: string]: unknown }[] },
           input.agent,
+          content,
         );
       }
 

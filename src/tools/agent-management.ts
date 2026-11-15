@@ -514,7 +514,7 @@ export function formatAddResult(result: AddResult): string {
 export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
   return tool({
     description: [
-      "Add one or more specialist agents.",
+      "Add or patch a specialist agent definition.",
       "Format: add spec1 spec2 ... with model model from provider",
       "Shorthand: add all / all / * with model model from provider — adds all seven agents at once",
       "Model: alias (gemini, mimo, big-pickle, minimax, ox, ling) or provider/model (fail-open with warning if not in catalog)",
@@ -891,8 +891,8 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
     description: [
       "Remove one or more specialist agents — the only tool alongside addagent inside withConfigWriteLock (no edit/bash needed).",
       "Format: remove spec1 spec2 ... with model model from provider",
-      "Shorthand: remove all / all / * with model model from provider — removes all seven agents at once (tawa excluded); removing two or more agents shows a confirmation card in the main session (fail-closed without it).",
-      "Note: the agent saying 'I don't have kick' is RBAC for the main user only — run as @addagent or @tawa in the main session (see kickNotAnalystHint).",
+      "Shorthand: remove all / all / * with model model from provider — removes all seven agents at once (tawa excluded); removing two or more shows a confirmation card in the main session (fail-closed without it).",
+      "Note: the agent saying 'I don't have kick' is RBAC for the main user only — run as @addagent or @tawa in the main session.",
       kickExamplesText(),
     ].join("\n"),
     args: {

@@ -711,7 +711,7 @@ dispatcher calls, not a second user interface.
 
 | Tool | Purpose |
 | --- | --- |
-| `help` | Short overview of the tool families and where the reference lives |
+| `help` | Print the plugin map: identity, ledgers, state, and the roster rule |
 
 Two tools need an environment before they can work: `web` needs
 `FIRECRAWL_BASE_URL` and `FIRECRAWL_API_KEY`, and `imagegen` needs

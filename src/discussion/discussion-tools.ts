@@ -33,7 +33,7 @@ export function buildDiscussionTool(
 ) {
   return tool({
     description: [
-      "Open a discussion window for agents to debate and solve problems collaboratively.",
+      "Open a discussion window for agents to solve problems collaboratively.",
       "Phases: 1 collect errors from files/reports → 2 agents propose solutions → 3 agents vote on the best solution → 4 divide tasks among agents.",
       'Usage: discussion(action: "create", errors: [...], participants: ["@dev", "@architect"]); discussion(action: "status|proposals|close", discussionId: "D-001").',
     ].join("\n"),

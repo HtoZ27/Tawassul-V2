@@ -64,6 +64,8 @@ export const PILOT_COMMAND_TEXT =
 
 export type SkillAddResult = { added: string[]; skipped: string[] };
 
+let skillDomainWarned = false;
+
 export function addPilotSkills(
   editor: Pick<SkillEditor, "add">,
   base: string,
@@ -94,7 +96,15 @@ export function addPilotSkills(
 
 export async function registerPilotSkills(ctx: V2Context): Promise<V2Registration[]> {
   const domain = ctx.skill;
-  if (!domain?.transform) return [];
+  if (!domain?.transform) {
+    if (!skillDomainWarned) {
+      skillDomainWarned = true;
+      logger.warn(
+        "[tawassul] v2 skill domain unavailable: the host did not expose ctx.skill.transform; shipped skills are not registered",
+      );
+    }
+    return [];
+  }
   const base = ctx.location?.directory?.trim() || process.cwd();
   try {
     const registration = await domain.transform((editor) => {
