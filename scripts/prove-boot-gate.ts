@@ -40,7 +40,7 @@ function supportedBinary(dir: string, name: string): string {
   const path = join(dir, name);
   writeExecutable(
     path,
-    "#!/usr/bin/env bash\nif [ \"${1:-}\" = \"--version\" ]; then echo \"opencode v2.2.1\"; exit 0; fi\nprintf 'FLAG=%s\\n' \"${OPENCODE_DISABLE_FILEWATCHER:-unset}\"\n",
+    "#!/usr/bin/env bash\nif [ \"${1:-}\" = \"--version\" ]; then echo \"opencode v2.3.0\"; exit 0; fi\nprintf 'FLAG=%s\\n' \"${OPENCODE_DISABLE_FILEWATCHER:-unset}\"\n",
   );
   return path;
 }
@@ -49,7 +49,7 @@ function unsupportedBinary(dir: string, name: string): string {
   const path = join(dir, name);
   writeExecutable(
     path,
-    "#!/usr/bin/env bash\nif [ \"${1:-}\" = \"--version\" ]; then echo \"opencode v2.2.1\"; exit 0; fi\nenv | sort\n",
+    "#!/usr/bin/env bash\nif [ \"${1:-}\" = \"--version\" ]; then echo \"opencode v2.3.0\"; exit 0; fi\nenv | sort\n",
   );
   return path;
 }
@@ -58,7 +58,7 @@ function argsBinary(dir: string, name: string): string {
   const path = join(dir, name);
   writeExecutable(
     path,
-    "#!/usr/bin/env bash\nif [ \"${1:-}\" = \"--version\" ]; then echo \"opencode v2.2.1\"; exit 0; fi\nprintf 'ARGS=%s\\n' \"$*\"\n",
+    "#!/usr/bin/env bash\nif [ \"${1:-}\" = \"--version\" ]; then echo \"opencode v2.3.0\"; exit 0; fi\nprintf 'ARGS=%s\\n' \"$*\"\n",
   );
   return path;
 }
@@ -176,7 +176,7 @@ try {
 
   {
     const dHome = tempHome("desktop-cli");
-    const dDir = join(dHome, ".config", "ai.opencode.desktop", "cli", "2.2.1-x64");
+    const dDir = join(dHome, ".config", "ai.opencode.desktop", "cli", "2.3.0-x64");
     mkdirSync(dDir, { recursive: true });
     argsBinary(dDir, "opencode-cli");
     const res = runLauncherArgs(dHome, ["run"]);
@@ -196,10 +196,10 @@ try {
   }
 
   {
-    const future = versionBinary(lBin, "opencode-future", "2.2.2");
+    const future = versionBinary(lBin, "opencode-future", "2.3.1");
     const newer = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: future, TAWASSUL_WATCHER: "off" });
     assert(newer.status === 0, "a newer 2.x host is accepted");
-    assert(newer.stderr.includes("newer than the audited v2.2.1"), "a newer 2.x host warns about the audited ceiling");
+    assert(newer.stderr.includes("newer than the audited v2.3.0"), "a newer 2.x host warns about the audited ceiling");
 
     const major = versionBinary(lBin, "opencode-major", "3.0.0");
     const acceptedMajor = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: major, TAWASSUL_WATCHER: "off" });
@@ -208,15 +208,15 @@ try {
 
     const old = versionBinary(lBin, "opencode-old", "2.1.4");
     const refusedOld = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: old });
-    assert(refusedOld.status === 2 && refusedOld.stderr.includes("supported v>=2.2.1"), "a pre-floor host is refused");
+    assert(refusedOld.status === 2 && refusedOld.stderr.includes("supported v>=2.3.0"), "a pre-floor host is refused");
 
-    const floor = versionBinary(lBin, "opencode-floor", "2.2.0");
-    const refusedFloor = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: floor });
-    assert(refusedFloor.status === 2 && refusedFloor.stderr.includes("supported v>=2.2.1"), "the old 2.2.0 floor is refused");
+    const oldPatch = versionBinary(lBin, "opencode-old-patch", "2.2.0");
+    const refusedFloor = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: oldPatch });
+    assert(refusedFloor.status === 2 && refusedFloor.stderr.includes("supported v>=2.3.0"), "a 2.2.0 host is refused");
 
     const pinned = runLauncher(lHome, {
       TAWASSUL_OPENCODE_BIN: future,
-      TAWASSUL_OPENCODE_VERSION: "2.2.2",
+      TAWASSUL_OPENCODE_VERSION: "2.3.1",
       TAWASSUL_WATCHER: "off",
     });
     assert(pinned.status === 0, "an explicit pin accepts its exact version");
@@ -226,15 +226,15 @@ try {
       TAWASSUL_WATCHER: "off",
     });
     assert(pinnedMajor.status === 0, "an explicit pin accepts an untested major exactly");
-    const pinnedMismatch = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: supported, TAWASSUL_OPENCODE_VERSION: "2.2.2" });
-    assert(pinnedMismatch.status === 2 && pinnedMismatch.stderr.includes("pinned v2.2.2"), "an explicit pin refuses another version");
+    const pinnedMismatch = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: supported, TAWASSUL_OPENCODE_VERSION: "2.3.1" });
+    assert(pinnedMismatch.status === 2 && pinnedMismatch.stderr.includes("pinned v2.3.1"), "an explicit pin refuses another version");
 
     const pinBelowRange = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: old, TAWASSUL_OPENCODE_VERSION: "2.1.4" });
     assert(pinBelowRange.status === 2, "an explicit pin below the supported range is refused");
     assert(pinBelowRange.stderr.includes("outside the supported range"), "the pin refusal names the range");
-    const pinAtOldFloor = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: floor, TAWASSUL_OPENCODE_VERSION: "2.2.0" });
-    assert(pinAtOldFloor.status === 2, "an explicit pin at the old 2.2.0 floor is refused");
-    assert(pinAtOldFloor.stderr.includes("outside the supported range"), "the old-floor pin names the range");
+    const pinAtOldFloor = runLauncher(lHome, { TAWASSUL_OPENCODE_BIN: oldPatch, TAWASSUL_OPENCODE_VERSION: "2.2.0" });
+    assert(pinAtOldFloor.status === 2, "an explicit pin at retired 2.2.0 is refused");
+    assert(pinAtOldFloor.stderr.includes("outside the supported range"), "the retired-floor pin names the range");
   }
 
   {

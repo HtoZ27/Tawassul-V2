@@ -2,7 +2,12 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, copyFileSy
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExpectedConfig, buildMergedAgents, checkGeneratedConfig } from "../src/scripts/gen-opencode-config.ts";
+import {
+  buildAgents,
+  buildExpectedConfig,
+  buildMergedAgents,
+  checkGeneratedConfig,
+} from "../src/scripts/gen-opencode-config.ts";
 import { buildKickTool } from "../src/tools/agent-management.ts";
 import { RETIRED_MODEL_IDS, MODEL_SUFFIX_MAP } from "../src/core/variant-names.ts";
 
@@ -249,6 +254,49 @@ function proveUnknownRetired(): void {
   console.log("unknown-retired kept + drift guard ok");
 }
 
+function proveManualAndGeneratedDrift(): void {
+  process.env.TAWASSUL_MODELS_JSON = absentFixture;
+  const template = buildAgents([], { projectRoot: REPO });
+  const baseAgent = (): Record<string, unknown> => JSON.parse(JSON.stringify(template)) as Record<string, unknown>;
+
+  const manual = baseAgent();
+  manual["my-helper"] = { model: "acme/private-1" };
+  const manualRaw = JSON.stringify({ $schema: "https://opencode.ai/config.json", agent: manual });
+  const manualCheck = checkGeneratedConfig(manualRaw, { projectRoot: REPO, pinsPath: emptyPins });
+  if (!manualCheck.ok) fail(`a manual config key must pass the check: ${manualCheck.diff ?? ""}`);
+  console.log("P2-6 manual-key-passes ok");
+
+  const variantDrift = baseAgent();
+  variantDrift["dev-gemini"] = { model: "acme/private-1", mode: "subagent" };
+  const variantRaw = JSON.stringify({
+    $schema: "https://opencode.ai/config.json",
+    agent: variantDrift,
+  });
+  const variantCheck = checkGeneratedConfig(variantRaw, { projectRoot: REPO, pinsPath: emptyPins });
+  if (variantCheck.ok) fail("generated variant drift must fail the check");
+  if (!(variantCheck.diff ?? "").includes("model mismatches")) {
+    fail(`generated variant drift must report a model mismatch: ${variantCheck.diff ?? ""}`);
+  }
+  console.log("P2-6 generated-drift-fails ok");
+
+  const baseDrift = baseAgent();
+  baseDrift["dev"] = { ...(baseDrift["dev"] as Record<string, unknown>), model: "acme/private-1" };
+  const baseRaw = JSON.stringify({ $schema: "https://opencode.ai/config.json", agent: baseDrift });
+  const baseCheck = checkGeneratedConfig(baseRaw, { projectRoot: REPO, pinsPath: emptyPins });
+  if (baseCheck.ok) fail("base drift must fail the check");
+  console.log("P2-6 base-drift-fails ok");
+
+  const missing: string[] = [];
+  for (const base of BASE_AGENTS) {
+    if (base === "tawa") continue;
+    for (const suffix of Object.keys(MODEL_SUFFIX_MAP)) {
+      if (template[`${base}-${suffix}`] === undefined) missing.push(`${base}-${suffix}`);
+    }
+  }
+  if (missing.length > 0) fail(`generated-shape names absent from the template catalog: ${missing.join(", ")}`);
+  console.log("P2-6 generated-shape-catalog-complete ok");
+}
+
 try {
   await proveRetiredMigration();
   proveEmptyAndSubset();
@@ -257,6 +305,7 @@ try {
   await proveHybridPins();
   proveServedRetired();
   proveUnknownRetired();
+  proveManualAndGeneratedDrift();
 } finally {
   if (savedModelsEnv === undefined) delete process.env.TAWASSUL_MODELS_JSON;
   else process.env.TAWASSUL_MODELS_JSON = savedModelsEnv;

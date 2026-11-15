@@ -34,7 +34,7 @@ type Handler = (event: Record<string, unknown>) => unknown;
 
 function fakeContext(handlers: Map<string, Handler>, calls: string[]): V2Context {
   return {
-    app: { version: "2.2.2" },
+    app: { version: "2.3.0" },
     location: { directory: worktree },
     session: {
       create: async (input: Record<string, unknown>) => {

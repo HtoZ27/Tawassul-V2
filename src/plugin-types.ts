@@ -3,9 +3,22 @@ import type { ProjectIdentity } from "./utils/project-identity.ts";
 
 export const INIT_READY = Symbol.for("tawassul.v2.initReady");
 
+export const ROSTER_READY = Symbol.for("tawassul.v2.rosterReady");
+
 export type InitReadiness = { ready: boolean; error?: Error };
 
 export type InitReadyProbe = () => Promise<InitReadiness>;
+
+export type RosterPrewarmResult = {
+  populated: boolean;
+  complete: boolean;
+  count: number;
+  elapsedMs: number;
+  configPath: string | null;
+  timedOut: boolean;
+};
+
+export type RosterReadyProbe = (boundMs?: number) => Promise<RosterPrewarmResult>;
 
 export type PluginInput = {
   client: Record<string, unknown>;
@@ -42,6 +55,7 @@ export interface Config {
 
 export type TawassulHooks = {
   [INIT_READY]?: InitReadyProbe;
+  [ROSTER_READY]?: RosterReadyProbe;
   dispose?: () => Promise<void>;
   event?: (input: { event: unknown }) => Promise<void>;
   config?: (input: Config) => Promise<void>;

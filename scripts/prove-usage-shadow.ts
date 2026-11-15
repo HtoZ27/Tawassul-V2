@@ -13,6 +13,7 @@ import {
   SHADOW_REPEAT_TRIP_AT,
   SHADOW_REPEAT_WARN_AT,
   UsageShadow,
+  fanoutGuardApplies,
   normalizeText,
   similarity,
   taskTextOf,
@@ -301,6 +302,10 @@ try {
     fanShadow.observeDispatch({ sessionID: "other", tool: "handoff", args: { prompt: base } });
   }
   equal(fanRows.length, 3, "another session keeps an independent fan-out cluster");
+  equal(fanoutGuardApplies("ses-parent"), true, "the fan-out guard applies to a proven child session");
+  equal(fanoutGuardApplies(null), false, "the fan-out guard never applies to a root session");
+  equal(fanoutGuardApplies(undefined), false, "the fan-out guard is fail-open when parentage is unknown");
+  equal(fanoutGuardApplies(""), false, "an empty parent id is not a child session");
 
   const ledgerPath = join(work, "shadow.jsonl");
   const observations: ShadowObservation[] = [];
@@ -349,6 +354,11 @@ try {
   assert(setup.includes("clearUsageShadow"), "the v2 cleanup clears the shadow detectors");
   const toolExecute = readFileSync(join(repo, "src", "hooks", "tool-execute.ts"), "utf8");
   assert(toolExecute.includes("observeDispatch"), "the tool hook feeds the fan-out detector");
+  assert(toolExecute.includes("fanoutGuardApplies("), "the tool hook exempts root and unknown sessions from fan-out");
+  assert(
+    toolExecute.indexOf("observeDispatch") < toolExecute.indexOf("if (fanoutGuardApplies("),
+    "the tool hook keeps observing every session and only gates the block on proven parentage",
+  );
   assert(toolExecute.includes("observeRepeat"), "the tool hook feeds the repeat detector");
   const health = readFileSync(join(repo, "src", "tools", "tawa", "health.ts"), "utf8");
   assert(health.includes("Shadow: repeat"), "health reports the shadow readings");

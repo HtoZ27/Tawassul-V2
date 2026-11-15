@@ -671,6 +671,7 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
                   if (changed) {
                     await writeTawassulRoster(rosterPath, roster);
                     ctx.agentManager.clearReadCache();
+                    await ctx.agentManager.prewarmRoster?.();
                   }
                 } catch (e) {
                   const msg = `addagent: failed to write global roster: ${e instanceof Error ? e.message : String(e)}`;
@@ -810,6 +811,7 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
                         if (changed) {
                           await atomicWriteFile(opencodePath, spliceAgentSection(raw, conf.agent));
                           ctx.agentManager.clearReadCache();
+                          await ctx.agentManager.prewarmRoster?.();
                         }
                       }
                     }
@@ -1199,7 +1201,10 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
                   }
                 }
               }
-              if (result.removed.length > 0) ctx.agentManager.clearReadCache();
+              if (result.removed.length > 0) {
+                ctx.agentManager.clearReadCache();
+                await ctx.agentManager.prewarmRoster?.();
+              }
               for (const tag of result.removed) {
                 removeAgentMd(ctx, normalizeName(tag), SCOPE);
               }
@@ -1217,7 +1222,10 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
         dropAgentState(ctx, tag);
       }
 
-      if (result.removed.length > 0) ctx.agentManager.clearReadCache();
+      if (result.removed.length > 0) {
+        ctx.agentManager.clearReadCache();
+        await ctx.agentManager.prewarmRoster?.();
+      }
       ctx.saveState();
       return {
         title: t("kickRemovedTitle", { count: String(result.removed.length) }),

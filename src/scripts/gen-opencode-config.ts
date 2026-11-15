@@ -745,9 +745,16 @@ export function checkGeneratedConfig(raw?: string, opts?: GenOptions): { ok: boo
       missing.push(name);
       continue;
     }
-    const pureModel = (pureAgents[name] as { model?: string } | undefined)?.model;
+    const generated = Object.prototype.hasOwnProperty.call(pureAgents, name);
+    const generatedShape = BASE_ORDER.includes(name) || isGeneratedVariant(name, EXTEND_AGENTS);
+    if (!generated && generatedShape) {
+      mismatched.push(`${name}: generated name is absent from the pure template catalog`);
+      continue;
+    }
+    const pureModel = generated ? (pureAgents[name] as { model?: string } | undefined)?.model : undefined;
     const actualModel = actual.model;
     const acceptedModel =
+      !generated ||
       actualModel === pureModel ||
       pinned.has(normalizeName(name)) ||
       (typeof actualModel === "string" && modelAvailability(actualModel) === "served") ||

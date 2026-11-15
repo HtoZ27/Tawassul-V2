@@ -27,7 +27,36 @@ import {
 } from "../../utils/path-resolver.ts";
 import { readTawassulRoster, stripJsoncComments, readJsoncObject } from "../../utils/opencode-config.ts";
 import { generatedVariantNames } from "../../core/variant-names.ts";
-import { setDynamicDeletedAgents, setUserPreservedAgents, pruneUserPreservedAgents } from "../../security-policy.ts";
+import {
+  SecurityPolicy,
+  setDynamicDeletedAgents,
+  setUserPreservedAgents,
+  pruneUserPreservedAgents,
+} from "../../security-policy.ts";
+import type { RosterPrewarmResult } from "../../plugin-types.ts";
+
+const BASE_ROLE_NAMES: readonly string[] = ALL_AGENTS.filter((agent) => agent.name !== "tawa").map((agent) => agent.name);
+const BASE_ROLE_SET: ReadonlySet<string> = new Set(BASE_ROLE_NAMES.map((name) => normalizeName(name)));
+
+type RosterTrustEntry = {
+  completeKeys: Set<string> | null;
+  lastDeleted: Set<string> | null;
+};
+
+const rosterTrustByPath = new Map<string, RosterTrustEntry>();
+const rosterWarnings = new Map<string, Set<string>>();
+
+function warnRosterOnce(path: string, reason: string, message: string): void {
+  const reasons = rosterWarnings.get(path) ?? new Set<string>();
+  if (reasons.has(reason)) return;
+  reasons.add(reason);
+  rosterWarnings.set(path, reasons);
+  logger.warn(message);
+}
+
+function clearRosterWarnings(path: string): void {
+  rosterWarnings.delete(path);
+}
 
 export class AgentManager {
   dynamicAgents: string[] = [];
@@ -37,6 +66,9 @@ export class AgentManager {
   private scope: InstallScope;
 
   private _opencodeAgentsCache: { result: string[]; ts: number } | null = null;
+  private _opencodeAgentsLastGood: string[] | null = null;
+  private _opencodeAgentModels = new Map<string, string>();
+  private _lastRosterEvaluation: { complete: boolean; empty: boolean; truncated: boolean; path: string } | null = null;
   private _agentMdCache = new Map<
     string,
     { result: { name?: string; role?: string; capability?: string; responsibilities?: string[] } | null; ts: number }
@@ -55,7 +87,12 @@ export class AgentManager {
   private _refreshCounter = 0;
   private _refreshInProgress = false;
 
-  private _opencodeWarmInFlight = false;
+  private _opencodeWarmPromise: Promise<void> | null = null;
+  private _opencodeWarmGeneration = -1;
+  private _opencodeCommitGeneration = -1;
+  private _opencodeCommitSequence = -1;
+  private _rosterGeneration = 0;
+  private _rosterReadSequence = 0;
 
   constructor(stateDir: string, timers?: TimerManagerLike, scope?: InstallScope) {
     this.stateDir = stateDir;
@@ -73,12 +110,21 @@ export class AgentManager {
         })();
   }
 
-  private _kickOpencodeWarm(): void {
-    if (this._opencodeWarmInFlight) return;
-    this._opencodeWarmInFlight = true;
-    void this._refreshOpencodeJsonAgents().finally(() => {
-      this._opencodeWarmInFlight = false;
+  private _startOpencodeWarm(): Promise<void> {
+    const generation = this._rosterGeneration;
+    const sequence = ++this._rosterReadSequence;
+    const warm = this._refreshOpencodeJsonAgents(generation, sequence).finally(() => {
+      if (this._opencodeWarmPromise === warm) this._opencodeWarmPromise = null;
     });
+    this._opencodeWarmPromise = warm;
+    this._opencodeWarmGeneration = generation;
+    return warm;
+  }
+
+  private _kickOpencodeWarm(): Promise<void> {
+    const pending = this._opencodeWarmPromise;
+    if (pending && this._opencodeWarmGeneration >= this._rosterGeneration) return pending;
+    return this._startOpencodeWarm();
   }
 
   private async _refreshCache(): Promise<void> {
@@ -86,7 +132,7 @@ export class AgentManager {
     this._refreshInProgress = true;
     try {
       const t0 = performance.now();
-      await this._refreshOpencodeJsonAgents();
+      await this._refreshOpencodeJsonAgents(this._rosterGeneration, ++this._rosterReadSequence);
       const agents = this._opencodeAgentsCache?.result ?? [];
       const chunk = 5;
       for (let i = 0; i < agents.length; i += chunk) {
@@ -103,31 +149,271 @@ export class AgentManager {
     }
   }
 
-  private async _refreshOpencodeJsonAgents(): Promise<void> {
-    try {
-      if (this.scope === "global") {
-        const rosterPath = resolveTawassulConfigPath(this.stateDir, "global");
-        if (!existsSync(rosterPath)) return;
+  private _canCommit(generation: number, sequence: number): boolean {
+    return generation >= this._rosterGeneration && sequence >= this._opencodeCommitSequence;
+  }
+
+  private _commitRoster(
+    result: string[],
+    models: Map<string, string>,
+    generation: number,
+    sequence: number,
+    complete: boolean,
+    empty: boolean,
+    path: string,
+  ): void {
+    this._opencodeAgentsCache = { result, ts: Date.now() };
+    this._opencodeAgentsLastGood = result;
+    this._opencodeAgentModels = models;
+    this._opencodeCommitGeneration = generation;
+    this._opencodeCommitSequence = sequence;
+    this._lastRosterEvaluation = { complete, empty, truncated: false, path };
+  }
+
+  private async _refreshOpencodeJsonAgents(generation: number, sequence: number): Promise<void> {
+    if (this.scope === "global") {
+      const rosterPath = resolveTawassulConfigPath(this.stateDir, "global");
+      try {
+        if (!existsSync(rosterPath)) {
+          logger.debug(`[AgentManager] global roster missing at ${rosterPath}; keeping the last known list`);
+          return;
+        }
         const { roster } = readTawassulRoster(rosterPath);
         const result = Object.keys(roster.agents)
           .filter((name) => name !== "tawa" && name !== "addagent")
           .map((name) => `@${name}`);
+        if (!this._canCommit(generation, sequence)) return;
         this._opencodeAgentsCache = { result, ts: Date.now() };
+        this._opencodeAgentsLastGood = result;
+        this._opencodeCommitGeneration = generation;
+        this._opencodeCommitSequence = sequence;
+        this._lastRosterEvaluation = {
+          complete: result.length > 0,
+          empty: result.length === 0,
+          truncated: false,
+          path: rosterPath,
+        };
         setUserPreservedAgents(Object.keys(roster.agents));
-        return;
+        clearRosterWarnings(rosterPath);
+      } catch (e) {
+        warnRosterOnce(
+          rosterPath,
+          "unreadable",
+          `[AgentManager] failed to read the global roster at ${rosterPath}: ${e instanceof Error ? e.message : String(e)}`,
+        );
       }
-      const opencodePath = resolveActiveConfigPath(this.stateDir);
-      const content = await readFile(opencodePath, "utf-8");
-      const parsed = JSON.parse(stripJsoncComments(content));
-      if (parsed.agent && typeof parsed.agent === "object") {
-        const result = Object.keys(parsed.agent)
-          .filter((name) => name !== "tawa" && name !== "addagent")
-          .map((name) => `@${name}`);
-        this._opencodeAgentsCache = { result, ts: Date.now() };
-        setUserPreservedAgents(Object.keys(parsed.agent));
-      }
-    } catch {
+      return;
     }
+    const opencodePath = resolveActiveConfigPath(this.stateDir);
+    let content: string;
+    try {
+      content = await readFile(opencodePath, "utf-8");
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === "ENOENT") {
+        logger.debug(`[AgentManager] roster missing at ${opencodePath}; keeping the last known list`);
+      } else {
+        logger.warn(
+          `[AgentManager] failed to read the roster at ${opencodePath}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+      if (!this._canCommit(generation, sequence)) return;
+      if (!this._opencodeAgentsCache) {
+        this._opencodeAgentsCache = { result: this._opencodeAgentsLastGood ?? [], ts: Date.now() };
+        this._opencodeCommitGeneration = generation;
+        this._opencodeCommitSequence = sequence;
+      }
+      this._lastRosterEvaluation = {
+        complete: false,
+        empty: (this._opencodeAgentsCache?.result.length ?? 0) === 0,
+        truncated: false,
+        path: opencodePath,
+      };
+      return;
+    }
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(stripJsoncComments(content)) as Record<string, unknown>;
+    } catch (e) {
+      warnRosterOnce(
+        opencodePath,
+        "unreadable",
+        `[AgentManager] malformed roster at ${opencodePath}; keeping the last known list: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      if (!this._canCommit(generation, sequence)) return;
+      if (!this._opencodeAgentsCache) {
+        this._opencodeAgentsCache = { result: this._opencodeAgentsLastGood ?? [], ts: Date.now() };
+        this._opencodeCommitGeneration = generation;
+        this._opencodeCommitSequence = sequence;
+      }
+      this._lastRosterEvaluation = {
+        complete: false,
+        empty: (this._opencodeAgentsCache?.result.length ?? 0) === 0,
+        truncated: false,
+        path: opencodePath,
+      };
+      return;
+    }
+    if (!this._canCommit(generation, sequence)) return;
+    const agent = parsed.agent;
+    if (agent === undefined || agent === null || typeof agent !== "object" || Array.isArray(agent)) {
+      this._commitRoster([], new Map(), generation, sequence, false, true, opencodePath);
+      return;
+    }
+    const entries = Object.entries(agent as Record<string, unknown>);
+    const keys = entries.map(([name]) => name);
+    const evaluation = this._evaluateRosterTrust(opencodePath, keys);
+    if (evaluation.truncated) {
+      this._lastRosterEvaluation = { complete: false, empty: false, truncated: true, path: opencodePath };
+      warnRosterOnce(
+        opencodePath,
+        "truncated",
+        `[AgentManager] roster at ${opencodePath} looks truncated (${keys.length} keys, ${evaluation.previousCount} previously); keeping the last known list`,
+      );
+      if (this._opencodeAgentsLastGood) {
+        this._opencodeAgentsCache = { result: this._opencodeAgentsLastGood, ts: Date.now() };
+      }
+      return;
+    }
+    const result = keys.filter((name) => name !== "tawa" && name !== "addagent").map((name) => `@${name}`);
+    const models = new Map<string, string>();
+    for (const [name, cfg] of entries) {
+      if (cfg && typeof cfg === "object" && !Array.isArray(cfg)) {
+        const model = (cfg as { model?: unknown }).model;
+        if (typeof model === "string" && model.length > 0) models.set(normalizeName(name), model);
+      }
+    }
+    const empty = keys.length === 0;
+    this._commitRoster(result, models, generation, sequence, evaluation.complete, empty, opencodePath);
+    if (evaluation.complete) {
+      clearRosterWarnings(opencodePath);
+    } else if (!empty) {
+      warnRosterOnce(
+        opencodePath,
+        "incomplete",
+        `[AgentManager] roster at ${opencodePath} is incomplete (missing ${evaluation.missingBases.join(", ")}); routing keeps the last trusted set`,
+      );
+    } else {
+      logger.debug(`[AgentManager] roster at ${opencodePath} is the intentional empty container; expansion is pending`);
+    }
+    if (empty || evaluation.complete) setUserPreservedAgents(keys);
+  }
+
+  private _evaluateRosterTrust(
+    configPath: string,
+    keys: string[],
+  ): { complete: boolean; truncated: boolean; missingBases: string[]; previousCount: number } {
+    const present = new Set(keys.map((name) => normalizeName(name)));
+    const missingBases = [...BASE_ROLE_SET].filter((name) => !present.has(name));
+    const entry = rosterTrustByPath.get(configPath) ?? { completeKeys: null, lastDeleted: null };
+    const previousCount = entry.completeKeys?.size ?? 0;
+    const empty = keys.length === 0;
+    let truncated = false;
+    if (!empty && entry.completeKeys) {
+      const expectedDeleted = [...entry.completeKeys].filter(
+        (name) => !present.has(name) && SecurityPolicy.checkDeletedAgent(name),
+      ).length;
+      if (keys.length < entry.completeKeys.size - expectedDeleted) truncated = true;
+    }
+    if (truncated) {
+      rosterTrustByPath.set(configPath, entry);
+      return { complete: false, truncated: true, missingBases, previousCount };
+    }
+    if (missingBases.length === 0) {
+      entry.completeKeys = present;
+      rosterTrustByPath.set(configPath, entry);
+      return { complete: true, truncated: false, missingBases, previousCount };
+    }
+    rosterTrustByPath.set(configPath, entry);
+    return { complete: false, truncated: false, missingBases, previousCount };
+  }
+
+  private _activeConfigPath(): string {
+    return this.scope === "global"
+      ? resolveTawassulConfigPath(this.stateDir, "global")
+      : resolveActiveConfigPath(this.stateDir, "project");
+  }
+
+  private _rosterResult(startedAt: number, timedOut: boolean): RosterPrewarmResult {
+    const evaluation = this._lastRosterEvaluation;
+    const count = this._opencodeAgentsCache?.result.length ?? 0;
+    const populated = count > 0;
+    const complete = evaluation?.complete === true;
+    const configPath = evaluation?.path ?? this._activeConfigPath();
+    const specificWarning = rosterWarnings.get(configPath);
+    const explained = specificWarning?.has("truncated") === true || specificWarning?.has("incomplete") === true;
+    if (!timedOut && !complete && evaluation?.empty !== true && !explained) {
+      warnRosterOnce(
+        configPath,
+        "prewarm",
+        `[AgentManager] roster prewarm incomplete at ${configPath} (populated=${populated}); routing continues with whatever is available`,
+      );
+    }
+    return {
+      populated,
+      complete,
+      count,
+      elapsedMs: Math.round(performance.now() - startedAt),
+      configPath,
+      timedOut,
+    };
+  }
+
+  async prewarmRoster(boundMs = 2000): Promise<RosterPrewarmResult> {
+    const startedAt = performance.now();
+    const bound = Math.max(1, Math.floor(boundMs));
+    const generation = this._rosterGeneration;
+    const pending = this._opencodeWarmPromise;
+    if (!pending && this._opencodeAgentsCache && this._opencodeCommitGeneration >= generation) {
+      return this._rosterResult(startedAt, false);
+    }
+    const warm = pending ?? this._startOpencodeWarm();
+    let timedOut = false;
+    await Promise.race([
+      warm,
+      new Promise<void>((resolve) => {
+        const timer = setTimeout(() => {
+          timedOut = true;
+          resolve();
+        }, bound);
+        if (timer.unref) timer.unref();
+      }),
+    ]);
+    if (timedOut) {
+      const configPath = this._activeConfigPath();
+      warnRosterOnce(
+        configPath,
+        "slow",
+        `[AgentManager] roster prewarm exceeded the ${bound}ms bound at ${configPath}; the read continues in the background`,
+      );
+      void warm.then(() => {
+        const evaluation = this._lastRosterEvaluation;
+        logger.warn(
+          `[AgentManager] roster prewarm landed late after ${Math.round(performance.now() - startedAt)}ms at ` +
+            `${evaluation?.path ?? configPath} (populated=${(this._opencodeAgentsCache?.result.length ?? 0) > 0}, complete=${evaluation?.complete === true})`,
+        );
+      });
+    }
+    return this._rosterResult(startedAt, timedOut);
+  }
+
+  rosterReadCount(): number {
+    return this._rosterReadSequence;
+  }
+
+  getConfiguredAgentNames(): string[] {
+    return this.readOpencodeJsonAgents().map((tag) => normalizeName(tag));
+  }
+
+  getRosterModel(tag: string): string | undefined {
+    return this._opencodeAgentModels.get(normalizeName(tag));
+  }
+
+  getRosterTrustReport(): Array<{ path: string; complete: boolean; lastTrusted: number }> {
+    const active = this._activeConfigPath();
+    const entry = rosterTrustByPath.get(active);
+    if (!entry) return [];
+    return [{ path: active, complete: entry.completeKeys !== null, lastTrusted: entry.lastDeleted?.size ?? 0 }];
   }
 
   private async _refreshAgentMd(tag: string): Promise<void> {
@@ -181,23 +467,33 @@ export class AgentManager {
     if (cached) {
       return cached.result;
     }
-    try {
-      if (this.scope === "global") {
-        const rosterPath = resolveTawassulConfigPath(this.stateDir, "global");
-        if (!existsSync(rosterPath)) return [];
+    if (this.scope === "global") {
+      const rosterPath = resolveTawassulConfigPath(this.stateDir, "global");
+      if (!existsSync(rosterPath)) return this._opencodeAgentsLastGood ?? [];
+      try {
         const { roster } = readTawassulRoster(rosterPath);
         const result = Object.keys(roster.agents)
           .filter((name) => name !== "tawa" && name !== "addagent")
           .map((name) => `@${name}`);
         this._opencodeAgentsCache = { result, ts: now };
+        this._opencodeAgentsLastGood = result;
         setUserPreservedAgents(Object.keys(roster.agents));
+        clearRosterWarnings(rosterPath);
         return result;
+      } catch (e) {
+        warnRosterOnce(
+          rosterPath,
+          "unreadable",
+          `[AgentManager] malformed global roster at ${rosterPath}; keeping the last known list: ${e instanceof Error ? e.message : String(e)}`,
+        );
+        if (!this._opencodeAgentsCache) {
+          this._opencodeAgentsCache = { result: this._opencodeAgentsLastGood ?? [], ts: now };
+        }
+        return this._opencodeAgentsLastGood ?? [];
       }
-      this._kickOpencodeWarm();
-      return this._opencodeAgentsCache?.result ?? [];
-    } catch {
     }
-    return [];
+    this._kickOpencodeWarm();
+    return this._opencodeAgentsLastGood ?? [];
   }
 
   getMaxRecords(): number {
@@ -333,9 +629,10 @@ export class AgentManager {
     ) {
       return this._deletedRosterCache;
     }
-    const recordEmpty = (resetProcessSet: boolean): Set<string> => {
-      const empty = new Set<string>();
-      this._deletedRosterCache = empty;
+    const mayResetProcessSet = (): boolean =>
+      (rosterTrustByPath.get(srcPath)?.completeKeys ?? null) === null;
+    const record = (deleted: Set<string>, resetProcessSet: boolean): Set<string> => {
+      this._deletedRosterCache = deleted;
       this._deletedRosterCacheAt = now;
       this._deletedRosterCacheMtime = mtime;
       this._deletedRosterCachePath = srcPath;
@@ -344,42 +641,64 @@ export class AgentManager {
         setDynamicDeletedAgents([]);
         pruneUserPreservedAgents([]);
       }
-      return empty;
+      return deleted;
     };
     try {
       let deleted: Set<string>;
       if (this.scope === "global") {
-        if (!existsSync(srcPath)) return recordEmpty(true);
+        if (!existsSync(srcPath)) return record(new Set(), true);
         const raw = readTawassulRoster(srcPath).roster.deleted;
         deleted = new Set(raw.map((s) => normalizeName(String(s))));
       } else {
-        if (!existsSync(srcPath)) return recordEmpty(true);
+        if (!existsSync(srcPath)) return record(new Set(), mayResetProcessSet());
         const rawContent = readFileSync(srcPath, "utf-8");
         let parsed: Record<string, unknown>;
         try {
           parsed = readJsoncObject(rawContent);
         } catch {
-          return recordEmpty(false);
+          return record(new Set(), false);
         }
         const agent = parsed.agent;
-        if (agent === undefined || agent === null) return recordEmpty(true);
-        if (typeof agent !== "object" || Array.isArray(agent)) return recordEmpty(true);
+        if (agent === undefined || agent === null || typeof agent !== "object" || Array.isArray(agent)) {
+          return record(new Set(), mayResetProcessSet());
+        }
         const keys = Object.keys(agent as Record<string, unknown>);
-        if (keys.length === 0) return recordEmpty(true);
+        if (keys.length === 0) return record(new Set(), mayResetProcessSet());
+        const evaluation = this._evaluateRosterTrust(srcPath, keys);
+        if (!evaluation.complete) {
+          this._lastRosterEvaluation = {
+            complete: false,
+            empty: false,
+            truncated: evaluation.truncated,
+            path: srcPath,
+          };
+          if (evaluation.truncated) {
+            warnRosterOnce(
+              srcPath,
+              "truncated",
+              `[AgentManager] roster at ${srcPath} looks truncated (${keys.length} keys, ${evaluation.previousCount} previously); keeping the last trusted deletion set`,
+            );
+          } else {
+            warnRosterOnce(
+              srcPath,
+              "incomplete",
+              `[AgentManager] roster at ${srcPath} is incomplete (missing ${evaluation.missingBases.join(", ")}); keeping the last trusted deletion set`,
+            );
+          }
+          const lastTrusted = rosterTrustByPath.get(srcPath)?.lastDeleted ?? new Set<string>();
+          return record(lastTrusted, false);
+        }
         const present = new Set(keys.map((s) => normalizeName(String(s))));
-        const bases = ALL_AGENTS.filter((a) => a.name !== "tawa").map((a) => a.name);
         deleted = new Set(
-          generatedVariantNames(bases).filter((name) => !present.has(normalizeName(name))),
+          generatedVariantNames(BASE_ROLE_NAMES).filter((name) => !present.has(normalizeName(name))),
         );
+        const trust = rosterTrustByPath.get(srcPath);
+        if (trust) trust.lastDeleted = deleted;
+        this._lastRosterEvaluation = { complete: true, empty: false, truncated: false, path: srcPath };
       }
       setDynamicDeletedAgents([...deleted]);
       pruneUserPreservedAgents([...deleted]);
-      this._deletedRosterCache = deleted;
-      this._deletedRosterCacheAt = now;
-      this._deletedRosterCacheMtime = mtime;
-      this._deletedRosterCachePath = srcPath;
-      this._deletedRosterCacheSize = size;
-      return deleted;
+      return record(deleted, false);
     } catch {
       return new Set();
     }
@@ -419,7 +738,7 @@ export class AgentManager {
     return dir;
   }
 
-  clearReadCache(): void {
+  clearReadCache(options?: { configChanged?: boolean }): void {
     this._opencodeAgentsCache = null;
     this._agentMdCache.clear();
     this._deletedRosterCache = null;
@@ -427,6 +746,7 @@ export class AgentManager {
     this._deletedRosterCacheMtime = -1;
     this._deletedRosterCachePath = "";
     this._deletedRosterCacheSize = -1;
+    if (options?.configChanged !== false) this._rosterGeneration += 1;
     this._kickOpencodeWarm();
   }
 
@@ -463,7 +783,7 @@ export class AgentManager {
           logger.warn(`Failed to check/update agent md ${name}:`, e);
         }
       }
-      if (changed) this.clearReadCache();
+      if (changed) this.clearReadCache({ configChanged: false });
     } catch (e) {
       logger.warn("ensureDefaultAgentMds failed:", e);
     }
@@ -527,7 +847,7 @@ export class AgentManager {
 
       const md = generateAgentMd(synthTemplate, model);
       await this.atomicWriteFile(resolve(dir, `${finalName}.md`), md);
-      this.clearReadCache();
+      this.clearReadCache({ configChanged: false });
     } catch (e) {
       logger.warn(`writeAgentMd failed for ${tag}:`, e);
       throw e;

@@ -73,6 +73,10 @@ export function taskTextOf(args: Record<string, unknown> | undefined): string {
   return "";
 }
 
+export function fanoutGuardApplies(parentID: string | null | undefined): boolean {
+  return typeof parentID === "string" && parentID.length > 0;
+}
+
 interface EchoState {
   pending: Map<string, string>;
   toolMessages: Set<string>;

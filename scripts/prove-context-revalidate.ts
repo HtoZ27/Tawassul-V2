@@ -72,7 +72,7 @@ async function main(): Promise<void> {
   const handlers = new Map<string, (event: unknown) => unknown>();
 
   const ctx = {
-    app: { version: "2.2.2" },
+    app: { version: "2.3.0" },
     location: { directory: worktree },
     session: {
       create: async () => {

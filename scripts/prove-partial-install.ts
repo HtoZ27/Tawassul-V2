@@ -41,7 +41,7 @@ function isoEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
     XDG_DATA_HOME: DATA,
     XDG_STATE_HOME: join(HOME, ".local", "state"),
     XDG_CACHE_HOME: join(HOME, ".cache"),
-    TAWASSUL_OPENCODE_VERSION: "2.2.1",
+    TAWASSUL_OPENCODE_VERSION: "2.3.0",
     TAWASSUL_REGISTER_TRIGGERS: "off",
   };
   delete env.TAWASSUL_GLOBAL_DIR;

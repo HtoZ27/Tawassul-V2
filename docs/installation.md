@@ -13,7 +13,7 @@ Global scope is an explicit, reversible operation with its own verification pass
 
 | Requirement | Version | Notes |
 | --- | --- | --- |
-| OpenCode host | `>=2.2.1` | Audited at `2.2.1`; newer majors run untested and are probed at init |
+| OpenCode host | `>=2.3.0` | Floor and audited ceiling are both `2.3.0`; newer majors run untested and are probed at init |
 | Node.js | `26.13.0` | Pinned in `.nvmrc`; used for development and for the build |
 | Bun | `1.3.x` | Runs the build and the installer scripts |
 | Disk | under 10 MB | Bundle, wasm files, and the runtime directory |
@@ -50,7 +50,7 @@ the workspace:
 
 ```bash
 mkdir -p .opencode
-printf '{"type":"module","dependencies":{"@opencode/plugin":"^2.2.1"}}\n' > .opencode/package.json
+printf '{"type":"module","dependencies":{"@opencode/plugin":"^2.3.0"}}\n' > .opencode/package.json
 bun install --cwd .opencode
 ```
 

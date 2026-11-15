@@ -19,6 +19,7 @@ import { attachPackToHandoff } from "../services/context-pack/index.ts";
 import { resolveAgentModelRef } from "../services/model-refs.ts";
 import { clearOwner, clearRunFlags, continuityEnabled, stampOwner } from "../services/continuity/owner.ts";
 import { appendResumeRecord } from "../services/handoff-service.ts";
+import { cancelledResult } from "./cancel.ts";
 
 export const HANDOFF_CONTEXT_ENV = "TAWASSUL_HANDOFF_ACCUMULATED_CONTEXT";
 export const HANDOFF_BACKGROUND_MAX_BYTES = 4096;
@@ -298,6 +299,7 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
         .describe("Handoff ID to reopen"),
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
+      if (cctx.abort?.aborted) return cancelledResult();
       if (args.completeHandoff) {
         const id = args.completeHandoff as string;
         const h = ctx.handoffs.get(id);
@@ -839,6 +841,7 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
         }
       }
 
+      if (cctx.abort?.aborted) return cancelledResult();
       ctx.handoffs.set(entry.id, entry as HandoffEntry);
 
       try {

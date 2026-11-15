@@ -6,8 +6,14 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { TAWASSUL_TOOL_NAMES, STATELESS_TOOLS } from "../tool-names.ts";
 import { mark, measure, report, reset as perfReset, sample } from "../utils/perf.ts";
-import type { TawassulHooks as Hooks, PluginInput, Config, InitReadyProbe } from "../plugin-types.ts";
-import { INIT_READY } from "../plugin-types.ts";
+import type {
+  TawassulHooks as Hooks,
+  PluginInput,
+  Config,
+  InitReadyProbe,
+  RosterReadyProbe,
+} from "../plugin-types.ts";
+import { INIT_READY, ROSTER_READY } from "../plugin-types.ts";
 import type { ToolDefinition, ToolContext } from "../tool.ts";
 import { setLanguage, t } from "../translations.ts";
 import {
@@ -52,7 +58,7 @@ import {
 import { releaseFSLock } from "../infra/file-lock.ts";
 import { createHandoffEntry } from "../services/handoff-entry.ts";
 import { resolveAgentModelRef } from "../services/model-refs.ts";
-import { isInsideGlobalConfigDir } from "../utils/path-resolver.ts";
+import { isInsideGlobalConfigDir, resolveActiveConfigPath } from "../utils/path-resolver.ts";
 import { setContextHandoffConfig } from "../services/context-pack/index.ts";
 import { configureContinuity } from "../services/continuity/owner.ts";
 import { detectInterrupted, resetContinuity } from "../services/continuity/detect.ts";
@@ -404,6 +410,8 @@ const TRANSCRIPT_INJECT_TIMEOUT_MS = 10_000;
 let errorHandlerRefCount = 0;
 let uncaughtHandler: ((err: Error) => void) | undefined = undefined;
 let _homeProjectWarned = false;
+let _homeProjectCountPending = false;
+let _homeProjectCountDirectory = "";
 let unhandledRejectionHandler: ((reason: unknown) => void) | undefined = undefined;
 
 type ActivePluginDispose = (options?: { releaseClaim?: boolean }) => Promise<void>;
@@ -471,6 +479,10 @@ export function getInitReady(hooks: Hooks): InitReadyProbe | undefined {
   return hooks[INIT_READY];
 }
 
+export function getRosterReady(hooks: Hooks): RosterReadyProbe | undefined {
+  return hooks[ROSTER_READY];
+}
+
 export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof TawassulContext }) {
   const floorProblem = hostFloorProblem(ctx.hostVersion);
   if (floorProblem) {
@@ -494,9 +506,12 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
     const root = isFilesystemRoot(ctx.directory);
     if (root || isHomeProject(ctx.directory)) {
       _homeProjectWarned = true;
+      _homeProjectCountPending = true;
+      _homeProjectCountDirectory = ctx.directory;
       forceQuietMode(root ? "filesystem-root-as-project" : "home-as-project");
+      const workspaceConfig = resolveActiveConfigPath(ctx.directory, "project");
       logger.warn(
-        `[tawassul] ${root ? "filesystem-root" : "home"}-as-project detected: the project directory is ${ctx.directory} — quiet mode forced (${quietModeForceReason()}; warn-once; run continues, no refusal).`,
+        `[tawassul] ${root ? "filesystem-root" : "home"}-as-project detected: the project directory is ${ctx.directory} — quiet mode forced (${quietModeForceReason()}; warn-once; run continues, no refusal); workspace config ${workspaceConfig}.`,
       );
     }
   }
@@ -595,6 +610,25 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   if (tawaCtx.isConfigDisabled()) {
     logger.warn("Plugin disabled via config.disabled");
     return {};
+  }
+  if (_homeProjectCountPending && _homeProjectCountDirectory !== ctx.directory) {
+    _homeProjectCountPending = false;
+  }
+  if (_homeProjectCountPending) {
+    _homeProjectCountPending = false;
+    void tawaCtx.agentManager
+      .prewarmRoster(2000)
+      .then((roster) => {
+        const suffix = roster.timedOut ? ", boundary reached, the read continues" : "";
+        logger.warn(
+          `[tawassul] home-as-project roster: ${String(roster.count)} available agent(s) from ${roster.configPath ?? "no roster file"}${suffix}.`,
+        );
+      })
+      .catch((e: unknown) => {
+        logger.warn(
+          `[tawassul] home-as-project roster count unavailable: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
   }
   try {
     if (!stateDirWritable(dirname(tawaCtx.statePath()))) {
@@ -1115,6 +1149,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   return {
     tool: wrappedTools,
     [INIT_READY]: ensureReady,
+    [ROSTER_READY]: (boundMs?: number) => tawaCtx.agentManager.prewarmRoster(boundMs),
     config: gateHook((async (cfg) => {
       applyDynamicAgentModelFix(cfg);
       ensureTawaToolPermissions(cfg);

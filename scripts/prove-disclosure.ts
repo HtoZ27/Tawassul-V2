@@ -17,7 +17,7 @@ const SILENT_CATCH_INVENTORY: Record<string, number> = {
   "bootstrap/plugin-init.ts": 1,
   "bootstrap/service-factory.ts": 1,
   "context-class.ts": 1,
-  "context/managers/AgentManager.ts": 3,
+  "context/managers/AgentManager.ts": 1,
   "context/managers/StateManager.ts": 11,
   "context/model-utils.ts": 1,
   "context/session-manager.ts": 1,

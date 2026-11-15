@@ -53,3 +53,19 @@ behind is a leak, not a completed step.
 This tree is the only runnable Tawassul plugin. Do not run, build, or
 re-enable the retired v1 tree. Its state is reference-only and must never be
 copied into v2.
+
+## Rule 6 — long commands never block the session
+
+A foreground command that hangs cannot be stopped from inside the same turn,
+so the bound must be enforced by the tool, not by intention:
+
+- Run any gate, build, test suite, or proof sweep that can exceed 60 seconds
+  with `background: true`. The call returns immediately; inspect it later with
+  a short `status` or `tail` call.
+- Any foreground command gets an explicit `timeout` of at most 60 seconds.
+  Never rely on noticing a hang and cancelling it.
+- Prefer the sharded and background gate entries (`gate:proofs:1` …
+  `gate:proofs:4`, `gate:proofs:bg` with `:status`) over a full foreground run.
+  Do not use `:wait` for a long stage.
+- A single targeted proof file is the default verification unit. Full
+  verification runs only on explicit request.

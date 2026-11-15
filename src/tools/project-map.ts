@@ -5,6 +5,7 @@ import type { ToolDefinition, ToolContext } from "../tool.ts";
 import { tool } from "../tool.ts";
 import { resolveSafe } from "../utils/path.ts";
 import { t } from "../translations.ts";
+import { cancelledResult } from "./cancel.ts";
 
 const IGNORE_DIRS = new Set([
   "node_modules",
@@ -85,7 +86,9 @@ async function buildTree(
   depth: number,
   maxDepth: number,
   stamps?: TreeStamps,
+  signal?: AbortSignal,
 ): Promise<TreeNode | null> {
+  if (signal?.aborted) return null;
   if (depth > maxDepth) return null;
 
   const dirName = basename(dirPath);
@@ -130,7 +133,7 @@ async function buildTree(
   for (const entry of sorted) {
     const fullPath = resolve(dirPath, entry.name);
     if (entry.isDir) {
-      const child = await buildTree(fullPath, rootDir, depth + 1, maxDepth, stamps);
+      const child = await buildTree(fullPath, rootDir, depth + 1, maxDepth, stamps, signal);
       if (child) {
         children.push(child);
       }
@@ -237,6 +240,7 @@ export function buildProjectMapTool(ctx: TawassulContext): ToolDefinition {
       path: tool.schema.string().optional().describe("Starting path (optional, defaults to project root)"),
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
+      if (cctx.abort?.aborted) return cancelledResult();
       const { depth, path } = args as { depth?: number; path?: string };
       const maxDepth = Math.min(depth ?? 3, 5);
       let rootDir: string;
@@ -251,7 +255,8 @@ export function buildProjectMapTool(ctx: TawassulContext): ToolDefinition {
       }
 
       const stamps: TreeStamps = { files: [], dirs: [] };
-      const rootNode = await buildTree(rootDir, rootDir, 0, maxDepth, stamps);
+      const rootNode = await buildTree(rootDir, rootDir, 0, maxDepth, stamps, cctx.abort);
+      if (cctx.abort?.aborted) return cancelledResult();
       if (!rootNode) {
         return { output: t("projectMapNoTree") };
       }

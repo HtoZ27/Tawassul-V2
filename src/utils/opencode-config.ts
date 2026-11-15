@@ -535,7 +535,7 @@ export async function ensureMinimalProjectContract(
       rendered = buildExpectedConfig(docText, { projectRoot: projectDir, configPath });
     } catch (e) {
       logger.warn(
-        `[tawassul] boot: minimal-contract agent expansion failed — writing the minimal agent container ` +
+        `[tawassul] boot: minimal-contract agent expansion failed at ${configPath} — writing the minimal agent container ` +
           `(${e instanceof Error ? e.message : String(e)})`,
       );
     }

@@ -36,7 +36,7 @@ function stub(mode: Mode): string {
   writeFileSync(
     path,
     `#!/usr/bin/env bash
-if [ "$1" = "--version" ]; then printf '2.2.1\\n'; exit 0; fi
+if [ "$1" = "--version" ]; then printf '2.3.0\\n'; exit 0; fi
 if [ "$1" = "run" ]; then
   printf 'initPlugin=1\\n' >> "$TAWASSUL_LOG_FILE"
   printf '${bootMarker}\\n' >> "$TAWASSUL_LOG_FILE"

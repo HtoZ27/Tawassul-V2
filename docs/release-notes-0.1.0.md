@@ -117,7 +117,8 @@ point at a directory.
 
 | Area | Status |
 | --- | --- |
-| OpenCode `2.2.1` | Supported, audited (floor) |
+| OpenCode `2.3.0` | Supported, audited (built dependency) |
+| OpenCode `2.2.1` – `2.2.7` | Refused (floor raised to `2.3.0`; the 2.2.x line is out of scope) |
 | OpenCode `3.x` | Untested mode behind a capability probe |
 | Linux x64 | Ready, including maintenance and triggers |
 | Linux arm64, macOS | Experimental |
@@ -133,9 +134,9 @@ ACLs, Defender, long paths, and file locking.
 | Check | Result at this release |
 | --- | --- |
 | Fast gate | 16 steps |
-| Proofs | 180 steps, one child process each |
+| Proofs | 183 steps, one child process each |
 | Smoke | 6 steps, including the release artifacts, global boot, and independence boot |
-| Proof files | 183, all catalogued across the stages |
+| Proof files | 186, all catalogued across the stages |
 | Public docs | 45 files, 44 tools, 8 agents, 4 skills |
 | Native Windows | Native receipts for the bundle and wasm lane; database lane unavailable |
 

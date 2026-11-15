@@ -1,7 +1,8 @@
 # Tawassul V2 — Stability Triage
 
 Status: 2026-10-29 · `npm run verify` green · `npm run gate:proofs` 102
-proofs · **0 open register entries**
+proofs · **0 open register entries** · dependency position refreshed
+2026-11-13 (`@opencode/plugin` 2.3.0, 44 tools)
 
 Purpose: one prioritized view across every fix, filtered to the single question
 that matters for day-to-day use — **does this stop the plugin from working,
@@ -76,5 +77,5 @@ A closure is done only when all four hold:
 ## Current position
 
 All seven tiers are closed. The register has 0 open entries. The live host is
-on `@opencode/plugin` 2.2.1, the plugin boots 42 tools, and the remaining work
+on `@opencode/plugin` 2.3.0, the plugin boots 44 tools, and the remaining work
 is owner-gated workspace replacement and host-bound follow-ups, not code.

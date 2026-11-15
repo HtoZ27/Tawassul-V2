@@ -3043,11 +3043,14 @@ disposes it with the other registrations. `goal(host: true)` and
 form (`update`, `close`, `delete`, `evidence`) rejects the literal `host` and
 points at `/goal pause|resume|clear`.
 
-`experimental.idle` is deliberately not registered: the host `/goal` already
-owns continuation, and registering idle would give one session two drivers.
+`experimental.idle` is registered exactly once: it records the host background
+snapshot for `task-control`, notes idleness for continuity detection, and
+finalizes a dispatched task when its child session idles (`E-57`). It never
+prompts or continues a session, so the host `/goal` keeps sole ownership of
+continuation.
 `prove-host-goal` covers normalisation, TTL and cap, changed-event updates and
 clears, read errors, the tool surface and write guard, the RPC bridge, the
-missing-RPC path, the setup never registering idle, and the `goal.d.ts`
+missing-RPC path, the single idle registration, and the `goal.d.ts`
 contract (42 assertions).
 
 ### E-56 The v1 cold-boot gate is a recorded failure and v2 has no cold-boot runner — out of scope (owner decision 2026-10-30)
@@ -3070,6 +3073,73 @@ v2. The failure stays documented, v2 makes no N1-N5 claim, and the scorecard
 remains available for anyone who wants to score a window. `S-033.3` is `n-a`;
 the plugin-side port and the host-installer duty keep their own rows. Re-open
 only with a new owner decision and a fresh v2 cold-boot run that meets N1-N5.
+
+### E-57 A 2.3.0 subagent dispatches in the background, so the tool result is not the task's end — fixed (2026-11-13)
+
+OpenCode 2.3.0 makes subagents background by default (`#63382`): the `task`
+tool returns at dispatch with the child session ID in `metadata.sessionID`,
+and the child reports back whenever it becomes idle. The same release
+(`#63675`) keeps the child report "still running" while the child's own
+background work is alive, so an idle is not terminal in that case either.
+
+The plugin treated the dispatch result as the task's end: it overwrote the
+host `completed` status, credited a success, advanced the pipeline, logged a
+`TASK_COMPLETED` event, and nudged the analyst before the child had worked.
+`src/services/dispatch-ledger.ts` now records a dispatch keyed by the child
+session ID, and `src/hooks/tool-execute.ts` treats that result as a dispatch,
+not a completion. The terminal arrives from `experimental.idle` for the
+child; `session.execution.failed` and `session.execution.interrupted` take
+the failure path, and an interrupted dispatch emits nothing so the circuit
+breaker and self-heal do not fire on a user cancel. An idle whose own
+background snapshot still names the child is skipped, and the next idle
+finalizes. An idle that beats the ledger write is buffered for 60 s, and the
+ledger keeps at most 200 sessions.
+
+`prove-task-dispatch` (20 assertions) and `prove-task-finalize`
+(29 assertions) cover the predicate, the terminal, the deferral, the buffer,
+the failure paths, and the caps.
+
+### E-58 2.2.7 endpoints no longer wait for plugins to load — guarded (2026-11-13)
+
+OpenCode 2.2.7 removes the five-second plugin-load wait from `rpc.call` and
+`agent.list` (`#62796`). A call made during boot can now reach a host with no
+plugin registration. The host-goal mirror already tolerates a missing or
+failed RPC (`src/v2/host-goal.ts` catches the call and returns no goal) and
+refreshes on the broadcast `changed` event, so the mirror degrades to
+"unavailable" and recovers on the next event. No code change is needed.
+
+### E-59 `opencode run` waits for background jobs the prompt started — tracked (2026-11-13)
+
+OpenCode 2.2.6 makes `opencode run` wait, with no time limit, for the
+background shell commands, subagents, and image jobs that its prompt started
+(`#60699`). The release smoke runs a prompt that starts none, so the 60 s cap
+in `scripts/release-smoke.sh` still holds and `D15` stays open. If the smoke
+prompt ever dispatches a subagent, the wait becomes unbounded and the cap
+needs a real measurement first.
+
+### E-60 A host compaction buffer above 25 percent compacts before the plugin's transfer gate — tracked (2026-11-13)
+
+OpenCode 2.2.5 accepts a percentage `compaction.buffer` (`#60647`). The plugin
+keeps its own 25 percent / 16k-floor reserve and does not read the host
+buffer, so a host configured above 25 percent compacts earlier than the
+plugin's transfer gate expects. No host config channel exists yet, and the
+default matches, so this stays a tracked gap rather than a code change.
+
+### E-61 The model catalog capped host-declared windows and limits — fixed (2026-10-31)
+
+OpenCode 2.2.4 raised the OpenCode Go limits for DeepSeek V4.1 Flash
+(`#60625`) and let provider overrides set names, limits, and variants
+(`#60597`). The plugin's catalog had no V4.1 Flash entries, so both models were
+treated as unknown and capped at the 128k minimum; `resolveModelWindow` also
+returned `min(host limit, catalog limit)`, so an override that raised a known
+model above its public limit was ignored.
+
+The catalog now carries the measured windows (free 200k/32k output at zero
+cost, Go 1M/384k output), and the `min(host, catalog)` cap was removed by owner
+decision: a host declaration at or above the 2k sanity floor is taken verbatim,
+the catalog fills only an absent declaration, and the fallback is 200k.
+`docs/UPSTREAM-EVAL-2.2.3-2.2.5.md` records the measurements and the proof
+update.
 
 ### Corrections to existing entries
 

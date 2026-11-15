@@ -5,6 +5,7 @@ import { tool } from "../tool.ts";
 import { resolveSafe, toErrorMessage, escapeRegex } from "../utils/path.ts";
 import { t } from "../translations.ts";
 import { getAstService } from "../services/ast-service.ts";
+import { cancelledResult } from "./cancel.ts";
 
 async function recordIndexFile(ctx: TawassulContext, filePath: string): Promise<void> {
   await ctx.projectIndex?.recordFile(filePath);
@@ -103,6 +104,7 @@ export function buildAstQueryTool(ctx: TawassulContext): ToolDefinition {
         .describe("Symbol type"),
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
+      if (cctx.abort?.aborted) return cancelledResult();
       const { file, symbol, kind } = args as { file?: string; symbol?: string; kind?: string };
       if (!file) {
         return { output: t("astQueryNoFile") };
@@ -118,6 +120,7 @@ export function buildAstQueryTool(ctx: TawassulContext): ToolDefinition {
           if (!info) {
             return { output: t("readSymbolNotFound", { symbol, file }) };
           }
+          if (cctx.abort?.aborted) return cancelledResult();
           await recordIndexFile(ctx, safe.resolved);
           const output = [
             t("readSymbolLocation", { symbol: info.name, kind: info.kind, file, line: String(info.startLine + 1) }),
@@ -132,6 +135,7 @@ export function buildAstQueryTool(ctx: TawassulContext): ToolDefinition {
           const ext = idx >= 0 ? file.slice(idx) : "";
           return { output: t("astQueryNotSupported", { ext }) };
         }
+        if (cctx.abort?.aborted) return cancelledResult();
         await recordIndexFile(ctx, safe.resolved);
         let filteredSymbols = structure.symbols;
         if (kind) {
@@ -197,6 +201,7 @@ export function buildReadSymbolTool(ctx: TawassulContext): ToolDefinition {
         .describe("Use AST (supports .ts, .tsx, .js)"),
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
+      if (cctx.abort?.aborted) return cancelledResult();
       const { file, symbol, kind, ast } = args as { file: string; symbol: string; kind?: string; ast?: boolean };
       if (!file) {
         return { output: t("readSymbolNoFile") };
@@ -213,6 +218,7 @@ export function buildReadSymbolTool(ctx: TawassulContext): ToolDefinition {
           const astService = getAstService();
           const info = await astService.findSymbol(safe.resolved, symbol, kind);
           if (info) {
+            if (cctx.abort?.aborted) return cancelledResult();
             await recordIndexFile(ctx, safe.resolved);
             const output = [
               t("readSymbolLocation", { symbol: info.name, kind: info.kind, file, line: String(info.startLine + 1) }),
@@ -227,6 +233,7 @@ export function buildReadSymbolTool(ctx: TawassulContext): ToolDefinition {
         if (!result.found) {
           return { output: t("readSymbolNotFound", { symbol, file }) };
         }
+        if (cctx.abort?.aborted) return cancelledResult();
         await recordIndexFile(ctx, safe.resolved);
         const output = [
           t("readSymbolLocation", { symbol, kind: kind || "symbol", file, line: String(result.start + 1) }),

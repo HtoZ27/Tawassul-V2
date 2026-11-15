@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { PluginInput, TawassulHooks } from "../plugin-types.ts";
-import { getInitReady, initPlugin, readActiveConfig } from "../bootstrap/plugin-init.ts";
+import { getInitReady, getRosterReady, initPlugin, readActiveConfig } from "../bootstrap/plugin-init.ts";
 import { detectInstallScope } from "../core/install-scope.ts";
 import { ToolBlockedError } from "../hooks/tool-execute.ts";
 import { isBlockedToolForTawa } from "../security-policy.ts";
@@ -44,6 +44,7 @@ import {
   uninstallBackgroundControl,
   type BackgroundItem,
 } from "../services/background-tasks.ts";
+import { finalizeDispatchOnIdle, noteDispatchLifecycleEvent } from "../services/dispatch-ledger.ts";
 import type { V2Context, V2SessionEvent, V2ToolContext, V2ToolHookInput } from "./types.ts";
 import { noteIdle } from "../services/continuity/detect.ts";
 
@@ -54,9 +55,18 @@ export const SCHEMA_RETRY_DELAY_MS = 500;
 
 export function noteExperimentalIdle(snapshot: { sessionID?: unknown; background?: unknown }): void {
   if (typeof snapshot.sessionID !== "string") return;
-  if (!Array.isArray(snapshot.background)) return;
-  recordBackgroundSnapshot(snapshot.sessionID, snapshot.background as BackgroundItem[]);
+  if (Array.isArray(snapshot.background)) {
+    recordBackgroundSnapshot(snapshot.sessionID, snapshot.background as BackgroundItem[]);
+  }
   void noteIdle();
+  try {
+    finalizeDispatchOnIdle(
+      snapshot.sessionID,
+      Array.isArray(snapshot.background) ? snapshot.background : undefined,
+    );
+  } catch (e) {
+    logger.warn("[tawassul] dispatch finalize skipped:", e);
+  }
 }
 
 const HOST_MESSAGE_ROLES = ["system", "user", "assistant", "tool"] as const;
@@ -373,6 +383,7 @@ async function runCompactionBridge(plugin: TawassulHooks, event: V2SessionEvent)
 export type V2SetupDeps = {
   init?: (input: PluginInput) => TawassulHooks;
   refresh?: { attempts?: number; delayMs?: number; initialWaitMs?: number };
+  rosterWaitMs?: number;
 };
 
 const PROJECT_ENTRY_EXTENSIONS = [".js", ".ts", ".mjs", ".cjs"] as const;
@@ -501,6 +512,20 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
 
     const input = buildPluginInput(ctx);
     const plugin = (deps.init ?? initPlugin)(input);
+    const rosterProbe = getRosterReady(plugin);
+    if (rosterProbe) {
+      try {
+        const roster = await rosterProbe(deps.rosterWaitMs ?? 2000);
+        logger.info(
+          `[tawassul] v2 roster prewarm: populated=${roster.populated} complete=${roster.complete} ` +
+            `elapsed=${roster.elapsedMs}ms path=${roster.configPath ?? "unknown"}${roster.timedOut ? " bounded=true" : ""}`,
+        );
+      } catch (e) {
+        logger.warn(
+          `[tawassul] v2 roster prewarm failed (fail-open): ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
     const capability = (value: unknown): number => (typeof value === "function" ? 1 : 0);
     logger.info(
       `[tawassul] host capabilities: session=1 tool=1 transform=${capability(ctx.tool.transform)} reload=${capability(ctx.tool.reload)} hook=${capability(ctx.tool.hook)} compacting=${capability(plugin["experimental.session.compacting"])}`,
@@ -678,7 +703,11 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
           const completed = spec.status === "completed" ? spec.result : undefined;
           const originalText = resultText(completed);
           const originalMetadata = spec.status === "completed" ? completed?.metadata : spec.error?.metadata;
-          const syntheticStatus = !Object.prototype.hasOwnProperty.call(originalMetadata ?? {}, "status");
+          const hasStatus = Object.prototype.hasOwnProperty.call(originalMetadata ?? {}, "status");
+          const syntheticStatus = !hasStatus;
+          const rawChildSessionID = originalMetadata?.sessionID;
+          const childSessionID = typeof rawChildSessionID === "string" ? rawChildSessionID : undefined;
+          const preserveTaskStatus = v1Input.tool === "task" && (hasStatus || childSessionID !== undefined);
           const v1Output =
             spec.status === "error"
               ? {
@@ -693,7 +722,9 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
               : {
                   title: titleFromMetadata(originalMetadata),
                   output: originalText,
-                  metadata: { ...(originalMetadata ?? {}), status: "completed" } as Record<string, unknown>,
+                  metadata: preserveTaskStatus
+                    ? ({ ...(originalMetadata ?? {}) } as Record<string, unknown>)
+                    : ({ ...(originalMetadata ?? {}), status: "completed" } as Record<string, unknown>),
                 };
           return bridge(v1Input, v1Output)
             .then(() => {
@@ -782,6 +813,11 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
           const stream = ctx.event.subscribe();
           for await (const raw of stream) {
             if (disposed) return;
+            try {
+              noteDispatchLifecycleEvent(raw);
+            } catch (e) {
+              logger.debug("[tawassul] v2 dispatch lifecycle skipped:", e);
+            }
             try {
               await handlePackEvent(raw, input.directory, sessionBridge);
             } catch (e) {

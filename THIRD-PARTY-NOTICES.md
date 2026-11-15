@@ -8,16 +8,16 @@ inventory of the installed tree at the release lockfile: every package, its inst
 version, its licence, and whether it is a direct dependency. `NOTICE.md` lists the
 components that ship inside the bundle or as wasm grammars.
 
-Inventory: 281 packages, 10 licence expressions.
+Inventory: 280 packages, 10 licence expressions.
 
 ## Licence summary
 
 | Licence | Packages |
 | --- | --- |
-| `MIT` | 126 |
+| `MIT` | 125 |
 | `Apache-2.0` | 69 |
-| `ISC` | 65 |
-| `BlueOak-1.0.0` | 14 |
+| `ISC` | 64 |
+| `BlueOak-1.0.0` | 15 |
 | `BSD-2-Clause` | 2 |
 | `(AFL-2.1 OR BSD-3-Clause)` | 1 |
 | `0BSD` | 1 |
@@ -38,27 +38,27 @@ No copyleft licence (GPL, LGPL, AGPL, MPL, SSPL, CPAL, or EUPL) is present.
 | `@aws-crypto/supports-web-crypto` | 5.2.0 | `Apache-2.0` | development |
 | `@aws-crypto/util` | 5.2.0 | `Apache-2.0` | development |
 | `@aws-sdk/client-cognito-identity` | 3.1057.0 | `Apache-2.0` | development |
-| `@aws-sdk/core` | 3.978.7 | `Apache-2.0` | development |
-| `@aws-sdk/credential-provider-cognito-identity` | 3.972.77 | `Apache-2.0` | development |
-| `@aws-sdk/credential-provider-env` | 3.972.78 | `Apache-2.0` | development |
-| `@aws-sdk/credential-provider-http` | 3.972.80 | `Apache-2.0` | development |
-| `@aws-sdk/credential-provider-ini` | 3.973.23 | `Apache-2.0` | development |
-| `@aws-sdk/credential-provider-login` | 3.972.85 | `Apache-2.0` | development |
-| `@aws-sdk/credential-provider-node` | 3.972.90 | `Apache-2.0` | development |
-| `@aws-sdk/credential-provider-process` | 3.972.78 | `Apache-2.0` | development |
-| `@aws-sdk/credential-provider-sso` | 3.973.22 | `Apache-2.0` | development |
-| `@aws-sdk/credential-provider-web-identity` | 3.972.84 | `Apache-2.0` | development |
+| `@aws-sdk/core` | 3.981.0 | `Apache-2.0` | development |
+| `@aws-sdk/credential-provider-cognito-identity` | 3.972.83 | `Apache-2.0` | development |
+| `@aws-sdk/credential-provider-env` | 3.972.84 | `Apache-2.0` | development |
+| `@aws-sdk/credential-provider-http` | 3.972.86 | `Apache-2.0` | development |
+| `@aws-sdk/credential-provider-ini` | 3.973.30 | `Apache-2.0` | development |
+| `@aws-sdk/credential-provider-login` | 3.972.92 | `Apache-2.0` | development |
+| `@aws-sdk/credential-provider-node` | 3.972.97 | `Apache-2.0` | development |
+| `@aws-sdk/credential-provider-process` | 3.972.84 | `Apache-2.0` | development |
+| `@aws-sdk/credential-provider-sso` | 3.973.28 | `Apache-2.0` | development |
+| `@aws-sdk/credential-provider-web-identity` | 3.972.90 | `Apache-2.0` | development |
 | `@aws-sdk/credential-providers` | 3.1057.0 | `Apache-2.0` | development |
-| `@aws-sdk/nested-clients` | 3.997.52 | `Apache-2.0` | development |
-| `@aws-sdk/signature-v4-multi-region` | 3.996.50 | `Apache-2.0` | development |
-| `@aws-sdk/token-providers` | 3.1159.0 | `Apache-2.0` | development |
-| `@aws-sdk/types` | 3.975.0 | `Apache-2.0` | development |
+| `@aws-sdk/nested-clients` | 3.998.3 | `Apache-2.0` | development |
+| `@aws-sdk/signature-v4-multi-region` | 3.996.52 | `Apache-2.0` | development |
+| `@aws-sdk/token-providers` | 3.1166.0 | `Apache-2.0` | development |
+| `@aws-sdk/types` | 3.975.1 | `Apache-2.0` | development |
 | `@aws-sdk/util-locate-window` | 3.965.10 | `Apache-2.0` | development |
-| `@aws-sdk/xml-builder` | 3.972.42 | `Apache-2.0` | development |
+| `@aws-sdk/xml-builder` | 3.972.43 | `Apache-2.0` | development |
 | `@aws/lambda-invoke-store` | 0.3.0 | `Apache-2.0` | development |
-| `@effect/opentelemetry` | 4.0.1 | `MIT` | development |
-| `@effect/platform-node` | 4.0.1 | `MIT` | development |
-| `@effect/platform-node-shared` | 4.0.1 | `MIT` | development |
+| `@effect/opentelemetry` | 4.1.0 | `MIT` | development |
+| `@effect/platform-node` | 4.1.0 | `MIT` | development |
+| `@effect/platform-node-shared` | 4.1.0 | `MIT` | development |
 | `@gar/promise-retry` | 1.0.3 | `MIT` | development |
 | `@isaacs/cliui` | 8.0.2 | `ISC` | development |
 | `@isaacs/fs-minipass` | 4.0.1 | `ISC` | development |
@@ -78,12 +78,12 @@ No copyleft licence (GPL, LGPL, AGPL, MPL, SSPL, CPAL, or EUPL) is present.
 | `@npmcli/query` | 5.0.0 | `ISC` | development |
 | `@npmcli/redact` | 4.0.0 | `ISC` | development |
 | `@npmcli/run-script` | 10.0.4 | `ISC` | development |
-| `@opencode/ai` | 2.2.1 | `MIT` | development |
-| `@opencode/client` | 2.2.1 | `MIT` | development |
-| `@opencode/plugin` | 2.2.1 | `MIT` | direct |
-| `@opencode/protocol` | 2.2.1 | `MIT` | development |
-| `@opencode/schema` | 2.2.1 | `MIT` | development |
-| `@opencode/util` | 2.2.1 | `MIT` | development |
+| `@opencode/ai` | 2.3.0 | `MIT` | development |
+| `@opencode/client` | 2.3.0 | `MIT` | development |
+| `@opencode/plugin` | 2.3.0 | `MIT` | direct |
+| `@opencode/protocol` | 2.3.0 | `MIT` | development |
+| `@opencode/schema` | 2.3.0 | `MIT` | development |
+| `@opencode/util` | 2.3.0 | `MIT` | development |
 | `@opentelemetry/api` | 1.9.0 | `Apache-2.0` | development |
 | `@opentelemetry/api-logs` | 0.219.0 | `Apache-2.0` | development |
 | `@opentelemetry/context-async-hooks` | 2.8.0 | `Apache-2.0` | development |
@@ -96,27 +96,27 @@ No copyleft licence (GPL, LGPL, AGPL, MPL, SSPL, CPAL, or EUPL) is present.
 | `@opentelemetry/sdk-metrics` | 2.8.0 | `Apache-2.0` | development |
 | `@opentelemetry/sdk-trace-base` | 2.8.0 | `Apache-2.0` | development |
 | `@opentelemetry/sdk-trace-node` | 2.8.0 | `Apache-2.0` | development |
-| `@opentelemetry/semantic-conventions` | 1.44.0 | `Apache-2.0` | development |
+| `@opentelemetry/semantic-conventions` | 1.45.0 | `Apache-2.0` | development |
 | `@pkgjs/parseargs` | 0.11.0 | `MIT` | development |
-| `@redis/bloom` | 6.3.0 | `MIT` | development |
-| `@redis/client` | 6.3.0 | `MIT` | development |
-| `@redis/json` | 6.3.0 | `MIT` | development |
-| `@redis/search` | 6.3.0 | `MIT` | development |
-| `@redis/time-series` | 6.3.0 | `MIT` | development |
+| `@redis/bloom` | 6.3.1 | `MIT` | development |
+| `@redis/client` | 6.3.1 | `MIT` | development |
+| `@redis/json` | 6.3.1 | `MIT` | development |
+| `@redis/search` | 6.3.1 | `MIT` | development |
+| `@redis/time-series` | 6.3.1 | `MIT` | development |
 | `@sigstore/bundle` | 4.0.0 | `Apache-2.0` | development |
 | `@sigstore/core` | 3.2.1 | `Apache-2.0` | development |
 | `@sigstore/protobuf-specs` | 0.5.2 | `Apache-2.0` | development |
 | `@sigstore/sign` | 4.1.1 | `Apache-2.0` | development |
 | `@sigstore/tuf` | 4.0.2 | `Apache-2.0` | development |
 | `@sigstore/verify` | 3.1.1 | `Apache-2.0` | development |
-| `@smithy/core` | 3.37.0 | `Apache-2.0` | development |
+| `@smithy/core` | 3.40.0 | `Apache-2.0` | development |
 | `@smithy/credential-provider-imds` | 4.5.2 | `Apache-2.0` | development |
 | `@smithy/eventstream-codec` | 4.2.14 | `Apache-2.0` | development |
-| `@smithy/fetch-http-handler` | 5.8.0 | `Apache-2.0` | development |
+| `@smithy/fetch-http-handler` | 5.8.1 | `Apache-2.0` | development |
 | `@smithy/is-array-buffer` | 2.2.0 | `Apache-2.0` | development |
-| `@smithy/node-http-handler` | 4.13.0 | `Apache-2.0` | development |
-| `@smithy/signature-v4` | 5.7.4 | `Apache-2.0` | development |
-| `@smithy/types` | 4.19.0 | `Apache-2.0` | development |
+| `@smithy/node-http-handler` | 4.14.2 | `Apache-2.0` | development |
+| `@smithy/signature-v4` | 5.7.5 | `Apache-2.0` | development |
+| `@smithy/types` | 4.20.0 | `Apache-2.0` | development |
 | `@smithy/util-buffer-from` | 2.2.0 | `Apache-2.0` | development |
 | `@smithy/util-buffer-from` | 2.2.0 | `Apache-2.0` | development |
 | `@smithy/util-buffer-from` | 4.5.2 | `Apache-2.0` | development |
@@ -134,7 +134,7 @@ No copyleft licence (GPL, LGPL, AGPL, MPL, SSPL, CPAL, or EUPL) is present.
 | `ansi-regex` | 5.0.1 | `MIT` | development |
 | `ansi-regex` | 5.0.1 | `MIT` | development |
 | `ansi-regex` | 5.0.1 | `MIT` | development |
-| `ansi-regex` | 6.4.0 | `MIT` | development |
+| `ansi-regex` | 6.6.0 | `MIT` | development |
 | `ansi-styles` | 4.3.0 | `MIT` | development |
 | `ansi-styles` | 6.2.3 | `MIT` | development |
 | `aws4fetch` | 1.0.20 | `MIT` | development |
@@ -144,13 +144,13 @@ No copyleft licence (GPL, LGPL, AGPL, MPL, SSPL, CPAL, or EUPL) is present.
 | `bignumber.js` | 9.3.1 | `MIT` | development |
 | `bin-links` | 6.0.3 | `ISC` | development |
 | `bowser` | 2.15.0 | `MIT` | development |
-| `brace-expansion` | 2.1.7 | `MIT` | development |
-| `brace-expansion` | 5.0.12 | `MIT` | development |
+| `brace-expansion` | 2.1.8 | `MIT` | development |
+| `brace-expansion` | 5.0.13 | `MIT` | development |
 | `buffer-equal-constant-time` | 1.0.1 | `BSD-3-Clause` | development |
 | `bundle-name` | 4.1.1 | `MIT` | development |
 | `cacache` | 20.0.4 | `ISC` | development |
 | `chownr` | 3.0.0 | `BlueOak-1.0.0` | development |
-| `ci-info` | 4.4.0 | `MIT` | development |
+| `ci-info` | 4.5.0 | `MIT` | development |
 | `cmd-shim` | 8.0.0 | `ISC` | development |
 | `color-convert` | 2.0.1 | `MIT` | development |
 | `color-name` | 1.1.4 | `MIT` | development |
@@ -158,7 +158,6 @@ No copyleft licence (GPL, LGPL, AGPL, MPL, SSPL, CPAL, or EUPL) is present.
 | `confbox` | 0.1.8 | `MIT` | direct |
 | `content-type` | 2.1.0 | `MIT` | development |
 | `cross-spawn` | 7.0.6 | `MIT` | development |
-| `cssesc` | 3.0.0 | `MIT` | development |
 | `data-uri-to-buffer` | 4.0.1 | `MIT` | development |
 | `debug` | 4.4.3 | `MIT` | development |
 | `default-browser` | 5.5.1 | `MIT` | development |
@@ -166,7 +165,7 @@ No copyleft licence (GPL, LGPL, AGPL, MPL, SSPL, CPAL, or EUPL) is present.
 | `define-lazy-prop` | 3.0.0 | `MIT` | development |
 | `eastasianwidth` | 0.2.0 | `MIT` | development |
 | `ecdsa-sig-formatter` | 1.0.11 | `Apache-2.0` | development |
-| `effect` | 4.0.1 | `MIT` | development |
+| `effect` | 4.1.0 | `MIT` | development |
 | `emoji-regex` | 8.0.0 | `MIT` | development |
 | `emoji-regex` | 8.0.0 | `MIT` | development |
 | `emoji-regex` | 9.2.2 | `MIT` | development |
@@ -186,7 +185,7 @@ No copyleft licence (GPL, LGPL, AGPL, MPL, SSPL, CPAL, or EUPL) is present.
 | `google-auth-library` | 10.5.0 | `Apache-2.0` | development |
 | `google-logging-utils` | 1.1.3 | `Apache-2.0` | development |
 | `google-logging-utils` | 1.2.0 | `Apache-2.0` | development |
-| `graceful-fs` | 4.2.11 | `ISC` | development |
+| `graceful-fs` | 4.2.12 | `BlueOak-1.0.0` | development |
 | `gtoken` | 8.0.0 | `MIT` | development |
 | `hosted-git-info` | 9.0.3 | `ISC` | development |
 | `http-cache-semantics` | 4.3.0 | `BSD-2-Clause` | development |
@@ -195,7 +194,7 @@ No copyleft licence (GPL, LGPL, AGPL, MPL, SSPL, CPAL, or EUPL) is present.
 | `iconv-lite` | 0.7.3 | `MIT` | development |
 | `ignore-walk` | 8.0.0 | `ISC` | development |
 | `ini` | 6.0.0 | `ISC` | development |
-| `ip-address` | 10.7.5 | `MIT` | development |
+| `ip-address` | 10.7.6 | `MIT` | development |
 | `is-docker` | 3.0.0 | `MIT` | development |
 | `is-fullwidth-code-point` | 3.0.0 | `MIT` | development |
 | `is-in-ssh` | 1.0.0 | `MIT` | development |
@@ -253,19 +252,19 @@ No copyleft licence (GPL, LGPL, AGPL, MPL, SSPL, CPAL, or EUPL) is present.
 | `path-scurry` | 1.11.1 | `BlueOak-1.0.0` | development |
 | `path-scurry` | 2.0.2 | `BlueOak-1.0.0` | development |
 | `picomatch` | 4.0.7 | `MIT` | development |
-| `postcss-selector-parser` | 7.1.7 | `MIT` | development |
+| `postcss-selector-parser` | 7.2.1 | `MIT` | development |
 | `powershell-utils` | 0.2.1 | `MIT` | development |
 | `proc-log` | 6.1.0 | `ISC` | development |
 | `proggy` | 4.0.0 | `ISC` | development |
 | `promise-all-reject-late` | 1.0.1 | `ISC` | development |
 | `promise-call-limit` | 3.0.2 | `ISC` | development |
 | `read-cmd-shim` | 6.0.0 | `ISC` | development |
-| `redis` | 6.3.0 | `MIT` | development |
+| `redis` | 6.3.1 | `MIT` | development |
 | `rimraf` | 5.0.10 | `ISC` | development |
 | `run-applescript` | 7.1.0 | `MIT` | development |
 | `safe-buffer` | 5.2.1 | `MIT` | development |
 | `safer-buffer` | 2.1.2 | `MIT` | development |
-| `semver` | 7.8.5 | `ISC` | development |
+| `semver` | 7.8.6 | `ISC` | development |
 | `shebang-command` | 2.0.0 | `MIT` | development |
 | `shebang-regex` | 3.0.0 | `MIT` | development |
 | `signal-exit` | 4.1.0 | `ISC` | development |
@@ -284,17 +283,17 @@ No copyleft licence (GPL, LGPL, AGPL, MPL, SSPL, CPAL, or EUPL) is present.
 | `strip-ansi` | 6.0.1 | `MIT` | development |
 | `strip-ansi` | 7.2.0 | `MIT` | development |
 | `strip-ansi-cjs` | 6.0.1 | `MIT` | development |
-| `tar` | 7.5.22 | `BlueOak-1.0.0` | development |
+| `tar` | 7.5.23 | `BlueOak-1.0.0` | development |
 | `tinyglobby` | 0.2.17 | `MIT` | development |
 | `tree-sitter-javascript` | 0.23.1 | `MIT` | direct |
 | `tree-sitter-javascript` | 0.25.0 | `MIT` | direct |
 | `tree-sitter-typescript` | 0.23.2 | `MIT` | direct |
 | `treeverse` | 3.0.0 | `ISC` | development |
-| `tslib` | 2.8.1 | `0BSD` | development |
+| `tslib` | 2.9.1 | `0BSD` | development |
 | `tuf-js` | 4.1.0 | `MIT` | development |
 | `typescript` | 5.9.3 | `Apache-2.0` | direct |
 | `undici` | 6.29.1 | `MIT` | development |
-| `undici` | 8.12.3 | `MIT` | development |
+| `undici` | 8.12.4 | `MIT` | development |
 | `undici-types` | 7.18.2 | `MIT` | development |
 | `util-deprecate` | 1.0.2 | `MIT` | development |
 | `validate-npm-package-name` | 7.0.2 | `ISC` | development |
@@ -306,7 +305,7 @@ No copyleft licence (GPL, LGPL, AGPL, MPL, SSPL, CPAL, or EUPL) is present.
 | `wrap-ansi` | 8.1.0 | `MIT` | development |
 | `wrap-ansi-cjs` | 7.0.0 | `MIT` | development |
 | `write-file-atomic` | 7.0.1 | `ISC` | development |
-| `ws` | 8.22.0 | `MIT` | development |
+| `ws` | 8.23.0 | `MIT` | development |
 | `wsl-utils` | 1.0.1 | `MIT` | development |
 | `yallist` | 4.0.0 | `ISC` | development |
 | `yallist` | 4.0.0 | `ISC` | development |

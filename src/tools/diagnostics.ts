@@ -5,6 +5,36 @@ import { tool } from "../tool.ts";
 import { t } from "../translations.ts";
 import { severityEmoji, timeAgo } from "../utils/format.ts";
 import { normalizeName } from "../utils/name-utils.ts";
+import { modelAvailability } from "../core/model-registry.ts";
+import { splitAgentRows } from "../utils/agent-rows.ts";
+
+function lookupAgentModels(
+  agentModels: Record<string, AgentModelConfig> | undefined,
+  agent: string,
+): AgentModelConfig | undefined {
+  if (!agentModels) return undefined;
+  const key = normalizeName(agent);
+  return (
+    agentModels[key] ??
+    agentModels[`@${key}`] ??
+    agentModels[agent] ??
+    Object.entries(agentModels).find(([name]) => normalizeName(name) === key)?.[1]
+  );
+}
+
+function configuredModels(
+  ctx: TawassulContext,
+  agent: string,
+): { models: string[]; source: string } | null {
+  const rosterModel = ctx.agentManager.getRosterModel(agent);
+  if (rosterModel) return { models: [rosterModel], source: "opencode.json" };
+  const cfg = lookupAgentModels(ctx.config.agentModels, agent);
+  const models = (cfg?.models ?? [])
+    .map((entry) => entry.model)
+    .filter((model): model is string => typeof model === "string" && model.length > 0);
+  if (models.length > 0) return { models, source: "tawassul.json" };
+  return null;
+}
 
 
 
@@ -244,38 +274,52 @@ export function buildCheckTool(ctx: TawassulContext): ToolDefinition {
     async execute() {
       const lines: string[] = [`🧪 **Tawassul Team Diagnosis**`, `━━━━━━━━━━━━━━━━━━━━━`];
       let hasIssues = false;
-      for (const agent of ctx.getAgents()) {
-        const cfg = ctx.config.agentModels?.[agent];
+      const agents = ctx.getAgents();
+      const configKeys = ctx.agentManager.getConfiguredAgentNames();
+      const { mentionable, dynamicOnly } = splitAgentRows(agents, ctx.dynamicAgents, configKeys);
+      for (const agent of mentionable) {
+        const cfg = lookupAgentModels(ctx.config.agentModels, agent);
         const info = ctx.readAgentMd(agent);
         const capability = cfg?.capability || info?.capability;
-        const models = cfg?.models;
+        const configured = configuredModels(ctx, agent);
         const rating = ctx.agentRatings[normalizeName(agent)];
         const errors = ctx.agentErrors[normalizeName(agent)] ?? 0;
         const currentModel = ctx.agentModelMap[normalizeName(agent)] || null;
 
-        let status: string;
+        let status = "ℹ️";
         const parts: string[] = [];
         if (capability) parts.push(`🎯 ${capability}`);
-        if (models?.length) {
-          const primary = models[0]!.model || "any";
-          if (currentModel) {
-            const matches = models.some((m: { model?: string }) => m.model === currentModel);
-            if (matches) {
-              status = "✅";
-              parts.push(`model: ${currentModel} ✓`);
-            } else {
-              status = "⚠️";
-              parts.push(`expected: ${primary || "any"}, got: ${currentModel}`);
-              hasIssues = true;
-            }
+        if (configured) {
+          const primary = configured.models[0]!;
+          const availability = modelAvailability(primary);
+          if (currentModel && configured.models.includes(currentModel)) {
+            status = "✅";
+            parts.push(t("checkModelConfigured", { model: currentModel, source: configured.source }));
+          } else if (currentModel) {
+            status = "⚠️";
+            parts.push(t("checkModelMismatch", { expected: primary, got: currentModel }));
+            hasIssues = true;
+          } else if (availability === "absent") {
+            status = "⚠️";
+            parts.push(t("checkModelUnavailable", { model: primary, source: configured.source }));
+            hasIssues = true;
           } else {
-            status = "ℹ️";
-            parts.push(`recommended: ${primary}`);
+            parts.push(t("checkModelConfigured", { model: primary, source: configured.source }));
           }
-          if (models[0]!.options) parts.push(`options: ${JSON.stringify(models[0]!.options)}`);
+          const options =
+            cfg?.models?.find((entry) => entry.model === primary)?.options ?? cfg?.models?.[0]?.options;
+          if (options) parts.push(`options: ${JSON.stringify(options)}`);
+        } else if (currentModel) {
+          const availability = modelAvailability(currentModel);
+          if (availability === "absent") {
+            status = "⚠️";
+            parts.push(t("checkModelLastUsedStale", { model: currentModel }));
+            hasIssues = true;
+          } else {
+            parts.push(t("checkModelLastUsed", { model: currentModel }));
+          }
         } else {
-          status = "ℹ️";
-          parts.push(currentModel ? `running: ${currentModel} (default)` : "no model config");
+          parts.push(t("checkModelNotObserved"));
         }
         if (errors > 0) {
           parts.push(`🔴 ${errors} error${errors > 1 ? "s" : ""}`);
@@ -292,19 +336,37 @@ export function buildCheckTool(ctx: TawassulContext): ToolDefinition {
         lines.push(line);
       }
 
+      if (dynamicOnly.length > 0) {
+        lines.push(``, `**${t("checkDynamicSection")}**`);
+        for (const agent of dynamicOnly) {
+          const errors = ctx.agentErrors[normalizeName(agent)] ?? 0;
+          const suffix = errors > 0 ? ` — 🔴 ${errors}` : "";
+          lines.push(`- **${agent}** — ${t("checkDynamicRow")}${suffix}`);
+        }
+      }
+
       if (hasIssues) {
         lines.push(``, t("checkRecommendations"));
-        for (const agent of ctx.getAgents()) {
-          const cfg: AgentModelConfig | undefined = ctx.config.agentModels?.[agent];
-          if (!cfg?.models?.length) {
-            lines.push(`  - ${agent}: ${t("checkNoModel", { agent })}`);
+        for (const agent of mentionable) {
+          if (!configuredModels(ctx, agent) && !ctx.agentModelMap[normalizeName(agent)]) {
+            lines.push(`  - ${t("checkNoModel", { agent })}`);
           }
           if ((ctx.agentErrors[normalizeName(agent)] ?? 0) >= 3) {
             lines.push(
-              `  - ${agent}: ${t("checkHighErrors", { agent, count: String(ctx.agentErrors[normalizeName(agent)]) })}`,
+              `  - ${t("checkHighErrors", { agent, count: String(ctx.agentErrors[normalizeName(agent)]) })}`,
             );
           }
         }
+      }
+
+      const known = new Set([...mentionable, ...dynamicOnly].map((name) => normalizeName(name)));
+      const staleModels = Object.keys(ctx.agentModelMap).filter((key) => !known.has(normalizeName(key))).length;
+      if (staleModels > 0) lines.push(`  - ${t("checkStaleModels", { count: String(staleModels) })}`);
+      const trusted = ctx.agentManager.getRosterTrustReport().filter((entry) => entry.complete);
+      if (trusted.length > 0) {
+        const configPath = trusted[0]!.path;
+        lines.push(`  - ${t("checkTrustGuard", { count: String(trusted.length), path: configPath })}`);
+        lines.push(`  - ${t("checkRestartResidual", { path: configPath })}`);
       }
       return { output: lines.join("\n") };
     },

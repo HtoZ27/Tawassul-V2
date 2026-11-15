@@ -1061,6 +1061,27 @@
       ]
     },
     {
+      "name": "task-dispatch",
+      "cmd": [
+        "bun",
+        "scripts/prove-task-dispatch.ts"
+      ]
+    },
+    {
+      "name": "task-finalize",
+      "cmd": [
+        "bun",
+        "scripts/prove-task-finalize.ts"
+      ]
+    },
+    {
+      "name": "tool-cancel",
+      "cmd": [
+        "bun",
+        "scripts/prove-tool-cancel.ts"
+      ]
+    },
+    {
       "name": "tool-name-hash",
       "cmd": [
         "bun",

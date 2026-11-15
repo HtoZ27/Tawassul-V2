@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "totalEstimateMs": 396341,
+  "totalEstimateMs": 406141,
   "shards": [
     {
       "name": "1",
-      "estimateMs": 97869,
+      "estimateMs": 105869,
       "steps": [
         "gen-lock",
         "web-ssrf",
@@ -46,12 +46,14 @@
         "project-index-byproduct",
         "read-cache-hit",
         "read-cache-stamp-miss",
-        "handoff-context-shape"
+        "handoff-context-shape",
+        "task-dispatch",
+        "task-finalize"
       ]
     },
     {
       "name": "2",
-      "estimateMs": 98533,
+      "estimateMs": 100333,
       "steps": [
         "gen-guard-wal",
         "first-boot",
@@ -97,7 +99,8 @@
         "run-interrupt",
         "project-index-incremental",
         "read-cache-unrelated-edit",
-        "context-pressure"
+        "context-pressure",
+        "tool-cancel"
       ]
     },
     {

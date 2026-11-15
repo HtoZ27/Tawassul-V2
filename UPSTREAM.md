@@ -1,6 +1,6 @@
 # Upstream Watch — OpenCode Compatibility
 
-Status: 2026-10-29 · audited through v2.2.1 · built host contract 2.2.1
+Status: 2026-11-13 · audited through v2.3.0 · built host contract 2.3.0
 
 Purpose: one standing section that answers, for every OpenCode release, four
 questions — what changed, does it touch Tawassul, what did we do about it, and
@@ -55,20 +55,23 @@ needs the network; the offline gate is.
 Frequent OpenCode releases must not block end users. The plugin entry has no
 host-version gate: any host that loads it runs it, and an unknown host keeps
 the legacy rate-limit path (`E-44`). The launcher, the global installer,
-`doctor-v2.sh`, and the release smoke enforce a **supported range** instead of
+`doctor-v2.sh`, and the release smoke enforce the shared **floor** instead of
 an exact pin:
 
-- accepted: `>= 2.2.0 < 3.0.0`;
-- a newer 2.x host runs with a warning and the audited ceiling stays visible;
-- a host below `2.2.0` is refused (v1/legacy contract);
-- a `3.x` host is refused until a major release is audited, because it can
-  change the plugin API and the database contract;
+- accepted: any host at or above `2.3.0`; the code has no upper gate;
+- a host newer than the audited `2.3.0` runs with a warning and the audited
+  ceiling stays visible;
+- a host of a newer major runs in untested mode with a warning, because a
+  major release can change the plugin API and the database contract; the
+  entry still loads it;
+- a host below `2.3.0` is refused (owner decision, 2026-11-15: the 2.2.x line
+  is out of scope, so the floor and the audited ceiling are both `2.3.0`);
 - `TAWASSUL_OPENCODE_VERSION` is an optional exact pin for reproducible runs
-  and wins over the range.
+  and wins over the floor.
 
 `auditedThrough` is the newest *assessed* release, not the installed one, so a
 patch release on a user machine never turns into a hard failure. The build
-dependency uses a caret range (`^2.2.1`), never an exact pin; the lockfile
+dependency uses a caret range (`^2.3.0`), never an exact pin; the lockfile
 supplies reproducibility and `check-sdk-pins` keeps the range, the lock, the
 installed package, and the audited ceiling in agreement.
 
@@ -94,6 +97,13 @@ still running), or `blocked` (a host defect prevents the work).
 
 | Release | Date | Audited | Host contract | Status | Summary |
 | --- | --- | --- | --- | --- | --- |
+| v2.3.0 | 2026-11-13 | 2026-11-13 | 2.3.0 | partial | 23 recorded changes: two adoptions (background subagents and the still-running idle, `E-57`), two aligned, nineteen ignored |
+| v2.2.7 | 2026-11-10 | 2026-11-13 | 2.2.1 | partial | 16 recorded changes: one guard (`E-58`, endpoints skip the plugin wait), one aligned, fourteen ignored |
+| v2.2.6 | 2026-11-06 | 2026-11-13 | 2.2.1 | partial | 15 recorded changes: one tracked (`E-59`, `opencode run` waits for background jobs), one candidate, two aligned, eleven ignored |
+| v2.2.5 | 2026-10-30 | 2026-10-31 | 2.2.1 | partial | 6 recorded changes: one tracked (`E-60`, percentage compaction buffer), one aligned, four ignored |
+| v2.2.4 | 2026-10-30 | 2026-10-31 | 2.2.1 | partial | 5 recorded changes: two adoptions (DeepSeek windows, provider limit overrides), one candidate, two ignored |
+| v2.2.3 | 2026-10-30 | 2026-10-31 | 2.2.1 | partial | 6 recorded changes: one aligned, one candidate, four ignored |
+| v2.2.2 | 2026-10-29 | 2026-11-13 | 2.2.1 | partial | 6 recorded changes: one aligned, five ignored |
 | v2.2.1 | 2026-10-29 | 2026-10-29 | 2.2.1 | partial | 24 tracked changes: two follow-ups (`E-44`, `E-55`), seven candidates, six aligned, nine ignored |
 | v2.2.0 | 2026-10-27 | 2026-10-27 | 2.2.0 | partial | 30 tracked changes: one guard (`E-43`, fixed), one adoption (`E-42`, fixed), one follow-up (`E-44`), thirteen aligned (`E-45`, `E-46`), eight candidates, six ignored |
 
@@ -169,7 +179,7 @@ handoff plan cannot use them.
 | PR | Change | Verdict | Issue | Action |
 | --- | --- | --- | --- | --- |
 | #59649 | Throttling retries instead of a false context overflow | tracked | `E-44` | Host 2.2.1 keeps the defer path; `prove-e44` runs the 2.2.0/2.2.1 boundary |
-| #59437 | `/goal` plus the `experimental.idle` session hook | tracked | `E-55` | The host `/goal` is mirrored read-only by `goal(host: true)` and `goal(board)`; `experimental.idle` is not registered, so the host keeps sole ownership of continuation |
+| #59437 | `/goal` plus the `experimental.idle` session hook | tracked | `E-55` | The host `/goal` is mirrored read-only by `goal(host: true)` and `goal(board)`; `experimental.idle` is registered once to snapshot background work, note idle for continuity detection, and finalize a dispatched task when its child idles (`E-57`), so the host keeps sole ownership of continuation |
 
 ### Candidates
 
@@ -208,14 +218,77 @@ handoff plan cannot use them.
 | #59987 | Compaction through the Promise AI client | Requires `@opencode/ai`, which is not imported |
 | #59948 | Code Mode extension globals | The plugin declares none |
 
+## v2.2.2 – v2.3.0 — what changed for us
+
+Audited 2026-11-13 against the GitHub release feed. The per-pull-request
+records are in `src/upstream/registry.json`; this section keeps the changes
+that constrain the plugin. The 2.2.3–2.2.5 surface, the isolated 2.2.5 smoke,
+and the two accounting follow-ups are in
+`docs/UPSTREAM-EVAL-2.2.3-2.2.5.md`.
+
+The build dependency moves from 2.2.1 to 2.3.0. The Promise type surface
+between the two versions is additive: an `artifact` domain,
+`integration.submit`, `SessionRequestMessage`, `SessionModelResolve`,
+`session.fork`, and `ToolContext.signal` in place of `cancel`. `signal` is
+what `src/v2/adapters.ts` already forwards as `abort`, so no import breaks
+and `npm run typecheck` passes on 2.3.0.
+
+### v2.3.0
+
+| PR | Change | Verdict | Issue | Action |
+| --- | --- | --- | --- | --- |
+| #63382 | Subagents always run in the background and return their session ID immediately | adopted | `E-57` | The dispatch ledger records the child; the terminal arrives at its final idle |
+| #63675 | A child idle whose own background work is running is not terminal | adopted | `E-57` | The ledger skips that idle and finalizes on the next one |
+| #63698 | The effect entry point exports `Tool` for `execute.before` rejections | aligned | | The plugin rejects through its own result shape |
+| #59816 | An exhausted request rate limit is no longer treated as terminal on retry | aligned | | The plugin already treats a daily limit as terminal and defers only transient throttles (`E-44`) |
+
+The remaining 2.3.0 items are host-side or behind flags: MCP events
+(`mcp_events`), a timed-out shell moved to the background
+(`shell_timeout_background`), Code Mode result shapes, transcript verbosity,
+the Desktop command palette, fork notices, provider mTLS, and local model
+discovery. Every Tawassul tool opts out of Code Mode, and the plugin runs no
+MCP server.
+
+### v2.2.6 and v2.2.7
+
+| PR | Change | Verdict | Issue | Action |
+| --- | --- | --- | --- | --- |
+| #60699 | `opencode run` waits for the background jobs its prompt started, with no time limit | tracked | `E-59` | The smoke prompt starts none; the 60 s cap is unmeasured if that changes |
+| #61911 | SIGTERM cancels the session and its background jobs, exit 143 | aligned | | The smoke reads the process exit |
+| #60698 | `client.experimental.job.list` | candidate | | The idle hook already delivers the snapshot |
+| #62796 | `rpc.call` and `agent.list` no longer wait for plugins to load | guarded | `E-58` | The host-goal mirror tolerates a missing RPC and refreshes on `changed` |
+| #62141 | Shell results end with an exit-code line | aligned | | The bash output handling tolerates appended lines |
+| #63011 | `@opencode/ai` removes `ImageResponse.image` | ignored | | The plugin imports no `@opencode/ai` symbol |
+
+### v2.2.2 – v2.2.5
+
+| PR | Change | Verdict | Issue | Action |
+| --- | --- | --- | --- | --- |
+| #60647 | Percentage `compaction.buffer` | tracked | `E-60` | The plugin keeps its own reserve; there is no host config channel |
+| #60625 | DeepSeek limits | adopted | | The catalog carries the DeepSeek V4.1 Flash windows |
+| #60597 | Provider limit overrides | adopted | | Overrides are trusted at or above the sanity floor |
+| #60258 | Host image generation on by default | aligned | | The plugin's imagegen transport is separate |
+| #60097 | Plugin model variants | candidate | | A dispatch carries provider and model only |
+
 ## Open follow-ups
+
+### From v2.3.0
+
+1. `E-57`: confirm on the live 2.3.0 host that a dispatched subagent emits one
+   terminal at its final idle, none at dispatch, and none on a user cancel.
+2. `E-59` / `D15`: measure `opencode run` with a prompt that starts a
+   background task before changing the 60 s smoke cap.
+3. `E-58`: confirm the host-goal mirror recovers from a boot-time `changed`
+   event when the initial RPC missed the plugin load.
 
 ### From v2.2.1
 
-1. `E-44`: confirm on the live 2.2.1 host that throttling is retried by the
+1. `E-44`: confirm on the live 2.3.0 host that throttling is retried by the
    host and the plugin schedules no second retry.
-2. `E-55`: the host `/goal` mirror is attached; verify it on a live 2.2.1 host
-   and confirm our ledger stays the only writer (no `experimental.idle`).
+2. `E-55`: the host `/goal` mirror is attached; verify it on the live 2.3.0
+   host and confirm our ledger stays the only writer. The idle hook snapshots
+   background work, notes idle for continuity detection, and finalizes a
+   dispatched task when its child idles; it never continues a session.
 3. Prove Desktop `/reload` against the plugin reload fingerprint (`E-38`).
 4. `E-54`: recoverable quota probes are implemented; verify a real quota
    notice, the 5/10/20-minute probe sequence, and the final notice after three
@@ -230,12 +303,12 @@ handoff plan cannot use them.
    encode failures.
 3. Retry dedupe (`E-44`, fixed), the ten-second shutdown budget (`E-45`,
    fixed), and the dev/sidecar DB lane (`E-46`, fixed).
-4. Fork/revert behavior for goals and handoffs once 2.2.0 is the running host.
+4. Fork/revert behavior for goals and handoffs on the running 2.3.0 host.
 5. Compaction payload check after the host starts history at the latest
    completed compaction.
 6. Adopt `session.instructions.entry` to replace synthetic notices.
 7. Decide whether a host-level `execute: "deny"` entry is accepted by the
-   config schema on 2.2.0; until then the name guard is the only layer.
+   config schema on 2.3.0; until then the name guard is the only layer.
 
 ## Boundaries
 

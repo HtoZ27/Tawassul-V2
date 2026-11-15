@@ -93,9 +93,9 @@ pre-stable.
 
 ### Changed
 
-- The host floor is `2.2.1`, the audited version. The installer, the isolated
-  launcher, the release smoke, and the doctor refuse `2.2.0`, and the plugin
-  refuses a reported version below `2.2.1` at both entry paths.
+- The host floor is `2.2.1`; the audited version is `2.3.0`. The installer, the
+  isolated launcher, the release smoke, and the doctor refuse `2.2.0`, and the
+  plugin refuses a reported version below `2.2.1` at both entry paths.
 
 ### Removed
 
@@ -137,7 +137,7 @@ platform or host row without a receipt is not a support claim.
   `TAWASSUL_STATE_DIR`, `TAWASSUL_GLOBAL_DIR`, and the XDG bases.
 - The installer refuses a target that carries no Tawassul marker instead of
   overwriting it, and reports the file it kept.
-- A host newer than the audited `2.2.1` runs in untested mode behind a capability
+- A host newer than the audited `2.3.0` runs in untested mode behind a capability
   probe rather than being refused.
 
 ### Fixed

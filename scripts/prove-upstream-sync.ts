@@ -64,11 +64,16 @@ function expectProblem(document: unknown, needle: string, name: string): void {
 }
 
 function fixture(): string {
+  const entries = [
+    { version: "2.3.1", date: "2026-11-14" },
+    ...registry.releases.map(({ version, date }) => ({ version, date })),
+    { version: "2.1.4", date: "2026-10-23" },
+  ];
   return [
-    '<header><h2><a href="#v2-3-0">v2.3.0</a></h2><time datetime="2026-11-01">November 1, 2026</time></header>',
-    '<header><h2><a href="#v2-2-1">v2.2.1</a></h2><time datetime="2026-10-29">October 29, 2026</time></header>',
-    '<header><h2><a href="#v2-2-0">v2.2.0</a></h2><time datetime="2026-10-27">October 27, 2026</time></header>',
-    '<header><h2><a href="#v2-1-4">v2.1.4</a></h2><time datetime="2026-10-23">October 23, 2026</time></header>',
+    ...entries.map(({ version, date }) => {
+      const id = version.replace(/\./g, "-");
+      return `<header><h2><a href="#v${id}">v${version}</a></h2><time datetime="${date}">${date}</time></header>`;
+    }),
     '<header><h2><a href="#notes">Notes</a></h2><time datetime="2026-10-01">October 1, 2026</time></header>',
   ].join("\n");
 }
@@ -84,10 +89,10 @@ function feed(): string {
 }
 
 const parsed = parseChangelog(fixture());
-assert(parsed.length === 4, "parser returns only release headings");
-assert(parsed[0]?.version === "2.3.0", "parser sorts the newest release first");
-assert(parsed[3]?.version === "2.1.4", "parser keeps the oldest release last");
-assert(parsed[0]?.date === "2026-11-01", "parser carries the release date");
+assert(parsed.length === registry.releases.length + 2, "parser returns only release headings");
+assert(parsed[0]?.version === "2.3.1", "parser sorts the newest release first");
+assert(parsed.at(-1)?.version === "2.1.4", "parser keeps the oldest release last");
+assert(parsed[0]?.date === "2026-11-14", "parser carries the release date");
 assert(parseChangelog("").length === 0, "parser returns nothing for empty input");
 assert(compareVersions("2.10.0", "2.9.9") > 0, "version comparison is numeric");
 assert(compareVersions("2.2.0", "2.2.0") === 0, "equal versions compare at zero");
@@ -97,7 +102,7 @@ assert(atom.length === 2, "the release feed skips a prerelease title");
 assert(atom[0]?.version === "2.2.1", "the release feed sorts the newest tag first");
 assert(atom[0]?.date === "2026-10-29", "the release feed reads the entry update day");
 assert(parseFeed(feed())[0]?.version === "2.2.1", "the feed parser auto-detects atom");
-assert(parseFeed(fixture())[0]?.version === "2.3.0", "the feed parser falls back to the changelog page");
+assert(parseFeed(fixture())[0]?.version === "2.3.1", "the feed parser falls back to the changelog page");
 const merged = mergeEntries([
   [{ version: "2.2.1", date: "2026-10-29" }],
   [
@@ -142,12 +147,12 @@ assert(counts.adopted >= 1, "the registry records at least one adopted change");
 const newer = parseChangelog(fixture());
 const drift = diffReleases(registry, newer);
 assert(drift.unaudited.length === 1, "a newer release is reported as unaudited");
-assert(drift.unaudited[0]?.version === "2.3.0", "the unaudited release is the new one");
+assert(drift.unaudited[0]?.version === "2.3.1", "the unaudited release is the new one");
 assert(drift.unlisted.length === 0, "a full page lists every audited release");
 
 const equal = diffReleases(registry, parseChangelog(fixture()).slice(1));
 assert(equal.unaudited.length === 0, "an audited page has no unaudited release");
-assert(equal.latest?.version === "2.2.1", "the drift report exposes the live latest release");
+assert(equal.latest?.version === "2.3.0", "the drift report exposes the live latest release");
 
 const older = diffReleases(registry, [
   { version: "2.2.0", date: "2026-10-27" },
@@ -156,17 +161,17 @@ const older = diffReleases(registry, [
 assert(older.unaudited.length === 0, "releases below auditedThrough are not flagged");
 
 const patchAbove = diffReleases(registry, [
-  { version: "2.2.2", date: "2026-10-30" },
-  { version: "2.2.1", date: "2026-10-29" },
+  { version: "2.3.1", date: "2026-11-14" },
+  { version: "2.3.0", date: "2026-11-13" },
 ]);
-assert(patchAbove.unaudited[0]?.version === "2.2.2", "a patch release above the ceiling is flagged");
+assert(patchAbove.unaudited[0]?.version === "2.3.1", "a patch release above the ceiling is flagged");
 
 const feedDrift = diffReleases(registry, parseReleaseFeed(feed()));
 assert(feedDrift.unaudited.length === 0, "the audited ceiling is not flagged from the release feed");
 assert(feedDrift.latest?.version === "2.2.1", "the release feed exposes the live latest tag");
 
 const pruned = diffReleases(registry, [{ version: "2.1.4", date: "2026-10-23" }]);
-assert(pruned.unlisted.length === 2, "a pruned audited release is reported");
+assert(pruned.unlisted.length === registry.releases.length, "a pruned audited release is reported");
 assert(pruned.latest?.version === "2.1.4", "a pruned page reports its own latest release");
 
 const duplicateVersion = mutable();

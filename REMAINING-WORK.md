@@ -1,7 +1,8 @@
 # Remaining Work Ledger
 
 Status: 2026-10-30 · closure batch on `1a2b5a9` · `npm run verify` green (fast 9/9, 113 proof files,
-110 proofs-stage steps, 4 smoke steps).
+110 proofs-stage steps, 4 smoke steps). Dependency rows refreshed 2026-11-13
+(`@opencode/plugin` 2.3.0); every other row is the 2026-10-30 snapshot.
 
 Purpose: one list of every open or partially closed item in `SCRIPT-PARITY.md`,
 `VERIFICATION-20261026.md`, `ISSUES.md`, `SHARED.md`, `PLAN-DB-INSTALL.md`,
@@ -34,7 +35,7 @@ Rules for this file:
 | SHARED closure batch | 2026-10-30 on `1a2b5a9`: `S-017`, `S-033`, and `S-053` verified by three new proofs (81, 39, and 50 assertions); 110 proofs-stage steps and 113 proof files | `docs/SHARED-PARITY.md` |
 | Unit tests | no `tests/` directory | `ls tests` |
 | Residue on disk | 10 `pre-refresh`, 12 `retired` (6 `.js` + 6 `.mjs`), 5 dist-only package dirs; owner-declined cleanup | Desktop scan, section C decision 3 |
-| `@opencode/plugin` | 2.2.1 installed; no `session.form` surface | `node_modules/@opencode/plugin` |
+| `@opencode/plugin` | 2.3.0 installed; no `session.form` surface | `node_modules/@opencode/plugin` |
 | `/tmp/opencode` | owner and session scratch; `/tmp` is cleared on reboot, so no cleanup is needed | `ls /tmp/opencode` |
 
 ## A. Open defects
@@ -58,7 +59,7 @@ Rules for this file:
 | --- | --- | --- | --- | --- |
 | Decision `3` | declined by owner 2026-10-29 | On disk: 10 `tawassul.js.pre-refresh-*` in 5 workspaces, 12 `*.retired-20261024` (6 `.js` + 6 `.mjs`), 5 dist-only package dirs (`ciel-osk-workspace`, `dart22222222`, `vpro`, `vusial 2`, `vusual`). `tawassyl/.opencode/plugins/tawassul` is the read-only v1 tree. | none — the owner replaces the v1-loaded plugin in each project with v2 manually | no agent deletes files outside this tree; `doctor-v2.sh --scan-desktop` reports, never rewrites |
 | Decision `8` (`D-05`) | resolved 2026-10-29 | `D-05` shipped the recommended shape: bounded census, 32-file cap, 14/14 baselines, `TAWASSUL_ALLOW_LEGACY_GROWTH=1`, the CLI namespace failed when it holds sessions, and no boot auto-move; `prove-d05` 28 assertions (`ISSUES.md:831-900`) | none — pending row marked resolved | none |
-| `P-01` | done 2026-10-29 | Fail-closed shipped in `ccb2cb6`; `@opencode/plugin` 2.2.1 still exposes no `session.form` surface, while the host protocol has `session.form.*` | none — accept the fail-closed limitation | `E-03` records the limitation; `prove-v2-ask-bridge` asserts `select` and `multiselect` fail with a visible error |
+| `P-01` | done 2026-10-29 | Fail-closed shipped in `ccb2cb6`; `@opencode/plugin` 2.3.0 still exposes no `session.form` surface, while the host protocol has `session.form.*` | none — accept the fail-closed limitation | `E-03` records the limitation; `prove-v2-ask-bridge` asserts `select` and `multiselect` fail with a visible error |
 | `P-02` | done 2026-10-29 | The dropped tombstone is the internal removal marker; `bumpTerminal` and replay count the prior terminal state, so a completed goal stays completed | none — accept the cosmetic label | `prove-goal-capture` asserts one completed count, zero dropped, and replay agreement after deleting a completed goal |
 | `P-03` | done 2026-10-29 | `prove-n2-cap`: 500 messages and the exact 512 boundary record the oldest text part; 513 evicts the oldest; `done` stops the hook after the first record | none — keep the 512 pre-record buffer | gate step `n2-cap`, 7 assertions |
 
@@ -181,7 +182,7 @@ Measured discrepancies against the source documents:
 9. `FUTURE-WORK-PLAN.md` says 92/91 and cites doctor lines 548-556 and
    installer lines 479-518; the current anchors are `doctor-v2.sh:639-641`
    and `install-global.ts:1108`.
-10. `@opencode/plugin` 2.2.1 still has no `session.form` surface, so `P-01`
+10. `@opencode/plugin` 2.3.0 still has no `session.form` surface, so `P-01`
     stays upstream-blocked.
 11. `SHARED.md` carries an explicit `v2 status` line for only 14 of 57 entries,
     and 15 headings still read `REQUIRED`, `PARTIALLY IMPLEMENTED`, or `NOTE`.

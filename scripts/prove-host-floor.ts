@@ -38,8 +38,8 @@ process.env.XDG_CONFIG_HOME = join(root, "config");
 process.env.XDG_DATA_HOME = join(root, "data");
 
 try {
-  assert(HOST_FLOOR === "2.2.1", "the shared floor is 2.2.1");
-  assert(HOST_AUDITED === "2.2.1", "the audited host is 2.2.1");
+  assert(HOST_FLOOR === "2.3.0", "the shared floor is 2.3.0");
+  assert(HOST_AUDITED === "2.3.0", "the audited host is 2.3.0");
   assert(parseHostVersion("2.2.1")?.join(".") === "2.2.1", "a plain version parses");
   assert(parseHostVersion("v2.2.1")?.join(".") === "2.2.1", "a v-prefixed version parses");
   assert(parseHostVersion("2.2.1-experimental")?.join(".") === "2.2.1", "a prerelease suffix parses");
@@ -49,14 +49,14 @@ try {
   assert(compareHostVersions("2.2.0", "2.2.1") < 0, "2.2.0 compares below 2.2.1");
   assert(compareHostVersions("2.2.1", "2.2.1") === 0, "2.2.1 compares equal");
   assert(compareHostVersions("2.2.2", "2.2.1") > 0, "2.2.2 compares above 2.2.1");
-  assert(isBelowHostFloor("2.2.0"), "2.2.0 is below the floor");
-  assert(!isBelowHostFloor("2.2.1"), "2.2.1 meets the floor");
+  assert(isBelowHostFloor("2.2.9"), "2.2.9 is below the floor");
+  assert(!isBelowHostFloor("2.3.0"), "2.3.0 meets the floor");
   assert(!isBelowHostFloor("3.0.0"), "a newer major meets the floor");
   assert(!isBelowHostFloor(undefined), "an unreported version is not below the floor");
-  assert(hostFloorProblem("2.1.4")?.includes("2.2.1") === true, "2.1.4 is refused with the floor in the message");
-  assert(hostFloorProblem("2.2.0")?.includes("2.2.1") === true, "2.2.0 is refused with the floor in the message");
-  assert(hostFloorProblem("2.2.1") === undefined, "2.2.1 is accepted");
-  assert(hostFloorProblem("2.2.5") === undefined, "a newer patch is accepted");
+  assert(hostFloorProblem("2.1.4")?.includes("2.3.0") === true, "2.1.4 is refused with the floor in the message");
+  assert(hostFloorProblem("2.2.9")?.includes("2.3.0") === true, "2.2.9 is refused with the floor in the message");
+  assert(hostFloorProblem("2.3.0") === undefined, "2.3.0 is accepted");
+  assert(hostFloorProblem("2.3.1") === undefined, "a newer patch is accepted");
   assert(hostFloorProblem("3.0.0") === undefined, "a newer major is accepted in untested mode");
   assert(hostFloorProblem(undefined) === undefined, "an unreported version is not refused");
 
@@ -71,7 +71,7 @@ try {
   assert(typeof probe === "function", "a below-floor init exposes its readiness probe");
   const readiness = await probe?.();
   assert(readiness?.ready === false, "a below-floor init is not ready");
-  assert(readiness?.error?.message.includes("2.2.1") === true, "the refusal names the floor");
+  assert(readiness?.error?.message.includes("2.3.0") === true, "the refusal names the floor");
   assert(typeof refused.dispose === "function", "a below-floor init has a safe dispose");
   await refused.dispose?.();
 

@@ -81,7 +81,7 @@ writeFileSync(
 const bundle = (await import(pathToFileURL(plugin).href)) as Bundle;
 const entry = bundle.createHooks;
 if (typeof entry !== "function") fail("the bundle does not export the plugin hooks factory");
-const hooks = entry({ client: {}, directory: project, worktree: project, hostVersion: "2.2.5" });
+const hooks = entry({ client: {}, directory: project, worktree: project, hostVersion: "2.3.0" });
 
 const ready = hooks[Symbol.for("tawassul.v2.initReady")];
 if (typeof ready !== "function") fail("the plugin did not expose an init-ready probe");

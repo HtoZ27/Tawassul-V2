@@ -267,7 +267,7 @@ sharing persistent pack state with read-only roles.
 | `src/validation.ts:91` | `.optional()` for the new fields, otherwise `safeParse` strips them silently |
 | `src/bootstrap/{tool-registry,service-factory,plugin-init}.ts` | Registration; `plugin-init` remembers the loaded config for the runtime kill switch |
 | `scripts/release-smoke.sh:124,146,177,178,193,197,199`, `scripts/prove-e27.ts:40`, `scripts/prove-independence-boot.ts:144`, `scripts/prove-global-boot.ts:224,225,267,268,292,293,313` | Tool count 42 to 43. Sixteen lines across four files, not eleven |
-| `scripts/gate-manifest.json` | <!-- generated:proof-steps -->180<!-- /generated --> proofs-stage steps; <!-- generated:proof-files -->183<!-- /generated --> proof files across the three stages |
+| `scripts/gate-manifest.json` | <!-- generated:proof-steps -->183<!-- /generated --> proofs-stage steps; <!-- generated:proof-files -->186<!-- /generated --> proof files across the three stages |
 | `package.json`, `ISSUES.md`, `.opencode/feature-index.json` | Scripts, issue record, index |
 
 ---
@@ -385,9 +385,10 @@ Then `npm run verify` and `gate:smoke`.
    `session.step.failed` whose `error.type` is a terminal class. No
    `session.prompt()`, no new session, no re-submission. `retryAfterMs` is
    recorded as "not before" instead of a blind delay.
-4. **Host floor.** `>=2.2.1 <3.0.0`. Version 2.2.2 ships no change relevant to
-   this feature: the SDK differs only in `host-apis.d.ts`, and neither #54862
-   nor #47685 is fixed. Keep 2.2.1.
+4. **Host floor.** `>=2.2.1`, no upper gate. Version 2.2.2 ships no change
+   relevant to this feature: the SDK differs only in `host-apis.d.ts`, and
+   neither #54862 nor #47685 is fixed. Keep 2.2.1. The audited ceiling has
+   since moved to `2.3.0`; the floor is unchanged.
 
 Terminal error classes: `provider.free-limit`, `provider.quota`,
 `provider.go-limit`, `provider.chatgpt-limit`, `provider.budget-limit`,

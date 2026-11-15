@@ -243,10 +243,10 @@ Four more surfaces answer different questions:
 | What happened, and when? | `timeline` |
 | What does the session ledger say? | `status` |
 
-A variant can appear with `no model config`. That means the agent exists in the
-roster but has no pinned model, so it inherits the caller's model — the agent
-that dispatched the work. It is not an error, but it is a reason to pin the
-model with `agentModels` before relying on it.
+A variant can be reported as `has no model configured`. That means the agent
+exists in the roster but has no pinned model, so it inherits the caller's model —
+the agent that dispatched the work. It is not an error, but it is a reason to pin
+the model with `agentModels` before relying on it.
 
 ## Add an agent
 

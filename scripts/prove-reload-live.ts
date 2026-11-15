@@ -90,7 +90,7 @@ try {
   assert(Object.keys(tools).length === TOOL_COUNT, `the plugin builds the generated tool count (${Object.keys(tools).length})`);
 
   const host = {
-    app: { version: "2.2.2" },
+    app: { version: "2.3.0" },
     location: { directory: work },
     session: {
       hook: async () => ({ dispose: async () => undefined }),

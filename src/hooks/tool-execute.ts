@@ -51,7 +51,8 @@ import {
 } from "./guards/tool-loop-guard.ts";
 
 import { consume, refund, sweepStaleBudgets } from "../services/iteration-budget.ts";
-import { getUsageShadow } from "../services/usage-shadow.ts";
+import { recordDispatch } from "../services/dispatch-ledger.ts";
+import { fanoutGuardApplies, getUsageShadow } from "../services/usage-shadow.ts";
 import { getUsageLedger } from "../services/usage-ledger.ts";
 import { TAWA_AGENT, SecurityPolicy } from "../security-policy.ts";
 import { isManagedAgent } from "../utils/agent.ts";
@@ -186,14 +187,18 @@ export function createToolExecuteBeforeHook(ctx: ToolExecuteBeforeContext) {
       const normalizedAgent = input.agent ? normalizeName(input.agent) : undefined;
 
       if (input.sessionID && input.tool) {
-        if (!normalizedAgent) getUsageLedger()?.recordNoAgent({ sessionID: input.sessionID, tool: input.tool });
+        const ledger = getUsageLedger();
+        if (!normalizedAgent) ledger?.recordNoAgent({ sessionID: input.sessionID, tool: input.tool });
         const shadow = getUsageShadow();
+        const parentID = ledger?.sessionSnapshot(input.sessionID)?.parentID;
         shadow?.observeDispatch({ sessionID: input.sessionID, tool: input.tool, args: output.args });
-        const fanout = shadow?.fanoutBlocked({ sessionID: input.sessionID, tool: input.tool, args: output.args });
-        if (fanout) {
-          blockTool(
-            `🚫 Fan-out guard: ${fanout.count} near-duplicate ${input.tool} dispatches in ${Math.round(fanout.windowMs / 60_000)} minutes. Reuse the existing result or change the task text.`,
-          );
+        if (fanoutGuardApplies(parentID)) {
+          const fanout = shadow?.fanoutBlocked({ sessionID: input.sessionID, tool: input.tool, args: output.args });
+          if (fanout) {
+            blockTool(
+              `🚫 Fan-out guard: ${fanout.count} near-duplicate ${input.tool} dispatches in ${Math.round(fanout.windowMs / 60_000)} minutes. Reuse the existing result or change the task text.`,
+            );
+          }
         }
       }
 
@@ -548,12 +553,49 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
       
       
       const declaredStatus = output.metadata?.status;
-      const success =
-        declaredStatus === "error"
-          ? false
-          : declaredStatus === "completed"
-            ? true
-            : !!(output.title || output.output || (output as Record<string, unknown>).result);
+      const dispatchChildSessionID =
+        typeof output.metadata?.sessionID === "string" ? output.metadata.sessionID : undefined;
+      const terminalFailure = declaredStatus === "error" || (input.tool === "task" && declaredStatus === "failed");
+      const isTaskDispatch =
+        input.tool === "task" &&
+        !terminalFailure &&
+        ((declaredStatus !== undefined && declaredStatus !== null && declaredStatus !== "completed") ||
+          dispatchChildSessionID !== undefined);
+      const taskTargets =
+        input.tool === "task" && input.args
+          ? getTaskAgents({ args: input.args } as StageOutput).agents
+          : undefined;
+      if (isTaskDispatch && dispatchChildSessionID && input.sessionID) {
+        const targets = [...(taskTargets ?? [])];
+        const parentSessionID = input.sessionID;
+        const dispatchingAgent = normalizedAgent;
+        recordDispatch({
+          childSessionID: dispatchChildSessionID,
+          parentSessionID,
+          callID: input.callID ?? "",
+          targets,
+          startedAt: startedAt ?? Date.now(),
+          onTerminal: (outcome) => {
+            if (dispatchingAgent && outcome === "completed") recordToolSuccess(dispatchingAgent, "task");
+            for (const target of targets) {
+              if (outcome === "completed") {
+                ctx.emitWithChain?.("TASK_COMPLETED", {
+                  agent: target,
+                  taskId: parentSessionID,
+                  ...(startedAt !== undefined ? { durationMs: Math.max(0, Date.now() - startedAt) } : {}),
+                });
+              } else if (outcome === "failed") {
+                ctx.emitWithChain?.("AGENT_FAILED", { agent: target, reason: "Task failed" });
+              }
+            }
+          },
+        });
+      }
+      const success = terminalFailure
+        ? false
+        : declaredStatus === "completed"
+          ? true
+          : !!(output.title || output.output || (output as Record<string, unknown>).result);
 
       
       
@@ -563,13 +605,13 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
         
         
         const dur = startedAt !== undefined ? ` (${Date.now() - startedAt}ms)` : "";
-        const status = success === false ? " FAILED" : "";
+        const status = success === false && !isTaskDispatch ? " FAILED" : "";
         logger.info(`◀ [${input.tool}] ${normalizedAgent ?? "?"} done${status}${dur}`);
       } else {
         const out = typeof output.output === "string" ? output.output : "";
         const preview = out.length > 300 ? `${out.slice(0, 300)}…` : out;
         const dur = startedAt !== undefined ? ` (${Date.now() - startedAt}ms)` : "";
-        const status = success === false ? " FAILED" : "";
+        const status = success === false && !isTaskDispatch ? " FAILED" : "";
         logger.info(`◀ [${input.tool}] ${normalizedAgent ?? "?"} done${status}${dur}: ${preview}`);
       }
 
@@ -578,7 +620,9 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
       
       if (normalizedAgent) {
         if (success) {
-          recordToolSuccess(normalizedAgent, input.tool);
+          if (!isTaskDispatch) {
+            recordToolSuccess(normalizedAgent, input.tool);
+          }
           const repeatCount = recordToolResult(
             input.sessionID,
             normalizedAgent,
@@ -597,10 +641,12 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
             success: true,
           });
         } else {
-          recordToolFailure(normalizedAgent, input.tool);
-          resetToolResultRun(input.sessionID, normalizedAgent, input.tool);
+          if (!isTaskDispatch) {
+            recordToolFailure(normalizedAgent, input.tool);
+            resetToolResultRun(input.sessionID, normalizedAgent, input.tool);
+            recordNoProgress(normalizedAgent);
+          }
           refund(normalizedAgent, input.sessionID);
-          recordNoProgress(normalizedAgent);
         }
         const hbResult = hbCheck(normalizedAgent, input.tool);
         if (hbResult.stale) {
@@ -620,10 +666,10 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
           agent: normalizedAgent,
           sessionId: input.sessionID,
           argsHash: canonicalStringify(input.args ?? {}),
-          status: success ? "success" : "error",
+          status: success || isTaskDispatch ? "success" : "error",
           ...(ctx.getAgentModel ? { model: ctx.getAgentModel(normalizedAgent) } : {}),
           input: input.args,
-          error: success ? undefined : (output.output ?? output.title ?? "unknown"),
+          error: success || isTaskDispatch ? undefined : (output.output ?? output.title ?? "unknown"),
         });
       }
 
@@ -677,9 +723,8 @@ export function createToolExecuteAfterHook(ctx: ToolExecuteAfterContext) {
       
       
       
-      if (input.tool === "task" && success && input.sessionID) {
+      if (input.tool === "task" && success && input.sessionID && !isTaskDispatch) {
         try {
-          const taskTargets = input.args ? getTaskAgents({ args: input.args } as StageOutput).agents : null;
           if (taskTargets && taskTargets.size > 0) {
             const taskId = input.sessionID;
             const targetedAnalyst = [...taskTargets].some((t) => t.startsWith("analyst"));

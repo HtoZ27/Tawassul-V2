@@ -6,6 +6,9 @@ Host under test: OpenCode 2.2.5 (downloaded to `/tmp/opencode/host-2.2.5`,
 never installed globally).
 Repository pins at evaluation time: SDK `2.2.1`, host minimum `2.2.0`,
 audited host `2.2.1`, last live E2E host `2.2.2`.
+Status: superseded 2026-11-13. The pin moved to `2.3.0`, the host floor is
+`2.2.1`, and `src/upstream/registry.json` now records 2.2.2 through 2.3.0;
+the findings below remain the dated evidence for 2.2.3–2.2.5.
 
 ## Verdict
 

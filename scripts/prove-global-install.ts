@@ -102,7 +102,7 @@ function proofEnv(): NodeJS.ProcessEnv {
     XDG_STATE_HOME: join(HOME, ".local", "state"),
     XDG_CACHE_HOME: join(HOME, ".cache"),
     PATH: "/usr/bin:/bin",
-    TAWASSUL_OPENCODE_VERSION: "2.2.1",
+    TAWASSUL_OPENCODE_VERSION: "2.3.0",
     TAWASSUL_REGISTER_TRIGGERS: "off",
     OPENCODE_DB: SMOKE_DB,
   };
@@ -381,7 +381,7 @@ try {
   assert(existsSync(MARKER), "runtime marker is written");
   const record = marker();
   assert(record.package === "tawassul-v2", "marker identifies the plugin");
-  assert(record.host === "2.2.1", "marker records the host override");
+  assert(record.host === "2.3.0", "marker records the host override");
   assert(record.bundle?.sha256 === sha256(TARGET), "marker records the bundle hash");
   assert(record.bundle?.path === "plugins/tawassul.js", "marker records the plugin path");
   assert(Object.keys(record.wasm ?? {}).length === WASM_FILES.length, "marker records every wasm asset");
@@ -458,7 +458,7 @@ try {
   );
 
   const newer = marker();
-  newer.host = "2.2.2";
+  newer.host = "2.3.1";
   writeFileSync(MARKER, `${JSON.stringify(newer, null, 2)}\n`);
   assert(runWith(["--verify"], rangeEnv).code === 0, "verify accepts a newer 2.x marker");
   newer.host = "3.0.0";

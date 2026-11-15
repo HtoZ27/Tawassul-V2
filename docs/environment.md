@@ -95,7 +95,7 @@ not by the plugin at runtime.
 | `TAWASSUL_OPENCODE_VERSION` | Pin the host version instead of probing it |
 | `TAWASSUL_ASSET_ROOTS` | Extra roots searched for the wasm grammars |
 
-The host floor is `2.2.1`. When the host reports no version at all, the check
+The host floor is `2.3.0`. When the host reports no version at all, the check
 fails open and the plugin loads.
 
 ## What is not here

@@ -197,8 +197,8 @@ try {
   const actual = hostVersion(HOST_BIN);
   assert(actual.length > 0, `host version readable (${actual || "unknown"})`);
   assert(
-    versionAtLeast(actual, "2.2.1"),
-    `host ${actual} is inside the supported range (>=2.2.1; audited 2.2.1)`,
+    versionAtLeast(actual, "2.3.0"),
+    `host ${actual} is inside the supported range (>=2.3.0; audited 2.3.0)`,
   );
 
   const ROOT = mkdtempSync(join(tmpdir(), "tawassul-global-boot-"));

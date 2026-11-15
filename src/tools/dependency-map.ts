@@ -7,12 +7,15 @@ import { resolveSafe, toErrorMessage } from "../utils/path.ts";
 import { t } from "../translations.ts";
 import { getAstService } from "../services/ast-service.ts";
 import type { DirStamp, FileStamp, ImportEdge } from "../services/project-index/types.ts";
+import { cancelledResult } from "./cancel.ts";
 
 const IMPORT_REGEX = /import\s+(?:type\s+)?(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+['"]([^'"]+)['"]/g;
 const REQUIRE_REGEX = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 const IMPORT_REGEX_LAZY = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 const MAX_FILES = 300;
 const MAX_CYCLES_REPORTED = 10;
+
+class DepMapCancelled extends Error {}
 
 type DepStamps = { files: FileStamp[]; dirs: DirStamp[] };
 type DepGraphValue = { nodes: DepNode[]; cycles: Cycle[]; fileCount: number };
@@ -62,7 +65,9 @@ async function collectTsFiles(
   collected: string[],
   stamps: DepStamps,
   visited?: Set<string>,
+  signal?: AbortSignal,
 ): Promise<void> {
+  if (signal?.aborted) return;
   if (depth > maxDepth || collected.length >= MAX_FILES) return;
   let entries: string[];
   try {
@@ -72,6 +77,7 @@ async function collectTsFiles(
   }
   if (!visited) visited = new Set();
   for (const entry of entries) {
+    if (signal?.aborted) return;
     if (entry.startsWith(".") || entry === "node_modules" || entry === "dist" || entry === "build") continue;
     const fullPath = resolve(dir, entry);
     try {
@@ -87,7 +93,7 @@ async function collectTsFiles(
       const entryStat = await stat(fullPath);
       if (entryStat.isDirectory()) {
         stamps.dirs.push({ path: fullPath, mtimeMs: entryStat.mtimeMs });
-        await collectTsFiles(fullPath, depth + 1, maxDepth, collected, stamps, visited);
+        await collectTsFiles(fullPath, depth + 1, maxDepth, collected, stamps, visited, signal);
       } else {
         const ext = extname(entry);
         if (
@@ -126,10 +132,12 @@ async function buildDepGraph(
   files: string[],
   projectDir: string,
   useAst?: boolean,
+  signal?: AbortSignal,
 ): Promise<{ nodes: DepNode[]; cycles: Cycle[] }> {
   const nodes: DepNode[] = [];
 
   for (const filePath of files) {
+    if (signal?.aborted) break;
     try {
       let rawImports: Set<string>;
 
@@ -235,6 +243,7 @@ export function buildDependencyMapTool(ctx: TawassulContext): ToolDefinition {
         .describe("Use AST (supports .ts, .tsx, .js)"),
     },
     async execute(args: Record<string, unknown>, cctx: ToolContext) {
+      if (cctx.abort?.aborted) return cancelledResult();
       const { file, circular, depth, ast } = args as {
         file?: string;
         circular?: boolean;
@@ -281,6 +290,7 @@ export function buildDependencyMapTool(ctx: TawassulContext): ToolDefinition {
               lines.push(t("depMapExternalPackage", { imp }));
             }
           }
+          if (cctx.abort?.aborted) return cancelledResult();
           ctx.projectIndex?.recordImports(safe.resolved, edges);
 
           if (rawImports.size === 0) {
@@ -302,14 +312,16 @@ export function buildDependencyMapTool(ctx: TawassulContext): ToolDefinition {
         } catch {
           void 0;
         }
-        await collectTsFiles(cctx.directory, 0, maxDepth, collected, stamps);
+        await collectTsFiles(cctx.directory, 0, maxDepth, collected, stamps, undefined, cctx.abort);
 
+        if (cctx.abort?.aborted) return cancelledResult();
         if (collected.length === 0) {
           return { output: t("depMapNoTsFiles") };
         }
 
         const build = async (): Promise<DepGraphValue> => {
-          const graph = await buildDepGraph(collected, cctx.directory, ast);
+          const graph = await buildDepGraph(collected, cctx.directory, ast, cctx.abort);
+          if (cctx.abort?.aborted) throw new DepMapCancelled();
           ctx.projectIndex?.recordImportBatch(
             graph.nodes.map((node) => ({ path: node.path, edges: node.edges })),
           );
@@ -329,6 +341,7 @@ export function buildDependencyMapTool(ctx: TawassulContext): ToolDefinition {
             ).value
           : await build();
 
+        if (cctx.abort?.aborted) return cancelledResult();
         const nodes = graphValue.nodes;
         const cycles = graphValue.cycles;
         const relNodes = relativePaths(nodes, cctx.directory);
@@ -396,6 +409,7 @@ export function buildDependencyMapTool(ctx: TawassulContext): ToolDefinition {
 
         return { output: report.join("\n") };
       } catch (e: unknown) {
+        if (e instanceof DepMapCancelled) return cancelledResult();
         return { output: t("depMapReadError", { error: toErrorMessage(e) }) };
       }
     },

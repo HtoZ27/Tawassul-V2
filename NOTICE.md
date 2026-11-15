@@ -35,8 +35,8 @@ contain their source.
 
 | Component | Version | License | Role |
 | --- | --- | --- | --- |
-| OpenCode | `>=2.2.1` | MIT | Host runtime and plugin API |
-| [`@opencode/plugin`](https://www.npmjs.com/package/@opencode/plugin) | `^2.2.1` | MIT | Plugin API types and hooks |
+| OpenCode | `>=2.3.0` | MIT | Host runtime and plugin API |
+| [`@opencode/plugin`](https://www.npmjs.com/package/@opencode/plugin) | `^2.3.0` | MIT | Plugin API types and hooks |
 | [`zod`](https://www.npmjs.com/package/zod) | `^4.1.8` | MIT | Configuration and tool schemas |
 | [`web-tree-sitter`](https://www.npmjs.com/package/web-tree-sitter) | `^0.26.13` | MIT | AST queries |
 | [`tree-sitter-javascript`](https://www.npmjs.com/package/tree-sitter-javascript) | `^0.25.0` | MIT | JavaScript grammar (wasm) |

@@ -480,7 +480,7 @@ not a ranking.
    **Revision 2 correction:** a session-level aggregate fixes the per-agent split inside one
    session, not fan-out across child sessions. Each child is a separate session with its own
    budget. D1 requires C4 (tree) or H5 (budget inheritance); see Section 14.2.1.
-4. **Shape guards** — identical repeat (3rd returns cached, 5th errors; read-only results only, never a cached success for a write), no-progress echo (12 turns with no tool call, no file change, and n-gram overlap), fan-out (8 concurrent, 6 near-duplicates in 10 minutes).
+4. **Shape guards** — identical repeat (3rd returns cached, 5th errors; read-only results only, never a cached success for a write), no-progress echo (12 turns with no tool call, no file change, and n-gram overlap), fan-out (8 concurrent, 6 near-duplicates in 10 minutes). The fan-out block applies only when the ledger proves a parent session; root sessions and sessions with unknown parentage stay observed in shadow mode but are never blocked, so user-driven dispatches in the main session are never blocked.
 5. **Subagent output cap** — child results entering the parent context are capped at 2,000 tokens with a pointer to the child session.
 6. **Honest cost** — replace the fabricated estimate in `event-integrations.ts` with host numbers; keep the estimate only as a labelled fallback.
 

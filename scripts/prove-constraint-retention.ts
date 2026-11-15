@@ -159,7 +159,7 @@ try {
   }
 
   const host = {
-    app: { version: "2.2.2" },
+    app: { version: "2.3.0" },
     location: { directory: work },
     session: {
       hook: async () => ({ dispose: async () => undefined }),

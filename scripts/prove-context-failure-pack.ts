@@ -101,7 +101,7 @@ async function main(): Promise<void> {
   const calls: string[] = [];
   const processed = deferred();
   const ctx = {
-    app: { version: "2.2.2" },
+    app: { version: "2.3.0" },
     location: { directory: worktree },
     session: {
       create: async () => {
