@@ -185,16 +185,43 @@ function main(): void {
   assert(stale.length === 1, "the dropped early entry is not replayed");
 
   resetDispatchLedger();
+  const starvedAt = Date.now();
+  for (let i = 0; i < MAX_DISPATCH_SESSIONS; i++) {
+    finalizeDispatchOnIdle(`ses_foreign_${i}`, undefined, starvedAt);
+  }
+  assert(earlyDispatchCount() === MAX_DISPATCH_SESSIONS, "the early buffer fills on its own budget");
+  finalizeDispatchOnIdle("ses_foreign_overflow", undefined, starvedAt);
+  assert(earlyDispatchCount() === MAX_DISPATCH_SESSIONS, "the early buffer stays capped on its own budget");
+  const real: Terminal[] = [];
+  const realAt = starvedAt + 1;
+  recordDispatch(
+    {
+      childSessionID: "ses_real",
+      parentSessionID: "ses_parent",
+      callID: "call-real",
+      targets: ["@dev"],
+      startedAt: realAt,
+      onTerminal: (outcome) => real.push({ child: "ses_real", outcome }),
+    },
+    realAt,
+  );
+  assert(pendingDispatchCount() === 1, "a full early buffer never starves a real dispatch");
+  finalizeDispatchOnIdle("ses_real", undefined, realAt + 1);
+  assert(real.length === 1 && real[0]!.outcome === "completed", "the dispatch admitted past a full buffer completes once");
+
+  resetDispatchLedger();
   const survivors: Terminal[] = [];
   const survivorAt = Date.now();
   finalizeDispatchOnIdle("ses_early_keep", undefined, survivorAt);
-  for (let i = 0; i < MAX_DISPATCH_SESSIONS - 1; i++) register(`ses_keep_${i}`, []);
-  assert(earlyDispatchCount() === 1, "a buffered completion survives the ledger reaching its cap");
-  const pendingAtCap = pendingDispatchCount();
+  for (let i = 0; i < MAX_DISPATCH_SESSIONS; i++) register(`ses_keep_${i}`, []);
+  assert(
+    pendingDispatchCount() === MAX_DISPATCH_SESSIONS && earlyDispatchCount() === 1,
+    "the pending cap fills while the buffered completion survives",
+  );
   register("ses_cap_extra", []);
   assert(
-    pendingDispatchCount() === pendingAtCap && earlyDispatchCount() === 1,
-    "a dispatch at the cap is refused instead of evicting the buffered completion",
+    pendingDispatchCount() === MAX_DISPATCH_SESSIONS && earlyDispatchCount() === 1,
+    "a dispatch at the pending cap is refused instead of evicting the buffered completion",
   );
   finalizeDispatchOnIdle("ses_keep_0");
   register("ses_cap_extra", []);

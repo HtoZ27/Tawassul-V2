@@ -16,8 +16,10 @@ fixes review finding 7(c) and records the R2, R8 and R10 fixes from the
 agent-visibility ledger. Revision 21 fixes finding 7(a) after a 5/5 panel vote
 and accepts finding 7(b) after a 3/5 vote. Revision 22 fixes the stale-child
 and eviction shapes of finding 7(d) and records the unregistered-idle shape as
-an accepted residual.
-Date: 2026-11-13 (revisions 17-18: 2026-11-14; revisions 19-22: 2026-11-15)
+an accepted residual. Revision 23 splits the pending and early-buffer budgets
+after an adversarial review proved that a full early buffer could refuse a real
+dispatch.
+Date: 2026-11-13 (revisions 17-18: 2026-11-14; revisions 19-23: 2026-11-15)
 Owner: user
 Scope: fix the defects surfaced by the 2.2.6 / 2.2.7 / 2.3.0 review and the
 six-analyst panel, without changing foreground 2.3.0 behaviour, task-control,
@@ -340,7 +342,7 @@ Design:
 | File | Change |
 |---|---|
 | `src/hooks/tool-execute.ts:550` | write the ledger entry from the after-hook, where the v1 context exists. |
-| `src/services/dispatch-ledger.ts` (new) | the ledger and the early-idle buffer: a bounded map keyed by child session, cap 200 shared by ledger and buffer (`background-tasks.ts:26`), eviction oldest-finalized first. At the cap with every entry pending, a new entry is refused with a warning; pending entries are never silently dropped. Each entry emits exactly one terminal. |
+| `src/services/dispatch-ledger.ts` (new) | the ledger and the early-idle buffer: a bounded map keyed by child session, cap 200 pending entries plus a separate 200-entry buffer (`background-tasks.ts:26`), eviction oldest-finalized first. At the pending cap a new entry is refused with a warning; pending entries are never silently dropped. Each entry emits exactly one terminal. |
 | `src/v2/setup.ts:55-60` | extend `noteExperimentalIdle`: keep the `sessionID` guard, turn the `background` check into a conditional around `recordBackgroundSnapshot` (the pinned literal stays), then call the finalizer after `void noteIdle()`, wrapped so `prove-run-interrupt.ts:547-553` still passes. |
 | `src/v2/setup.ts:794-802` | subscribe the raw `session.execution.failed` and `session.execution.interrupted` events for the negative paths. |
 
@@ -632,12 +634,15 @@ reverts the registry and CI entries.
    clearing the dispatcher's failure and no-progress counters. It now runs only
    when the terminal outcome is `completed` (`tool-execute.ts:579`), and
    `prove-task-dispatch` asserts that a failed terminal keeps the counters
-   blocking. (d) Partly fixed in revision 22: a stale early terminal could
+   blocking. (d) Fixed in revisions 22-23: a stale early terminal could
    finalize a later dispatch on a reused child ID, and a registration at the cap
    could evict a buffered early completion. `recordDispatch` now drops an early
-   terminal older than the dispatch start when the start is known, and
-   `makeRoom` no longer evicts early entries, so a full ledger refuses the new
-   dispatch instead of destroying a buffered terminal. What remains, by design:
+   terminal older than the dispatch start when the start is known. `makeRoom`
+   no longer evicts early entries and counts pending dispatches only, while a
+   separate `earlyRoom` caps the early buffer, so neither budget can exhaust the
+   other: a full pending ledger refuses the new dispatch instead of destroying a
+   buffered terminal, and a full early buffer no longer refuses a real dispatch.
+   What remains, by design:
    the buffer still accepts the idle of any unknown session, because before the
    registration exists the plugin has no host signal that separates a dispatch
    child from any other session. Such an entry expires after 60 s, can no longer
@@ -802,8 +807,9 @@ Revision 11 (2026-11-13), after the final verdict:
 
 Revision 12 (2026-11-13), closing the SAFE verdict:
 
-- The early-idle buffer shares the ledger's 200 cap, so it is bounded in count
-  as well as in time.
+- The early-idle buffer has its own 200-entry cap (`earlyRoom`), separate from
+  the pending cap, so it is bounded in count as well as in time and cannot
+  refuse a real dispatch.
 - Status line records the review outcome; phase 0 remains the blocking step.
 
 Revision 13 (2026-11-13), after phase 0 and the phase 1-2 implementation:
@@ -811,7 +817,8 @@ Revision 13 (2026-11-13), after phase 0 and the phase 1-2 implementation:
 - Phase 0 ran on host 2.3.0 and selected variant B, corrected so `completed`
   does not disable the dispatch flag and only `error`/`failed` do. The result
   block sits in section 3.
-- The ledger is `src/services/dispatch-ledger.ts`: 200 shared entries, a 60 s
+- The ledger is `src/services/dispatch-ledger.ts`: 200 pending entries and a
+  separate 200-entry early-terminal buffer, a 60 s
   early-terminal buffer, a 10 min finalized retention, idempotent finalize, and
   a revived child that reuses its pending entry.
 - Finalization emits `TASK_COMPLETED` on success and `AGENT_FAILED` only on a
@@ -1067,6 +1074,33 @@ Revision 22 (2026-11-15), finding 7(d) by owner order:
   ledger refuses a new dispatch instead of discarding a buffered terminal.
   Neither path is reachable on a 2.3.0 foreground session.
 
+Revision 23 (2026-11-15), finding 7(d) after an adversarial review:
+
+- Defect found in revision 22. Removing eviction left the two buffers on one
+  shared cap (`_entries.size + _early.size < MAX_DISPATCH_SESSIONS`) with no
+  pressure valve. `finalizeDispatchOnIdle` buffers the idle of any unknown
+  session, so 200 distinct foreign sessions idling inside the 60 s TTL filled
+  the buffer; `recordDispatch` then refused a real dispatch with the misleading
+  "full with pending entries" warning while `pendingDispatchCount()` was zero.
+  The refused dispatch produced no terminal, so the dispatcher recorded no
+  success and emitted no `TASK_COMPLETED`. Reproduced through the public ledger
+  API before the fix, where both counts stayed zero.
+- Fix: the budgets are separate. `makeRoom` counts pending dispatches only and
+  still never evicts an early entry; the new `earlyRoom` caps `_early` at
+  `MAX_DISPATCH_SESSIONS`, and both early insert paths use it. Worst-case memory
+  is 400 small entries instead of 200, and no eviction path was restored.
+- Proofs: `prove-task-finalize` adds four assertions in its existing step (41 in
+  total): the early buffer fills and stays capped on its own budget, a dispatch
+  is admitted past a full buffer and completes exactly once, and the pending cap
+  still refuses with the buffered completion present. The cap case now fills
+  `MAX_DISPATCH_SESSIONS` pending entries instead of one fewer, because the
+  early entry no longer consumes pending capacity. No proof file was added; the
+  183-step count is unchanged.
+- Expected behaviour change: a real dispatch is admitted whenever `_entries` is
+  under its cap, whatever the early buffer holds, and a full early buffer drops
+  further unknown-session idles on its own budget. Neither path is reachable on
+  a 2.3.0 foreground session.
+
 
 ---
 
@@ -1109,9 +1143,13 @@ above. Criterion 4 is re-asserted for this tree by `npm run verify` and
 `npm run gate:proofs`; only finding 7(d) remains open, and it is not proven to
 fire on a 2.3.0 foreground session.
 
-Status 2026-11-15 (revision 22): finding 7(d) is fixed for the stale-child and
-eviction shapes and accepted for the unregistered-idle shape, all three proven
-inside the existing `prove-task-finalize` step (37 assertions). The dispatch
-ledger, the after-hook start stamp and `makeRoom` are the only touched paths.
-Criteria 1 and 2 keep their evidence; criterion 4 is re-asserted by
-`npm run verify` and `npm run gate:proofs`. No review finding remains open.
+Status 2026-11-15 (revision 23): the adversarial review of finding 7(d) found
+that revision 22 left the pending and early buffers on one shared cap with no
+eviction, so a full early buffer could refuse a real dispatch. The budgets are
+now separate: `makeRoom` counts pending dispatches and `earlyRoom` caps the
+early buffer, and neither evicts. Finding 7(d) stays fixed for the stale-child and
+eviction shapes and accepted for the unregistered-idle shape, proven inside the
+existing `prove-task-finalize` step (41 assertions). The dispatch ledger is the
+only touched path. Criteria 1 and 2 keep their evidence; criterion 4 is
+re-asserted by `npm run verify` and `npm run gate:proofs`. No review finding
+remains open.

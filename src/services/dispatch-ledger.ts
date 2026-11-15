@@ -43,7 +43,7 @@ function prune(now: number): void {
 }
 
 function makeRoom(): boolean {
-  if (_entries.size + _early.size < MAX_DISPATCH_SESSIONS) return true;
+  if (_entries.size < MAX_DISPATCH_SESSIONS) return true;
   for (const [id, entry] of _entries) {
     if (entry.outcome) {
       _entries.delete(id);
@@ -51,6 +51,10 @@ function makeRoom(): boolean {
     }
   }
   return false;
+}
+
+function earlyRoom(): boolean {
+  return _early.size < MAX_DISPATCH_SESSIONS;
 }
 
 function finalize(entry: DispatchEntry, outcome: DispatchOutcome, now: number): void {
@@ -102,7 +106,7 @@ export function finalizeDispatchOnIdle(
   const entry = _entries.get(childSessionID);
   if (!entry) {
     if (_early.has(childSessionID)) return;
-    if (!makeRoom()) {
+    if (!earlyRoom()) {
       logger.debug(`[tawassul] early terminal buffer is full; ignoring idle for ${childSessionID}`);
       return;
     }
@@ -121,7 +125,7 @@ export function finalizeDispatchFailure(
   const entry = _entries.get(childSessionID);
   if (!entry) {
     if (_early.has(childSessionID)) return;
-    if (!makeRoom()) {
+    if (!earlyRoom()) {
       logger.debug(`[tawassul] early terminal buffer is full; ignoring ${outcome} for ${childSessionID}`);
       return;
     }
