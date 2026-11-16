@@ -5,6 +5,36 @@ All notable changes to Tawassul are recorded here. The format follows
 semantic versioning with an explicit experimental suffix while the project is
 pre-stable.
 
+## [0.1.2-experimental]
+
+### Added
+
+- `Settings → General → Show agent` documented in the README, `GUIDE.md`, the
+  Arabic end-user guide, and `docs/installation.md`, with the label, the app's
+  own sentence, and what happens without it: the session stays on the Build
+  agent.
+- "How a skill is evaluated" in `docs/skills.md`, with the manifest fields that
+  carry the eval id, the load-rate threshold, and the kill criterion.
+- The multi-mention note in both guides: the host runs every mentioned agent,
+  while the routing record keeps the first.
+
+### Changed
+
+- The README "Why it exists" section names both reasons to run a team —
+  structure and parallel work across models — and the token cost of a wide
+  roster, with the free model variants named.
+- The README capability table lists model variants, parallel agents, skills,
+  guardrails, and diagnostics.
+- The README skills table is two columns: the skill id and the sentence the
+  model reads before it loads the procedure. Scope jargon, eval ids, and the
+  repeated load threshold moved out of the front page.
+
+### Fixed
+
+- The generated skills table rendered as literal pipes on GitHub because the
+  generation marker shared the header line. The marker now sits on its own line,
+  and the table renders as a table.
+
 ## [0.1.1-experimental]
 
 ### Added
@@ -217,5 +247,6 @@ platform or host row without a receipt is not a support claim.
 - No hosted documentation site, no npm package, no stable API promise.
 - The evals stage is a pilot, not a benchmark.
 
+[0.1.2-experimental]: docs/release-notes-0.1.2.md
 [0.1.1-experimental]: docs/release-notes-0.1.1.md
 [0.1.0-experimental]: docs/release-notes-0.1.0.md

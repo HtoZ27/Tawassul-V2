@@ -28,7 +28,7 @@ mission boards, checkpoints, memory records, and a disciplined tool surface to a
 single workspace or to every workspace of a user. It is local-first: state lives
 on your disk, in your configuration directory, and nowhere else.
 
-**Status:** `0.1.1-experimental`. The Linux lane carries the full feature set.
+**Status:** `0.1.2-experimental`. The Linux lane carries the full feature set.
 Native Windows x64 is supported for the bundle and wasm lane (native receipt
 2026-11-02, re-run on 2026-11-03); database maintenance and scheduled triggers
 need the Linux lane. Emulator evidence is published and clearly labelled.
@@ -56,6 +56,8 @@ Tawassul makes the structure explicit:
 | Capability | What it gives you |
 | --- | --- |
 | Specialist agents | `tawa` routes; `dev`, `analyst`, `tester`, `reviewer`, `architect`, `designer`, and `doc` do the work |
+| Model variants | `@addagent` adds a variant of a role on another model and removes it without touching the base |
+| Parallel agents | `moa`, `parallelCopies`, and several `@` mentions run one task across several models |
 | Handoffs | Work moves between agents with context, checkpoints, and a completion record |
 | Goal ledger | Objectives, items, and definition-of-done criteria persist across sessions and compactions |
 | Mission boards | Task state, agent health, and system status in one place |
@@ -63,6 +65,9 @@ Tawassul makes the structure explicit:
 | Memory records | Decisions, fixes, incidents, and notes that survive the session |
 | Discussions | Agents propose, vote, and divide work with evidence attached |
 | Context packs | A long session is packed and continued in a successor without losing the thread |
+| Skills | Sixteen procedures that load when the task matches; no files are installed |
+| Guardrails | Write locks, rate limits, iteration budgets, and two permission layers |
+| Diagnostics | `health()` and `check()` report the runtime, the roster, and the host |
 | 44 tools | File reading, AST queries, dependency maps, search, git diffs, web fetches, and the orchestration surface |
 | Bilingual UI | English and Arabic strings ship in the bundle |
 
