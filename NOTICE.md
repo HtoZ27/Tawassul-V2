@@ -12,10 +12,10 @@ not vendor the host.
 
 ## Original innovation attribution notice
 
-Original Innovator: HtoZ27
+Original Innovator: HtoZ
 Original Innovation: Tawassul team runtime for OpenCode
 Original Project: Tawassul
-Copyright: © 2026 HtoZ27
+Copyright: © 2026 HtoZ
 
 Attribution and Recognition
 
