@@ -11,9 +11,11 @@ export const USAGE_LEDGER_ENV = "TAWASSUL_USAGE_LEDGER";
 export const USAGE_LEDGER_MAX_BYTES = 32 * 1024 * 1024;
 export const USAGE_LEDGER_PAGE_LIMIT = 500;
 export const USAGE_LEDGER_MAX_PAGES = 10;
+export const USAGE_LEDGER_PAGE_TIMEOUT_MS = 5000;
 export const USAGE_LEDGER_FLUSH_MS = 250;
 
 let rotationSeq = 0;
+const USAGE_LEDGER_PARKED: unique symbol = Symbol("usage-ledger-page-parked");
 
 export interface UsageWeights {
   read: number;
@@ -121,6 +123,7 @@ export interface UsageLedgerOptions {
   listSessions?: (input?: UsageSessionListInput) => Promise<UsageSessionList | UsageSessionSnapshot[] | undefined | null>;
   now?: () => number;
   maxBytes?: number;
+  pageTimeoutMs?: number;
 }
 
 export interface UsagePercentiles {
@@ -306,10 +309,15 @@ export class UsageLedger {
   private readonly listSessions?: UsageLedgerOptions["listSessions"];
   private readonly now: () => number;
   private readonly maxBytes: number;
+  private readonly pageTimeoutMs: number;
   private readonly states = new Map<string, SessionState>();
   private pending: string[] = [];
   private flushChain: Promise<void> = Promise.resolve();
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly disposedSignal: Promise<void>;
+  private resolveDisposed: (() => void) | null = null;
+  private disposeCompletion: Promise<void> | null = null;
+  private reconcilePass: Promise<void> | null = null;
   private disposed = false;
   private started = false;
   private rows = 0;
@@ -333,6 +341,10 @@ export class UsageLedger {
     this.listSessions = options.listSessions;
     this.now = options.now ?? Date.now;
     this.maxBytes = options.maxBytes ?? USAGE_LEDGER_MAX_BYTES;
+    this.pageTimeoutMs = options.pageTimeoutMs ?? USAGE_LEDGER_PAGE_TIMEOUT_MS;
+    this.disposedSignal = new Promise<void>((resolve) => {
+      this.resolveDisposed = resolve;
+    });
   }
 
   ledgerPath(): string {
@@ -340,18 +352,17 @@ export class UsageLedger {
   }
 
   async start(): Promise<void> {
-    if (this.started) return;
+    if (this.disposed || this.started) return;
     this.started = true;
     try {
       await this.load();
     } catch (e) {
       logger.warn("[tawassul] usage ledger reload skipped:", e instanceof Error ? e.message : String(e));
     }
-    try {
-      await this.reconcile();
-    } catch (e) {
+    if (this.disposed) return;
+    void this.reconcile().catch((e) => {
       logger.warn("[tawassul] usage ledger backfill skipped (fail-open):", e instanceof Error ? e.message : String(e));
-    }
+    });
   }
 
   async load(): Promise<void> {
@@ -438,89 +449,157 @@ export class UsageLedger {
     if (ts) this.lastEventAt = ts;
   }
 
-  async reconcile(): Promise<void> {
-    if (!this.listSessions) return;
-    const collected: UsageSessionSnapshot[] = [];
-    let cursor: string | undefined;
-    for (let page = 0; page < USAGE_LEDGER_MAX_PAGES; page += 1) {
-      const response = await this.listSessions(
-        cursor ? { limit: USAGE_LEDGER_PAGE_LIMIT, order: "desc", cursor } : { limit: USAGE_LEDGER_PAGE_LIMIT, order: "desc" },
-      );
-      const list = Array.isArray(response) ? response : response?.data;
-      if (!list || list.length === 0) break;
-      collected.push(...list);
-      const next = Array.isArray(response) ? undefined : response?.cursor?.next;
-      if (!next) break;
-      cursor = next;
-    }
-    const byID = new Map<string, UsageSessionSnapshot>();
-    for (const entry of collected) {
-      if (typeof entry.id === "string" && entry.id) byID.set(entry.id, entry);
-    }
-    const depthOf = (id: string, seen: Set<string>): number | null => {
-      if (seen.has(id)) return null;
-      seen.add(id);
-      const entry = byID.get(id) ?? this.states.get(id);
-      const parentID = entry?.parentID;
-      if (!parentID) return 0;
-      const parent = byID.get(parentID) ?? this.states.get(parentID);
-      if (!parent) return null;
-      const depth = depthOf(parentID, seen);
-      return depth === null ? null : depth + 1;
+  reconcile(): Promise<void> {
+    if (this.reconcilePass) return this.reconcilePass;
+    if (this.disposed || !this.listSessions) return Promise.resolve();
+    const pass = this.runReconcile();
+    this.reconcilePass = pass;
+    const clear = (): void => {
+      if (this.reconcilePass === pass) this.reconcilePass = null;
     };
-    for (const entry of collected) {
-      const id = typeof entry.id === "string" ? entry.id : "";
-      if (!id) continue;
-      const counters = countersOf(entry);
-      if (!counters) continue;
-      const cost = positive(entry.cost);
-      if (isZeroCounters(counters, cost)) continue;
-      const parentID = typeof entry.parentID === "string" && entry.parentID ? entry.parentID : null;
-      const agent = typeof entry.agent === "string" ? entry.agent : null;
-      const depth = depthOf(id, new Set());
-      const existing = this.states.get(id);
-      if (!existing) {
+    pass.then(clear, clear);
+    return pass;
+  }
+
+  private async runReconcile(): Promise<void> {
+    const listSessions = this.listSessions;
+    if (!listSessions) return;
+    const startedAt = this.now();
+    const collected: UsageSessionSnapshot[] = [];
+    let pages = 0;
+    let aborted = false;
+    let cursor: string | undefined;
+    try {
+      for (let page = 0; page < USAGE_LEDGER_MAX_PAGES; page += 1) {
+        if (this.disposed) {
+          aborted = true;
+          break;
+        }
+        const pageStartedAt = this.now();
+        pages += 1;
+        let response: UsageSessionList | UsageSessionSnapshot[] | undefined | null;
+        const winner = await this.boundedPage(listSessions, cursor);
+        if (this.disposed) {
+          aborted = true;
+          break;
+        }
+        if (winner === USAGE_LEDGER_PARKED) {
+          logger.warn(
+            `[tawassul] usage ledger reconcile page ${pages} did not settle within ${this.pageTimeoutMs}ms (waited ${this.now() - pageStartedAt}ms); ending the pass`,
+          );
+          aborted = true;
+          break;
+        }
+        response = winner;
+        const list = Array.isArray(response) ? response : response?.data;
+        if (!list || list.length === 0) break;
+        collected.push(...list);
+        const next = Array.isArray(response) ? undefined : response?.cursor?.next;
+        if (!next) break;
+        cursor = next;
+      }
+      const byID = new Map<string, UsageSessionSnapshot>();
+      for (const entry of collected) {
+        if (typeof entry.id === "string" && entry.id) byID.set(entry.id, entry);
+      }
+      const depthOf = (id: string, seen: Set<string>): number | null => {
+        if (seen.has(id)) return null;
+        seen.add(id);
+        const entry = byID.get(id) ?? this.states.get(id);
+        const parentID = entry?.parentID;
+        if (!parentID) return 0;
+        const parent = byID.get(parentID) ?? this.states.get(parentID);
+        if (!parent) return null;
+        const depth = depthOf(parentID, seen);
+        return depth === null ? null : depth + 1;
+      };
+      for (const entry of collected) {
+        if (this.disposed) {
+          aborted = true;
+          break;
+        }
+        const id = typeof entry.id === "string" ? entry.id : "";
+        if (!id) continue;
+        const counters = countersOf(entry);
+        if (!counters) continue;
+        const cost = positive(entry.cost);
+        if (isZeroCounters(counters, cost)) continue;
+        const parentID = typeof entry.parentID === "string" && entry.parentID ? entry.parentID : null;
+        const agent = typeof entry.agent === "string" ? entry.agent : null;
+        const depth = depthOf(id, new Set());
+        const existing = this.states.get(id);
+        if (!existing) {
+          this.emitUsage({
+            sessionID: id,
+            parentID,
+            depth,
+            agent,
+            raw: { ...counters, cost },
+            delta: { ...counters, cost },
+            turn: 0,
+            source: "session.list",
+            unobserved: false,
+            resync: false,
+          });
+          const state = this.states.get(id);
+          if (state) state.backfilled = true;
+          continue;
+        }
+        const previous: UsageRawCounters = { ...existing.raw };
+        if (!compareCounters(counters, previous)) continue;
+        const gap: UsageCounters = {
+          input: counters.input - previous.input,
+          output: counters.output - previous.output,
+          reasoning: counters.reasoning - previous.reasoning,
+          cacheRead: counters.cacheRead - previous.cacheRead,
+          cacheWrite: counters.cacheWrite - previous.cacheWrite,
+        };
+        const costGap = Math.max(0, cost - previous.cost);
+        if (isZeroCounters(gap, costGap)) continue;
         this.emitUsage({
           sessionID: id,
-          parentID,
-          depth,
-          agent,
+          parentID: parentID ?? existing.parentID,
+          depth: depth ?? existing.depth,
+          agent: agent ?? existing.agent,
           raw: { ...counters, cost },
-          delta: { ...counters, cost },
-          turn: 0,
+          delta: { ...gap, cost: costGap },
+          turn: existing.turn,
           source: "session.list",
-          unobserved: false,
+          unobserved: true,
           resync: false,
+          backfilled: existing.backfilled,
         });
-        const state = this.states.get(id);
-        if (state) state.backfilled = true;
-        continue;
+        this.unobservedRows += 1;
       }
-      const previous: UsageRawCounters = { ...existing.raw };
-      if (!compareCounters(counters, previous)) continue;
-      const gap: UsageCounters = {
-        input: counters.input - previous.input,
-        output: counters.output - previous.output,
-        reasoning: counters.reasoning - previous.reasoning,
-        cacheRead: counters.cacheRead - previous.cacheRead,
-        cacheWrite: counters.cacheWrite - previous.cacheWrite,
-      };
-      const costGap = Math.max(0, cost - previous.cost);
-      if (isZeroCounters(gap, costGap)) continue;
-      this.emitUsage({
-        sessionID: id,
-        parentID: parentID ?? existing.parentID,
-        depth: depth ?? existing.depth,
-        agent: agent ?? existing.agent,
-        raw: { ...counters, cost },
-        delta: { ...gap, cost: costGap },
-        turn: existing.turn,
-        source: "session.list",
-        unobserved: true,
-        resync: false,
-        backfilled: existing.backfilled,
-      });
-      this.unobservedRows += 1;
+    } finally {
+      logger.info(
+        `[tawassul] usage ledger reconcile: pages=${pages} rows=${collected.length} ms=${this.now() - startedAt} aborted=${aborted || this.disposed}`,
+      );
+    }
+  }
+
+  private async boundedPage(
+    listSessions: NonNullable<UsageLedgerOptions["listSessions"]>,
+    cursor: string | undefined,
+  ): Promise<UsageSessionList | UsageSessionSnapshot[] | undefined | null | typeof USAGE_LEDGER_PARKED> {
+    const input: UsageSessionListInput = cursor
+      ? { limit: USAGE_LEDGER_PAGE_LIMIT, order: "desc", cursor }
+      : { limit: USAGE_LEDGER_PAGE_LIMIT, order: "desc" };
+    const pagePromise = listSessions(input);
+    pagePromise.catch(() => undefined);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const parked = new Promise<typeof USAGE_LEDGER_PARKED>((resolve) => {
+      timer = setTimeout(() => resolve(USAGE_LEDGER_PARKED), this.pageTimeoutMs);
+      timer.unref?.();
+    });
+    try {
+      return await Promise.race([
+        pagePromise,
+        this.disposedSignal.then((): typeof USAGE_LEDGER_PARKED => USAGE_LEDGER_PARKED),
+        parked,
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 
@@ -603,6 +682,7 @@ export class UsageLedger {
       unobserved: input.unobserved,
       resync: input.resync,
     };
+    if (this.disposed) return row;
     this.states.set(input.sessionID, {
       id: input.sessionID,
       parentID: input.parentID,
@@ -809,7 +889,7 @@ export class UsageLedger {
   }
 
   private async ensureLineage(sessionID: string, seen: Set<string>): Promise<void> {
-    if (!this.getSession || seen.has(sessionID)) return;
+    if (!this.getSession || seen.has(sessionID) || this.disposed) return;
     seen.add(sessionID);
     const existing = this.states.get(sessionID);
     if (existing && existing.depth !== null) return;
@@ -819,22 +899,25 @@ export class UsageLedger {
     } catch {
       return;
     }
-    if (!snapshot) return;
+    if (!snapshot || this.disposed) return;
     const parentID = typeof snapshot.parentID === "string" && snapshot.parentID ? snapshot.parentID : null;
     const agent = typeof snapshot.agent === "string" ? snapshot.agent : null;
     if (parentID) await this.ensureLineage(parentID, seen);
+    if (this.disposed) return;
     let depth: number | null = 0;
     if (parentID) {
       const parentDepth = this.states.get(parentID)?.depth;
       depth = parentDepth === undefined || parentDepth === null ? null : parentDepth + 1;
     }
     const state = this.states.get(sessionID);
+    if (this.disposed) return;
     const raw = state?.raw ?? { ...EMPTY_COUNTERS, cost: 0 };
+    const resolvedDepth = depth === null ? state?.depth ?? null : depth;
     this.states.set(sessionID, {
       id: sessionID,
       parentID: parentID ?? state?.parentID ?? null,
       agent: agent ?? state?.agent ?? null,
-      depth,
+      depth: resolvedDepth,
       raw,
       turn: state?.turn ?? 0,
       seenAt: state?.seenAt ?? this.now(),
@@ -843,6 +926,7 @@ export class UsageLedger {
   }
 
   private enqueue(line: string): void {
+    if (this.disposed) return;
     this.pending.push(line);
     this.scheduleFlush();
   }
@@ -909,14 +993,27 @@ export class UsageLedger {
     }
   }
 
-  async dispose(): Promise<void> {
-    if (this.disposed) return;
+  dispose(): Promise<void> {
+    if (this.disposeCompletion) return this.disposeCompletion;
     this.disposed = true;
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
     }
-    await this.flush();
+    this.resolveDisposed?.();
+    this.resolveDisposed = null;
+    const pass = this.reconcilePass;
+    const completion = (async () => {
+      try {
+        if (pass) await pass;
+      } catch (e) {
+        logger.warn("[tawassul] usage ledger reconcile stopped during dispose:", e instanceof Error ? e.message : String(e));
+      } finally {
+        await this.flush();
+      }
+    })();
+    this.disposeCompletion = completion;
+    return completion;
   }
 }
 
@@ -934,8 +1031,8 @@ export function getUsageLedger(): UsageLedger | null {
   return activeLedger;
 }
 
-export async function clearUsageLedger(): Promise<void> {
-  const ledger = activeLedger;
-  activeLedger = null;
+export async function clearUsageLedger(instance?: UsageLedger): Promise<void> {
+  const ledger = instance ?? activeLedger;
+  if (activeLedger === ledger) activeLedger = null;
   if (ledger) await ledger.dispose();
 }

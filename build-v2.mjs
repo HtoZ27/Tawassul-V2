@@ -4,6 +4,7 @@ import { rmSync, existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync
 import { dirname, delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sourceDigest } from "./scripts/source-digest.ts";
+import { syncLiveEntry } from "./scripts/live-entry-sync.ts";
 
 const outdir = "./dist";
 rmSync(outdir, { recursive: true, force: true });
@@ -129,7 +130,9 @@ console.log(`Embedded content SHA: ${contentSha.slice(0, 12)}`);
 
 const pluginDir = join(".opencode", "plugins");
 mkdirSync(pluginDir, { recursive: true });
-copyFileSync(join(outdir, "index.js"), join(pluginDir, "tawassul.js"));
+const liveEntry = join(pluginDir, "tawassul.js");
+const liveSync = syncLiveEntry(join(outdir, "index.js"), liveEntry);
+console.log(`Plugin entry ${liveSync.written ? "rewritten" : "unchanged"}: ${liveEntry}`);
 const localRuntimeDir = join(".opencode", "tawassul-runtime", "db");
 mkdirSync(localRuntimeDir, { recursive: true });
 for (const file of [

@@ -108,6 +108,10 @@ if [ "${TAWASSUL_SMOKE_SKIP_BUILD:-0}" != "1" ]; then
 fi
 ENTRY="$REPO/.opencode/plugins/tawassul.js"
 [ -f "$ENTRY" ] || { echo "release-smoke: built entry missing at $ENTRY." >&2; exit 3; }
+if ! cmp -s "$ENTRY" "$REPO/dist/index.js"; then
+  echo "release-smoke: the live entry differs from dist/index.js (or one is unreadable, or cmp is missing)." >&2
+  exit 3
+fi
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/tawassul-release-smoke-XXXXXX")"
 KEEP=0

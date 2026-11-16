@@ -46,6 +46,6 @@ export function getSessionBridge(): SessionBridge | null {
   return active;
 }
 
-export function clearSessionBridge(): void {
-  active = null;
+export function clearSessionBridge(instance?: SessionBridge): void {
+  if (!instance || active === instance) active = null;
 }

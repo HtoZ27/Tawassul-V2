@@ -52,6 +52,10 @@ const MAX_PROCESSED_MESSAGES = 1024;
 export const INITIAL_SCHEMA_WAIT_MS = 750;
 export const SCHEMA_RETRY_ATTEMPTS = 6;
 export const SCHEMA_RETRY_DELAY_MS = 500;
+export const OPTIONAL_TIMEOUT_MS = 2000;
+export const TEARDOWN_STEP_TIMEOUT_MS = 5000;
+export const REGISTRATION_WATCHDOG_MS = 10000;
+const SETUP_STEP_PARKED: unique symbol = Symbol("setup-step-parked");
 
 export function noteExperimentalIdle(snapshot: { sessionID?: unknown; background?: unknown }): void {
   if (typeof snapshot.sessionID !== "string") return;
@@ -384,6 +388,9 @@ export type V2SetupDeps = {
   init?: (input: PluginInput) => TawassulHooks;
   refresh?: { attempts?: number; delayMs?: number; initialWaitMs?: number };
   rosterWaitMs?: number;
+  optionalTimeoutMs?: number;
+  teardownTimeoutMs?: number;
+  registrationWatchdogMs?: number;
 };
 
 const PROJECT_ENTRY_EXTENSIONS = [".js", ".ts", ".mjs", ".cjs"] as const;
@@ -531,9 +538,110 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
       `[tawassul] host capabilities: session=1 tool=1 transform=${capability(ctx.tool.transform)} reload=${capability(ctx.tool.reload)} hook=${capability(ctx.tool.hook)} compacting=${capability(plugin["experimental.session.compacting"])}`,
     );
     const wrapped = plugin.tool ?? {};
-    const registered: Array<() => Promise<void>> = [];
+    const optionalTimeoutMs = deps.optionalTimeoutMs ?? OPTIONAL_TIMEOUT_MS;
+    const teardownTimeoutMs = deps.teardownTimeoutMs ?? TEARDOWN_STEP_TIMEOUT_MS;
+    const registrationWatchdogMs = deps.registrationWatchdogMs ?? REGISTRATION_WATCHDOG_MS;
+    let disposed = false;
+    const relayAbort = new AbortController();
+    const pendingSteps = new Set<string>();
+    const registered: Array<{ label: string; run: () => Promise<void> }> = [];
+    const discardRegistration = (registration: { dispose: () => unknown }): void => {
+      void Promise.resolve()
+        .then(() => registration.dispose())
+        .catch((e) => logger.debug("[tawassul] v2 late registration dispose failed:", e));
+    };
+    const trackRegistration = (label: string) => (registration: { dispose: () => unknown } | undefined): void => {
+      if (!registration) return;
+      if (disposed) {
+        discardRegistration(registration);
+        return;
+      }
+      registered.push({
+        label,
+        run: async () => {
+          await registration.dispose();
+        },
+      });
+    };
+    const trackRegistrationList = (label: string) => (registrations: Array<{ dispose: () => unknown }>): void => {
+      for (const registration of registrations) trackRegistration(label)(registration);
+    };
+    const markStep = async <T>(
+      label: string,
+      work: Promise<T>,
+      onLate: (value: T) => void,
+      critical = false,
+    ): Promise<T | undefined> => {
+      const startedAt = Date.now();
+      pendingSteps.add(label);
+      logger.info(`[tawassul] v2 setup step ${label} start`);
+      work.catch(() => undefined);
+      const settled = work.then(
+        (value) => ({ ok: true as const, value }),
+        (e) => {
+          logger.warn(`[tawassul] v2 setup step ${label} failed:`, e);
+          return { ok: false as const };
+        },
+      );
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const parked = new Promise<typeof SETUP_STEP_PARKED>((resolve) => {
+        timer = setTimeout(() => resolve(SETUP_STEP_PARKED), optionalTimeoutMs);
+        timer.unref?.();
+      });
+      try {
+        const winner = await Promise.race([settled, parked]);
+        if (winner === SETUP_STEP_PARKED) {
+          const message = `[tawassul] v2 setup step ${label} abandoned after ${Date.now() - startedAt}ms`;
+          if (critical) logger.error(`${message}; ask confirmations are unavailable for this session`);
+          else logger.warn(message);
+          void work.then(onLate, () => undefined);
+          return undefined;
+        }
+        if (!winner.ok) return undefined;
+        logger.info(`[tawassul] v2 setup step ${label} done in ${Date.now() - startedAt}ms`);
+        onLate(winner.value);
+        return winner.value;
+      } finally {
+        pendingSteps.delete(label);
+        if (timer) clearTimeout(timer);
+      }
+    };
+    const boundCleanupStep = async (label: string, run: () => Promise<unknown>): Promise<void> => {
+      const startedAt = Date.now();
+      let work: Promise<unknown>;
+      try {
+        work = Promise.resolve(run());
+      } catch (e) {
+        logger.debug(`[tawassul] v2 cleanup step ${label} failed:`, e);
+        return;
+      }
+      work.catch(() => undefined);
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const parked = new Promise<typeof SETUP_STEP_PARKED>((resolve) => {
+        timer = setTimeout(() => resolve(SETUP_STEP_PARKED), teardownTimeoutMs);
+        timer.unref?.();
+      });
+      try {
+        const outcome = await Promise.race([
+          work.then(
+            () => "done" as const,
+            (e) => {
+              logger.debug(`[tawassul] v2 cleanup step ${label} failed:`, e);
+              return "done" as const;
+            },
+          ),
+          parked,
+        ]);
+        if (outcome === SETUP_STEP_PARKED) {
+          logger.warn(`[tawassul] v2 cleanup step ${label} abandoned after ${Date.now() - startedAt}ms`);
+        } else {
+          logger.debug(`[tawassul] v2 cleanup step ${label} done in ${Date.now() - startedAt}ms`);
+        }
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    };
     const sessionBridge = installSessionBridge(ctx);
-    registered.push(async () => clearSessionBridge());
     const usageLedger = installUsageLedger({
       getSession: (sessionID) => ctx.session.get({ sessionID }),
       listSessions: (input) => ctx.session.list(input),
@@ -567,13 +675,13 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
     };
     const readyProbe = getInitReady(plugin);
     const hostGoalMirror = installHostGoalMirror(ctx);
-    if (hostGoalMirror) registered.push(async () => uninstallHostGoalMirror(hostGoalMirror));
-    const askRegistration = await registerAskPermission(ctx);
-    if (askRegistration) registered.push(() => askRegistration.dispose());
-    const pilotRegistrations = await registerPilotSkills(ctx);
-    for (const registration of pilotRegistrations) registered.push(() => registration.dispose());
-    const pilotCommand = await registerPilotCommand(ctx);
-    if (pilotCommand) registered.push(() => pilotCommand.dispose());
+    if (hostGoalMirror) {
+      registered.push({ label: "host goal mirror", run: async () => uninstallHostGoalMirror(hostGoalMirror) });
+    }
+    const askRegistration = await markStep("ask", registerAskPermission(ctx), trackRegistration("ask permission"), true);
+    const pilotRegistrations =
+      (await markStep("skills", registerPilotSkills(ctx), trackRegistrationList("pilot skills"))) ?? [];
+    await markStep("command", registerPilotCommand(ctx), trackRegistration("pilot command"));
     const askEnabled = askRegistration !== undefined;
     const askFactory = (context: V2ToolContext) => createAskBridge(ctx, context, askEnabled);
 
@@ -608,6 +716,15 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
       if (initial.ready) await refreshSchemas();
     }
 
+    let addedToolCount = 0;
+    let registrationFailed = false;
+    pendingSteps.add("tool-registration");
+    const registrationWatchdog = setTimeout(() => {
+      logger.warn(
+        `[tawassul] v2 setup step tool-registration still pending after ${registrationWatchdogMs}ms; pending=${[...pendingSteps].join(",") || "none"}`,
+      );
+    }, registrationWatchdogMs);
+    registrationWatchdog.unref?.();
     try {
       const nameSetHash = toolNameSetHash(Object.keys(wrapped));
       const toolRegistration = await ctx.tool.transform((editor) => {
@@ -616,12 +733,25 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
           editor.add(makeV2Tool(ctx, name, def, schemas.get(name), askFactory));
           count += 1;
         }
+        addedToolCount = count;
         logger.info(`[tawassul] v2 registered ${count} tools name-set ${nameSetHash}`);
       });
-      registered.push(() => toolRegistration.dispose());
+      registered.push({ label: "tool registration", run: async () => toolRegistration.dispose() });
       registeredSchemaFingerprint = schemaFingerprint(schemas);
     } catch (e) {
+      registrationFailed = true;
       logger.error("[tawassul] v2 tool registration failed:", e);
+    } finally {
+      clearTimeout(registrationWatchdog);
+      pendingSteps.delete("tool-registration");
+    }
+
+    const healthLine = `[tawassul] v2 health: tools=${addedToolCount} schemas=${schemas.size} ask=${askEnabled} skills=${pilotRegistrations.length}`;
+    if (registrationFailed || addedToolCount === 0) {
+      const reason = registrationFailed ? "tool registration failed" : "no tools registered";
+      logger.error(`${healthLine} reason=${reason}`);
+    } else {
+      logger.info(healthLine);
     }
 
     let refreshStop: (() => Promise<void>) | null = null;
@@ -681,7 +811,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
             }
           })();
         });
-        registered.push(() => beforeRegistration.dispose());
+        registered.push({ label: "execute.before", run: async () => beforeRegistration.dispose() });
       } catch (e) {
         logger.error("[tawassul] v2 execute.before registration failed:", e);
       }
@@ -745,7 +875,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
               logger.warn(`[tawassul] v2 execute.after (${spec.tool}) failed:`, e);
             });
         });
-        registered.push(() => afterRegistration.dispose());
+        registered.push({ label: "execute.after", run: async () => afterRegistration.dispose() });
       } catch (e) {
         logger.error("[tawassul] v2 execute.after registration failed:", e);
       }
@@ -759,7 +889,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
         }
         handleContextEvent(sessionEvent);
       });
-      registered.push(() => contextRegistration.dispose());
+      registered.push({ label: "session context", run: async () => contextRegistration.dispose() });
     } catch (e) {
       logger.error("[tawassul] v2 session.context registration failed:", e);
     }
@@ -768,7 +898,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
       const idleRegistration = await ctx.session.hook("experimental.idle", (event) => {
         noteExperimentalIdle(event as unknown as { sessionID?: unknown; background?: unknown });
       });
-      registered.push(() => idleRegistration.dispose());
+      registered.push({ label: "session idle", run: async () => idleRegistration.dispose() });
     } catch (e) {
       logger.error("[tawassul] v2 session.experimental.idle registration failed:", e);
     }
@@ -781,7 +911,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
         await ctx.session.prompt({ sessionID: childSessionID, text, resume: true });
       },
     });
-    registered.push(async () => uninstallBackgroundControl());
+    registered.push({ label: "background control", run: async () => uninstallBackgroundControl() });
 
     try {
       const retryRegistration = await ctx.session.hook("retry", async (event) => {
@@ -790,7 +920,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
           fallback: readActiveConfig(input.directory)?.fallback,
         });
       });
-      registered.push(() => retryRegistration.dispose());
+      registered.push({ label: "session retry", run: async () => retryRegistration.dispose() });
     } catch (e) {
       logger.error("[tawassul] v2 session.retry registration failed:", e);
     }
@@ -800,19 +930,31 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
         const compactionRegistration = await ctx.session.hook("compaction", async (event) => {
           await runCompactionBridge(plugin, event as unknown as V2SessionEvent);
         });
-        registered.push(() => compactionRegistration.dispose());
+        registered.push({ label: "session compaction", run: async () => compactionRegistration.dispose() });
       } catch (e) {
         logger.error("[tawassul] v2 session.compaction registration failed:", e);
       }
     }
 
+    let relayTask: Promise<void> | null = null;
+    let relayIterator: AsyncIterator<unknown> | null = null;
     if (typeof ctx.event?.subscribe === "function") {
-      let disposed = false;
-      const relay = (async () => {
+      let stream: AsyncIterable<unknown>;
+      try {
+        stream = ctx.event.subscribe({ signal: relayAbort.signal }) as AsyncIterable<unknown>;
+      } catch (e) {
+        logger.debug("[tawassul] v2 event subscribe rejected the stop signal; retrying without options:", e);
+        stream = ctx.event.subscribe() as AsyncIterable<unknown>;
+      }
+      relayTask = (async () => {
         try {
-          const stream = ctx.event.subscribe();
-          for await (const raw of stream) {
+          const iterator = stream[Symbol.asyncIterator]();
+          relayIterator = iterator;
+          for (;;) {
+            const next = await iterator.next();
             if (disposed) return;
+            if (next.done) return;
+            const raw = next.value;
             try {
               noteDispatchLifecycleEvent(raw);
             } catch (e) {
@@ -843,10 +985,6 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
           if (!disposed) logger.error("[tawassul] v2 event stream failed:", e);
         }
       })();
-      registered.push(() => {
-        disposed = true;
-        return relay.catch(() => undefined);
-      });
     }
 
     if (plugin.config) {
@@ -855,29 +993,37 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
       );
     }
 
-    registered.push(async () => clearUsageShadow());
-    registered.push(async () => clearUsageLedger());
-
-    return async () => {
-      if (refreshStop) {
-        try {
-          await refreshStop();
-        } catch (e) {
-          logger.debug("[tawassul] v2 schema refresh stop failed:", e);
+    let cleanupCompletion: Promise<void> | null = null;
+    const runCleanup = async (): Promise<void> => {
+      disposed = true;
+      relayAbort.abort();
+      await boundCleanupStep("refresh stop", async () => {
+        if (refreshStop) await refreshStop();
+      });
+      await boundCleanupStep("event relay", async () => {
+        if (relayIterator?.return) {
+          try {
+            await relayIterator.return();
+          } catch (e) {
+            logger.debug("[tawassul] v2 event relay return failed:", e);
+          }
         }
+        if (relayTask) await relayTask;
+      });
+      for (const entry of registered) {
+        await boundCleanupStep(entry.label, entry.run);
       }
-      for (const cleanup of registered) {
-        try {
-          await cleanup();
-        } catch (e) {
-          logger.debug("[tawassul] v2 cleanup step failed:", e);
-        }
-      }
-      try {
+      await boundCleanupStep("plugin dispose", async () => {
         if (plugin.dispose) await plugin.dispose();
-      } catch (e) {
-        logger.debug("[tawassul] v2 plugin dispose failed:", e);
-      }
+      });
+      await boundCleanupStep("bridge clear", async () => clearSessionBridge(sessionBridge));
+      await boundCleanupStep("shadow clear", async () => clearUsageShadow(usageShadow));
+      await boundCleanupStep("ledger clear", async () => clearUsageLedger(usageLedger));
+    };
+
+    return () => {
+      if (!cleanupCompletion) cleanupCompletion = runCleanup();
+      return cleanupCompletion;
     };
   };
 }

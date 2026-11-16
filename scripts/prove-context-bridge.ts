@@ -180,12 +180,13 @@ async function main(): Promise<void> {
   assert(bareHandlers.has("context"), "the context hook registers even without a chat.message hook");
   const bareBridge = getSessionBridge();
   assert(bareBridge !== null, "the bare setup still installs one bridge");
+  let direct: ReturnType<typeof installSessionBridge> | null = null;
   if (bareBridge) {
-    const direct = installSessionBridge(fakeContext(new Map(), []));
+    direct = installSessionBridge(fakeContext(new Map(), []));
     assert(direct === getSessionBridge(), "installing again replaces rather than nests the bridge");
   }
   await bareCleanup();
-  assert(getSessionBridge() === null, "bare cleanup clears the bridge");
+  assert(getSessionBridge() === direct, "bare cleanup leaves the replacement bridge in place");
 
   console.log("PROOF PASS: one bridge, splice-in-place compaction, and dedupe never swallows the injection");
 }

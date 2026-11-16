@@ -1,19 +1,24 @@
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, appendFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   DEFAULT_USAGE_WEIGHTS,
   UsageLedger,
+  clearUsageLedger,
   computeBillable,
   contextSizeOf,
   diffCounters,
+  getUsageLedger,
+  installUsageLedger,
   parseUsageEvent,
   percentile,
   percentileSet,
   type UsageSessionListInput,
   type UsageSessionSnapshot,
 } from "../src/services/usage-ledger.ts";
+import { fanoutGuardApplies } from "../src/services/usage-shadow.ts";
+import { sessionBudgetGuard } from "../src/hooks/guards/dispatch-guards.ts";
 
 function fail(message: string): never {
   console.error(`PROOF FAIL: ${message}`);
@@ -29,6 +34,77 @@ function assert(condition: unknown, message: string): void {
 function equal(actual: unknown, expected: unknown, message: string): void {
   if (actual !== expected) fail(`${message} (expected ${String(expected)}, got ${String(actual)})`);
   console.log(`ok ${message}`);
+}
+
+function deadline<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} did not settle within ${ms}ms`)), ms);
+    timer.unref?.();
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason?: unknown) => void } {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+function captureLogs(): { lines: string[]; restore: () => void } {
+  const lines: string[] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => {
+    lines.push(args.map((arg) => (typeof arg === "string" ? arg : String(arg))).join(" "));
+  };
+  return {
+    lines,
+    restore: () => {
+      console.error = original;
+    },
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    timer.unref?.();
+  });
+}
+
+async function settledWithin(promise: Promise<unknown>, ms: number): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<boolean>((resolve) => {
+    timer = setTimeout(() => resolve(false), ms);
+    timer.unref?.();
+  });
+  try {
+    return await Promise.race([promise.then(() => true, () => true), timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function ledgerRow(sessionID: string): string {
+  return JSON.stringify({
+    v: 1,
+    kind: "usage",
+    ts: new Date(now()).toISOString(),
+    source: "event",
+    sessionID,
+    parentID: null,
+    depth: 0,
+    agent: null,
+    raw: { input: 1, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+    delta: { input: 1, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+    turn: 1,
+  });
 }
 
 function usage(
@@ -238,17 +314,25 @@ try {
       { id: "z1", tokens: { input: 0, output: 0 } },
     ],
   ];
+  const secondPageGate = deferred<void>();
   const backfillPath = join(work, "backfill.jsonl");
   const backfill = new UsageLedger({
     path: backfillPath,
     now,
     listSessions: async (input) => {
       listCalls.push(input);
+      if (input?.cursor === "page-2") await secondPageGate.promise;
       const page = input?.cursor === "page-2" ? pages[1]! : pages[0]!;
       return { data: page, cursor: { next: input?.cursor === "page-2" ? null : "page-2" } };
     },
   });
-  await backfill.start();
+  await deadline(backfill.start(), 1000, "backfill start");
+  const backfillPass = backfill.reconcile();
+  equal(await settledWithin(backfillPass, 100), false, "start returns while the second page is parked");
+  equal(backfill.reconcile(), backfillPass, "reconcile returns the in-flight pass while the second page is parked");
+  equal(listCalls.length, 2, "the backfill requests the parked second page once");
+  secondPageGate.resolve();
+  await deadline(backfillPass, 2000, "backfill pass");
   equal(listCalls.length, 2, "the backfill follows the cursor across two pages");
   equal(listCalls[0]?.limit, 500, "the backfill bounds each page");
   equal(listCalls[0]?.order, "desc", "the backfill reads newest first");
@@ -264,6 +348,7 @@ try {
   equal(backfill.summary().root.p99, 1462.5, "the root p99 comes from the cumulative snapshot");
   equal(backfill.summary().child.p99, 210, "the child p99 comes from the cumulative snapshot");
   assert(backfill.sessionSnapshot("r1")?.backfilled === true, "a backfilled session is labelled");
+  assert(backfill.sessionSnapshot("z1") === undefined, "a zero-counter session waits for its next event");
   await backfill.dispose();
   const backfillReload = new UsageLedger({
     path: backfillPath,
@@ -282,13 +367,18 @@ try {
   const gap = new UsageLedger({
     path: gapPath,
     now,
-    listSessions: async () => ({
-      data: [
-        { id: "r1", tokens: { input: 1200, output: 60, reasoning: 0, cache: { read: 4000, write: 10 } }, cost: 0 },
-      ],
-    }),
+    listSessions: async () => {
+      await sleep(100);
+      return {
+        data: [
+          { id: "r1", tokens: { input: 1200, output: 60, reasoning: 0, cache: { read: 4000, write: 10 } }, cost: 0 },
+        ],
+      };
+    },
   });
-  await gap.start();
+  await deadline(gap.start(), 1000, "gap start");
+  const gapPass = gap.reconcile();
+  await deadline(gapPass, 2000, "gap pass");
   equal(gap.summary().unobservedRows, 1, "a boot gap is recorded as unobserved");
   equal(gap.summary().backfilledSessions, 0, "a known session is reconciled, not backfilled");
   equal(gap.sessionSnapshot("r1")?.billable, 1200 + 60 + 400 + 12.5, "the gap updates the cumulative snapshot");
@@ -360,14 +450,284 @@ try {
   assert(sharedReload.sessionSnapshot("ses-shared-b") !== undefined, "the second instance batch survives");
   await sharedReload.dispose();
 
+  const rejectLogs = captureLogs();
+  try {
+    const rejecting = new UsageLedger({
+      path: join(work, "reject.jsonl"),
+      now,
+      listSessions: async () => {
+        throw new Error("session.list unavailable");
+      },
+    });
+    await deadline(rejecting.start(), 1000, "rejecting start");
+    let rejected = false;
+    try {
+      await rejecting.reconcile();
+    } catch {
+      rejected = true;
+    }
+    assert(rejected, "a rejecting page rejects the pass");
+    await sleep(0);
+    assert(
+      rejectLogs.lines.some((line) => line.includes("backfill skipped")),
+      "a rejecting page logs the fail-open warn",
+    );
+    await rejecting.dispose();
+  } finally {
+    rejectLogs.restore();
+  }
+
+  const parkedPath = join(work, "parked.jsonl");
+  let parkedListCalls = 0;
+  const parked = new UsageLedger({
+    path: parkedPath,
+    now,
+    listSessions: () => {
+      parkedListCalls += 1;
+      return new Promise(() => {});
+    },
+  });
+  const parkedStartedAt = Date.now();
+  await deadline(parked.start(), 1000, "parked start");
+  assert(Date.now() - parkedStartedAt < 1000, "a never-settling page does not delay start");
+  equal(parkedListCalls, 1, "the parked page was requested once");
+  const parkedPass = parked.reconcile();
+  equal(await settledWithin(parkedPass, 300), false, "the parked pass stays in flight without dispose");
+  await deadline(parked.dispose(), 1000, "parked dispose");
+  await deadline(parkedPass, 1000, "parked pass ends on dispose");
+  assert(!existsSync(parkedPath), "a parked pass writes no row");
+
+  const timeoutLogs = captureLogs();
+  try {
+    const timed = new UsageLedger({
+      path: join(work, "timed.jsonl"),
+      now,
+      pageTimeoutMs: 20,
+      listSessions: () => new Promise(() => {}),
+    });
+    await timed.start();
+    const timedPass = timed.reconcile();
+    await deadline(timedPass, 1000, "timed pass");
+    assert(!existsSync(join(work, "timed.jsonl")), "a page that never settles emits no row");
+    assert(
+      timeoutLogs.lines.some((line) => line.includes("did not settle within 20ms")),
+      "the page timeout warn names the bound",
+    );
+    assert(
+      timeoutLogs.lines.some((line) => line.includes("reconcile: pages=1") && line.includes("aborted=true")),
+      "the timed pass summary reports the pass as aborted",
+    );
+    await timed.dispose();
+  } finally {
+    timeoutLogs.restore();
+  }
+
+  const windowGate = deferred<void>();
+  const windowLedger = installUsageLedger({
+    path: join(work, "window.jsonl"),
+    now,
+    listSessions: async (input) => {
+      if (!input?.cursor) {
+        return { data: [{ id: "window-root", tokens: { input: 10, output: 1 } }], cursor: { next: "window-2" } };
+      }
+      await windowGate.promise;
+      return {
+        data: [
+          {
+            id: "window-late",
+            parentID: "window-root",
+            tokens: { input: 1_000_000_000_000, output: 1_000_000_000_000 },
+          },
+        ],
+        cursor: { next: null },
+      };
+    },
+  });
+  await windowLedger.start();
+  const windowPass = windowLedger.reconcile();
+  equal(
+    windowLedger.sessionSnapshot("window-late"),
+    undefined,
+    "a later-page session is undefined while the pass is parked",
+  );
+  assert(
+    !fanoutGuardApplies(windowLedger.sessionSnapshot("window-late")?.parentID),
+    "the fan-out block is off while the later-page session is unknown",
+  );
+  const guardContext = {} as never;
+  const guardInput = { tool: "task", agent: "dev", sessionID: "window-late" } as never;
+  const parkedGuard = { args: {}, error: "" };
+  equal(
+    await sessionBudgetGuard.check(guardContext, guardInput, parkedGuard),
+    true,
+    "the budget guard is inert while the later-page session is unknown",
+  );
+  windowGate.resolve();
+  await deadline(windowPass, 2000, "window pass");
+  assert(windowLedger.sessionSnapshot("window-late") !== undefined, "the later-page session is defined after reconcile");
+  assert(
+    fanoutGuardApplies(windowLedger.sessionSnapshot("window-late")?.parentID),
+    "the fan-out block applies after reconcile",
+  );
+  const seenGuard = { args: {}, error: "" };
+  equal(
+    await sessionBudgetGuard.check(guardContext, guardInput, seenGuard),
+    false,
+    "the budget guard sees the later-page session after reconcile",
+  );
+  assert(seenGuard.error.includes("Session budget"), "the budget verdict is a budget block, not a guard throw");
+  equal(
+    windowLedger.sessionSnapshot("window-created-after-fetch"),
+    undefined,
+    "a session created after its page was fetched stays undefined until its next event",
+  );
+  await windowLedger.handleEvent(usage("window-created-after-fetch", { input: 1, output: 1 }));
+  assert(
+    windowLedger.sessionSnapshot("window-created-after-fetch") !== undefined,
+    "the next usage event defines the session",
+  );
+  await clearUsageLedger(windowLedger);
+
+  const disposeGateCalls: Array<string | undefined> = [];
+  const disposeGateLedger = new UsageLedger({
+    path: join(work, "abort.jsonl"),
+    now,
+    listSessions: async (input) => {
+      disposeGateCalls.push(input?.cursor);
+      if (!input?.cursor) {
+        return { data: [{ id: "abort-a", tokens: { input: 10, output: 1 } }], cursor: { next: "abort-2" } };
+      }
+      return new Promise(() => {});
+    },
+  });
+  await disposeGateLedger.start();
+  const disposeGatePass = disposeGateLedger.reconcile();
+  await sleep(10);
+  await deadline(disposeGateLedger.dispose(), 1000, "aborted dispose");
+  await deadline(disposeGatePass.catch(() => undefined), 1000, "aborted pass");
+  equal(disposeGateCalls.length, 2, "a page that never settles ends the pass without reaching later pages");
+  equal(
+    disposeGateLedger.sessionSnapshot("abort-a"),
+    undefined,
+    "a page collected before dispose is not emitted after dispose",
+  );
+
+  const midPath = join(work, "dispose-mid.jsonl");
+  const pageRejector: { reject: ((reason?: unknown) => void) | null } = { reject: null };
+  const mid = new UsageLedger({
+    path: midPath,
+    now,
+    listSessions: () =>
+      new Promise((_resolve, reject) => {
+        pageRejector.reject = reject;
+      }),
+  });
+  await mid.start();
+  await mid.handleEvent(usage("mid-row", { input: 5, output: 1 }));
+  const midPass = mid.reconcile();
+  assert(pageRejector.reject !== null, "the mid-pass page is parked");
+  pageRejector.reject?.(new Error("page aborted"));
+  const midDispose = mid.dispose();
+  await deadline(midPass.catch(() => undefined), 1000, "mid pass settles");
+  await deadline(midDispose, 1000, "mid dispose flushes");
+  const midRows = readFileSync(midPath, "utf8").split("\n").filter((line) => line.trim().length > 0);
+  equal(midRows.length, 1, "a row queued before dispose is on disk after the pass rejects");
+  await mid.handleEvent(usage("mid-after", { input: 1, output: 1 }));
+  equal(mid.sessionSnapshot("mid-after"), undefined, "no row is recorded after dispose");
+  await deadline(mid.dispose(), 1000, "a second dispose resolves");
+
+  const closingPath = join(work, "start-after-dispose.jsonl");
+  let closingCalls = 0;
+  const closing = new UsageLedger({
+    path: closingPath,
+    now,
+    listSessions: async () => {
+      closingCalls += 1;
+      return { data: [] };
+    },
+  });
+  await closing.start();
+  await deadline(closing.dispose(), 1000, "closing dispose");
+  await deadline(closing.start(), 1000, "start after dispose");
+  equal(closingCalls, 1, "start after dispose does not reconcile again");
+  await deadline(closing.reconcile(), 1000, "reconcile after dispose resolves");
+  equal(
+    await closing.handleEvent(usage("post-dispose", { input: 5, output: 1 })),
+    true,
+    "handleEvent after dispose still reports handled",
+  );
+  equal(closing.sessionCount(), 0, "a post-dispose event records no session");
+  assert(!existsSync(closingPath), "a post-dispose event writes no row");
+
+  const secondPath = join(work, "second-start.jsonl");
+  let secondCalls = 0;
+  const secondStart = new UsageLedger({
+    path: secondPath,
+    now,
+    listSessions: async () => {
+      secondCalls += 1;
+      return { data: [] };
+    },
+  });
+  await secondStart.start();
+  await deadline(secondStart.reconcile(), 1000, "second start first pass");
+  const callsAfterFirst = secondCalls;
+  appendFileSync(secondPath, `${ledgerRow("late-row")}\n`);
+  await secondStart.start();
+  equal(secondCalls, callsAfterFirst, "a second start does not reconcile again");
+  equal(
+    secondStart.sessionSnapshot("late-row"),
+    undefined,
+    "a second start does not absorb a row appended after the first start",
+  );
+  await secondStart.dispose();
+
+  const resumeGate = deferred<void>();
+  const resumePath = join(work, "resume.jsonl");
+  const resume = new UsageLedger({
+    path: resumePath,
+    now,
+    getSession: async () => {
+      await resumeGate.promise;
+      return { id: "resume", parentID: "resume-parent" };
+    },
+  });
+  await resume.start();
+  const resumeEvent = resume.handleEvent(usage("resume", { input: 3, output: 1 }));
+  await deadline(resume.dispose(), 1000, "resume dispose");
+  resumeGate.resolve();
+  equal(await deadline(resumeEvent, 1000, "resume event"), true, "an event that resumes after dispose still reports handled");
+  equal(resume.sessionSnapshot("resume"), undefined, "an event that resumes after dispose records no session");
+  assert(!existsSync(resumePath), "an event that resumes after dispose writes no row");
+
+  const identityPath = join(work, "identity.jsonl");
+  const ledgerA = installUsageLedger({ path: identityPath, now });
+  const ledgerB = installUsageLedger({ path: identityPath, now });
+  assert(getUsageLedger() === ledgerB, "install replaces the active ledger");
+  await clearUsageLedger(ledgerA);
+  assert(getUsageLedger() === ledgerB, "clearing the old ledger by handle leaves the new one active");
+  await ledgerB.handleEvent(usage("identity-b", { input: 1, output: 1 }));
+  equal(ledgerB.sessionCount(), 1, "the newer ledger still records after the old handle is cleared");
+  await clearUsageLedger();
+  assert(getUsageLedger() === null, "the no-arg clear still clears the active ledger");
+
   const repo = dirname(dirname(fileURLToPath(import.meta.url)));
   const setup = readFileSync(join(repo, "src", "v2", "setup.ts"), "utf8");
   assert(setup.includes("installUsageLedger"), "the v2 setup installs the ledger");
   assert(setup.includes("usageLedger.handleEvent(raw)"), "the v2 event relay feeds the ledger");
-  assert(setup.includes("clearUsageLedger"), "the v2 cleanup disposes the ledger");
+  assert(
+    setup.includes("listSessions: (input) => ctx.session.list(input)"),
+    "the v2 setup forwards the host-shaped page request",
+  );
+  assert(setup.includes("clearUsageLedger(usageLedger)"), "the v2 cleanup disposes its own ledger");
+  assert(setup.includes("clearUsageShadow(usageShadow)"), "the v2 cleanup clears its own shadow");
+  assert(setup.includes("clearSessionBridge(sessionBridge)"), "the v2 cleanup clears its own bridge");
   const bridge = readFileSync(join(repo, "src", "v2", "session-bridge.ts"), "utf8");
   assert(bridge.includes("get: (input) => ctx.session.get(input)"), "the bridge exposes session.get");
   assert(bridge.includes("list: (input) => ctx.session.list(input)"), "the bridge exposes session.list");
+  assert(bridge.includes("clearSessionBridge(instance?: SessionBridge)"), "the bridge clear is identity scoped");
+  const shadowSource = readFileSync(join(repo, "src", "services", "usage-shadow.ts"), "utf8");
+  assert(shadowSource.includes("clearUsageShadow(instance?: UsageShadow)"), "the shadow clear is identity scoped");
   const health = readFileSync(join(repo, "src", "tools", "tawa", "health.ts"), "utf8");
   assert(health.includes("## Usage ledger"), "health reports the ledger");
   assert(health.includes("No-agent calls"), "health reports the no-agent count");

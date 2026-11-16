@@ -24,9 +24,9 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | Entry | Requirement | v2 anchor | Proof | Status |
 | --- | --- | --- | --- | --- |
 | S-001 | The v2 entry is a module exporting a plugin object with id and setup. | `src/index.ts:9` `setup: createV2Setup` | `scripts/prove-host-entry.ts` | verified |
-| S-002 | The build resolves the host plugin package through the ESM exports condition instead of a static external list. | `build-v2.mjs:18` `import.meta.resolve` | `scripts/prove-host-entry.ts` | verified |
+| S-002 | The build resolves the host plugin package through the ESM exports condition instead of a static external list. | `build-v2.mjs:19` `import.meta.resolve` | `scripts/prove-host-entry.ts` | verified |
 | S-003 | Every tool execute result is converted from the v1 shape to the v2 shape. | `src/v2/adapters.ts:108` `toV2Result` | `scripts/prove-v2-compat.ts` | verified |
-| S-004 | Setup aborts before registration when the host lacks the session or tool domain. | `src/v2/setup.ts:486` `host missing required domains` | `scripts/prove-host-entry.ts` | verified |
+| S-004 | Setup aborts before registration when the host lacks the session or tool domain. | `src/v2/setup.ts:493` `host missing required domains` | `scripts/prove-host-entry.ts` | verified |
 | S-005 | The role to tool matrix is ported without an i18n or NLP dependency. | `src/role-matrix.ts:40` `TAWASSUL_TOOL_ROLES` | `scripts/prove-s005.ts`, `scripts/prove-s013.ts` | verified |
 | S-006 | Model display names are English-only with no bilingual shape or lang parameter. | `src/core/model-registry.ts:91` `MODEL_DISPLAY_NAMES` | `scripts/prove-feature-index-english.ts` | verified |
 | S-007 | A full-tree port must never overwrite hand-fixed files. | - | - | n-a |
@@ -54,7 +54,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-028 | The provider model cache is the source of truth for suffix governance. | `src/core/model-registry.ts:158` `getProviderModelTokens` | `scripts/prove-s028.ts` | verified |
 | S-029 | R7 variant pins, dispatch precedence, dotted suffixes, and the log default are ported. | `src/tools/agent-management.ts:223` `computePinEntries` | `scripts/prove-s029.ts` | verified |
 | S-030 | The live roster follows config-derived deletion plus additive generation. | `src/scripts/gen-opencode-config.ts:272` `export function derivedExpectedCount` | `scripts/prove-s029.ts`, `scripts/prove-gen-merge-guards.ts` | verified |
-| S-031 | The documented install path materializes the plugin entry on every build. | `build-v2.mjs:132` `tawassul.js` | `scripts/release-smoke.sh` | verified |
+| S-031 | The documented install path materializes the plugin entry on every build. | `build-v2.mjs:133` `tawassul.js` | `scripts/release-smoke.sh` | verified |
 | S-032 | A stale project-scope copy must not win registration in a shared process. | `src/core/install-scope.ts:56` `claimCoexistence` | `scripts/prove-s038.ts` | verified |
 | S-033.1 | The plugin-side cold-boot wave is ported: quiet resolution, write-behind, save debounce, jitter, logger stamp, quarantine, and save guard. | `src/utils/quiet.ts:6` `forceQuietMode` | `scripts/prove-s033.ts` | verified |
 | S-033.2 | Launcher and installer duties stay in the host install script, not in the plugin. | `scripts/install-global.ts:212` `hostCandidates` | `scripts/prove-s033.ts` | verified |

@@ -69,6 +69,8 @@ async function isolatedBoot(): Promise<number> {
       prompt: async () => undefined,
       synthetic: async () => undefined,
       interrupt: async () => undefined,
+      get: async () => ({}),
+      list: () => new Promise(() => {}),
     },
     tool: {
       transform: async (callback: (editor: { add: (entry: unknown) => void }) => void) => {
@@ -86,15 +88,45 @@ async function isolatedBoot(): Promise<number> {
     },
   } as never;
 
-  const started = Date.now();
-  const plugin = initPlugin(buildPluginInput(ctx));
-  const probe = getInitReady(plugin as never);
-  if (probe) await probe();
-  const cleanup = await createV2Setup({ refresh: { attempts: 2, delayMs: 1, initialWaitMs: 5 } })(ctx);
-  const elapsed = Date.now() - started;
-  await cleanup();
-  rmSync(work, { recursive: true, force: true });
-  return elapsed;
+  const logs: string[] = [];
+  const originalError = console.error;
+  console.error = (...args: unknown[]) => {
+    logs.push(args.map((arg) => (typeof arg === "string" ? arg : String(arg))).join(" "));
+  };
+  try {
+    const started = Date.now();
+    const plugin = initPlugin(buildPluginInput(ctx));
+    const probe = getInitReady(plugin as never);
+    if (probe) await probe();
+    const cleanup = await createV2Setup({ refresh: { attempts: 2, delayMs: 1, initialWaitMs: 5 } })(ctx);
+    const { claimCoexistence } = await import("../src/core/install-scope.ts");
+    const duplicate = claimCoexistence(
+      process.env.TAWASSUL_SCOPE === "global" ? "global" : "project",
+      "boot-budget-second-token",
+      work,
+    );
+    assert(
+      duplicate.shouldRegister === false,
+      "a same-process claim with a different token yields to the measured boot",
+    );
+    const elapsed = Date.now() - started;
+    const registered = logs.some((line) => line.includes("v2 registered"));
+    const cleanupStartedAt = Date.now();
+    await cleanup();
+    const cleanupElapsed = Date.now() - cleanupStartedAt;
+    originalError(
+      `[boot-budget] registration log before cleanup: ${registered ? "present" : "missing"}; cleanup ${cleanupElapsed} ms`,
+    );
+    assert(registered, "the setup reaches tool registration while session.list is parked");
+    assert(
+      cleanupElapsed < 5000,
+      `cleanup resolves while session.list is parked (measured ${cleanupElapsed} ms)`,
+    );
+    return elapsed;
+  } finally {
+    console.error = originalError;
+    rmSync(work, { recursive: true, force: true });
+  }
 }
 
 async function main(): Promise<void> {

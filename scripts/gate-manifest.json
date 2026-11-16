@@ -809,6 +809,13 @@
       ]
     },
     {
+      "name": "setup-budget",
+      "cmd": [
+        "bun",
+        "scripts/prove-setup-budget.ts"
+      ]
+    },
+    {
       "name": "shell-alias",
       "cmd": [
         "bun",
@@ -1110,6 +1117,13 @@
       ]
     },
     {
+      "name": "dispose-bounded",
+      "cmd": [
+        "bun",
+        "scripts/prove-dispose-bounded.ts"
+      ]
+    },
+    {
       "name": "dispatch-model",
       "cmd": [
         "bun",
@@ -1163,6 +1177,13 @@
       "cmd": [
         "bun",
         "scripts/prove-usage-shadow.ts"
+      ]
+    },
+    {
+      "name": "live-entry-sync",
+      "cmd": [
+        "bun",
+        "scripts/prove-live-entry-sync.ts"
       ]
     },
     {

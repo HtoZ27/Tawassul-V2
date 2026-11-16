@@ -35,7 +35,7 @@
           "status": "verified",
           "anchor": {
             "file": "build-v2.mjs",
-            "line": 18,
+            "line": 19,
             "marker": "import.meta.resolve"
           },
           "proofs": [
@@ -81,7 +81,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/v2/setup.ts",
-            "line": 486,
+            "line": 493,
             "marker": "host missing required domains"
           },
           "proofs": [
@@ -691,7 +691,7 @@
           "status": "verified",
           "anchor": {
             "file": "build-v2.mjs",
-            "line": 132,
+            "line": 133,
             "marker": "tawassul.js"
           },
           "proofs": [

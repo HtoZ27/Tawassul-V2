@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "totalEstimateMs": 406141,
+  "totalEstimateMs": 408941,
   "shards": [
     {
       "name": "1",
@@ -53,7 +53,7 @@
     },
     {
       "name": "2",
-      "estimateMs": 100333,
+      "estimateMs": 101133,
       "steps": [
         "gen-guard-wal",
         "first-boot",
@@ -91,6 +91,7 @@
         "task-control",
         "db-scheduler",
         "dispatch-model",
+        "dispose-bounded",
         "skill-registration",
         "reload-live",
         "skill-load-rate",
@@ -105,7 +106,7 @@
     },
     {
       "name": "3",
-      "estimateMs": 99302,
+      "estimateMs": 101302,
       "steps": [
         "event-trust",
         "s017",
@@ -118,6 +119,8 @@
         "e34",
         "e35",
         "boot-budget",
+        "setup-budget",
+        "live-entry-sync",
         "g002i3",
         "g003i2",
         "g003i5",

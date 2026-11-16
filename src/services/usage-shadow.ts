@@ -367,6 +367,6 @@ export function getUsageShadow(): UsageShadow | null {
   return activeShadow;
 }
 
-export function clearUsageShadow(): void {
-  activeShadow = null;
+export function clearUsageShadow(instance?: UsageShadow): void {
+  if (!instance || activeShadow === instance) activeShadow = null;
 }
