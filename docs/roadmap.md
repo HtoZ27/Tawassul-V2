@@ -6,7 +6,7 @@ closes it.
 
 ## Shipped
 
-`0.1.3-experimental` is the current public release, built on the first public
+`0.1.4-experimental` is the current public release, built on the first public
 release `0.1.0-experimental`. It carries:
 
 - Eight specialist agents and `tawa` routing, with a roster that is seeded on

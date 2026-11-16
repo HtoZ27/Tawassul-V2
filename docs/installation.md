@@ -71,7 +71,7 @@ A successful install prints the bundle path, its version, and the number of
 wasm assets staged:
 
 ```
-install-global: installed ~/.config/opencode/plugins/tawassul.js (v0.1.3-experimental, <bundle-sha>)
+install-global: installed ~/.config/opencode/plugins/tawassul.js (v0.1.4-experimental, <bundle-sha>)
 install-global: installed 4 wasm assets under ~/.config/opencode/tawassul-runtime/wasm
 install-global: no opencode.json edit is needed; the host discovers this file
 ```

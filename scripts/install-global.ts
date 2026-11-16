@@ -568,7 +568,12 @@ function resolveDbPath(): string {
   try {
     return execFileSync(
       "bash",
-      ["-c", `. '${join(DB_DIR, "db-env.sh")}'; db_resolve_path >/dev/null 2>&1; printf '%s' "$RESOLVED_DB"`],
+      [
+        "-c",
+        '. "$1"; db_resolve_path >/dev/null 2>&1; printf \'%s\' "$RESOLVED_DB"',
+        "install-global",
+        join(DB_DIR, "db-env.sh"),
+      ],
       { stdio: "pipe" },
     )
       .toString()

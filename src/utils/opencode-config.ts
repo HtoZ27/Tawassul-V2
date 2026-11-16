@@ -279,7 +279,7 @@ function canonicalAnchor(anchor: string): string {
 
 
 export function opencodeConfigLockName(anchor: string): string {
-  return `tawassul-opencode-lock-${createHash("sha1").update(canonicalAnchor(anchor)).digest("hex").slice(0, 16)}`;
+  return `tawassul-opencode-lock-${createHash("sha256").update(canonicalAnchor(anchor)).digest("hex").slice(0, 16)}`;
 }
 
 

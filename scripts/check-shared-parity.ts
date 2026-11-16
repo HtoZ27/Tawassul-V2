@@ -255,7 +255,7 @@ function validate(data: Parity): string[] {
 }
 
 function cell(value: string): string {
-  return value.replace(/\|/g, "\\|");
+  return value.split("|").join("\\|");
 }
 
 function renderAnchor(anchor: Anchor | null): string {
