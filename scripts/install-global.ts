@@ -565,22 +565,10 @@ function preflightLaptop(): void {
 }
 
 function resolveDbPath(): string {
-  try {
-    return execFileSync(
-      "bash",
-      [
-        "-c",
-        '. "$1"; db_resolve_path >/dev/null 2>&1; printf \'%s\' "$RESOLVED_DB"',
-        "install-global",
-        join(DB_DIR, "db-env.sh"),
-      ],
-      { stdio: "pipe" },
-    )
-      .toString()
-      .trim();
-  } catch {
-    fail("install-global: db-env resolution failed — the lane cannot find the DB (see P1.7 smoke)");
-  }
+  const opencodeDb = process.env.OPENCODE_DB;
+  if (opencodeDb) return opencodeDb;
+  const dataHome = process.env.XDG_DATA_HOME || join(HOME, ".local", "share");
+  return join(dataHome, "opencode", "opencode.db");
 }
 
 function dbSmoke(resolved: string): void {

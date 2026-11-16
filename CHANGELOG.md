@@ -5,6 +5,13 @@ All notable changes to Tawassul are recorded here. The format follows
 semantic versioning with an explicit experimental suffix while the project is
 pre-stable.
 
+## [Unreleased]
+
+### Security
+
+- `resolveDbPath` in `scripts/install-global.ts` resolves the database path with
+  the same environment rules as `db-env.sh`, without starting a shell.
+
 ## [0.1.4-experimental]
 
 ### Added
