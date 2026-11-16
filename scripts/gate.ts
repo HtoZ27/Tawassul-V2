@@ -4,6 +4,7 @@ import { setPriority, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildAgentsMdDefault } from "../src/agent-templates.ts";
+import { buildAgents } from "../src/scripts/gen-opencode-config.ts";
 
 type GateStep = {
   name: string;
@@ -418,17 +419,26 @@ function writeTranscript(order: string[], ran: Map<string, boolean>): void {
   console.log(`GATE TRANSCRIPT: ${TRANSCRIPT}`);
 }
 
-function seedProofAgentMds(): void {
+function seedProofState(): void {
   const dir = join(repo, ".opencode", "agents");
   mkdirSync(dir, { recursive: true });
   for (const [tag, content] of Object.entries(buildAgentsMdDefault())) {
     const file = join(dir, `${tag.replace(/^@/, "")}.md`);
     if (!existsSync(file)) writeFileSync(file, content);
   }
+  const config = join(repo, "opencode.json");
+  if (!existsSync(config)) {
+    const body = {
+      $schema: "https://opencode.ai/config.json",
+      experimental: { subagent_depth: 3 },
+      agent: buildAgents([], { projectRoot: repo }),
+    };
+    writeFileSync(config, `${JSON.stringify(body, null, 2)}\n`);
+  }
 }
 
 async function runStage(name: string): Promise<boolean> {
-  if (name === "proofs") seedProofAgentMds();
+  if (name === "proofs") seedProofState();
   const stageSteps = manifest[name] ?? [];
   let steps = stageSteps;
   let label = name;
