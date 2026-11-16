@@ -11,7 +11,7 @@ and how it protects your work.
 | [Features](features.md) | You want the capability catalogue, with the status of every claim |
 | [Installation](installation.md) | You want the plugin running in a workspace or for a whole user |
 | [Plugins](plugins.md) | You want the package layout, discovery, or a manual host entry |
-| [Release notes](release-notes-0.1.0.md) | You want to know what this release contains and what it does not claim |
+| [Release notes](release-notes-0.1.1.md) | You want to know what this release contains and what it does not claim |
 | [Upgrade](upgrade.md) | You are moving an existing install to a new build |
 | [Compatibility](compatibility.md) | You need to know which host and platform are supported |
 | [Workflow](../WORKFLOW.md) | You want the working rhythm: goals, handoffs, reviews, long sessions |

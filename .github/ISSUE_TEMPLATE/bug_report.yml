@@ -20,7 +20,7 @@ body:
     attributes:
       label: Tawassul version
       description: The release or commit, or the version in the installed marker.
-      placeholder: 0.1.0-experimental
+      placeholder: 0.1.1-experimental
     validations:
       required: true
   - type: input
