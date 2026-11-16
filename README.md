@@ -1,11 +1,11 @@
-<p align="center">
-  <img src="assets/tawassul-logo.svg" alt="Tawassul" width="420">
-</p>
-
 # Tawassul
 
 **A team runtime for OpenCode: eight base agents, the model variants you
 choose, 44 tools, and a ledger that remembers what was decided.**
+
+<p align="center">
+  <img src="assets/tawassul-logo.svg" alt="Tawassul — Collaborative AI Agents" width="600">
+</p>
 
 Tawassul is an OpenCode plugin. It adds routing, handoffs, a goal ledger,
 mission boards, checkpoints, memory records, and a disciplined tool surface to a
