@@ -9,6 +9,9 @@ Tawassul runs inside OpenCode as a plugin. There are two supported scopes:
 Project scope needs no installer and never touches your OpenCode configuration.
 Global scope is an explicit, reversible operation with its own verification pass.
 
+> **Recommendation:** use project scope for local projects. Install globally
+> only when you want Tawassul in every workspace of the user.
+
 ## Prerequisites
 
 | Requirement | Version | Notes |

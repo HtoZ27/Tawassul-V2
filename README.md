@@ -38,7 +38,19 @@ Tawassul makes that structure explicit:
 
 Requires OpenCode `>=2.3.0`, Node.js `26.13.0` (see `.nvmrc`), and Bun `1.3.x`.
 
-Install the release for every workspace of the current user:
+> **Use project scope for local projects.** A project install keeps the plugin
+> inside that workspace, loads it only there, and never touches your OpenCode
+> configuration. Global scope is for a user who wants Tawassul in every
+> workspace.
+
+Install the release into one workspace:
+
+```bash
+sh install.sh --project <dir> --dry-run
+sh install.sh --project <dir>
+```
+
+Install it for every workspace of the current user:
 
 ```bash
 sh install.sh --global --dry-run
@@ -47,7 +59,6 @@ sh install.sh --global
 
 The installer verifies the bundle and the runtime archive against
 `SHA256SUMS`, stages the four wasm grammars, and never edits `opencode.json`.
-`sh install.sh --project <dir>` installs into one workspace, and
 `sh install.sh --global --uninstall` reverses it. See
 [docs/installation.md](docs/installation.md#release-installer).
 
