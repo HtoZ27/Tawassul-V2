@@ -14,6 +14,10 @@ node_modules/
 extracted_files/
 handoff-ledger.jsonl
 sagas/
-docs/FUTURE-WORK-PLAN.md
-docs/RELEASE-0.1.0-PLAN.md
-docs/continuity-brief-v1.md
+dev/FUTURE-WORK-PLAN.md
+dev/RELEASE-0.1.0-PLAN.md
+dev/continuity-brief-v1.md
+dev/plan-npm-parity-draft.md
+dev/tawassul-v2-code-first-plan.md
+dev/tawassul-v2-fix-plan.md
+dev/tawassul-v2-minimal-fix-plan.md
