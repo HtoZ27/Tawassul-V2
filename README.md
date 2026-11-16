@@ -1,11 +1,27 @@
-# Tawassul
+<div align="center">
 
-**A team runtime for OpenCode: eight base agents, the model variants you
-choose, 44 tools, and a ledger that remembers what was decided.**
+<img src="assets/tawassul-social-preview.png" alt="Tawassul — Collaborative AI Agents" width="100%">
 
-<p align="center">
-  <img src="assets/tawassul-logo.svg" alt="Tawassul — Collaborative AI Agents" width="600">
+<h3>A team runtime for OpenCode</h3>
+
+<p><b>Eight base agents · the model variants you choose · 44 tools · a ledger that remembers what was decided</b></p>
+
+<p>
+  <a href="https://github.com/HtoZ27/Tawassul-V2/actions/workflows/ci.yml"><img src="https://github.com/HtoZ27/Tawassul-V2/actions/workflows/ci.yml/badge.svg" alt="ci"></a>
+  <a href="https://github.com/HtoZ27/Tawassul-V2/releases"><img src="https://img.shields.io/github/v/release/HtoZ27/Tawassul-V2?include_prereleases" alt="release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="license"></a>
+  <a href="docs/compatibility.md"><img src="https://img.shields.io/badge/OpenCode-%E2%89%A52.3.0-111111" alt="OpenCode"></a>
 </p>
+
+<p>
+  <a href="#quick-start"><b>Quick start</b></a> ·
+  <a href="GUIDE.md">Guide</a> ·
+  <a href="WORKFLOW.md">Workflow</a> ·
+  <a href="docs/README.md">Documentation</a> ·
+  <a href="docs/release-notes-0.1.0.md">Release notes</a>
+</p>
+
+</div>
 
 Tawassul is an OpenCode plugin. It adds routing, handoffs, a goal ledger,
 mission boards, checkpoints, memory records, and a disciplined tool surface to a
