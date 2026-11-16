@@ -69,6 +69,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y sqlite3 psmisc jq
       - name: Install
         run: npm ci
+      - name: Host CLI
+        if: matrix.shard == 4
+        run: |
+          mkdir -p "$RUNNER_TEMP/host-cli"
+          cd "$RUNNER_TEMP/host-cli"
+          npm init -y >/dev/null
+          npm i --no-audit --no-fund @opencode/cli@2.3.0
+          echo "TAWASSUL_OPENCODE_BIN=$RUNNER_TEMP/host-cli/node_modules/.bin/opencode" >> "$GITHUB_ENV"
       - name: Build
         run: npm run build
       - name: Proofs
