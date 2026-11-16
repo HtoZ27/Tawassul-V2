@@ -199,7 +199,9 @@ function writeWorkspace(directory: string, stateDir: string, port: number, fallb
   mkdirSync(join(directory, ".opencode", "plugins"), { recursive: true });
   mkdirSync(join(stateDir, ".opencode"), { recursive: true });
   copyFileSync(PROJECT_ENTRY, join(directory, ".opencode", "plugins", "tawassul.js"));
-  symlinkSync(join(REPO, ".opencode", "node_modules"), join(directory, ".opencode", "node_modules"), "dir");
+  const projectModules = join(REPO, ".opencode", "node_modules");
+  const modules = existsSync(projectModules) ? projectModules : join(REPO, "node_modules");
+  symlinkSync(modules, join(directory, ".opencode", "node_modules"), "dir");
   writeFileSync(
     join(directory, "opencode.json"),
     `${JSON.stringify(
