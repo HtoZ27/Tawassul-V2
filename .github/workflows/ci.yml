@@ -69,5 +69,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y sqlite3 psmisc jq
       - name: Install
         run: npm ci
+      - name: Build
+        run: npm run build
       - name: Proofs
         run: npm run gate:proofs:${{ matrix.shard }}
