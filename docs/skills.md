@@ -53,6 +53,22 @@ The four earlier skills stay available to every agent that already used them.
 - Skill descriptions are context. They are measured as a budget line and
   reviewed for clarity, never truncated to a byte target.
 
+## How a skill is evaluated
+
+Every skill is measured by one eval entry: a fixture transcript replayed against
+the shipped procedure body, plus a live load rate measured on an isolated host.
+The proof stage replays the fixture calls and compares the measured rate with the
+threshold the manifest declares.
+
+| Manifest field | Meaning |
+| --- | --- |
+| `evalId` | The eval entry the skill is measured by |
+| `loadRateThreshold` | The share of relevant sessions that must load the skill; `0.5` means at least half |
+| `killCriterion` | The rule below the threshold: the skill retires to inline prose |
+
+The numbers live in `skills/manifest.json`, so lowering a threshold is a visible
+edit with a proof behind it, never a silent drift.
+
 ## Invoking a skill
 
 Ask for the outcome, or name the skill:
