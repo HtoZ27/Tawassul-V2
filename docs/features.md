@@ -19,16 +19,16 @@ Status meanings:
 | Role-based tool allowance | Ready | [permissions](permissions.md) |
 | Model selection per role, with fallbacks | Ready | [agents](agents.md) |
 | Runtime roster changes | Ready | [agents](agents.md), [custom roster](../examples/custom-roster.md) |
-| Delegation by handoff, with context and files | Ready | [user guide](user-guide.md) |
+| Delegation by handoff, with context and files | Ready | [workflow](../WORKFLOW.md) |
 | Nested dispatch bounds | Ready | `maxCallDepth`, `maxTotalTasks` |
-| Structured discussions with proposals and votes | Ready | [user guide](user-guide.md) |
+| Structured discussions with proposals and votes | Ready | [workflow](../WORKFLOW.md) |
 | Evidence, claims, and challenges | Ready | [glossary](glossary.md) |
 
 ## Durable work
 
 | Capability | Status | Detail |
 | --- | --- | --- |
-| Goals with items and definition of done | Ready | [user guide](user-guide.md) |
+| Goals with items and definition of done | Ready | [workflow](../WORKFLOW.md) |
 | Mechanical close: no unfinished item, no unmet criterion | Ready | Evidence rules are enforced by the tool |
 | Mission board and activity timeline | Ready | [monitoring](monitoring.md) |
 | Records for decisions, fixes, incidents, notes | Ready | Capped by `maxRecords` |

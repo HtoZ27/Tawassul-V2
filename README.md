@@ -4,8 +4,8 @@
 
 # Tawassul
 
-**A team runtime for OpenCode: eight agents, 44 tools, and a ledger
-that remembers what was decided.**
+**A team runtime for OpenCode: eight base agents, the model variants you
+choose, 44 tools, and a ledger that remembers what was decided.**
 
 Tawassul is an OpenCode plugin. It adds routing, handoffs, a goal ledger,
 mission boards, checkpoints, memory records, and a disciplined tool surface to a
@@ -152,7 +152,8 @@ the evidence level of every row, is in
 | [docs/installation.md](docs/installation.md) | Project and global install, upgrade, uninstall |
 | [docs/plugins.md](docs/plugins.md) | Package layout, discovery, a manual host entry |
 | [docs/upgrade.md](docs/upgrade.md) | Patch upgrades, downgrades, preserved state |
-| [docs/user-guide.md](docs/user-guide.md) | Goals, handoffs, reviews, long sessions |
+| [WORKFLOW.md](WORKFLOW.md) | The working rhythm: goals, handoffs, reviews, long sessions |
+| [GUIDE.md](GUIDE.md) | The complete team guide: agents, variants, memory, locks, tools, skills |
 | [docs/configuration.md](docs/configuration.md) | Config file, keys, environment variables |
 | [docs/environment.md](docs/environment.md) | Environment variable precedence and contracts |
 | [docs/state.md](docs/state.md) | State topology, retention, backup, deletion |

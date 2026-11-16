@@ -1,8 +1,9 @@
-# User guide
+# Workflow
 
 This guide walks through the work Tawassul is built for. Each section names the
 tool calls behind the outcome, so you can ask for the outcome and recognise the
-right route when the model takes it.
+right route when the model takes it. The complete team guide is in
+[Guide](GUIDE.md).
 
 ## Start a workspace
 
@@ -26,7 +27,7 @@ current state, or `dashboard` when you want the wider picture. `show_board` adds
 the mission board: task state and agent health in one view.
 
 If the agents are missing, the plugin did not load. Check with
-`opencode debug agents --standalone` and see [troubleshooting](troubleshooting.md).
+`opencode debug agents --standalone` and see [troubleshooting](docs/troubleshooting.md).
 
 ## Turn an intention into a goal
 

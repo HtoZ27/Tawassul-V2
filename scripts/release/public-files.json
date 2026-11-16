@@ -15,8 +15,6 @@
     "docs/installation.md",
     "docs/upgrade.md",
     "docs/compatibility.md",
-    "docs/user-guide.md",
-    "docs/end-user-guide.md",
     "docs/configuration.md",
     "docs/agents.md",
     "docs/tools.md",
@@ -50,6 +48,8 @@
     "examples/custom-roster.md"
   ],
   "rootFiles": [
+    "GUIDE.md",
+    "WORKFLOW.md",
     ".editorconfig",
     ".gitattributes",
     ".gitignore",
