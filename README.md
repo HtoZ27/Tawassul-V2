@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/tawassul-logo.svg" alt="Tawassul" width="420">
+</p>
+
 # Tawassul
 
 **A team runtime for OpenCode: eight agents, 44 tools, and a ledger
