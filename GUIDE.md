@@ -250,8 +250,11 @@ the model with `agentModels` before relying on it.
 
 ## Add an agent
 
-Typing `@` in the message box opens the agent picker. Choose `addagent` from the
-list, then write the command after it:
+The agent picker appears only when **Show agent** is on in
+**Settings → General** ("Switch between agents in the composer"); with it off
+the composer stays on the Build agent. Once it is on, typing `@` in the message
+box opens the picker. Choose `addagent` from the list, then write the command
+after it:
 
 ```
 @addagent reviewer with model gemini from google
