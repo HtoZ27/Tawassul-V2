@@ -1,0 +1,78 @@
+{
+  "date": "2026-10-31",
+  "method": "offline replay of authored fixture transcripts against the shipped procedure text; the live load rate was measured at E1 in docs/experiments/receipts/2026-10-31-e1.md",
+  "fixtures": [
+    {
+      "evalId": "goal-review-basic",
+      "skillId": "tawassul-goal-review",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 8
+    },
+    {
+      "evalId": "handoff-triage-basic",
+      "skillId": "tawassul-handoff-triage",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 7
+    },
+    {
+      "evalId": "context-continue-basic",
+      "skillId": "tawassul-context-continue",
+      "sessions": 1,
+      "relevant": 1,
+      "loaded": 1,
+      "procedureExecuted": true,
+      "calls": 6
+    }
+  ],
+  "replayLoadRate": {
+    "relevant": 3,
+    "loaded": 3,
+    "rate": 1
+  },
+  "liveLoadRate": {
+    "sessions": [
+      {
+        "evalId": "goal-review-basic",
+        "session": "goal-on",
+        "agent": "dev",
+        "loaded": true
+      },
+      {
+        "evalId": "handoff-triage-basic",
+        "session": "handoff-on",
+        "agent": "dev",
+        "loaded": true
+      },
+      {
+        "evalId": "handoff-triage-basic",
+        "session": "handoff-analyst",
+        "agent": "analyst",
+        "loaded": false
+      },
+      {
+        "evalId": "context-continue-basic",
+        "session": "context-on",
+        "agent": "dev",
+        "loaded": true
+      }
+    ],
+    "relevant": 4,
+    "loaded": 3,
+    "rate": 0.75,
+    "skillsOff": 0
+  },
+  "command": {
+    "name": "tawassul-goals",
+    "registered": true,
+    "expandedInRun": false,
+    "skillLoaded": true,
+    "procedureExecuted": true
+  },
+  "notes": "fixtures[] is the offline replay: each recorded session replays the exact call sequence in its SKILL.md; a call outside the procedure fails prove-pilot-eval. liveLoadRate[] is the E1 measurement on host 2.2.5; skillsOff is zero by construction because the control build never registers the skills. The handoff live procedure was blocked by the first-response guard and the auto-pause, and the context read step failed on the digest contract; both are recorded in the E1 receipt. The command was registered but did not expand under opencode run."
+}

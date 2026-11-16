@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "date": "2026-11-01",
+  "wave": "wave-2",
+  "host": "opencode v2.2.5 at ~/.config/ai.opencode.desktop/cli/2.2.5-x64/opencode-cli",
+  "build": "HEAD 9d9e36c plus the uncommitted Wave 1a and Wave 2 tree; .opencode/plugin/tawassul.js (2052555 bytes, 16147 description bytes) copied into each isolated workspace",
+  "method": "Four isolated stages under /tmp/opencode/w2-live/roots/<stage>: one workspace per stage with .opencode/plugin/tawassul.js, two roster agents, a symlinked .opencode/node_modules, and XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_STATE_HOME, XDG_CACHE_HOME, TAWASSUL_HMAC_KEY_DIR and OPENCODE_DB redirected under the same root. Each prompt ran the installed host with --standalone --auto --format json --agent dev --model opencode/big-pickle. Retries are recomputed from the run.out transcript: a retry is an error tool_use followed by another call of the same tool in the same session, the same rule rankToolRuns applies to .opencode/tool-run-log.json.",
+  "pacingRule": "Every retained stage prompt required one tool call per message and a wait for each result. The rule removes two harness artifacts that are unrelated to description text: parallel tool calls that trip the plugin burst guard, and the model guessing a path outside the isolated workspace.",
+  "baseline": {
+    "source": "docs/experiments/receipts/2026-10-31-e1.md",
+    "date": "2026-10-31",
+    "top8RetryTotal": 0,
+    "tools": [
+      { "tool": "bash", "calls": 41, "errors": 0, "retries": 0 },
+      { "tool": "goal", "calls": 20, "errors": 0, "retries": 0 },
+      { "tool": "thread", "calls": 13, "errors": 0, "retries": 0 },
+      { "tool": "skill", "calls": 6, "errors": 1, "retries": 0 },
+      { "tool": "read", "calls": 5, "errors": 0, "retries": 0 },
+      { "tool": "show_board", "calls": 5, "errors": 0, "retries": 0 },
+      { "tool": "record", "calls": 4, "errors": 0, "retries": 0 },
+      { "tool": "status", "calls": 4, "errors": 0, "retries": 0 }
+    ]
+  },
+  "closure": {
+    "source": "docs/experiments/receipts/2026-11-01-wave2-retries.json",
+    "stages": [
+      { "name": "goal-review", "calls": 13, "errors": 0, "retries": 0 },
+      { "name": "handoff-triage", "calls": 6, "errors": 0, "retries": 0 },
+      { "name": "context-continue", "calls": 14, "errors": 0, "retries": 0 },
+      { "name": "diagnostics", "calls": 4, "errors": 0, "retries": 0 }
+    ],
+    "top8RetryTotal": 0,
+    "delta": 0,
+    "tools": [
+      { "tool": "bash", "calls": 5, "errors": 0, "retries": 0 },
+      { "tool": "goal", "calls": 9, "errors": 0, "retries": 0 },
+      { "tool": "thread", "calls": 7, "errors": 0, "retries": 0 },
+      { "tool": "skill", "calls": 3, "errors": 0, "retries": 0 },
+      { "tool": "read", "calls": 1, "errors": 0, "retries": 0 },
+      { "tool": "show_board", "calls": 2, "errors": 0, "retries": 0 },
+      { "tool": "record", "calls": 4, "errors": 0, "retries": 0 },
+      { "tool": "status", "calls": 1, "errors": 0, "retries": 0 },
+      { "tool": "evaluationreport", "calls": 4, "errors": 0, "retries": 0 },
+      { "tool": "timeline", "calls": 1, "errors": 0, "retries": 0 },
+      { "tool": "health", "calls": 1, "errors": 0, "retries": 0 }
+    ]
+  },
+  "discarded": [
+    {
+      "name": "goal-review",
+      "reason": "The model issued two goal calls in one message; the plugin burst guard (BURST_MAX 3 per BURST_WINDOW_MS 1000) rejected the second. The error is a guard denial, not a description fault, and the receipt keeps the paced rerun.",
+      "error": "Rate limit (burst) exceeded for dev:nvidia:deepseek-ai. Active bursts: 3/3",
+      "tools": [
+        { "tool": "goal", "calls": 7, "errors": 1, "retries": 1 },
+        { "tool": "skill", "calls": 1, "errors": 0, "retries": 0 },
+        { "tool": "record", "calls": 1, "errors": 0, "retries": 0 },
+        { "tool": "show_board", "calls": 1, "errors": 0, "retries": 0 }
+      ]
+    },
+    {
+      "name": "diagnostics",
+      "reason": "The prompt named package.json but the isolated workspace root carries none, so the model read a path outside the workspace and then gave up. The workspace now seeds notes.md and the retained run reads it.",
+      "error": "File not found: /tmp/opencode/w2-<root>/package.json",
+      "tools": [
+        { "tool": "read", "calls": 2, "errors": 1, "retries": 1 },
+        { "tool": "status", "calls": 1, "errors": 0, "retries": 0 },
+        { "tool": "bash", "calls": 1, "errors": 0, "retries": 0 },
+        { "tool": "health", "calls": 1, "errors": 0, "retries": 0 }
+      ]
+    },
+    {
+      "name": "diagnostics",
+      "reason": "Same missing package.json with an explicit relative path; the model reported the miss once and issued no second read.",
+      "error": "File not found: package.json",
+      "tools": [
+        { "tool": "status", "calls": 1, "errors": 0, "retries": 0 },
+        { "tool": "read", "calls": 1, "errors": 1, "retries": 0 },
+        { "tool": "bash", "calls": 1, "errors": 0, "retries": 0 },
+        { "tool": "health", "calls": 1, "errors": 0, "retries": 0 }
+      ]
+    },
+    {
+      "name": "context-continue",
+      "reason": "Two provider outages before the retained run: the host resolved the route to nvidia/deepseek-ai/deepseek-v4.1-flash and the provider answered provider.no-route before any tool call completed.",
+      "error": "Model unavailable: nvidia/deepseek-ai/deepseek-v4.1-flash",
+      "tools": []
+    }
+  ],
+  "disclosure": "Across the retained stages the top eight hot tools keep the frozen zero-retry baseline (0 to 0). Two discarded runs carry one retry each: a plugin burst-guard denial and a model path guess outside the workspace. Neither retry follows from a description edit, and both are reported here rather than dropped.",
+  "notes": [
+    "The tool-run-log flush lags the transcript: goal-review logged 12 of 13 calls, handoff-triage 5 of 6, context-continue 13 of 14, and diagnostics logged nothing because the run ended before a state save. Retry counts therefore come from run.out, which carries every tool_use with state.status.",
+    "The host reports the shell tool as shell in the transcript and the plugin records it as bash in the run log; both are folded into the bash row.",
+    "The model route resolved to nvidia/deepseek-ai/deepseek-v4.1-flash in every stage despite --model opencode/big-pickle, the same routing defect E1 recorded."
+  ]
+}

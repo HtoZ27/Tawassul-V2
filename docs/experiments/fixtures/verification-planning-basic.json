@@ -1,0 +1,51 @@
+{
+  "id": "verification-planning-basic",
+  "skillId": "tawassul-verification-planning",
+  "sessions": [
+    {
+      "name": "verification-planning-session",
+      "request": "Plan the verification for the change ahead of implementation.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        {
+          "tool": "goal",
+          "args": {
+            "list": true
+          }
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "note",
+            "title": "verification plan",
+            "detail": "claim, failure modes, evidence path, budget and owner"
+          }
+        },
+        {
+          "tool": "handoff",
+          "args": {
+            "to": "@dev",
+            "task": "implement the planned change",
+            "context": "the verification plan is in the record ledger"
+          }
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "note",
+            "title": "verification result",
+            "detail": "established, limited or refuted, with the evidence"
+          }
+        },
+        {
+          "tool": "goal",
+          "args": {
+            "evidence": "G-001",
+            "evidenceText": "the claim is established by the recorded run"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1484 @@
+{
+  "fast": [
+    {
+      "name": "source-rules",
+      "cmd": [
+        "node",
+        "scripts/check-v2-rules.mjs"
+      ]
+    },
+    {
+      "name": "docs",
+      "cmd": [
+        "node",
+        "scripts/check-docs.mjs"
+      ]
+    },
+    {
+      "name": "public-tree",
+      "cmd": [
+        "bun",
+        "scripts/check-public-tree.ts"
+      ]
+    },
+    {
+      "name": "sbom",
+      "cmd": [
+        "bun",
+        "scripts/gen-sbom.ts",
+        "--check"
+      ]
+    },
+    {
+      "name": "notices",
+      "cmd": [
+        "bun",
+        "scripts/gen-third-party-notices.ts",
+        "--check"
+      ]
+    },
+    {
+      "name": "shell-syntax",
+      "cmd": [
+        "node",
+        "scripts/check-shell-syntax.mjs"
+      ]
+    },
+    {
+      "name": "typecheck",
+      "cmd": [
+        "./node_modules/.bin/tsc",
+        "--noEmit"
+      ]
+    },
+    {
+      "name": "config",
+      "cmd": [
+        "bun",
+        "src/scripts/gen-opencode-config.ts",
+        "--check"
+      ]
+    },
+    {
+      "name": "schema",
+      "cmd": [
+        "bun",
+        "src/scripts/gen-schema.ts",
+        "--check"
+      ]
+    },
+    {
+      "name": "facts",
+      "cmd": [
+        "bun",
+        "src/scripts/facts.ts",
+        "check"
+      ]
+    },
+    {
+      "name": "sdk-pins",
+      "cmd": [
+        "bun",
+        "scripts/check-sdk-pins.ts"
+      ]
+    },
+    {
+      "name": "upstream-registry",
+      "cmd": [
+        "bun",
+        "scripts/check-upstream.ts",
+        "--offline"
+      ]
+    },
+    {
+      "name": "shared-parity",
+      "cmd": [
+        "bun",
+        "scripts/check-shared-parity.ts",
+        "--check"
+      ]
+    },
+    {
+      "name": "release",
+      "cmd": [
+        "bun",
+        "scripts/release/check-release.ts"
+      ]
+    },
+    {
+      "name": "proof-catalog",
+      "cmd": [
+        "bun",
+        "scripts/prove-proof-catalog.ts"
+      ]
+    },
+    {
+      "name": "proof-count",
+      "cmd": [
+        "bun",
+        "scripts/generate-proof-count.ts",
+        "--check"
+      ]
+    }
+  ],
+  "proofs": [
+    {
+      "name": "gen-lock",
+      "cmd": [
+        "bun",
+        "scripts/prove-gen-lock-contention.ts"
+      ]
+    },
+    {
+      "name": "gen-merge",
+      "cmd": [
+        "bun",
+        "scripts/prove-gen-merge-guards.ts"
+      ]
+    },
+    {
+      "name": "gen-guard-wal",
+      "cmd": [
+        "bun",
+        "scripts/prove-gen-guard-wal.ts"
+      ]
+    },
+    {
+      "name": "roster-boundary",
+      "cmd": [
+        "bun",
+        "scripts/prove-roster-boundary.ts"
+      ]
+    },
+    {
+      "name": "event-trust",
+      "cmd": [
+        "bun",
+        "scripts/prove-event-trust-p1.ts"
+      ]
+    },
+    {
+      "name": "web-ssrf",
+      "cmd": [
+        "bun",
+        "scripts/prove-web-ssrf.ts"
+      ]
+    },
+    {
+      "name": "first-boot",
+      "cmd": [
+        "bun",
+        "scripts/prove-first-boot-seed.ts"
+      ]
+    },
+    {
+      "name": "disclosure",
+      "cmd": [
+        "bun",
+        "scripts/prove-disclosure.ts"
+      ]
+    },
+    {
+      "name": "s005",
+      "cmd": [
+        "bun",
+        "scripts/prove-s005.ts"
+      ]
+    },
+    {
+      "name": "s013",
+      "cmd": [
+        "bun",
+        "scripts/prove-s013.ts"
+      ]
+    },
+    {
+      "name": "s017",
+      "cmd": [
+        "bun",
+        "scripts/prove-s017.ts"
+      ]
+    },
+    {
+      "name": "s020",
+      "cmd": [
+        "bun",
+        "scripts/prove-s020.ts"
+      ]
+    },
+    {
+      "name": "e11",
+      "cmd": [
+        "bun",
+        "scripts/prove-e11.ts"
+      ]
+    },
+    {
+      "name": "e12",
+      "cmd": [
+        "bun",
+        "scripts/prove-e12.ts"
+      ]
+    },
+    {
+      "name": "e13",
+      "cmd": [
+        "bun",
+        "scripts/prove-e13.ts"
+      ]
+    },
+    {
+      "name": "e20",
+      "cmd": [
+        "bun",
+        "scripts/prove-e20.ts"
+      ]
+    },
+    {
+      "name": "e21",
+      "cmd": [
+        "bun",
+        "scripts/prove-e21.ts"
+      ]
+    },
+    {
+      "name": "e22",
+      "cmd": [
+        "bun",
+        "scripts/prove-e22.ts"
+      ]
+    },
+    {
+      "name": "e19",
+      "cmd": [
+        "bun",
+        "scripts/prove-e19.ts"
+      ]
+    },
+    {
+      "name": "e23",
+      "cmd": [
+        "bun",
+        "scripts/prove-e23.ts"
+      ]
+    },
+    {
+      "name": "e24",
+      "cmd": [
+        "bun",
+        "scripts/prove-e24.ts"
+      ]
+    },
+    {
+      "name": "b11",
+      "cmd": [
+        "bun",
+        "scripts/prove-b11.ts"
+      ]
+    },
+    {
+      "name": "b12",
+      "cmd": [
+        "bun",
+        "scripts/prove-b12.ts"
+      ]
+    },
+    {
+      "name": "e14",
+      "cmd": [
+        "bun",
+        "scripts/prove-e14.ts"
+      ]
+    },
+    {
+      "name": "e27",
+      "cmd": [
+        "bun",
+        "scripts/prove-e27.ts"
+      ]
+    },
+    {
+      "name": "e31",
+      "cmd": [
+        "bun",
+        "scripts/prove-e31.ts"
+      ]
+    },
+    {
+      "name": "e15",
+      "cmd": [
+        "bun",
+        "scripts/prove-e15.ts"
+      ]
+    },
+    {
+      "name": "e17",
+      "cmd": [
+        "bun",
+        "scripts/prove-e17.ts"
+      ]
+    },
+    {
+      "name": "e34",
+      "cmd": [
+        "bun",
+        "scripts/prove-e34.ts"
+      ]
+    },
+    {
+      "name": "e35",
+      "cmd": [
+        "bun",
+        "scripts/prove-e35.ts"
+      ]
+    },
+    {
+      "name": "e37",
+      "cmd": [
+        "bun",
+        "scripts/prove-e37.ts"
+      ]
+    },
+    {
+      "name": "e38",
+      "cmd": [
+        "bun",
+        "scripts/prove-e38.ts"
+      ]
+    },
+    {
+      "name": "e18",
+      "cmd": [
+        "bun",
+        "scripts/prove-e18.ts"
+      ]
+    },
+    {
+      "name": "e02",
+      "cmd": [
+        "bun",
+        "scripts/prove-e02.ts"
+      ]
+    },
+    {
+      "name": "b01",
+      "cmd": [
+        "bun",
+        "scripts/prove-b01.ts"
+      ]
+    },
+    {
+      "name": "b02",
+      "cmd": [
+        "bun",
+        "scripts/prove-b02.ts"
+      ]
+    },
+    {
+      "name": "b03",
+      "cmd": [
+        "bun",
+        "scripts/prove-b03.ts"
+      ]
+    },
+    {
+      "name": "b05",
+      "cmd": [
+        "bun",
+        "scripts/prove-b05.ts"
+      ]
+    },
+    {
+      "name": "boot-budget",
+      "cmd": [
+        "bun",
+        "scripts/prove-boot-budget.ts"
+      ]
+    },
+    {
+      "name": "bundle-freshness",
+      "cmd": [
+        "bun",
+        "scripts/prove-bundle-freshness.ts"
+      ]
+    },
+    {
+      "name": "g002i2",
+      "cmd": [
+        "bun",
+        "scripts/prove-g002i2.ts"
+      ]
+    },
+    {
+      "name": "g002i3",
+      "cmd": [
+        "bun",
+        "scripts/prove-g002i3.ts"
+      ]
+    },
+    {
+      "name": "g002i4",
+      "cmd": [
+        "bun",
+        "scripts/prove-g002i4.ts"
+      ]
+    },
+    {
+      "name": "g003i1",
+      "cmd": [
+        "bun",
+        "scripts/prove-g003i1.ts"
+      ]
+    },
+    {
+      "name": "g003i2",
+      "cmd": [
+        "bun",
+        "scripts/prove-g003i2.ts"
+      ]
+    },
+    {
+      "name": "g003i4",
+      "cmd": [
+        "bun",
+        "scripts/prove-g003i4.ts"
+      ]
+    },
+    {
+      "name": "g003i5",
+      "cmd": [
+        "bun",
+        "scripts/prove-g003i5.ts"
+      ]
+    },
+    {
+      "name": "g003i3",
+      "cmd": [
+        "bun",
+        "scripts/prove-g003i3.ts"
+      ]
+    },
+    {
+      "name": "g003i6",
+      "cmd": [
+        "bun",
+        "scripts/prove-g003i6.ts"
+      ]
+    },
+    {
+      "name": "e25",
+      "cmd": [
+        "bun",
+        "scripts/prove-e25.ts"
+      ]
+    },
+    {
+      "name": "e29",
+      "cmd": [
+        "bun",
+        "scripts/prove-e29.ts"
+      ]
+    },
+    {
+      "name": "e30",
+      "cmd": [
+        "bun",
+        "scripts/prove-e30.ts"
+      ]
+    },
+    {
+      "name": "e33",
+      "cmd": [
+        "bun",
+        "scripts/prove-e33.ts"
+      ]
+    },
+    {
+      "name": "e36",
+      "cmd": [
+        "bun",
+        "scripts/prove-e36.ts"
+      ]
+    },
+    {
+      "name": "p08",
+      "cmd": [
+        "bun",
+        "scripts/prove-p08.ts"
+      ]
+    },
+    {
+      "name": "s021",
+      "cmd": [
+        "bun",
+        "scripts/prove-s021.ts"
+      ]
+    },
+    {
+      "name": "resurrection",
+      "cmd": [
+        "bun",
+        "scripts/prove-goal-resurrection.ts"
+      ]
+    },
+    {
+      "name": "goal-board-truth",
+      "cmd": [
+        "bun",
+        "scripts/prove-goal-board-truth.ts"
+      ]
+    },
+    {
+      "name": "goal-capture",
+      "cmd": [
+        "bun",
+        "scripts/prove-goal-capture.ts"
+      ]
+    },
+    {
+      "name": "goal-item-ids",
+      "cmd": [
+        "bun",
+        "scripts/prove-goal-item-ids.ts"
+      ]
+    },
+    {
+      "name": "goal-item-update",
+      "cmd": [
+        "bun",
+        "scripts/prove-goal-item-update.ts"
+      ]
+    },
+    {
+      "name": "goal-migration",
+      "cmd": [
+        "bun",
+        "scripts/prove-goal-migration.ts"
+      ]
+    },
+    {
+      "name": "goal-stale-lifecycle",
+      "cmd": [
+        "bun",
+        "scripts/prove-goal-stale-lifecycle.ts"
+      ]
+    },
+    {
+      "name": "early-exit",
+      "cmd": [
+        "bun",
+        "scripts/prove-pipeline-early-exit.ts"
+      ]
+    },
+    {
+      "name": "priming",
+      "cmd": [
+        "bun",
+        "scripts/prove-store-priming.ts"
+      ]
+    },
+    {
+      "name": "s024",
+      "cmd": [
+        "bun",
+        "scripts/prove-s024.ts"
+      ]
+    },
+    {
+      "name": "rules",
+      "cmd": [
+        "bun",
+        "scripts/prove-rule-gate.ts"
+      ]
+    },
+    {
+      "name": "s028",
+      "cmd": [
+        "bun",
+        "scripts/prove-s028.ts"
+      ]
+    },
+    {
+      "name": "s029",
+      "cmd": [
+        "bun",
+        "scripts/prove-s029.ts"
+      ]
+    },
+    {
+      "name": "s033",
+      "cmd": [
+        "bun",
+        "scripts/prove-s033.ts"
+      ]
+    },
+    {
+      "name": "s053",
+      "cmd": [
+        "bun",
+        "scripts/prove-s053.ts"
+      ]
+    },
+    {
+      "name": "s036",
+      "cmd": [
+        "bun",
+        "scripts/prove-s036.ts"
+      ]
+    },
+    {
+      "name": "s038",
+      "cmd": [
+        "bun",
+        "scripts/prove-s038.ts"
+      ]
+    },
+    {
+      "name": "seed-agents",
+      "cmd": [
+        "bun",
+        "scripts/prove-seed-agents.ts"
+      ]
+    },
+    {
+      "name": "n2-cap",
+      "cmd": [
+        "bun",
+        "scripts/prove-n2-cap.ts"
+      ]
+    },
+    {
+      "name": "boot-gate",
+      "cmd": [
+        "bun",
+        "scripts/prove-boot-gate.ts"
+      ]
+    },
+    {
+      "name": "db-retention",
+      "cmd": [
+        "bun",
+        "scripts/prove-db-retention.ts"
+      ]
+    },
+    {
+      "name": "db-scheduler",
+      "cmd": [
+        "bun",
+        "scripts/prove-db-scheduler.ts"
+      ]
+    },
+    {
+      "name": "db-lock",
+      "cmd": [
+        "bun",
+        "scripts/prove-db-lock.ts"
+      ]
+    },
+    {
+      "name": "guard-matrix",
+      "cmd": [
+        "bun",
+        "scripts/prove-guard-matrix.ts"
+      ]
+    },
+    {
+      "name": "host-discovery",
+      "cmd": [
+        "bun",
+        "scripts/prove-host-discovery.ts"
+      ]
+    },
+    {
+      "name": "host-entry",
+      "cmd": [
+        "bun",
+        "scripts/prove-host-entry.ts"
+      ]
+    },
+    {
+      "name": "host-floor",
+      "cmd": [
+        "bun",
+        "scripts/prove-host-floor.ts"
+      ]
+    },
+    {
+      "name": "host-goal",
+      "cmd": [
+        "bun",
+        "scripts/prove-host-goal.ts"
+      ]
+    },
+    {
+      "name": "blocked-tool",
+      "cmd": [
+        "bun",
+        "scripts/prove-blocked-tool.ts"
+      ]
+    },
+    {
+      "name": "board-invariants",
+      "cmd": [
+        "bun",
+        "scripts/prove-board-invariants.ts"
+      ]
+    },
+    {
+      "name": "desktop-scan",
+      "cmd": [
+        "bun",
+        "scripts/prove-desktop-scan.ts"
+      ]
+    },
+    {
+      "name": "portability",
+      "cmd": [
+        "bun",
+        "scripts/prove-portability.ts"
+      ]
+    },
+    {
+      "name": "partial-install",
+      "cmd": [
+        "bun",
+        "scripts/prove-partial-install.ts"
+      ]
+    },
+    {
+      "name": "d05-doctor-census",
+      "cmd": [
+        "bun",
+        "scripts/prove-d05.ts"
+      ]
+    },
+    {
+      "name": "c03-agentless-guard",
+      "cmd": [
+        "bun",
+        "scripts/prove-c03.ts"
+      ]
+    },
+    {
+      "name": "e28-blocked-tools",
+      "cmd": [
+        "bun",
+        "scripts/prove-e28.ts"
+      ]
+    },
+    {
+      "name": "v2-compat",
+      "cmd": [
+        "bun",
+        "scripts/prove-v2-compat.ts"
+      ]
+    },
+    {
+      "name": "catch-discipline",
+      "cmd": [
+        "bun",
+        "scripts/prove-catch-discipline.ts"
+      ]
+    },
+    {
+      "name": "closure-artifacts",
+      "cmd": [
+        "bun",
+        "scripts/prove-closure-artifacts.ts"
+      ]
+    },
+    {
+      "name": "independence",
+      "cmd": [
+        "bun",
+        "scripts/prove-v2-independence.ts"
+      ]
+    },
+    {
+      "name": "global-install",
+      "cmd": [
+        "bun",
+        "scripts/prove-global-install.ts"
+      ]
+    },
+    {
+      "name": "setup-delegation",
+      "cmd": [
+        "bun",
+        "scripts/prove-setup-delegation.ts"
+      ]
+    },
+    {
+      "name": "setup-budget",
+      "cmd": [
+        "bun",
+        "scripts/prove-setup-budget.ts"
+      ]
+    },
+    {
+      "name": "shell-alias",
+      "cmd": [
+        "bun",
+        "scripts/prove-shell-alias.ts"
+      ]
+    },
+    {
+      "name": "v2-ask-bridge",
+      "cmd": [
+        "bun",
+        "scripts/prove-v2-ask-bridge.ts"
+      ]
+    },
+    {
+      "name": "cancel-metric",
+      "cmd": [
+        "bun",
+        "scripts/prove-cancel-metric.ts"
+      ]
+    },
+    {
+      "name": "handoff-undo",
+      "cmd": [
+        "bun",
+        "scripts/prove-handoff-undo.ts"
+      ]
+    },
+    {
+      "name": "handoff-rescue",
+      "cmd": [
+        "bun",
+        "scripts/prove-handoff-rescue.ts"
+      ]
+    },
+    {
+      "name": "handoff-context-shape",
+      "cmd": [
+        "bun",
+        "scripts/prove-handoff-context-shape.ts"
+      ]
+    },
+    {
+      "name": "handoff-context-parity",
+      "cmd": [
+        "bun",
+        "scripts/prove-handoff-context-parity.ts"
+      ]
+    },
+    {
+      "name": "feature-index-english",
+      "cmd": [
+        "bun",
+        "scripts/prove-feature-index-english.ts"
+      ]
+    },
+    {
+      "name": "c02",
+      "cmd": [
+        "bun",
+        "scripts/prove-c02.ts"
+      ]
+    },
+    {
+      "name": "backup-cap",
+      "cmd": [
+        "bun",
+        "scripts/prove-backup-cap.ts"
+      ]
+    },
+    {
+      "name": "upstream-sync",
+      "cmd": [
+        "bun",
+        "scripts/prove-upstream-sync.ts"
+      ]
+    },
+    {
+      "name": "e42-result-metadata",
+      "cmd": [
+        "bun",
+        "scripts/prove-e42.ts"
+      ]
+    },
+    {
+      "name": "e44-host-retry",
+      "cmd": [
+        "bun",
+        "scripts/prove-e44.ts"
+      ]
+    },
+    {
+      "name": "e45-shutdown-budget",
+      "cmd": [
+        "bun",
+        "scripts/prove-e45.ts"
+      ]
+    },
+    {
+      "name": "e46-db-lane",
+      "cmd": [
+        "bun",
+        "scripts/prove-e46.ts"
+      ]
+    },
+    {
+      "name": "host-refresh",
+      "cmd": [
+        "bun",
+        "scripts/prove-host-refresh.ts"
+      ]
+    },
+    {
+      "name": "context-accounting",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-accounting.ts"
+      ]
+    },
+    {
+      "name": "context-selection",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-selection.ts"
+      ]
+    },
+    {
+      "name": "context-budget",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-budget.ts"
+      ]
+    },
+    {
+      "name": "context-store",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-store.ts"
+      ]
+    },
+    {
+      "name": "context-claim",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-claim.ts"
+      ]
+    },
+    {
+      "name": "context-inject",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-inject.ts"
+      ]
+    },
+    {
+      "name": "context-transport",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-transport.ts"
+      ]
+    },
+    {
+      "name": "context-hook-latency",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-hook-latency.ts"
+      ]
+    },
+    {
+      "name": "context-hook-idempotent",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-hook-idempotent.ts"
+      ]
+    },
+    {
+      "name": "context-bridge",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-bridge.ts"
+      ]
+    },
+    {
+      "name": "context-revalidate",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-revalidate.ts"
+      ]
+    },
+    {
+      "name": "context-failure-pack",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-failure-pack.ts"
+      ]
+    },
+    {
+      "name": "context-kill-switch",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-kill-switch.ts"
+      ]
+    },
+    {
+      "name": "context-pressure",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-pressure.ts"
+      ]
+    },
+    {
+      "name": "context-sanitize",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-sanitize.ts"
+      ]
+    },
+    {
+      "name": "thread-tool",
+      "cmd": [
+        "bun",
+        "scripts/prove-thread-tool.ts"
+      ]
+    },
+    {
+      "name": "task-context-bundle",
+      "cmd": [
+        "bun",
+        "scripts/prove-task-context-bundle.ts"
+      ]
+    },
+    {
+      "name": "task-context-budget",
+      "cmd": [
+        "bun",
+        "scripts/prove-task-context-budget.ts"
+      ]
+    },
+    {
+      "name": "task-context-distinct",
+      "cmd": [
+        "bun",
+        "scripts/prove-task-context-distinct.ts"
+      ]
+    },
+    {
+      "name": "task-control",
+      "cmd": [
+        "bun",
+        "scripts/prove-task-control.ts"
+      ]
+    },
+    {
+      "name": "task-dispatch",
+      "cmd": [
+        "bun",
+        "scripts/prove-task-dispatch.ts"
+      ]
+    },
+    {
+      "name": "task-finalize",
+      "cmd": [
+        "bun",
+        "scripts/prove-task-finalize.ts"
+      ]
+    },
+    {
+      "name": "tool-cancel",
+      "cmd": [
+        "bun",
+        "scripts/prove-tool-cancel.ts"
+      ]
+    },
+    {
+      "name": "tool-name-hash",
+      "cmd": [
+        "bun",
+        "scripts/prove-tool-name-hash.ts"
+      ]
+    },
+    {
+      "name": "tool-run-ranking",
+      "cmd": [
+        "bun",
+        "scripts/prove-tool-run-ranking.ts"
+      ]
+    },
+    {
+      "name": "record-digest-dedupe",
+      "cmd": [
+        "bun",
+        "scripts/prove-record-digest-dedupe.ts"
+      ]
+    },
+    {
+      "name": "record-search",
+      "cmd": [
+        "bun",
+        "scripts/prove-record-search.ts"
+      ]
+    },
+    {
+      "name": "dispose-bounded",
+      "cmd": [
+        "bun",
+        "scripts/prove-dispose-bounded.ts"
+      ]
+    },
+    {
+      "name": "dispatch-model",
+      "cmd": [
+        "bun",
+        "scripts/prove-dispatch-model.ts"
+      ]
+    },
+    {
+      "name": "model-switch",
+      "cmd": [
+        "bun",
+        "scripts/prove-model-switch.ts"
+      ]
+    },
+    {
+      "name": "model-failover",
+      "cmd": [
+        "bun",
+        "scripts/prove-model-failover.ts"
+      ]
+    },
+    {
+      "name": "model-failover-e2e",
+      "cmd": [
+        "bun",
+        "scripts/prove-model-failover-e2e.ts"
+      ]
+    },
+    {
+      "name": "repeat-guard",
+      "cmd": [
+        "bun",
+        "scripts/prove-repeat-guard.ts"
+      ]
+    },
+    {
+      "name": "call-depth-clamp",
+      "cmd": [
+        "bun",
+        "scripts/prove-call-depth-clamp.ts"
+      ]
+    },
+    {
+      "name": "usage-ledger",
+      "cmd": [
+        "bun",
+        "scripts/prove-usage-ledger.ts"
+      ]
+    },
+    {
+      "name": "usage-shadow",
+      "cmd": [
+        "bun",
+        "scripts/prove-usage-shadow.ts"
+      ]
+    },
+    {
+      "name": "live-entry-sync",
+      "cmd": [
+        "bun",
+        "scripts/prove-live-entry-sync.ts"
+      ]
+    },
+    {
+      "name": "payload-cache",
+      "cmd": [
+        "bun",
+        "scripts/prove-payload-cache.ts"
+      ]
+    },
+    {
+      "name": "routing-eval",
+      "cmd": [
+        "bun",
+        "scripts/prove-routing-eval.ts"
+      ]
+    },
+    {
+      "name": "concordance",
+      "cmd": [
+        "bun",
+        "scripts/prove-concordance.ts"
+      ]
+    },
+    {
+      "name": "context-baseline",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-baseline.ts"
+      ]
+    },
+    {
+      "name": "context-diet",
+      "cmd": [
+        "bun",
+        "scripts/prove-context-diet.ts"
+      ]
+    },
+    {
+      "name": "constraint-retention",
+      "cmd": [
+        "bun",
+        "scripts/prove-constraint-retention.ts"
+      ]
+    },
+    {
+      "name": "reload-live",
+      "cmd": [
+        "bun",
+        "scripts/prove-reload-live.ts"
+      ]
+    },
+    {
+      "name": "skills-manifest",
+      "cmd": [
+        "bun",
+        "scripts/prove-skills-manifest.ts"
+      ]
+    },
+    {
+      "name": "skill-registration",
+      "cmd": [
+        "bun",
+        "scripts/prove-skill-registration.ts"
+      ]
+    },
+    {
+      "name": "md-gate",
+      "cmd": [
+        "bun",
+        "scripts/prove-md-gate.ts"
+      ]
+    },
+    {
+      "name": "pilot-eval",
+      "cmd": [
+        "bun",
+        "scripts/prove-pilot-eval.ts"
+      ]
+    },
+    {
+      "name": "state-paths",
+      "cmd": [
+        "bun",
+        "scripts/prove-state-paths.ts"
+      ]
+    },
+    {
+      "name": "state-root-survival",
+      "cmd": [
+        "bun",
+        "scripts/prove-state-root-survival.ts"
+      ]
+    },
+    {
+      "name": "state-root-rollback",
+      "cmd": [
+        "bun",
+        "scripts/prove-state-root-rollback.ts"
+      ]
+    },
+    {
+      "name": "review-independence-retro",
+      "cmd": [
+        "bun",
+        "scripts/prove-review-independence-retro.ts"
+      ]
+    },
+    {
+      "name": "skill-load-rate",
+      "cmd": [
+        "bun",
+        "scripts/prove-skill-load-rate.ts"
+      ]
+    },
+    {
+      "name": "skill-discovery",
+      "cmd": [
+        "bun",
+        "scripts/prove-skill-discovery.ts"
+      ]
+    },
+    {
+      "name": "gate-budget",
+      "cmd": [
+        "bun",
+        "scripts/prove-gate-budget.ts"
+      ]
+    },
+    {
+      "name": "reachability-audit",
+      "cmd": [
+        "bun",
+        "scripts/prove-reachability-audit.ts"
+      ]
+    },
+    {
+      "name": "snapshot-boundary",
+      "cmd": [
+        "bun",
+        "scripts/prove-snapshot-boundary.ts"
+      ]
+    },
+    {
+      "name": "no-git-init",
+      "cmd": [
+        "bun",
+        "scripts/prove-no-git-init.ts"
+      ]
+    },
+    {
+      "name": "intelligence-off",
+      "cmd": [
+        "bun",
+        "scripts/prove-intelligence-off.ts"
+      ]
+    },
+    {
+      "name": "run-interrupt",
+      "cmd": [
+        "bun",
+        "scripts/prove-run-interrupt.ts"
+      ]
+    },
+    {
+      "name": "continuity-resume",
+      "cmd": [
+        "bun",
+        "scripts/prove-continuity-resume.ts"
+      ]
+    },
+    {
+      "name": "project-index-byproduct",
+      "cmd": [
+        "bun",
+        "scripts/prove-project-index-byproduct.ts"
+      ]
+    },
+    {
+      "name": "project-index-incremental",
+      "cmd": [
+        "bun",
+        "scripts/prove-project-index-incremental.ts"
+      ]
+    },
+    {
+      "name": "project-index-corrupt",
+      "cmd": [
+        "bun",
+        "scripts/prove-project-index-corrupt.ts"
+      ]
+    },
+    {
+      "name": "read-cache-hit",
+      "cmd": [
+        "bun",
+        "scripts/prove-read-cache-hit.ts"
+      ]
+    },
+    {
+      "name": "read-cache-stamp-miss",
+      "cmd": [
+        "bun",
+        "scripts/prove-read-cache-stamp-miss.ts"
+      ]
+    },
+    {
+      "name": "read-cache-unrelated-edit",
+      "cmd": [
+        "bun",
+        "scripts/prove-read-cache-unrelated-edit.ts"
+      ]
+    },
+    {
+      "name": "read-cache-bypass",
+      "cmd": [
+        "bun",
+        "scripts/prove-read-cache-bypass.ts"
+      ]
+    },
+    {
+      "name": "read-cache-byte-cap",
+      "cmd": [
+        "bun",
+        "scripts/prove-read-cache-byte-cap.ts"
+      ]
+    },
+    {
+      "name": "guard-routing",
+      "cmd": [
+        "bun",
+        "scripts/prove-guard-routing.ts"
+      ]
+    },
+    {
+      "name": "report-path",
+      "cmd": [
+        "bun",
+        "scripts/prove-report-path.ts"
+      ]
+    }
+  ],
+  "smoke": [
+    {
+      "name": "build",
+      "cmd": [
+        "bun",
+        "build-v2.mjs"
+      ]
+    },
+    {
+      "name": "pack",
+      "cmd": [
+        "bash",
+        "scripts/release/pack.sh"
+      ]
+    },
+    {
+      "name": "verify-artifact",
+      "cmd": [
+        "bun",
+        "scripts/release/verify-artifact.ts"
+      ]
+    },
+    {
+      "name": "release-smoke",
+      "cmd": [
+        "bash",
+        "scripts/release-smoke.sh"
+      ],
+      "env": {
+        "TAWASSUL_SMOKE_SKIP_BUILD": "1"
+      }
+    },
+    {
+      "name": "global-boot",
+      "cmd": [
+        "bun",
+        "scripts/prove-global-boot.ts"
+      ]
+    },
+    {
+      "name": "independence-boot",
+      "cmd": [
+        "bun",
+        "scripts/prove-independence-boot.ts"
+      ]
+    }
+  ],
+  "evals": [
+    {
+      "name": "eval-pilot",
+      "cmd": [
+        "bun",
+        "scripts/run-pilot-evals.ts"
+      ]
+    }
+  ]
+}

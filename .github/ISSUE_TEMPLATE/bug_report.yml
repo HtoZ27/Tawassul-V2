@@ -1,0 +1,96 @@
+name: Bug report
+description: Report a reproducible problem with Tawassul
+title: "[bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read the known issues and troubleshooting pages before filing. A report
+        without a reproduction is usually closed with a request for one.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One sentence that states the problem.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Tawassul version
+      description: The release or commit, or the version in the installed marker.
+      placeholder: 0.1.0-experimental
+    validations:
+      required: true
+  - type: input
+    id: host
+    attributes:
+      label: OpenCode version
+      placeholder: 2.3.0
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux x64
+        - Linux arm64
+        - macOS arm64
+        - macOS x64
+        - Windows x64 (native)
+        - WSL2
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Install scope
+      options:
+        - Project scope
+        - Global scope
+        - Source checkout only
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction
+      description: The smallest sequence that shows the problem. Commands beat descriptions.
+      placeholder: |
+        1. npm ci
+        2. npm run build
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: The health output, the failing gate step, or a redacted log section.
+      render: text
+    validations:
+      required: false
+  - type: checkboxes
+    id: hygiene
+    attributes:
+      label: Before submitting
+      options:
+        - label: I removed provider keys, HMAC keys, session contents, and personal paths.
+          required: true
+        - label: I checked the known issues and troubleshooting pages.
+          required: true

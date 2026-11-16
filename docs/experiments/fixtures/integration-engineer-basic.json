@@ -1,0 +1,20 @@
+{
+  "id": "integration-engineer-basic",
+  "skillId": "tawassul-integration-engineer",
+  "sessions": [
+    {
+      "name": "integrate-a-bounded-change",
+      "request": "Land a small change in the routing layer and prove it is integrated.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        { "tool": "goal", "args": { "list": true } },
+        { "tool": "show_board", "args": {} },
+        { "tool": "timeline", "args": { "view": "recent", "limit": 20 } },
+        { "tool": "record", "args": { "type": "note", "title": "impact map", "detail": "callers, contracts and invariants around the change" } },
+        { "tool": "handoff", "args": { "to": "@tester", "task": "verify the integrated change", "context": "the impact map is in the note ledger; trace interface to observable result", "files": ["src/index.ts"] } },
+        { "tool": "record", "args": { "type": "fix", "title": "integration verified", "detail": "traced path and regression checks recorded", "severity": "minor" } }
+      ]
+    }
+  ]
+}

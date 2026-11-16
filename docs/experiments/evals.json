@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "method": "offline replay of authored fixture transcripts against the shipped procedure text; the live load rate was measured at E1 in docs/experiments/receipts/2026-10-31-e1.md for the four original skills and on an isolated host on 2026-11-12 for the twelve-skill expansion in docs/experiments/receipts/2026-11-12-skill-expansion-eval.json",
+  "evals": [
+    {
+      "id": "goal-review-basic",
+      "skillId": "tawassul-goal-review",
+      "fixture": "docs/experiments/fixtures/goal-review-basic.json",
+      "receipt": "docs/experiments/receipts/2026-10-31-pilot-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "handoff-triage-basic",
+      "skillId": "tawassul-handoff-triage",
+      "fixture": "docs/experiments/fixtures/handoff-triage-basic.json",
+      "receipt": "docs/experiments/receipts/2026-10-31-pilot-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "context-continue-basic",
+      "skillId": "tawassul-context-continue",
+      "fixture": "docs/experiments/fixtures/context-continue-basic.json",
+      "receipt": "docs/experiments/receipts/2026-10-31-pilot-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "integration-engineer-basic",
+      "skillId": "tawassul-integration-engineer",
+      "fixture": "docs/experiments/fixtures/integration-engineer-basic.json",
+      "receipt": "docs/experiments/receipts/2026-11-01-integration-engineer-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "adversarial-review-basic",
+      "skillId": "tawassul-adversarial-review",
+      "fixture": "docs/experiments/fixtures/adversarial-review-basic.json",
+      "receipt": "docs/experiments/receipts/2026-11-12-skill-expansion-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "enrich-task-basic",
+      "skillId": "tawassul-enrich-task",
+      "fixture": "docs/experiments/fixtures/enrich-task-basic.json",
+      "receipt": "docs/experiments/receipts/2026-11-12-skill-expansion-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "step-back-basic",
+      "skillId": "tawassul-step-back",
+      "fixture": "docs/experiments/fixtures/step-back-basic.json",
+      "receipt": "docs/experiments/receipts/2026-11-12-skill-expansion-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "diagnosing-bugs-basic",
+      "skillId": "tawassul-diagnosing-bugs",
+      "fixture": "docs/experiments/fixtures/diagnosing-bugs-basic.json",
+      "receipt": "docs/experiments/receipts/2026-11-12-skill-expansion-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "verification-planning-basic",
+      "skillId": "tawassul-verification-planning",
+      "fixture": "docs/experiments/fixtures/verification-planning-basic.json",
+      "receipt": "docs/experiments/receipts/2026-11-12-skill-expansion-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "code-explorer-basic",
+      "skillId": "tawassul-code-explorer",
+      "fixture": "docs/experiments/fixtures/code-explorer-basic.json",
+      "receipt": "docs/experiments/receipts/2026-11-12-skill-expansion-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "incident-response-basic",
+      "skillId": "tawassul-incident-response",
+      "fixture": "docs/experiments/fixtures/incident-response-basic.json",
+      "receipt": "docs/experiments/receipts/2026-11-12-skill-expansion-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "to-tickets-basic",
+      "skillId": "tawassul-to-tickets",
+      "fixture": "docs/experiments/fixtures/to-tickets-basic.json",
+      "receipt": "docs/experiments/receipts/2026-11-12-skill-expansion-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "retro-basic",
+      "skillId": "tawassul-retro",
+      "fixture": "docs/experiments/fixtures/retro-basic.json",
+      "receipt": "docs/experiments/receipts/2026-11-12-skill-expansion-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "writing-for-agents-basic",
+      "skillId": "tawassul-writing-for-agents",
+      "fixture": "docs/experiments/fixtures/writing-for-agents-basic.json",
+      "receipt": "docs/experiments/receipts/2026-11-12-skill-expansion-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "codebase-design-basic",
+      "skillId": "tawassul-codebase-design",
+      "fixture": "docs/experiments/fixtures/codebase-design-basic.json",
+      "receipt": "docs/experiments/receipts/2026-11-12-skill-expansion-eval.json",
+      "verdict": "pass"
+    },
+    {
+      "id": "interface-design-basic",
+      "skillId": "tawassul-interface-design",
+      "fixture": "docs/experiments/fixtures/interface-design-basic.json",
+      "receipt": "docs/experiments/receipts/2026-11-12-skill-expansion-eval.json",
+      "verdict": "pass"
+    }
+  ]
+}

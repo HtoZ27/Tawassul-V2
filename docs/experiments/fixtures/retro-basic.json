@@ -1,0 +1,53 @@
+{
+  "id": "retro-basic",
+  "skillId": "tawassul-retro",
+  "sessions": [
+    {
+      "name": "retro-session",
+      "request": "Yesterday's session went badly. Run a retro.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        {
+          "tool": "timeline",
+          "args": {
+            "view": "day"
+          }
+        },
+        {
+          "tool": "show_board",
+          "args": {}
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "note",
+            "title": "retro candidates",
+            "detail": "navigation, automated checks, standards, context bloat, tool economy, no-ops and information access"
+          }
+        },
+        {
+          "tool": "goal",
+          "args": {
+            "create": "environment improvements from the retro",
+            "items": [
+              "the cheapest check",
+              "the navigation pointer"
+            ],
+            "acceptance": [
+              "each candidate names the friction it removes"
+            ]
+          }
+        },
+        {
+          "tool": "handoff",
+          "args": {
+            "to": "@doc",
+            "task": "apply the accepted document changes",
+            "context": "the retro candidates and the goal items are the brief"
+          }
+        }
+      ]
+    }
+  ]
+}

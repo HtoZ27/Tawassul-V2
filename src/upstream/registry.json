@@ -1,0 +1,902 @@
+{
+  "source": "https://opencode.ai/changelog",
+  "releasesUrl": "https://github.com/anomalyco/opencode/releases",
+  "auditedThrough": "2.3.0",
+  "releases": [
+    {
+      "version": "2.3.0",
+      "date": "2026-11-13",
+      "auditedAt": "2026-11-13",
+      "hostContract": "2.3.0",
+      "notesUrl": "https://github.com/anomalyco/opencode/releases/tag/v2.3.0",
+      "status": "partial",
+      "items": [
+        {
+          "pr": 63382,
+          "topic": "background-subagents-default",
+          "verdict": "adopted",
+          "issue": "E-57",
+          "note": "Subagents always run in the background and return their child session ID immediately. The plugin now treats a task result carrying metadata.sessionID as a dispatch and records completion at the child idle."
+        },
+        {
+          "pr": 63675,
+          "topic": "subagent-idle-still-running",
+          "verdict": "adopted",
+          "issue": "E-57",
+          "note": "A child idle whose own background work is still running is not terminal. The dispatch ledger waits until no background item is owned by the child, then finalizes on the next idle."
+        },
+        {
+          "pr": 63254,
+          "topic": "mcp-events-flag",
+          "verdict": "ignored",
+          "note": "Experimental MCP events sit behind the mcp_events flag; the plugin runs no MCP server."
+        },
+        {
+          "pr": 63024,
+          "topic": "shell-timeout-background",
+          "verdict": "ignored",
+          "note": "Moving a timed-out shell to the background sits behind shell_timeout_background; the plugin sets its own tool timeout."
+        },
+        {
+          "pr": 63616,
+          "topic": "codemode-structured-results",
+          "verdict": "ignored",
+          "note": "Code Mode result shapes changed for file and skill tools; every Tawassul tool opts out of Code Mode."
+        },
+        {
+          "pr": 63698,
+          "topic": "effect-tool-error-export",
+          "verdict": "aligned",
+          "note": "The effect entry point exports Tool for execute.before rejections; the plugin rejects through its own result shape and imports no new symbol."
+        },
+        {
+          "pr": 63207,
+          "topic": "transcript-verbosity",
+          "verdict": "ignored",
+          "note": "TUI transcript verbosity; the plugin ships no TUI surface."
+        },
+        {
+          "pr": 63585,
+          "topic": "jump-to-message",
+          "verdict": "ignored",
+          "note": "Desktop command palette; no plugin surface."
+        },
+        {
+          "pr": 63235,
+          "topic": "fork-notice",
+          "verdict": "ignored",
+          "note": "Host prompt text for forked sessions; the plugin does not read it."
+        },
+        {
+          "pr": 61832,
+          "topic": "provider-mtls",
+          "verdict": "ignored",
+          "note": "Provider-level client certificates; the plugin never opens a provider connection itself."
+        },
+        {
+          "pr": 63700,
+          "topic": "local-model-discovery",
+          "verdict": "ignored",
+          "note": "Host discovery timing for local models; the catalog only fills an absent declaration."
+        },
+        {
+          "pr": 63697,
+          "topic": "codemode-namespace-suggestion",
+          "verdict": "ignored",
+          "note": "Code Mode namespace suggestions; every Tawassul tool opts out of Code Mode."
+        },
+        {
+          "pr": 59816,
+          "topic": "exhausted-rate-limit-terminal",
+          "verdict": "aligned",
+          "note": "An exhausted request rate limit is terminal in the host; the plugin already treats a daily limit as terminal and defers only transient throttles (E-44)."
+        },
+        {
+          "pr": 56214,
+          "topic": "lmstudio-null-context",
+          "verdict": "ignored",
+          "note": "Host model discovery for LM Studio; the plugin reads the window the host declares and fills only an absent declaration."
+        },
+        {
+          "pr": 59250,
+          "topic": "mermaid-maximize",
+          "verdict": "ignored",
+          "note": "Desktop diagram viewer; no plugin surface."
+        },
+        {
+          "pr": 63220,
+          "topic": "pairing-qr-contrast",
+          "verdict": "ignored",
+          "note": "Desktop pairing QR contrast; no plugin surface."
+        },
+        {
+          "pr": 60168,
+          "topic": "activity-tab-navigation",
+          "verdict": "ignored",
+          "note": "Desktop activity tabs; no plugin surface."
+        },
+        {
+          "pr": 63635,
+          "topic": "codemode-write-edit-strings",
+          "verdict": "ignored",
+          "note": "Code Mode result shapes for write and edit; every Tawassul tool opts out of Code Mode."
+        },
+        {
+          "pr": 63618,
+          "topic": "codemode-patch-empty",
+          "verdict": "ignored",
+          "note": "Code Mode patch result; every Tawassul tool opts out of Code Mode."
+        },
+        {
+          "pr": 63623,
+          "topic": "codemode-skill-result",
+          "verdict": "ignored",
+          "note": "Code Mode skill result; every Tawassul tool opts out of Code Mode."
+        },
+        {
+          "pr": 63261,
+          "topic": "mcp-events-subscriptions",
+          "verdict": "ignored",
+          "note": "MCP event subscriptions behind the mcp_events flag; the plugin runs no MCP server."
+        },
+        {
+          "pr": 63269,
+          "topic": "mcp-events-server",
+          "verdict": "ignored",
+          "note": "MCP event server behind the mcp_events flag; the plugin runs no MCP server."
+        },
+        {
+          "pr": 63703,
+          "topic": "shell-timeout-background-explicit",
+          "verdict": "ignored",
+          "note": "An explicit timeout on a background shell under the shell_timeout_background flag; the plugin sets its own tool timeout."
+        }
+      ]
+    },
+    {
+      "version": "2.2.7",
+      "date": "2026-11-10",
+      "auditedAt": "2026-11-13",
+      "hostContract": "2.2.1",
+      "notesUrl": "https://github.com/anomalyco/opencode/releases/tag/v2.2.7",
+      "status": "partial",
+      "items": [
+        {
+          "pr": 63011,
+          "topic": "ai-image-response-breaking",
+          "verdict": "ignored",
+          "note": "@opencode/ai removes ImageResponse.image. The plugin imports no @opencode/ai symbol; its imagegen transport is its own."
+        },
+        {
+          "pr": 62796,
+          "topic": "endpoints-skip-plugin-wait",
+          "verdict": "guarded",
+          "issue": "E-58",
+          "note": "rpc.call and agent.list no longer wait for plugins to load. The host-goal mirror already tolerates a missing or failed RPC and refreshes on the changed event."
+        },
+        {
+          "pr": 62147,
+          "topic": "read-negative-offset",
+          "verdict": "ignored",
+          "note": "Host read tool offsets; the plugin reads files through its own helpers."
+        },
+        {
+          "pr": 62141,
+          "topic": "shell-exit-code",
+          "verdict": "aligned",
+          "note": "Shell results now end with an exit-code line; the plugin's bash output handling already tolerates appended lines."
+        },
+        {
+          "pr": 63025,
+          "topic": "background-compaction-claude",
+          "verdict": "ignored",
+          "note": "Host background compaction; the plugin keeps its own compaction reserve."
+        },
+        {
+          "pr": 62827,
+          "topic": "mcp-token-rotation",
+          "verdict": "ignored",
+          "note": "MCP OAuth refresh; the plugin runs no MCP client."
+        },
+        {
+          "pr": 62997,
+          "topic": "copilot-auto",
+          "verdict": "ignored",
+          "note": "Copilot routing; no catalog or routing dependency."
+        },
+        {
+          "pr": 62922,
+          "topic": "side-panel-shortcuts",
+          "verdict": "ignored",
+          "note": "Desktop side-panel shortcuts; no plugin surface."
+        },
+        {
+          "pr": 62889,
+          "topic": "mark-sessions-unread",
+          "verdict": "ignored",
+          "note": "Desktop session list; no plugin surface."
+        },
+        {
+          "pr": 62261,
+          "topic": "plugin-install-error",
+          "verdict": "ignored",
+          "note": "Host install error text; the plugin is installed by its own script."
+        },
+        {
+          "pr": 62034,
+          "topic": "copilot-cost",
+          "verdict": "ignored",
+          "note": "Provider-reported cost; the plugin records the host's own usage figures."
+        },
+        {
+          "pr": 62171,
+          "topic": "copilot-endpoint",
+          "verdict": "ignored",
+          "note": "Provider endpoint refresh; no plugin dependency."
+        },
+        {
+          "pr": 61254,
+          "topic": "mcp-output-schema",
+          "verdict": "ignored",
+          "note": "MCP tool result validation; the plugin calls no MCP tool."
+        },
+        {
+          "pr": 63012,
+          "topic": "mcp-oauth-temporary",
+          "verdict": "ignored",
+          "note": "MCP OAuth retry; the plugin runs no MCP client."
+        },
+        {
+          "pr": 62831,
+          "topic": "cache-warming-ttl",
+          "verdict": "ignored",
+          "note": "Host cache warming; the plugin schedules no warming ping."
+        },
+        {
+          "pr": 62176,
+          "topic": "codemode-catalog-delta",
+          "verdict": "ignored",
+          "note": "Code Mode catalog deltas; every Tawassul tool opts out of Code Mode."
+        }
+      ]
+    },
+    {
+      "version": "2.2.6",
+      "date": "2026-11-06",
+      "auditedAt": "2026-11-13",
+      "hostContract": "2.2.1",
+      "notesUrl": "https://github.com/anomalyco/opencode/releases/tag/v2.2.6",
+      "status": "partial",
+      "items": [
+        {
+          "pr": 60699,
+          "topic": "run-waits-background",
+          "verdict": "tracked",
+          "issue": "E-59",
+          "note": "opencode run waits for the background jobs its prompt started, with no time limit. The release smoke's prompt starts none, so the 60 s cap still holds and D15 stays open."
+        },
+        {
+          "pr": 61911,
+          "topic": "run-sigterm-cancel",
+          "verdict": "aligned",
+          "note": "SIGTERM cancels the session and its background jobs with exit code 143; the smoke reads the process exit, not a signal."
+        },
+        {
+          "pr": 60698,
+          "topic": "job-list-sdk",
+          "verdict": "candidate",
+          "note": "client.experimental.job.list could replace the background snapshot, but the idle hook already delivers it without an extra RPC."
+        },
+        {
+          "pr": 61185,
+          "topic": "mcp-pooling",
+          "verdict": "ignored",
+          "note": "MCP connection pooling; the plugin runs no MCP server."
+        },
+        {
+          "pr": 61270,
+          "topic": "run-archived",
+          "verdict": "ignored",
+          "note": "opencode run flag; the plugin starts no run."
+        },
+        {
+          "pr": 60712,
+          "topic": "run-worktree",
+          "verdict": "ignored",
+          "note": "opencode run -w; the plugin's own thread tool manages worktrees."
+        },
+        {
+          "pr": 60025,
+          "topic": "session-warming",
+          "verdict": "ignored",
+          "note": "Host session warming settings; the plugin schedules no warming."
+        },
+        {
+          "pr": 61557,
+          "topic": "websearch-policy",
+          "verdict": "ignored",
+          "note": "Managed policy action; the plugin emits no policy rules."
+        },
+        {
+          "pr": 61826,
+          "topic": "open-flags-all",
+          "verdict": "ignored",
+          "note": "Feature-flag switch; the plugin reads its own configuration."
+        },
+        {
+          "pr": 62358,
+          "topic": "codemode-vm",
+          "verdict": "ignored",
+          "note": "Experimental Code Mode VM; every Tawassul tool opts out of Code Mode."
+        },
+        {
+          "pr": 62422,
+          "topic": "sandboxed-downloads",
+          "verdict": "aligned",
+          "note": "Server file reads become sandboxed downloads and cross-origin API calls are refused; the plugin serves no files."
+        },
+        {
+          "pr": 62204,
+          "topic": "session-move-permission",
+          "verdict": "ignored",
+          "note": "Host session_move permission; the plugin does not move host sessions."
+        },
+        {
+          "pr": 61485,
+          "topic": "gui-plugin-themes",
+          "verdict": "ignored",
+          "note": "GUI plugin themes; the plugin ships no GUI surface."
+        },
+        {
+          "pr": 61527,
+          "topic": "gui-plugin-components",
+          "verdict": "ignored",
+          "note": "GUI plugin components; no plugin surface."
+        },
+        {
+          "pr": 61773,
+          "topic": "mobile-composer",
+          "verdict": "ignored",
+          "note": "Mobile composer dock; no plugin surface."
+        }
+      ]
+    },
+    {
+      "version": "2.2.5",
+      "date": "2026-10-30",
+      "auditedAt": "2026-10-31",
+      "hostContract": "2.2.1",
+      "notesUrl": "https://github.com/anomalyco/opencode/releases/tag/v2.2.5",
+      "status": "partial",
+      "items": [
+        {
+          "pr": 60647,
+          "topic": "compaction-buffer-percent",
+          "verdict": "tracked",
+          "issue": "E-60",
+          "note": "A host compaction buffer above 25 percent compacts before the plugin's own transfer gate. The plugin keeps its reserve and has no host config channel yet."
+        },
+        {
+          "pr": 60687,
+          "topic": "bash-shell-alias",
+          "verdict": "aligned",
+          "note": "The shell alias reaches the same permission and dedup paths because the hook normalizes the tool name first."
+        },
+        {
+          "pr": 60660,
+          "topic": "compaction-prompt-cap",
+          "verdict": "ignored",
+          "note": "Host prompt cap; the plugin still records the compaction window event."
+        },
+        {
+          "pr": 60498,
+          "topic": "reasoning-across-switch",
+          "verdict": "ignored",
+          "note": "Host message parts; thread continue passes a model ref only."
+        },
+        {
+          "pr": 60694,
+          "topic": "mcp-10mib",
+          "verdict": "ignored",
+          "note": "MCP message size; the plugin runs no MCP server."
+        },
+        {
+          "pr": 60692,
+          "topic": "litellm-compaction",
+          "verdict": "ignored",
+          "note": "Host compaction trigger; the compaction hook is unchanged."
+        }
+      ]
+    },
+    {
+      "version": "2.2.4",
+      "date": "2026-10-30",
+      "auditedAt": "2026-10-31",
+      "hostContract": "2.2.1",
+      "notesUrl": "https://github.com/anomalyco/opencode/releases/tag/v2.2.4",
+      "status": "partial",
+      "items": [
+        {
+          "pr": 60351,
+          "topic": "experimental-artifacts",
+          "verdict": "candidate",
+          "note": "Experimental artifact surface; not adopted. Reports stay text-only."
+        },
+        {
+          "pr": 60478,
+          "topic": "schedules-serve",
+          "verdict": "ignored",
+          "note": "Host user schedules; the plugin's coordinator runs database maintenance only."
+        },
+        {
+          "pr": 60625,
+          "topic": "deepseek-limits",
+          "verdict": "adopted",
+          "note": "DeepSeek V4.1 Flash windows were missing from the catalog and are now carried; the catalog only fills an absent declaration.",
+          "issue": "E-61"
+        },
+        {
+          "pr": 60597,
+          "topic": "provider-overrides",
+          "verdict": "adopted",
+          "note": "Provider limit overrides are now trusted at or above the sanity floor; the static cap was removed by owner decision.",
+          "issue": "E-61"
+        },
+        {
+          "pr": 60346,
+          "topic": "persistent-terminals",
+          "verdict": "ignored",
+          "note": "Persistent terminals; the plugin ships no terminal surface."
+        }
+      ]
+    },
+    {
+      "version": "2.2.3",
+      "date": "2026-10-30",
+      "auditedAt": "2026-10-31",
+      "hostContract": "2.2.1",
+      "notesUrl": "https://github.com/anomalyco/opencode/releases/tag/v2.2.3",
+      "status": "partial",
+      "items": [
+        {
+          "pr": 60385,
+          "topic": "opentui-peers",
+          "verdict": "ignored",
+          "note": "OpenTUI peer requirement; the plugin ships no TUI surface and has no @opentui dependency."
+        },
+        {
+          "pr": 60315,
+          "topic": "managed-policy-split",
+          "verdict": "ignored",
+          "note": "Managed policy actions; the plugin emits no policy rules."
+        },
+        {
+          "pr": 58782,
+          "topic": "claude-agent-provider",
+          "verdict": "ignored",
+          "note": "Host provider; no catalog or routing dependency."
+        },
+        {
+          "pr": 60097,
+          "topic": "plugin-model-variants",
+          "verdict": "candidate",
+          "note": "Preserved plugin model variants; dispatch carries provider and model only, so a variant-aware thread is additive and unused."
+        },
+        {
+          "pr": 60407,
+          "topic": "sdk-tool-unification",
+          "verdict": "aligned",
+          "note": "Tool unification; Tawassul uses plain tool objects and the Promise tool types did not change."
+        },
+        {
+          "pr": 60480,
+          "topic": "nested-tool-progress",
+          "verdict": "ignored",
+          "note": "Nested progress rows; the plugin exposes no nested execute tool."
+        }
+      ]
+    },
+    {
+      "version": "2.2.2",
+      "date": "2026-10-29",
+      "auditedAt": "2026-11-13",
+      "hostContract": "2.2.1",
+      "notesUrl": "https://github.com/anomalyco/opencode/releases/tag/v2.2.2",
+      "status": "partial",
+      "items": [
+        {
+          "pr": 60258,
+          "topic": "image-generate-default",
+          "verdict": "aligned",
+          "note": "The host image tool is enabled by default when a provider has image models; the plugin's imagegen tool is separate and unchanged."
+        },
+        {
+          "pr": 60263,
+          "topic": "worktree-picker",
+          "verdict": "ignored",
+          "note": "Desktop worktree picker; no plugin surface."
+        },
+        {
+          "pr": 60164,
+          "topic": "quotes-annotations",
+          "verdict": "ignored",
+          "note": "Desktop quote and annotation editor; no plugin surface."
+        },
+        {
+          "pr": 59723,
+          "topic": "question-ui",
+          "verdict": "ignored",
+          "note": "Desktop question UI; the plugin's ask bridge is unchanged."
+        },
+        {
+          "pr": 60222,
+          "topic": "attachments-source",
+          "verdict": "ignored",
+          "note": "Attachment source paths; the plugin reads no attachments."
+        },
+        {
+          "pr": 60137,
+          "topic": "schedule-conditions",
+          "verdict": "ignored",
+          "note": "Schedule create inputs; the plugin schedules no host jobs."
+        }
+      ]
+    },
+    {
+      "version": "2.2.1",
+      "date": "2026-10-29",
+      "auditedAt": "2026-10-29",
+      "hostContract": "2.2.1",
+      "notesUrl": "https://github.com/anomalyco/opencode/releases/tag/v2.2.1",
+      "status": "partial",
+      "items": [
+        {
+          "pr": 59437,
+          "topic": "goal-and-idle-hook",
+          "verdict": "tracked",
+          "issue": "E-55",
+          "note": "The host /goal is mirrored read-only by goal(host: true) and goal(board); experimental.idle is registered once to snapshot background work, note idle for continuity detection, and finalize a dispatched task when its child idles (E-57), never to continue a session, so the host keeps sole ownership of continuation."
+        },
+        {
+          "pr": 59939,
+          "topic": "image-generate-tool",
+          "verdict": "candidate",
+          "note": "The opt-in image_generate tool may replace the Codex imagegen transport once it leaves experimental."
+        },
+        {
+          "pr": 60096,
+          "topic": "image-generate-model",
+          "verdict": "candidate",
+          "note": "A configurable default image model decides whether our transport keeps its current role."
+        },
+        {
+          "pr": 59977,
+          "topic": "ai-provider-removals",
+          "verdict": "ignored",
+          "note": "The plugin imports only @opencode/plugin, so removed @opencode/ai providers cannot break it."
+        },
+        {
+          "pr": 59506,
+          "topic": "ai-entry-point-removals",
+          "verdict": "ignored",
+          "note": "Legacy @opencode/ai entry points are not imported anywhere in this tree."
+        },
+        {
+          "pr": 59765,
+          "topic": "ai-configure-types",
+          "verdict": "ignored",
+          "note": "Provider configure types belong to @opencode/ai; the plugin keeps no such types."
+        },
+        {
+          "pr": 59401,
+          "topic": "scheduled-prompts",
+          "verdict": "candidate",
+          "note": "Host scheduled prompts are opt-in; our scheduler only runs database maintenance."
+        },
+        {
+          "pr": 59457,
+          "topic": "schedule-client-api",
+          "verdict": "ignored",
+          "note": "The plugin never creates or manages host schedules."
+        },
+        {
+          "pr": 60085,
+          "topic": "gpt-image-2-after-codex",
+          "verdict": "candidate",
+          "note": "Host image models offered after Codex sign-in may replace the external imagegen path."
+        },
+        {
+          "pr": 59963,
+          "topic": "responses-freeform-tools",
+          "verdict": "candidate",
+          "note": "Freeform provider tools may change how our JSON tool schemas travel; verify after adoption."
+        },
+        {
+          "pr": 59419,
+          "topic": "snapshot-capture-coalescing",
+          "verdict": "ignored",
+          "note": "Snapshot capture is host-side and exposes no plugin surface."
+        },
+        {
+          "pr": 59934,
+          "topic": "tool-output-headroom",
+          "verdict": "candidate",
+          "note": "Tool output keeps more context headroom; remeasure our large tool results on 2.2.1."
+        },
+        {
+          "pr": 59649,
+          "topic": "throttling-retry-correction",
+          "verdict": "tracked",
+          "issue": "E-44",
+          "note": "The host retries throttling instead of reporting context overflow; the 2.2.1 defer path stays."
+        },
+        {
+          "pr": 60057,
+          "topic": "model-settings-separation",
+          "verdict": "aligned",
+          "note": "Credential and cache keys stay out of model variants; our generated config adds none."
+        },
+        {
+          "pr": 59500,
+          "topic": "prompt-cache-setting",
+          "verdict": "aligned",
+          "note": "Prompt-cache settings remain host configuration, matching our no-cache-policy stance."
+        },
+        {
+          "pr": 59417,
+          "topic": "split-index-snapshots",
+          "verdict": "aligned",
+          "note": "Git snapshots handle a split index; our worktree commands do not touch the index."
+        },
+        {
+          "pr": 59592,
+          "topic": "console-web-search-gate",
+          "verdict": "ignored",
+          "note": "Console web search stays opt-in and the plugin never enables it."
+        },
+        {
+          "pr": 59834,
+          "topic": "code-mode-diagnostics",
+          "verdict": "aligned",
+          "note": "Code Mode reports parse and await failures better; the tawa execute guard is unchanged."
+        },
+        {
+          "pr": 59887,
+          "topic": "desktop-reload",
+          "verdict": "candidate",
+          "note": "Desktop /reload must be proven against the plugin reload fingerprint before we rely on it."
+        },
+        {
+          "pr": 60087,
+          "topic": "plugin-event-endpoint",
+          "verdict": "aligned",
+          "note": "Desktop follows each plugin server endpoint; our event stream already uses the resolved URL."
+        },
+        {
+          "pr": 59736,
+          "topic": "malformed-metadata-render",
+          "verdict": "aligned",
+          "note": "The timeline tolerates malformed tool metadata, reinforcing the JSON-safe metadata fix in E-42."
+        },
+        {
+          "pr": 59072,
+          "topic": "experimental-client-grouping",
+          "verdict": "ignored",
+          "note": "The plugin calls no generated client methods, so the experimental grouping is irrelevant."
+        },
+        {
+          "pr": 59987,
+          "topic": "promise-ai-compaction",
+          "verdict": "ignored",
+          "note": "Compaction through the Promise AI client needs @opencode/ai, which the plugin does not import."
+        },
+        {
+          "pr": 59948,
+          "topic": "code-mode-extension-globals",
+          "verdict": "ignored",
+          "note": "The plugin declares no Code Mode extension globals or required services."
+        }
+      ]
+    },
+    {
+      "version": "2.2.0",
+      "date": "2026-10-27",
+      "auditedAt": "2026-10-27",
+      "hostContract": "2.2.0",
+      "notesUrl": "https://github.com/anomalyco/opencode/releases/tag/v2.2.0",
+      "status": "partial",
+      "items": [
+        {
+          "pr": 55246,
+          "topic": "desktop-plugin-sharing",
+          "verdict": "candidate",
+          "note": "Desktop plugin manager is experimental; install follow-ups stay frozen until it settles."
+        },
+        {
+          "pr": 59469,
+          "topic": "gui-plugin-api",
+          "verdict": "candidate",
+          "note": "Toasts, dialogs, and tabs could replace text-only notices after a host upgrade."
+        },
+        {
+          "pr": 59190,
+          "topic": "generate-image-api",
+          "verdict": "candidate",
+          "note": "Host image generation may replace the Codex imagegen transport later."
+        },
+        {
+          "pr": 59380,
+          "topic": "generate-decision-providers",
+          "verdict": "candidate",
+          "note": "Decision endpoints are not used; routing stays in the plugin for now."
+        },
+        {
+          "pr": 56550,
+          "topic": "session-instruction-entries",
+          "verdict": "candidate",
+          "note": "Keyed instructions survive compaction and skip a model turn; adopt after a 2.2.0 host."
+        },
+        {
+          "pr": 58864,
+          "topic": "event-type-filter",
+          "verdict": "aligned",
+          "note": "Whole-stream mapping is unchanged; filtering is available if profiling asks for it."
+        },
+        {
+          "pr": 59157,
+          "topic": "prompt-cache-ttl",
+          "verdict": "ignored",
+          "note": "Provider cache settings are host configuration; the plugin keeps no cache policy."
+        },
+        {
+          "pr": 58847,
+          "topic": "ai-promise-root",
+          "verdict": "aligned",
+          "note": "The plugin does not import @opencode/ai directly; the external list is unchanged."
+        },
+        {
+          "pr": 59295,
+          "topic": "opentui-07",
+          "verdict": "ignored",
+          "note": "TUI-only peer requirement; this plugin ships no TUI surface."
+        },
+        {
+          "pr": 59032,
+          "topic": "github-action-removed",
+          "verdict": "ignored",
+          "note": "This tree has no GitHub workflows or action references."
+        },
+        {
+          "pr": 59315,
+          "topic": "codemode-mcp-denied-execute",
+          "verdict": "guarded",
+          "issue": "E-43",
+          "note": "Code Mode can surface MCP tools; tawa now refuses execute by name."
+        },
+        {
+          "pr": 59459,
+          "topic": "response-encode-error-reference",
+          "verdict": "adopted",
+          "issue": "E-42",
+          "note": "Encode failures carry a reference id; the handoff result gap was located and fixed by sanitizing tool metadata."
+        },
+        {
+          "pr": 51133,
+          "topic": "wait-plugin-reload",
+          "verdict": "aligned",
+          "issue": "E-38",
+          "note": "The host waits for plugin reloads before steps; the fingerprint skip stays."
+        },
+        {
+          "pr": 58798,
+          "topic": "schema-conversion-once",
+          "verdict": "aligned",
+          "issue": "B-01",
+          "note": "Schemas convert once per tool; the placeholder and reload contract is unchanged."
+        },
+        {
+          "pr": 59082,
+          "topic": "wait-plugins-catalog",
+          "verdict": "aligned",
+          "issue": "E-17",
+          "note": "Agent and provider lists wait for plugins, narrowing the empty-catalog window."
+        },
+        {
+          "pr": 58331,
+          "topic": "dev-build-isolation",
+          "verdict": "aligned",
+          "issue": "E-46",
+          "note": "The dev lane is the desktop sidecar DB; health reports its lane instead of a keyed-path mismatch."
+        },
+        {
+          "pr": 58866,
+          "topic": "retry-throttled-requests",
+          "verdict": "tracked",
+          "issue": "E-44",
+          "note": "The host retries throttled requests; transient limits defer to it on 2.2.0 and above."
+        },
+        {
+          "pr": 58817,
+          "topic": "shutdown-ten-second-cap",
+          "verdict": "aligned",
+          "issue": "E-45",
+          "note": "Shutdown cleanup is bounded at 7.5 seconds under the host 10-second cap."
+        },
+        {
+          "pr": 59020,
+          "topic": "compaction-history-start",
+          "verdict": "candidate",
+          "note": "History starts at the latest completed compaction; recheck our context payload after the upgrade."
+        },
+        {
+          "pr": 58865,
+          "topic": "rewind-fork-any-message",
+          "verdict": "candidate",
+          "note": "Fork and rewind become message-level; plugin state has no message anchor yet."
+        },
+        {
+          "pr": 58448,
+          "topic": "tool-call-memory-release",
+          "verdict": "aligned",
+          "note": "The host releases tool-call memory; RSS is remeasured after the next restart."
+        },
+        {
+          "pr": 58562,
+          "topic": "provider-reported-costs",
+          "verdict": "candidate",
+          "note": "Host cost reporting may make our estimate redundant; compare after the upgrade."
+        },
+        {
+          "pr": 59101,
+          "topic": "sdk-discard-tool-images",
+          "verdict": "ignored",
+          "note": "SDK-only memory control; our tool results carry no inline file payloads."
+        },
+        {
+          "pr": 59090,
+          "topic": "machine-hostname-info",
+          "verdict": "ignored",
+          "note": "Informational endpoint field; the plugin does not identify the machine."
+        },
+        {
+          "pr": 58851,
+          "topic": "stream-after-finish-reason",
+          "verdict": "aligned",
+          "issue": "E-15",
+          "note": "Streamed text survives a finish reason, closing the truncation window tracked in E-15."
+        },
+        {
+          "pr": 59441,
+          "topic": "compaction-token-sizing",
+          "verdict": "aligned",
+          "note": "Compaction uses the provider token count; our context hook is unaffected."
+        },
+        {
+          "pr": 58997,
+          "topic": "deleted-project-sessions",
+          "verdict": "aligned",
+          "note": "Sessions and instruction entries survive a deleted project directory."
+        },
+        {
+          "pr": 58815,
+          "topic": "service-state-out-of-shells",
+          "verdict": "aligned",
+          "note": "The background service state directory stays out of tool shells."
+        },
+        {
+          "pr": 59207,
+          "topic": "kimi-tool-schemas",
+          "verdict": "ignored",
+          "note": "Provider-specific schema fix; no Kimi model is pinned in this tree."
+        },
+        {
+          "pr": 59089,
+          "topic": "external-dir-project-fs",
+          "verdict": "aligned",
+          "issue": "E-39",
+          "note": "External-directory checks use the project filesystem; the pre-flight URL check stays."
+        }
+      ]
+    }
+  ]
+}

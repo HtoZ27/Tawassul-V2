@@ -1,0 +1,22 @@
+{
+  "id": "goal-review-basic",
+  "skillId": "tawassul-goal-review",
+  "sessions": [
+    {
+      "name": "review-with-open-goals",
+      "request": "Review the open goals and close the finished ones.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        { "tool": "goal", "args": { "board": true } },
+        { "tool": "goal", "args": { "get": "G-001" } },
+        { "tool": "goal", "args": { "evidence": "G-001", "evidenceText": "the item finished with a receipt" } },
+        { "tool": "goal", "args": { "update": "G-001", "itemId": "G-001-I1", "itemEvidence": [{ "itemId": "G-001-I1", "text": "the item finished with a receipt" }], "itemState": "done" } },
+        { "tool": "goal", "args": { "update": "G-001", "acceptId": "the criterion text", "acceptState": "met", "acceptEvidence": "the receipt" } },
+        { "tool": "goal", "args": { "close": "G-001" } },
+        { "tool": "record", "args": { "type": "note", "title": "goal review", "detail": "G-001 closed after its items and criteria were met" } },
+        { "tool": "show_board", "args": {} }
+      ]
+    }
+  ]
+}

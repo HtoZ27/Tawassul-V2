@@ -1,0 +1,188 @@
+{
+  "version": 1,
+  "skills": [
+    {
+      "id": "tawassul-goal-review",
+      "name": "Goal review",
+      "directory": "skills/tawassul-goal-review",
+      "description": "Review open goals, attach evidence, and close the goals whose items and criteria are complete.",
+      "scope": "goal lifecycle review across the board, items and definition of done",
+      "tools": ["goal", "show_board", "record"],
+      "evalId": "goal-review-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-handoff-triage",
+      "name": "Handoff triage",
+      "directory": "skills/tawassul-handoff-triage",
+      "description": "Triage the handoff ledger: complete delivered work, revert accepted work, and reassign stalled work.",
+      "scope": "handoff lifecycle triage across the board, timeline and ledger",
+      "tools": ["show_board", "timeline", "record", "handoff"],
+      "evalId": "handoff-triage-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-context-continue",
+      "name": "Context continue",
+      "directory": "skills/tawassul-context-continue",
+      "description": "Pack the current session, read the pack back, and continue the work in a successor session.",
+      "scope": "portable context handoff across pack, read and continue",
+      "tools": ["thread", "record"],
+      "evalId": "context-continue-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-integration-engineer",
+      "name": "Integration engineer",
+      "directory": "skills/tawassul-integration-engineer",
+      "description": "Land a change safely: map dependencies, trace execution, verify integration and regression.",
+      "scope": "safe change integration across dependencies, invariants, execution paths and regression verification",
+      "tools": ["goal", "show_board", "timeline", "record", "handoff"],
+      "evalId": "integration-engineer-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-adversarial-review",
+      "name": "Adversarial review",
+      "directory": "skills/tawassul-adversarial-review",
+      "description": "Use when a diff is about to be accepted: attack the change, cover every changed file and end in a safe or not-safe verdict.",
+      "scope": "adversarial review across changed-file coverage, attack dimensions, fact-check and verdict",
+      "tools": ["show_board", "timeline", "goal", "record", "handoff"],
+      "evalId": "adversarial-review-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-enrich-task",
+      "name": "Enrich task",
+      "directory": "skills/tawassul-enrich-task",
+      "description": "Use when a request arrives as a sentence or a screenshot: turn it into scope, acceptance criteria and the open questions.",
+      "scope": "request intake across scope, reuse, requirements, acceptance and open questions",
+      "tools": ["goal", "show_board", "record", "handoff"],
+      "evalId": "enrich-task-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-step-back",
+      "name": "Step back",
+      "directory": "skills/tawassul-step-back",
+      "description": "Use when fixes start stacking: reassess the direction and put the cleaner alternative in front of the user.",
+      "scope": "direction reassessment across drift signals, the cleaner alternative and the decision",
+      "tools": ["timeline", "show_board", "record", "handoff"],
+      "evalId": "step-back-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-diagnosing-bugs",
+      "name": "Diagnosing bugs",
+      "directory": "skills/tawassul-diagnosing-bugs",
+      "description": "Use when a failure resists the obvious fix: build a red loop, rank causes and land the regression test at a real seam.",
+      "scope": "root-cause diagnosis across reproduction, ranked hypotheses, probes and the regression seam",
+      "tools": ["timeline", "record", "handoff"],
+      "evalId": "diagnosing-bugs-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-verification-planning",
+      "name": "Verification planning",
+      "directory": "skills/tawassul-verification-planning",
+      "description": "Use when a non-trivial change is planned: name the claim, choose the evidence path and set the verification budget.",
+      "scope": "verification planning across claims, failure modes, evidence paths and budget",
+      "tools": ["goal", "record", "handoff"],
+      "evalId": "verification-planning-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-code-explorer",
+      "name": "Code explorer",
+      "directory": "skills/tawassul-code-explorer",
+      "description": "Use when an unfamiliar area is about to change: trace the feature from entry point to storage and name the files that matter.",
+      "scope": "feature tracing across entry points, flow, dependencies and extension points",
+      "tools": ["show_board", "timeline", "record", "handoff"],
+      "evalId": "code-explorer-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-incident-response",
+      "name": "Incident response",
+      "directory": "skills/tawassul-incident-response",
+      "description": "Use when a severe regression or host failure lands: stabilise, contain, preserve evidence and verify recovery.",
+      "scope": "incident handling across classification, containment, evidence, communication and close-out",
+      "tools": ["show_board", "record", "handoff", "timeline"],
+      "evalId": "incident-response-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-to-tickets",
+      "name": "To tickets",
+      "directory": "skills/tawassul-to-tickets",
+      "description": "Use when a goal is too large for one handoff: cut it into vertical slices, each demoable and each declaring its blocking edge.",
+      "scope": "decomposition across vertical slices, blocking edges and dispatch order",
+      "tools": ["goal", "record", "handoff"],
+      "evalId": "to-tickets-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-retro",
+      "name": "Retro",
+      "directory": "skills/tawassul-retro",
+      "description": "Use when a session went badly: find the environment change that would have prevented it.",
+      "scope": "session retrospective across navigation, checks, standards, context bloat, tool economy and information access",
+      "tools": ["timeline", "show_board", "record", "goal", "handoff"],
+      "evalId": "retro-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-writing-for-agents",
+      "name": "Writing for agents",
+      "directory": "skills/tawassul-writing-for-agents",
+      "description": "Use when an agent-facing document is written or edited: a skill, a rules file, a handoff context or a tool description.",
+      "scope": "agent-facing writing across pointers, load budgets, completion criteria, leading words and pruning",
+      "tools": ["show_board", "record", "goal", "handoff"],
+      "evalId": "writing-for-agents-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-codebase-design",
+      "name": "Codebase design",
+      "directory": "skills/tawassul-codebase-design",
+      "description": "Use when a module boundary is designed or reviewed: choose the seam, test the depth and record the design.",
+      "scope": "module design across interface depth, seams, adapters and testability",
+      "tools": ["show_board", "record", "goal", "handoff"],
+      "evalId": "codebase-design-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    },
+    {
+      "id": "tawassul-interface-design",
+      "name": "Interface design",
+      "directory": "skills/tawassul-interface-design",
+      "description": "Use when a user-facing surface is designed or judged: set the direction, then score the result against the rubric.",
+      "scope": "interface direction and critique across aesthetic intent, tokens, accessibility and generic-output tests",
+      "tools": ["show_board", "record", "handoff"],
+      "evalId": "interface-design-basic",
+      "loadRateThreshold": 0.5,
+      "killCriterion": "Retire to inline prose when fewer than half of the relevant fixture sessions load it."
+    }
+  ],
+  "commands": [
+    {
+      "name": "tawassul-goals",
+      "skillId": "tawassul-goal-review",
+      "description": "Run the shipped goal review procedure."
+    }
+  ]
+}

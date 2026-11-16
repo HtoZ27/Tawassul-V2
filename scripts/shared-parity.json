@@ -1,0 +1,1470 @@
+{
+  "source": "SHARED.md",
+  "frozenEntries": 57,
+  "entries": [
+    {
+      "id": "S-001",
+      "title": "Plugin entry shape",
+      "sharedLine": 17,
+      "requirements": [
+        {
+          "text": "The v2 entry is a module exporting a plugin object with id and setup.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/index.ts",
+            "line": 9,
+            "marker": "setup: createV2Setup"
+          },
+          "proofs": [
+            "scripts/prove-host-entry.ts"
+          ],
+          "issue": null,
+          "note": "The same object is passed to Plugin.define, so the host receives the recognized fields.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-002",
+      "title": "ESM package exports break require.resolve",
+      "sharedLine": 28,
+      "requirements": [
+        {
+          "text": "The build resolves the host plugin package through the ESM exports condition instead of a static external list.",
+          "status": "verified",
+          "anchor": {
+            "file": "build-v2.mjs",
+            "line": 19,
+            "marker": "import.meta.resolve"
+          },
+          "proofs": [
+            "scripts/prove-host-entry.ts"
+          ],
+          "issue": null,
+          "note": "Runtime resolve guard keeps host packages external when they resolve.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-003",
+      "title": "Tool execute return type",
+      "sharedLine": 39,
+      "requirements": [
+        {
+          "text": "Every tool execute result is converted from the v1 shape to the v2 shape.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/v2/adapters.ts",
+            "line": 108,
+            "marker": "toV2Result"
+          },
+          "proofs": [
+            "scripts/prove-v2-compat.ts"
+          ],
+          "issue": null,
+          "note": "The bridge runs on both the parsed and the raw execute path.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-004",
+      "title": "Version double-guard (fail-open)",
+      "sharedLine": 50,
+      "requirements": [
+        {
+          "text": "Setup aborts before registration when the host lacks the session or tool domain.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/v2/setup.ts",
+            "line": 493,
+            "marker": "host missing required domains"
+          },
+          "proofs": [
+            "scripts/prove-host-entry.ts"
+          ],
+          "issue": null,
+          "note": "Fail-closed capability probe before any tool registration.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-005",
+      "title": "Minimal-surface port for type closures",
+      "sharedLine": 59,
+      "requirements": [
+        {
+          "text": "The role to tool matrix is ported without an i18n or NLP dependency.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/role-matrix.ts",
+            "line": 40,
+            "marker": "TAWASSUL_TOOL_ROLES"
+          },
+          "proofs": [
+            "scripts/prove-s005.ts",
+            "scripts/prove-s013.ts"
+          ],
+          "issue": null,
+          "note": "The role matrix, its tool groups, and getAllowedToolsForRole live in src/role-matrix.ts, which imports only tool-names.ts. security-policy.ts imports the module and re-exports both symbols for compatibility; the render, generator, agent-add, and guard consumers import the matrix module directly.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-006",
+      "title": "Arabic code references survive auto-port",
+      "sharedLine": 70,
+      "requirements": [
+        {
+          "text": "Model display names are English-only with no bilingual shape or lang parameter.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/core/model-registry.ts",
+            "line": 91,
+            "marker": "MODEL_DISPLAY_NAMES"
+          },
+          "proofs": [
+            "scripts/prove-feature-index-english.ts"
+          ],
+          "issue": null,
+          "note": "One display string per model; no language branch remains.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-007",
+      "title": "Full-tree port re-writes hand-fixed files",
+      "sharedLine": 81,
+      "requirements": [
+        {
+          "text": "A full-tree port must never overwrite hand-fixed files.",
+          "status": "n-a",
+          "anchor": null,
+          "proofs": [],
+          "issue": null,
+          "note": "The port tool was deleted at cutover; no port path remains in this tree, so the hazard cannot recur.",
+          "hostNote": null
+        }
+      ],
+      "status": "n-a"
+    },
+    {
+      "id": "S-008",
+      "title": "English-locked translations stub",
+      "sharedLine": 92,
+      "requirements": [
+        {
+          "text": "The translations loader is English-canonical, ships the Arabic table for runtime languages, and has no logger dependency.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/translations.ts",
+            "line": 4,
+            "marker": "LANGUAGES"
+          },
+          "proofs": [
+            "scripts/prove-feature-index-english.ts"
+          ],
+          "issue": null,
+          "note": "The loader resolves keys from the selected dictionary, defaults to English, and falls back to English for an unknown language.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-009",
+      "title": "Dual-entry v1/v2 adapter (reference: retired)",
+      "sharedLine": 103,
+      "requirements": [
+        {
+          "text": "The entry carries no v1 server member; the v2 host initializes through setup.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/index.ts",
+            "line": 7,
+            "marker": "export const tawassul: Plugin.Plugin = {"
+          },
+          "proofs": [
+            "scripts/prove-host-entry.ts"
+          ],
+          "issue": null,
+          "note": "0.1.0 removes the v1 host lane; prove-host-entry asserts the exact entry keys.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-010",
+      "title": "Conflict-marker debris from stale lint-staged stash applies",
+      "sharedLine": 114,
+      "requirements": [
+        {
+          "text": "Conflict-marker debris must never reach v2 sources.",
+          "status": "n-a",
+          "anchor": null,
+          "proofs": [],
+          "issue": null,
+          "note": "The port tool is gone and check:rules rejects every marker class in tracked sources.",
+          "hostNote": null
+        }
+      ],
+      "status": "n-a"
+    },
+    {
+      "id": "S-011",
+      "title": "Status-change index sync + session provenance (loop guard) — IMPLEMENTED on v2",
+      "sharedLine": 138,
+      "requirements": [
+        {
+          "text": "Status changes refresh the board index and carry session provenance.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/services/mission-board.ts",
+            "line": 153,
+            "marker": "scheduleIndexWrite"
+          },
+          "proofs": [
+            "scripts/prove-board-invariants.ts"
+          ],
+          "issue": null,
+          "note": "Index sync and sessionId are on the update path.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-012",
+      "title": "Completion invariant — close-only + droppable closed goals + true CAS (loop guard, proven CAS shape) — IMPLEMENTED on v2",
+      "sharedLine": 149,
+      "requirements": [
+        {
+          "text": "A completed board cannot be reopened; transitions are close-only.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/services/mission-board.ts",
+            "line": 269,
+            "marker": "isCompleted"
+          },
+          "proofs": [
+            "scripts/prove-board-invariants.ts"
+          ],
+          "issue": null,
+          "note": "Close-only semantics live in the board store.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-013",
+      "title": "Role-scoped permissions + record/eval read-back + MCP boundary (security hardening) — IMPLEMENTED on v2",
+      "sharedLine": 160,
+      "requirements": [
+        {
+          "text": "Role-scoped plugin permissions and record/eval read-back are enforced.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/security-policy.ts",
+            "line": 412,
+            "marker": "checkTawassulToolPermission"
+          },
+          "proofs": [
+            "scripts/prove-s013.ts",
+            "scripts/prove-e21.ts"
+          ],
+          "issue": null,
+          "note": "The role matrix gates dispatch and consent; record and evaluationreport read stored data back and disclose stale saves.",
+          "hostNote": null
+        },
+        {
+          "text": "The MCP boundary is not applicable because v2 ships no MCP server or client.",
+          "status": "n-a",
+          "anchor": null,
+          "proofs": [],
+          "issue": null,
+          "note": "No MCP directory, entrypoint, dependency, or live config block exists; the generator ignores a legacy bundle and only the boundary guidance text remains.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-014",
+      "title": "Standalone health tool — IMPLEMENTED on v2",
+      "sharedLine": 171,
+      "requirements": [
+        {
+          "text": "A standalone health tool exists in the tawa namespace.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/tools/tawa/health.ts",
+            "line": 65,
+            "marker": "buildHealthTool"
+          },
+          "proofs": [
+            "scripts/prove-e46.ts"
+          ],
+          "issue": null,
+          "note": "Registered as a distinct tool under the tawa namespace.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-015",
+      "title": "Old `kanban-board` naming removed from v1 — DONE on v1 (baseline, do NOT re-implement in v2)",
+      "sharedLine": 182,
+      "requirements": [
+        {
+          "text": "The retired kanban-board name must not return.",
+          "status": "n-a",
+          "anchor": null,
+          "proofs": [],
+          "issue": null,
+          "note": "v1-only cleanup; the live v2 name is mission-board and no kanban-board symbol exists in src.",
+          "hostNote": null
+        }
+      ],
+      "status": "n-a"
+    },
+    {
+      "id": "S-016",
+      "title": "Conflict-marker pollutants resolved on v1 — DONE on v1 (baseline, do NOT propagate in v2)",
+      "sharedLine": 193,
+      "requirements": [
+        {
+          "text": "Conflict-marker pollutants must not be propagated.",
+          "status": "n-a",
+          "anchor": null,
+          "proofs": [],
+          "issue": null,
+          "note": "v1-only baseline; check:rules rejects any marker in v2 sources.",
+          "hostNote": null
+        }
+      ],
+      "status": "n-a"
+    },
+    {
+      "id": "S-017",
+      "title": "Three-day v1 hardening batch (2026-09-20 → 23) — IMPLEMENTED on v2",
+      "sharedLine": 204,
+      "requirements": [
+        {
+          "text": "The three-day hardening batch is ported on merit: model retirements, generator hardening, governance, and runtime rows.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/services/proxy-fallback-chains.ts",
+            "line": 73,
+            "marker": "sweepRetiredModelPins"
+          },
+          "proofs": [
+            "scripts/prove-s017.ts",
+            "scripts/prove-gen-lock-contention.ts",
+            "scripts/prove-gen-merge-guards.ts",
+            "scripts/prove-gen-guard-wal.ts",
+            "scripts/prove-roster-boundary.ts",
+            "scripts/prove-event-trust-p1.ts",
+            "scripts/prove-web-ssrf.ts",
+            "scripts/prove-s028.ts"
+          ],
+          "issue": null,
+          "note": "All four groups are proven: the retirement set and sweep, in-lock generation with permission and facts checks, the roster and add allowlists, and every named runtime row has a source marker or a behavioral probe.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-018",
+      "title": "v1 commit 3af1b224 (R-008/R-009/R-011) — ported on merit, v2-shaped — IMPLEMENTED on v2",
+      "sharedLine": 310,
+      "requirements": [
+        {
+          "text": "R-008, R-009, and R-011 are ported in a v2 shape with first-boot roster seeding.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/utils/opencode-config.ts",
+            "line": 559,
+            "marker": "ensureGlobalRosterSeed"
+          },
+          "proofs": [
+            "scripts/prove-first-boot-seed.ts"
+          ],
+          "issue": null,
+          "note": "First-boot seed and disclosure proofs cover the port.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-019",
+      "title": "v1 commit 29a4f809 atomic-audit P0 closures (WAL verify, containment, backup env, fail-closed gates) — IMPLEMENTED on v2",
+      "sharedLine": 323,
+      "requirements": [
+        {
+          "text": "The atomic-audit P0 closures are ported: containment, WAL probe, backup environment, and fail-closed gates.",
+          "status": "verified",
+          "anchor": {
+            "file": "scripts/opencode-db-maintenance.sh",
+            "line": 596,
+            "marker": "require_v2_generation"
+          },
+          "proofs": [
+            "scripts/prove-db-retention.ts"
+          ],
+          "issue": null,
+          "note": "Containment, WAL probe, and refusal paths are proven.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-020",
+      "title": "v1 nine-day batch 2026-09-26 → 2026-10-05 (tool-surface, cache, guards, wiring, burn discipline) — IMPLEMENTED on v2",
+      "sharedLine": 341,
+      "requirements": [
+        {
+          "text": "The nine-day batch is ported: tool surface, cache generation, guards, and wiring.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/context/model-utils.ts",
+            "line": 24,
+            "marker": "getPortCacheGen"
+          },
+          "proofs": [
+            "scripts/prove-s020.ts"
+          ],
+          "issue": null,
+          "note": "21 assertions cover the batch.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-022",
+      "title": "v1 37-commit backlog ad40a084..HEAD — triage for V2 (v1 side provides, V2 implements)",
+      "sharedLine": 363,
+      "requirements": [
+        {
+          "text": "The 37-commit backlog rows are triaged and the actionable ones ported.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/services/goal-store.ts",
+            "line": 530,
+            "marker": "private async mutate"
+          },
+          "proofs": [
+            "scripts/prove-goal-resurrection.ts"
+          ],
+          "issue": null,
+          "note": "Resurrection, early exit, and priming are proven.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-021",
+      "title": "v1 perf doctrine, local-server honesty, tawa/addagent invocation (37-commit sweep remainders) — IMPLEMENTED on v2",
+      "sharedLine": 390,
+      "requirements": [
+        {
+          "text": "The 37-commit sweep remainders are ported: invocation fallback, scoped budgets, honest cost, and the MAX doctrine.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/tools/agent-management.ts",
+            "line": 64,
+            "marker": "tawaFallbackPermission"
+          },
+          "proofs": [
+            "scripts/prove-s021.ts"
+          ],
+          "issue": null,
+          "note": "41 assertions plus the generator check.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-023",
+      "title": "exhaustive 37-commit reconciliation remainders — IMPLEMENTED on v2",
+      "sharedLine": 409,
+      "requirements": [
+        {
+          "text": "The reconciliation remainders are ported: iteration budgets, timers, torn reads, and abort.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/services/iteration-budget.ts",
+            "line": 63,
+            "marker": "applyIterationBudgets"
+          },
+          "proofs": [
+            "scripts/prove-s021.ts"
+          ],
+          "issue": null,
+          "note": "Budgets, timers, torn reads, and abort are covered by the sweep proof.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-024",
+      "title": "atomic-audit findings — IMPLEMENTED on v2",
+      "sharedLine": 431,
+      "requirements": [
+        {
+          "text": "The atomic-audit findings are ported and the gate hole is closed.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/services/timeline-store.ts",
+            "line": 161,
+            "marker": "getFlushStats"
+          },
+          "proofs": [
+            "scripts/prove-s024.ts"
+          ],
+          "issue": null,
+          "note": "33 assertions cover disclosure, flush, runlog, cost, and the rule gate.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-025",
+      "title": "audit-round-2 findings — IMPLEMENTED on v2",
+      "sharedLine": 457,
+      "requirements": [
+        {
+          "text": "The round-2 findings are ported and no blocker remains.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/services/ask-channel-parse.ts",
+            "line": 16,
+            "marker": "YES_RE"
+          },
+          "proofs": [
+            "scripts/prove-s024.ts"
+          ],
+          "issue": null,
+          "note": "39 assertions cover chat parsing, timer cleanup, and config paths.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-026",
+      "title": "review-round-3 findings — IMPLEMENTED on v2",
+      "sharedLine": 471,
+      "requirements": [
+        {
+          "text": "The rule gate rejects comments, Arabic literals, and glued directives.",
+          "status": "verified",
+          "anchor": {
+            "file": "scripts/check-v2-rules.mjs",
+            "line": 9,
+            "marker": "ARABIC_RE"
+          },
+          "proofs": [
+            "scripts/prove-rule-gate.ts"
+          ],
+          "issue": null,
+          "note": "29 assertions lock the enforcement layer.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-027",
+      "title": "S-022 closure re-verification (bilateral) — CLOSED, docs only",
+      "sharedLine": 488,
+      "requirements": [
+        {
+          "text": "The S-022 closure was re-verified bilaterally.",
+          "status": "doc-only",
+          "anchor": null,
+          "proofs": [],
+          "issue": null,
+          "note": "Documentation-only entry; no code changed and the S-022 evidence stands.",
+          "hostNote": null
+        }
+      ],
+      "status": "doc-only"
+    },
+    {
+      "id": "S-028",
+      "title": "v1 commit ba3d7d8d provider-is-truth suffix gate — IMPLEMENTED on v2",
+      "sharedLine": 501,
+      "requirements": [
+        {
+          "text": "The provider model cache is the source of truth for suffix governance.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/core/model-registry.ts",
+            "line": 158,
+            "marker": "getProviderModelTokens"
+          },
+          "proofs": [
+            "scripts/prove-s028.ts"
+          ],
+          "issue": null,
+          "note": "30 assertions cover the cache, lowercasing, and retirements.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-029",
+      "title": "v1 commit 015dc8e9 R7 variant pins, dispatch precedence, log default — IMPLEMENTED on v2",
+      "sharedLine": 518,
+      "requirements": [
+        {
+          "text": "R7 variant pins, dispatch precedence, dotted suffixes, and the log default are ported.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/tools/agent-management.ts",
+            "line": 223,
+            "marker": "computePinEntries"
+          },
+          "proofs": [
+            "scripts/prove-s029.ts"
+          ],
+          "issue": null,
+          "note": "21 assertions cover the commit.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-030",
+      "title": "local roster adoption plus generation-layer retire — IMPLEMENTED on v2",
+      "sharedLine": 538,
+      "requirements": [
+        {
+          "text": "The live roster follows config-derived deletion plus additive generation.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/scripts/gen-opencode-config.ts",
+            "line": 272,
+            "marker": "export function derivedExpectedCount"
+          },
+          "proofs": [
+            "scripts/prove-s029.ts",
+            "scripts/prove-gen-merge-guards.ts"
+          ],
+          "issue": null,
+          "note": "Project deletion is absence from config.agent; the generator adds only keys already present and skips absent generated variants. prove-gen-merge-guards asserts the 16-key first run and subset keep rules; prove-s029 covers the roster paths.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-031",
+      "title": "documented install method (plugin entry) — IMPLEMENTED on v2",
+      "sharedLine": 553,
+      "requirements": [
+        {
+          "text": "The documented install path materializes the plugin entry on every build.",
+          "status": "verified",
+          "anchor": {
+            "file": "build-v2.mjs",
+            "line": 133,
+            "marker": "tawassul.js"
+          },
+          "proofs": [
+            "scripts/release-smoke.sh"
+          ],
+          "issue": null,
+          "note": "Release smoke boots the materialized entry against the isolated DB.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-032",
+      "title": "stale project-scope plugin copy wins D4 registration and supersedes every later build — IMPLEMENTED on v2",
+      "sharedLine": 565,
+      "requirements": [
+        {
+          "text": "A stale project-scope copy must not win registration in a shared process.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/core/install-scope.ts",
+            "line": 56,
+            "marker": "claimCoexistence"
+          },
+          "proofs": [
+            "scripts/prove-s038.ts"
+          ],
+          "issue": null,
+          "note": "The per-workspace claim is in place; the duplicate-winner observation is a host check.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-033",
+      "title": "cold-boot launch wave (M0–M2) — v1 `591d7418` + working tree — PARTIALLY IMPLEMENTED on v2 (plugin-side); launcher/installer/self-bootstrap skipped",
+      "sharedLine": 588,
+      "requirements": [
+        {
+          "text": "The plugin-side cold-boot wave is ported: quiet resolution, write-behind, save debounce, jitter, logger stamp, quarantine, and save guard.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/utils/quiet.ts",
+            "line": 6,
+            "marker": "forceQuietMode"
+          },
+          "proofs": [
+            "scripts/prove-s033.ts"
+          ],
+          "issue": null,
+          "note": "prove-s033 binds the seven pieces: quiet resolution, ledger write-behind, the quiet debounce, coordinator jitter, the durable logger stamp, the per-mtime quarantine copy, and the pre-save guard.",
+          "hostNote": null
+        },
+        {
+          "text": "Launcher and installer duties stay in the host install script, not in the plugin.",
+          "status": "verified",
+          "anchor": {
+            "file": "scripts/install-global.ts",
+            "line": 212,
+            "marker": "hostCandidates"
+          },
+          "proofs": [
+            "scripts/prove-s033.ts"
+          ],
+          "issue": null,
+          "note": "prove-s033 asserts the installer owns candidate discovery, version probing, and scheduling units, and the plugin carries no launcher or installer duty.",
+          "hostNote": null
+        },
+        {
+          "text": "The cold-boot launch wave passes only after a recorded cold-boot run meets N1 to N5.",
+          "status": "n-a",
+          "anchor": null,
+          "proofs": [],
+          "issue": null,
+          "note": "Owner decision 2026-10-30: the cold-boot gate is out of scope for v2. The v1 scorecard keeps the recorded failure (10 of 14 rows overall FAIL, N2 in every one); v2 keeps boot-scorecard-v2.sh but claims no N1-N5 pass. See E-56.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-034",
+      "title": "boot measurement stack (M3.1) — v1 `591d7418` + working tree — PARTIALLY IMPLEMENTED on v2 (hook); scorecard/runner skipped",
+      "sharedLine": 615,
+      "requirements": [
+        {
+          "text": "N2 records only announced assistant text parts.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/hooks/n2-auto.ts",
+            "line": 43,
+            "marker": "assistantMessages"
+          },
+          "proofs": [
+            "scripts/prove-v2-compat.ts"
+          ],
+          "issue": null,
+          "note": "User and unannounced parts are ignored by the role gate.",
+          "hostNote": null
+        },
+        {
+          "text": "A v2 boot scorecard implements N1 to N5 with an explicit since gate.",
+          "status": "verified",
+          "anchor": {
+            "file": "scripts/boot-scorecard-v2.sh",
+            "line": 30,
+            "marker": "SINCE_EXPLICIT"
+          },
+          "proofs": [
+            "scripts/prove-boot-gate.ts"
+          ],
+          "issue": null,
+          "note": "The launcher policy and the scorecard assertions run in the gate.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-035",
+      "title": "DB-safety toolchain (guard, maintenance, D3, recovery, salvage) — v1 working tree — PARTIALLY IMPLEMENTED on v2 (guard + maintenance gate); D3/recovery/salvage skipped (v1-host)",
+      "sharedLine": 632,
+      "requirements": [
+        {
+          "text": "The generation guard and the maintenance gate carry the v1 semantics.",
+          "status": "verified",
+          "anchor": {
+            "file": "scripts/guard-db-generation.sh",
+            "line": 254,
+            "marker": "marker-v1-content"
+          },
+          "proofs": [
+            "scripts/prove-db-retention.ts"
+          ],
+          "issue": null,
+          "note": "Marker, path, and refusal branches are proven.",
+          "hostNote": null
+        },
+        {
+          "text": "D3, recovery, and salvage remain v1-host support tools.",
+          "status": "n-a",
+          "anchor": null,
+          "proofs": [],
+          "issue": null,
+          "note": "Support tools with no v2 runtime surface; declared out of scope in SCRIPT-PARITY.md.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-036",
+      "title": "agent-management week (`64cc1169`, `a38be0b3`, `37796211`, `353fe375`) — IMPLEMENTED on v2",
+      "sharedLine": 647,
+      "requirements": [
+        {
+          "text": "Bare-base derivation, no-env hardening, kick bulk, and the roster updates are ported.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/tools/agent-add-helpers.ts",
+            "line": 105,
+            "marker": "deriveVariantSpec"
+          },
+          "proofs": [
+            "scripts/prove-s028.ts",
+            "scripts/prove-s036.ts"
+          ],
+          "issue": null,
+          "note": "The addagent derivation and refusal paths are shipped.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-037",
+      "title": "test-suite triage + notify gate — v1 working tree — N/A on v2 (v1 test-host only)",
+      "sharedLine": 669,
+      "requirements": [
+        {
+          "text": "The v1 test-suite triage and the notify gate have no v2 runtime surface.",
+          "status": "n-a",
+          "anchor": null,
+          "proofs": [],
+          "issue": null,
+          "note": "v1 test-host only; v2 uses gate-wired proof scripts.",
+          "hostNote": null
+        }
+      ],
+      "status": "n-a"
+    },
+    {
+      "id": "S-038",
+      "title": "coexistence seat must be per workspace (Desktop multi-workspace starvation) — v1 working tree — IMPLEMENTED on v2",
+      "sharedLine": 682,
+      "requirements": [
+        {
+          "text": "The coexistence seat is per workspace, not process-global.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/core/install-scope.ts",
+            "line": 56,
+            "marker": "claimCoexistence"
+          },
+          "proofs": [
+            "scripts/prove-s038.ts"
+          ],
+          "issue": null,
+          "note": "26 assertions cover cross-workspace coexistence and refcount release.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-039",
+      "title": "N2 auto must gate on assistant messages (user text parts were recorded) — v1 working tree — v2 REQUIRED",
+      "sharedLine": 700,
+      "requirements": [
+        {
+          "text": "N2 records a text part only after its message is announced as assistant.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/hooks/n2-auto.ts",
+            "line": 43,
+            "marker": "assistantMessages"
+          },
+          "proofs": [
+            "scripts/prove-v2-compat.ts"
+          ],
+          "issue": null,
+          "note": "Parts of unannounced messages are ignored, so a missing record yields INCOMPLETE.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-040",
+      "title": "Desktop session-load freeze is the host `event` table (2.94GB, no retention) — v1 FIXED (shrink 2026-10-23 + cap-gated prune; maintenance quick_check open) — v2 REQUIRED",
+      "sharedLine": 713,
+      "requirements": [
+        {
+          "text": "Event rows are pruned and the backup probe counts both session tables.",
+          "status": "verified",
+          "anchor": {
+            "file": "scripts/opencode-db-maintenance.sh",
+            "line": 91,
+            "marker": "EVENT_KEEP"
+          },
+          "proofs": [
+            "scripts/prove-db-retention.ts"
+          ],
+          "issue": null,
+          "note": "Event-only, full-run retention, dual probe, and refusal are proven.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-041",
+      "title": "pre-cutover coexistence — v1 guard shipped; v2 must complete this before cutover — v2 ACTION REQUIRED",
+      "sharedLine": 741,
+      "requirements": [
+        {
+          "text": "Coexistence items 1 to 6 are implemented in v2 code and gates.",
+          "status": "verified",
+          "anchor": {
+            "file": "scripts/opencode-db-maintenance.sh",
+            "line": 596,
+            "marker": "require_v2_generation"
+          },
+          "proofs": [
+            "scripts/prove-db-retention.ts"
+          ],
+          "issue": null,
+          "note": "The generation gate and the maintenance containment are the code-side items.",
+          "hostNote": null
+        },
+        {
+          "text": "Item 7 ran as a live dual-generation boot and the v1 guard refused a v2 DB.",
+          "status": "verified",
+          "anchor": {
+            "file": "CUTOVER.md",
+            "line": 3,
+            "marker": "live dual-generation gate"
+          },
+          "proofs": [
+            "CUTOVER.md"
+          ],
+          "issue": null,
+          "note": "The live run is recorded in CUTOVER.md section 2 with both boot receipts.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-042",
+      "title": "v2 loads both plugin discovery paths (one workspace, two setup calls) — v1 guard shipped — v2 ACTION REQUIRED",
+      "sharedLine": 780,
+      "requirements": [
+        {
+          "text": "Local plugin entries must be deduplicated by the loader, not only by the plugin.",
+          "status": "host-bound",
+          "anchor": {
+            "file": "src/core/install-scope.ts",
+            "line": 56,
+            "marker": "claimCoexistence"
+          },
+          "proofs": [],
+          "issue": null,
+          "note": null,
+          "hostNote": "The plugin-side claim prevents duplicate registration; loader-level dedupe across workspace entries is a host contract."
+        }
+      ],
+      "status": "host-bound"
+    },
+    {
+      "id": "S-043",
+      "title": "v2 normalizes away v1 keys with warnings (`subagent_depth`, `compaction.prune`) — v1 retained for v1 host — v2 ACTION REQUIRED",
+      "sharedLine": 796,
+      "requirements": [
+        {
+          "text": "Legacy config keys no longer produce per-boot normalization warnings.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/utils/opencode-config.ts",
+            "line": 408,
+            "marker": "applyBootRepairs"
+          },
+          "proofs": [
+            "scripts/prove-e02.ts"
+          ],
+          "issue": null,
+          "note": "top-level subagent_depth stays absent from opencode.json; the live config pins experimental.subagent_depth to 3 so the host nesting limit matches the plugin ceiling, and boot repair never re-adds either key.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-044",
+      "title": "v2 `ask` is confirm-only (no select/multiselect elicitation) — v1 fail-closed — v2 REQUIRED",
+      "sharedLine": 812,
+      "requirements": [
+        {
+          "text": "Select and multiselect elicitation fail closed through the ask bridge.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/services/ask-channel-parse.ts",
+            "line": 12,
+            "marker": "multiselect"
+          },
+          "proofs": [
+            "scripts/prove-v2-ask-bridge.ts"
+          ],
+          "issue": null,
+          "note": "Closed 2026-10-29 in PLAN.md; unbridged types still fail closed.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-045",
+      "title": "v2 tool schemas are deferred (empty `args` until init) — v1 readiness handshake shipped — v2 ACTION REQUIRED",
+      "sharedLine": 825,
+      "requirements": [
+        {
+          "text": "Deferred tool schemas are refreshed after init with a bounded retry.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/v2/setup.ts",
+            "line": 53,
+            "marker": "SCHEMA_RETRY_ATTEMPTS"
+          },
+          "proofs": [
+            "scripts/prove-b02.ts"
+          ],
+          "issue": null,
+          "note": "The init-ready signal, bounded wait, schema collection, and reload are wired.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-046",
+      "title": "v2 `permission.assert` auto-allows unmatched actions — bridge forces `tawassul.ask` — v2 REQUIRED",
+      "sharedLine": 839,
+      "requirements": [
+        {
+          "text": "Unknown permission actions need a host default policy or rule registration.",
+          "status": "host-bound",
+          "anchor": {
+            "file": "src/v2/ask.ts",
+            "line": 18,
+            "marker": "evaluate"
+          },
+          "proofs": [],
+          "issue": null,
+          "note": null,
+          "hostNote": "The bridge forces ask for tawassul.ask; the default for unrelated actions is host-owned."
+        }
+      ],
+      "status": "host-bound"
+    },
+    {
+      "id": "S-047",
+      "title": "v2 lacks tool-output streaming and a native compaction prompt template — v1 approximates — v2 REQUIRED",
+      "sharedLine": 851,
+      "requirements": [
+        {
+          "text": "Tool output deltas and a compaction prompt contract are implemented.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/hooks/tool-output-stream.ts",
+            "line": 90,
+            "marker": "message.part.delta"
+          },
+          "proofs": [
+            "scripts/prove-e15.ts"
+          ],
+          "issue": null,
+          "note": "Closed 2026-10-29 in PLAN.md; the compaction side is anchored in src/hooks/session.ts.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-048",
+      "title": "v2 rejects a tool result carrying `output` unless the tool declares an output schema — v1 bridge fixed — v2 NOTE",
+      "sharedLine": 865,
+      "requirements": [
+        {
+          "text": "The input and output schema pairing needs host documentation.",
+          "status": "host-bound",
+          "anchor": {
+            "file": "src/v2/result-bridge.ts",
+            "line": 99,
+            "marker": "writeBackV1Output"
+          },
+          "proofs": [],
+          "issue": null,
+          "note": null,
+          "hostNote": "The bridge follows the v2 contract; the remaining ask is documentation for third-party plugins."
+        }
+      ],
+      "status": "host-bound"
+    },
+    {
+      "id": "S-049",
+      "title": "v2 `execute.after` discarded every v1 output mutation — bridge now writes them back — v1 FIXED",
+      "sharedLine": 881,
+      "requirements": [
+        {
+          "text": "After-hook output mutations are written back into the tool result.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/v2/result-bridge.ts",
+            "line": 99,
+            "marker": "writeBackV1Output"
+          },
+          "proofs": [
+            "scripts/prove-v2-compat.ts"
+          ],
+          "issue": null,
+          "note": "Text replacement, non-text preservation, and metadata copying are proven.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-050",
+      "title": "v1 budget exhaustion was mislabeled as a verification failure — fixed — v1 FIXED",
+      "sharedLine": 898,
+      "requirements": [
+        {
+          "text": "Budget exhaustion must not be mislabeled as a verification failure.",
+          "status": "n-a",
+          "anchor": null,
+          "proofs": [],
+          "issue": null,
+          "note": "v1-only path; v2 owns its own budget implementation and messages.",
+          "hostNote": null
+        }
+      ],
+      "status": "n-a"
+    },
+    {
+      "id": "S-051",
+      "title": "Host evidence validates the bridge's `permission.evaluate` mutation and `tool.reload()` re-run — v2 NOTE",
+      "sharedLine": 909,
+      "requirements": [
+        {
+          "text": "Permission evaluate mutation and tool reload need public contract documentation.",
+          "status": "host-bound",
+          "anchor": {
+            "file": "src/v2/ask.ts",
+            "line": 18,
+            "marker": "evaluate"
+          },
+          "proofs": [],
+          "issue": null,
+          "note": null,
+          "hostNote": "Both mechanisms are verified in the host bundle; the remaining ask is documentation."
+        }
+      ],
+      "status": "host-bound"
+    },
+    {
+      "id": "S-052",
+      "title": "v1 goal auto-capture has seven correctness gaps — v2 must port the corrected shape, not the code — v2 ACTION REQUIRED",
+      "sharedLine": 925,
+      "requirements": [
+        {
+          "text": "Goal auto-capture follows the corrected shape, not the v1 code.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/services/goal-store.ts",
+            "line": 840,
+            "marker": "private async finishLocked"
+          },
+          "proofs": [
+            "scripts/prove-goal-capture.ts"
+          ],
+          "issue": null,
+          "note": "Close and update share one gate, replay agrees, and the cap counts active goals.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-053",
+      "title": "v1 retirement transfer — watcher, boot, DB retention, and the unfinished-task census — v2 ACTION REQUIRED before cutover",
+      "sharedLine": 987,
+      "requirements": [
+        {
+          "text": "The watcher policy is owned by the v2 launcher with env over pinned over auto and one decision line.",
+          "status": "verified",
+          "anchor": {
+            "file": "scripts/opencode-v2-iso.sh",
+            "line": 302,
+            "marker": "[launcher] watcher mode="
+          },
+          "proofs": [
+            "scripts/prove-boot-gate.ts"
+          ],
+          "issue": null,
+          "note": "The rotational probe and the single launcher line are asserted.",
+          "hostNote": null
+        },
+        {
+          "text": "DB retention prunes event rows and the backup probe counts both session tables.",
+          "status": "verified",
+          "anchor": {
+            "file": "scripts/opencode-db-maintenance.sh",
+            "line": 91,
+            "marker": "EVENT_KEEP"
+          },
+          "proofs": [
+            "scripts/prove-db-retention.ts"
+          ],
+          "issue": null,
+          "note": "The retention and dual-probe behaviour is proven.",
+          "hostNote": null
+        },
+        {
+          "text": "The seven-item unchecked-task census is either ported as tests or recorded as out of scope.",
+          "status": "verified",
+          "anchor": {
+            "file": "ISSUES.md",
+            "line": 2978,
+            "marker": "### E-53"
+          },
+          "proofs": [
+            "scripts/prove-handoff-rescue.ts",
+            "scripts/prove-seed-agents.ts"
+          ],
+          "issue": null,
+          "note": "Every census item now has its own row (S-053.4 through S-053.10): three are anchored to the v2 code, two are recorded as out of scope, and two are verified by an existing proof.",
+          "hostNote": null
+        },
+        {
+          "text": "Pause during a live session halts dispatch and persists the paused handoff set.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/tools/system-controls.ts",
+            "line": 83,
+            "marker": "const pauseState: PauseState = {"
+          },
+          "proofs": [
+            "scripts/prove-s053.ts"
+          ],
+          "issue": null,
+          "note": "prove-s053 pauses two of three handoffs, keeps the original statuses, saves once, refuses a second pause, and restores both statuses on resume.",
+          "hostNote": null
+        },
+        {
+          "text": "A task that runs longer than 420 seconds is tracked by the task timeout.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/hooks/tool-execute.ts",
+            "line": 76,
+            "marker": "export const TASK_TIMEOUT_MS = 420_000;"
+          },
+          "proofs": [
+            "scripts/prove-s053.ts"
+          ],
+          "issue": null,
+          "note": "prove-s053 asserts the 420s constant, re-arms one entry, warns once, clears at the bound, and never warns after a clear.",
+          "hostNote": null
+        },
+        {
+          "text": "An image-generation 401 refreshes the token once and fails closed on a second 401.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/tools/image-gen.ts",
+            "line": 190,
+            "marker": "const refreshed = await refreshAndUpdateToken();"
+          },
+          "proofs": [
+            "scripts/prove-s053.ts"
+          ],
+          "issue": null,
+          "note": "prove-s053 asserts one refresh then success, and a second 401 fails closed with exactly one refresh and no loop.",
+          "hostNote": null
+        },
+        {
+          "text": "Confidentiality at rest for plugin state is a host and OS responsibility, not a plugin feature.",
+          "status": "n-a",
+          "anchor": null,
+          "proofs": [],
+          "issue": null,
+          "note": "State files are HMAC-signed for integrity, not encrypted; the plugin stores no provider credentials, which stay in the host or the OS keyring.",
+          "hostNote": null
+        },
+        {
+          "text": "User-level rate limiting is not a single-user local plugin surface.",
+          "status": "n-a",
+          "anchor": null,
+          "proofs": [],
+          "issue": null,
+          "note": "The plugin classifies provider quotas and defers transient limits to the host; it has no multi-user layer to throttle per user.",
+          "hostNote": null
+        },
+        {
+          "text": "Shared state is signed with HMAC-SHA256 before it is written and verified on read.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/utils/crypto.ts",
+            "line": 21,
+            "marker": "export const HMAC_PREFIX = \"TAWASSUL_V2_HMAC_V1:\";"
+          },
+          "proofs": [
+            "scripts/prove-s017.ts"
+          ],
+          "issue": null,
+          "note": "New writes carry the v2 prefix, both legacy prefixes still verify, and the proof asserts the signature shape and the namespace.",
+          "hostNote": null
+        },
+        {
+          "text": "In global scope, deleted-agent names persist in roster.deleted and survive a seed; in project scope, absence from config.agent is the record.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/scripts/gen-opencode-config.ts",
+            "line": 60,
+            "marker": "deletedPath: resolve(root, \".opencode\", \"deleted-agents.json\"),"
+          },
+          "proofs": [
+            "scripts/prove-seed-agents.ts",
+            "scripts/prove-first-boot-seed.ts"
+          ],
+          "issue": null,
+          "note": "The global generator reads roster.deleted and rejects malformed shapes; the project generator reads config.agent and writes no deletion list.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-054",
+      "title": "M3.1 frozen boot-scorecard was split out of v1 commit `0af80851` — DECISION MADE",
+      "sharedLine": 1047,
+      "requirements": [
+        {
+          "text": "The frozen boot-scorecard fixes are ported.",
+          "status": "verified",
+          "anchor": {
+            "file": "scripts/boot-scorecard-v2.sh",
+            "line": 30,
+            "marker": "SINCE_EXPLICIT"
+          },
+          "proofs": [
+            "scripts/prove-boot-gate.ts"
+          ],
+          "issue": null,
+          "note": "Explicit since, the N1/N4 envelope filter, and the N5 not-applicable branch are proven.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-055",
+      "title": "v1 `docs/` + `atomic/` remaining fix backlog — transferred before retirement — v2 TRIAGE REQUIRED (needs re-proof)",
+      "sharedLine": 1064,
+      "requirements": [
+        {
+          "text": "The v1 docs and atomic backlog is triaged before retirement.",
+          "status": "doc-only",
+          "anchor": null,
+          "proofs": [],
+          "issue": null,
+          "note": "TRIAGE.md holds the A to L table; applied rows are proven and the rest are v1-only or dead.",
+          "hostNote": null
+        }
+      ],
+      "status": "doc-only"
+    },
+    {
+      "id": "S-056",
+      "title": "v2 shared v1 state, HMAC, lock, seat, and N2 surfaces — namespaced in one change — v2 IMPLEMENTED (v1 untouched)",
+      "sharedLine": 1201,
+      "requirements": [
+        {
+          "text": "The legacy state directory and fallback reads are removed; HMAC key and signature compatibility remain.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/utils/state-paths.ts",
+            "line": 41,
+            "marker": "export function statePath("
+          },
+          "proofs": [
+            "scripts/prove-v2-independence.ts",
+            "scripts/prove-s017.ts"
+          ],
+          "issue": null,
+          "note": "0.1.0 deletes the legacy lane; the HMAC key directory and the old signature prefixes stay readable.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "S-057",
+      "title": "addagent model advisory reads the static catalog instead of the provider (false \"outside catalog\" warnings)",
+      "sharedLine": 1228,
+      "requirements": [
+        {
+          "text": "The addagent advisory consults the provider before warning about an unknown model.",
+          "status": "verified",
+          "anchor": {
+            "file": "src/core/model-registry.ts",
+            "line": 192,
+            "marker": "shouldWarnUnverifiedModel"
+          },
+          "proofs": [
+            "scripts/prove-s028.ts"
+          ],
+          "issue": null,
+          "note": "Provider-served models no longer produce a false outside-catalog warning.",
+          "hostNote": null
+        }
+      ],
+      "status": "verified"
+    }
+  ]
+}

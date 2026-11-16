@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "date": "2026-11-05",
+  "commit": "ef0bdd5",
+  "phase": "0",
+  "recordedDuring": "Phase 6 closeout (backfill: Phase 0 did not record a schema-payload receipt)",
+  "method": "initPlugin from src, wait for readiness, collectToolSchemas(hooks.tool), measureSchemaPayload; this is the same buildToolJsonSchema path the tool.definition hook uses, so the number matches the payload the host receives",
+  "toolCount": 44,
+  "toolNameSetHash": "1c1f4d27508a7a3f6f3b50d1e10f8ae0cf8801c7ce3d73df9cd29783ee7c3bb2",
+  "schemaPayload": {
+    "bytes": 24513,
+    "estimatedTokens": 6129
+  },
+  "archivedBaseline": {
+    "file": "docs/experiments/baselines/2026-10-31-context-baseline.json",
+    "bytes": 13868,
+    "note": "The archived baseline and the 2026-11-04 zod receipt measured the built entry with the src zod instance, which drops property descriptions during conversion and undercounts the payload. This receipt measures one instance, as the shipped hook does."
+  }
+}

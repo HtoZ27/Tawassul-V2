@@ -1,0 +1,20 @@
+{
+  "id": "context-continue-basic",
+  "skillId": "tawassul-context-continue",
+  "sessions": [
+    {
+      "name": "continue-an-overflowing-session",
+      "request": "Pack this session and continue the work in a successor.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        { "tool": "thread", "args": { "action": "list" } },
+        { "tool": "thread", "args": { "action": "read", "digest": "the digest" } },
+        { "tool": "thread", "args": { "action": "pack" } },
+        { "tool": "thread", "args": { "action": "continue", "sessionID": "ses_001", "model": "provider/model", "text": "continue the task" } },
+        { "tool": "record", "args": { "type": "note", "title": "context continue", "detail": "the pack moved to the successor session" } },
+        { "tool": "thread", "args": { "action": "list" } }
+      ]
+    }
+  ]
+}

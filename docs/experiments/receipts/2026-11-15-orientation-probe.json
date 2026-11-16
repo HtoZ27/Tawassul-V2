@@ -1,0 +1,126 @@
+{
+  "date": "2026-11-15",
+  "evalId": "orientation-basic",
+  "skillId": "tawassul-orientation",
+  "method": "Live foreign-project probe. The scratch directory /tmp/opencode/probe sits outside the repository and holds only the built bundle at .opencode/plugins/tawassul.js plus the base agent files; no project opencode.json was supplied before the first run. Each prompt ran in its own archived session through opencode-cli 2.3.0 with --standalone --format json and the model google/gemini-3.5-flash-lite. The skill tool call and its returned body were read from the JSON event stream, and the scratch tree was inspected afterwards for hand edits.",
+  "environment": {
+    "host": "opencode-cli 2.3.0-x64",
+    "model": "google/gemini-3.5-flash-lite",
+    "standalone": true,
+    "scratch": "/tmp/opencode/probe",
+    "timeoutSeconds": 150
+  },
+  "sessions": [
+    {
+      "round": 1,
+      "name": "orientation-map",
+      "prompt": "How does this plugin work?",
+      "agent": "build",
+      "relevant": true,
+      "loaded": true,
+      "bodyDelivered": true,
+      "timedOut": false,
+      "tools": ["skill", "kick", "addagent", "kick", "directresponse"],
+      "note": "The session received all four prompts because the first launcher passed them on stdin; it called the skill and returned the full body, including the timeline step."
+    },
+    {
+      "round": 1,
+      "name": "roster-add",
+      "prompt": "Add an agent named reviewer with model gemini from google.",
+      "agent": "build",
+      "relevant": true,
+      "loaded": false,
+      "bodyDelivered": false,
+      "timedOut": false,
+      "tools": ["addagent"],
+      "note": "The tool wrote reviewer.md and the roster programmatically; no file edit."
+    },
+    {
+      "round": 1,
+      "name": "roster-remove",
+      "prompt": "Remove the reviewer agent.",
+      "agent": "build",
+      "relevant": true,
+      "loaded": false,
+      "bodyDelivered": false,
+      "timedOut": false,
+      "tools": ["kick", "kick"],
+      "note": "Both kick calls used the roster tool and both failed on the guessed name; no file edit."
+    },
+    {
+      "round": 1,
+      "name": "state-location",
+      "prompt": "Where are handoffs stored?",
+      "agent": "build",
+      "relevant": true,
+      "loaded": false,
+      "bodyDelivered": false,
+      "timedOut": false,
+      "tools": ["directresponse"],
+      "note": "Answered from the always-sent help description; no workspace search for plugin files."
+    },
+    {
+      "round": 2,
+      "name": "orientation-map",
+      "prompt": "How does this plugin work?",
+      "agent": "build",
+      "relevant": true,
+      "loaded": false,
+      "bodyDelivered": false,
+      "timedOut": true,
+      "tools": [],
+      "note": "No tool call before the 150 s timeout; the model answered from the help description."
+    },
+    {
+      "round": 2,
+      "name": "roster-add",
+      "prompt": "Add an agent named reviewer with model gemini from google.",
+      "agent": "build",
+      "relevant": true,
+      "loaded": false,
+      "bodyDelivered": false,
+      "timedOut": false,
+      "tools": ["addagent"],
+      "note": "Same tool path as round 1; no file edit."
+    },
+    {
+      "round": 2,
+      "name": "roster-remove",
+      "prompt": "Remove the reviewer agent.",
+      "agent": "build",
+      "relevant": true,
+      "loaded": false,
+      "bodyDelivered": false,
+      "timedOut": true,
+      "tools": ["kick", "kick", "directresponse", "kick", "directresponse", "kick", "directresponse", "kick", "directresponse", "kick", "directresponse"],
+      "note": "Repeated kick attempts on the guessed name until the timeout; no file edit."
+    },
+    {
+      "round": 2,
+      "name": "state-location",
+      "prompt": "Where are handoffs stored?",
+      "agent": "build",
+      "relevant": true,
+      "loaded": false,
+      "bodyDelivered": false,
+      "timedOut": false,
+      "tools": ["directresponse"],
+      "note": "Answered from the always-sent help description; no workspace search for plugin files."
+    }
+  ],
+  "summary": {
+    "relevant": 8,
+    "loaded": 1,
+    "rate": 0.125,
+    "skillsOff": 0,
+    "handEdits": 0,
+    "rosterToolSessions": 4
+  },
+  "renderedSkill": {
+    "bodyBytes": 946,
+    "returnedBytes": 1266,
+    "containsFirstStep": true,
+    "containsTimelineStep": true
+  },
+  "decision": "The measured rate 0.125 is below the declared 0.5 threshold, so the kill criterion applies: the skill is retired, no eval ledger entry is written, and the help and addagent changes ship as the delivered items. The roster prompts used addagent and kick in every round with zero hand edits, so the reported symptom is fixed without the skill."
+}

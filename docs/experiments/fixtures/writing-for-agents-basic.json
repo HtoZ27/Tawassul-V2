@@ -1,0 +1,56 @@
+{
+  "id": "writing-for-agents-basic",
+  "skillId": "tawassul-writing-for-agents",
+  "sessions": [
+    {
+      "name": "writing-for-agents-session",
+      "request": "Rewrite the skill description so an agent can act on it.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        {
+          "tool": "show_board",
+          "args": {}
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "note",
+            "title": "pointer audit",
+            "detail": "each line loaded at every turn and the branch it triggers"
+          }
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "decision",
+            "title": "document shape",
+            "detail": "steps, in-file reference and disclosed reference"
+          }
+        },
+        {
+          "tool": "goal",
+          "args": {
+            "create": "rewrite the agent-facing document",
+            "items": [
+              "sharpen the pointer",
+              "move reference behind a pointer",
+              "prune no-ops"
+            ],
+            "acceptance": [
+              "every line changes behaviour or leaves"
+            ]
+          }
+        },
+        {
+          "tool": "handoff",
+          "args": {
+            "to": "@doc",
+            "task": "rewrite the document",
+            "context": "the pointer audit and the document shape are in the record ledger"
+          }
+        }
+      ]
+    }
+  ]
+}

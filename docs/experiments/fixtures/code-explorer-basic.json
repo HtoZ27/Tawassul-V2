@@ -1,0 +1,41 @@
+{
+  "id": "code-explorer-basic",
+  "skillId": "tawassul-code-explorer",
+  "sessions": [
+    {
+      "name": "code-explorer-session",
+      "request": "I need to change the handoff pipeline and the area is unfamiliar. Map it.",
+      "relevant": true,
+      "loaded": true,
+      "calls": [
+        {
+          "tool": "show_board",
+          "args": {}
+        },
+        {
+          "tool": "timeline",
+          "args": {
+            "view": "recent",
+            "limit": 20
+          }
+        },
+        {
+          "tool": "record",
+          "args": {
+            "type": "note",
+            "title": "feature map",
+            "detail": "entry points, flow, dependencies and extension points with file and line"
+          }
+        },
+        {
+          "tool": "handoff",
+          "args": {
+            "to": "@dev",
+            "task": "change the traced area",
+            "context": "the feature map and the essential files are in the record ledger"
+          }
+        }
+      ]
+    }
+  ]
+}

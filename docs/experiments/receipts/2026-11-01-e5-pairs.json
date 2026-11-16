@@ -1,0 +1,289 @@
+{
+  "date": "2026-11-01",
+  "experiment": "E5",
+  "source": ".opencode/tool-run-log.json",
+  "entries": 1500,
+  "entriesWithModel": 1215,
+  "sessions": 2,
+  "joinedTurns": 39,
+  "violations": 0,
+  "models": {
+    "build": "opencode/deepseek-v4.1-flash-free",
+    "plan": "nvidia/stepfun-ai/step-5-preview"
+  },
+  "pairs": [
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 19,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 20,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 21,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 22,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 23,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 24,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 25,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 26,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 30,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 31,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 32,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 33,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 34,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 35,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 36,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 37,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 38,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 39,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 40,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 41,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 42,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 43,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 44,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 45,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 46,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 47,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 48,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 49,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 50,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 51,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 52,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 53,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 54,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 55,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 56,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 57,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 58,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 59,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    },
+    {
+      "sessionId": "ses_e6e5598cfffe1itgwN0w3m2qzr",
+      "turn": 60,
+      "implementer": "opencode/deepseek-v4.1-flash-free",
+      "reviewer": "nvidia/stepfun-ai/step-5-preview",
+      "sameModel": false
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+# Contributing
+
+Thanks for considering a contribution. Tawassul is a small, gate-heavy project:
+the rules below exist so that a change can be verified rather than trusted.
+
+## Ground rules
+
+1. **English only.** Code, strings, comments, commit messages, issues, and
+   documentation are English. The single exception is a runtime translation
+   table under `src/i18n/` for a non-English language.
+2. **No comments in scanned code.** `.ts`, `.mjs`, and `.json` files under
+   `src/`, `scripts/`, and `tests/` carry no comments. The only allowed
+   directives are `// @ts-expect-error`, `// @ts-ignore`, and eslint
+   disable/enable blocks.
+3. **No secrets, no personal paths.** Do not commit a key, a token, a home
+   directory path, or a machine name.
+4. **One concern per pull request.** A fix and a refactor in the same branch
+   make the proof run harder to read.
+5. **A behaviour change needs a proof.** If you change what the plugin does, add
+   or extend a proof under `scripts/` that fails before your change.
+
+## Setup
+
+```bash
+nvm use
+npm install
+npm run build
+```
+
+The host loads `.opencode/plugins/tawassul.js` for this workspace. A global
+install is opt-in and is not needed for development.
+
+## Gates
+
+Run these before opening a pull request. They run in order and each one is
+cheap enough to run alone.
+
+| Command | What it proves |
+| --- | --- |
+| `npm run typecheck` | TypeScript strict |
+| `npm run check:rules` | English-only and no-comments |
+| `npm run check:docs` | Public-doc links, language, allow-list, and surface drift |
+| `npm run sbom` | Every installed package has a licence; no copyleft dependency |
+| `npm run pack:release` | The tarball, runtime archive, bundle, SBOM and checksums are written |
+| `npm run verify:release-artifact` | The release file lists, hashes and versions agree |
+| `npm run gate:fast` | Rules, docs, SBOM, config, facts, contract, parity, catalog |
+| `npm run gate:proofs` | Every proof, one isolated child process each |
+| `npm run gate:smoke` | Build and release smoke |
+| `npm run verify` | Fast gate plus build |
+| `npm run ci` | All three gate stages |
+
+`npm run gate:proofs:1` … `:4` run balanced shards when you want a faster loop.
+A proof that fails is a finding, not noise: report it, do not retry it until it
+passes.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs the fast gate and the build in one job, and the
+four proof shards in parallel jobs, on every push to `main` and every pull
+request. Actions are pinned to a commit, not a moving tag; Dependabot proposes
+an update when a pinned action or a development dependency changes.
+
+Smoke is not a CI job. It boots the host and may call a model, so it runs on a
+machine that has both. A green CI run is not a substitute for
+`npm run gate:smoke` before a release.
+
+The Windows lane is a separate workflow, `.github/workflows/windows.yml`. It
+runs `scripts/windows-ci.ps1` in four modes on `windows-latest`: `cycle` for the
+install, verify, upgrade, uninstall, and purge sequence; `pwsh7` for PowerShell
+7; `longpath` for a 278-character path; and `ast` for the tree-sitter runtime
+and the installed bundle (`check-ast-runtime.ts` and `check-ast-bundle.ts`).
+Every child process is bounded by `scripts/windows-bounded.ps1`, and
+`scripts/windows-security-check.ps1` is the on-demand Defender and SmartScreen
+probe. These are native Windows checks with their own receipts, not proofs, and
+they do not replace the Linux gate.
+
+A workflow never receives a provider key, an HMAC key, or a state directory. Do
+not add a secret to a workflow to make a proof pass; an isolated state root is
+the correct fix.
+
+## Release worktree
+
+The public tree is built from the allow-list, not copied by hand:
+
+```bash
+npm run prepare:public -- /tmp/tawassul-public
+bun scripts/check-public-tree.ts --tree /tmp/tawassul-public
+```
+
+The script copies only the files in `scripts/release/public-files.json`. It
+never deletes anything: a target that holds a file outside the manifest is
+refused, so remove that file yourself and run it again. Run `npm ci` and
+`npm run verify` inside the result before the root commit.
+
+## Style
+
+- Follow the surrounding code. Naming, file layout, and error shapes are
+  consistent on purpose.
+- Tool executions run in the promise domain; wrap an effect pipeline with
+  `Effect.runPromise`.
+- Fail closed. A guard that cannot decide must deny, and it must say why.
+- Prefer a specific error over a silent fallback. When a fallback is correct,
+  log it once and keep going.
+
+## Commits
+
+- Subject in the imperative mood, at most 72 characters, English.
+- Body explains what changed and what evidence supports it.
+- Reference the proof or gate that covers the change.
+- Do not mix formatting-only edits with behaviour changes.
+
+## Pull requests
+
+A pull request is ready when:
+
+- the gates above pass locally;
+- the diff contains no unrelated edits;
+- new behaviour is covered by a proof, and the proof fails without the change;
+- documentation under `docs/` is updated when a user-visible behaviour changes;
+- `NOTICE.md` is updated when a dependency is added or removed.
+
+## Reporting a bug
+
+Include the Tawassul version, the host version, the platform, the relevant
+configuration (redacted), and the smallest reproduction you can produce. If the
+bug is a security problem, follow [SECURITY.md](SECURITY.md) instead.

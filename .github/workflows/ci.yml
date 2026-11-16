@@ -1,0 +1,69 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: fast gate and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 26.13.0
+          cache: npm
+      - name: Bun
+        uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3
+        with:
+          bun-version: 1.3.14
+      - name: Install
+        run: npm ci
+      - name: Rules
+        run: npm run check:rules
+      - name: Docs
+        run: npm run check:docs
+      - name: Fast gate
+        run: npm run gate:fast
+      - name: Build
+        run: npm run build
+
+  proofs:
+    name: proofs shard ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 26.13.0
+          cache: npm
+      - name: Bun
+        uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3
+        with:
+          bun-version: 1.3.14
+      - name: Tools
+        run: sudo apt-get update && sudo apt-get install -y sqlite3 psmisc jq
+      - name: Install
+        run: npm ci
+      - name: Proofs
+        run: npm run gate:proofs:${{ matrix.shard }}
