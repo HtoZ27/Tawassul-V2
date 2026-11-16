@@ -117,25 +117,30 @@ bun scripts/install-global.ts --verify
 
 ### Several agents on one task
 
-A base role is a starting point. Clone it once per model you want, then send one
-task to all the clones together:
+A base role is a starting point. Add one clone per model, then send one task to
+all the clones together:
 
 ```text
-addagent analyst-gemini   with model gemini from google
-addagent analyst-deepseek with model opencode/deepseek-v4.1-flash-free
-addagent analyst-mimo     with model mimo   from opencode
-addagent analyst-minimax  with model minimax from opencode
-
-moa(task: "Review the payment module for race conditions. One verdict per
-reviewer, with the file and line behind it.",
-    agents: ["analyst-gemini", "analyst-deepseek", "analyst-mimo", "analyst-minimax"])
+@addagent analyst with model gemini from google
+@addagent analyst with model deep from nvidia
+@addagent analyst with model mimo from opencode
+@addagent analyst with model minimax from nvidia
+@tawa Use moa with analyst-gemini, analyst-deep, analyst-mimo and
+analyst-minimax on the payment module: one verdict per reviewer for race
+conditions, with the file and line behind it.
 ```
 
-Each clone is a real agent: it keeps its own model, runs in its own session, and
-answers independently, so one review carries four opinions instead of one. The
-suffix is yours — `analyst-glm`, `analyst-gptsol`, or any provider/model you have
-— and the same pattern applies to `reviewer`, `tester`, `architect`, `designer`,
-and `doc`.
+The add lines derive the four suffixes — `analyst-gemini`, `analyst-deep`,
+`analyst-mimo`, `analyst-minimax` — and leave the base `analyst` untouched, so
+the names in the `moa` request are the names the roster now carries. `moa`
+dispatches one copy per name; read the verdicts with `show_board`, or ask
+`@analyst` to consolidate them. Each clone keeps its own model and runs in its
+own session, so one review carries four opinions instead of one.
+
+The suffix is not free text: the model must be a catalog alias (`gemini`,
+`mimo`, `minimax`, `deep`, ...) or a `provider/model` the named provider lists.
+An invented suffix is rejected with the accepted names. The same pattern
+applies to `reviewer`, `tester`, `architect`, `designer`, and `doc`.
 
 For work that splits into independent parts rather than parallel opinions, use
 `task_orchestrate` with `mode: "parallel"`: it cuts the task, dispatches the
