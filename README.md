@@ -136,13 +136,16 @@ one copy per name; read the verdicts with `show_board`, or ask `@analyst` to
 consolidate them. Each clone keeps its own model and runs in its own session, so
 one review carries four opinions instead of one.
 
-The suffix is not free text: it must be a catalog suffix (`gemini`, `deep`,
-`mimo`, `minimax`, ...) or a token the named provider lists. The model is the
-exact provider model — `minimax` above resolves to
-`nvidia/minimaxai/minimax-m3.1-flash`. A bare base plus a model with no catalog
-suffix derives an ungoverned name and is rejected, which is why these lines name
-the variant. An invented suffix is rejected with the accepted names. The same
-pattern applies to `reviewer`, `tester`, `architect`, `designer`, and `doc`.
+The suffix is a short name, not the model path. `gemini`, `deep`, `mimo`, and
+`minimax` are catalog suffixes and work on any host. If you want the name to
+track the model, use one provider token — `hydrogen` for
+`gemini 4 hydrogen from google` — which the named provider must list. A full
+path such as `gemini-4-hydrogen` is not a stable suffix: it passes only where
+the provider list already holds that exact model. The model itself comes from
+`with model ... from ...` — `minimax` above resolves to
+`nvidia/minimaxai/minimax-m3.1-flash`. An invented suffix is rejected with the
+accepted names. The same pattern applies to `reviewer`, `tester`, `architect`,
+`designer`, and `doc`.
 
 For work that splits into independent parts rather than parallel opinions, use
 `task_orchestrate` with `mode: "parallel"`: it cuts the task, dispatches the
