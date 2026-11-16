@@ -105,6 +105,12 @@ npm run build
 Open the workspace in OpenCode. The host discovers
 `.opencode/plugins/tawassul.js` on its own; no configuration edit is needed.
 
+One setting lives in the app rather than in `opencode.json`: open
+**Settings → General** and turn on **Show agent** ("Switch between agents in
+the composer"). The composer then carries the agent selector, so a session can
+run as `dev`, `analyst`, `tester`, or any variant you add. While it is off, the
+app stays on the Build agent.
+
 The repository installer adds the host probe, the database scripts, and the
 scheduled maintenance trigger:
 
@@ -149,9 +155,10 @@ the verdicts with `show_board`, or ask `@analyst` to consolidate them. Each clon
 keeps its own model and runs in its own session, so one review carries four
 opinions instead of one.
 
-Typing `@` in the message box is the direct route. Pick one agent, or keep
-typing `@` and pick as many as you want; each mention runs on the model you gave
-that agent, and the text after the mentions is the shared task:
+Typing `@` in the message box is the direct route, with **Show agent** turned on
+as in Quick start. Pick one agent, or keep typing `@` and pick as many as you
+want; each mention runs on the model you gave that agent, and the text after the
+mentions is the shared task:
 
 ```text
 @reviewer-deep @analyst-mimo @analyst-minimax @analyst-gemini atomic
