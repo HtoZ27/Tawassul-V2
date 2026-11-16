@@ -15,7 +15,7 @@
     "bytes": 24740,
     "estimatedTokens": 6185
   },
-  "descriptionBytes": 15857,
+  "descriptionBytes": 15832,
   "schemaLines": [
     {
       "name": "addagent",
@@ -241,8 +241,8 @@
   "descriptionLines": [
     {
       "name": "addagent",
-      "bytes": 1077,
-      "estimatedTokens": 270
+      "bytes": 1073,
+      "estimatedTokens": 269
     },
     {
       "name": "astquery",
@@ -346,8 +346,8 @@
     },
     {
       "name": "kick",
-      "bytes": 761,
-      "estimatedTokens": 191
+      "bytes": 740,
+      "estimatedTokens": 185
     },
     {
       "name": "moa",
