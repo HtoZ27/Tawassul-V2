@@ -106,14 +106,14 @@ bun scripts/install-global.ts --verify
 
 | Agent | Role |
 | --- | --- |
-| `tawa` | Experts' intermediary; activates only on an explicit `@tawa` request |
-| `dev` | Implements and fixes, choosing a model by task complexity |
-| `analyst` | Quality supervision, risk, and model selection |
-| `tester` | Tests, edge cases, and test reports |
-| `reviewer` | Line-by-line review and security audit |
-| `architect` | Structure, technologies, and design evaluation |
-| `designer` | Interfaces, mockups, and user experience |
-| `doc` | Technical and user documentation |
+| 🟪 `tawa` | Experts' intermediary; activates only on an explicit `@tawa` request |
+| 🟦 `dev` | Implements and fixes, choosing a model by task complexity |
+| 🟩 `analyst` | Quality supervision, risk, and model selection |
+| 🟨 `tester` | Tests, edge cases, and test reports |
+| 🟧 `reviewer` | Line-by-line review and security audit |
+| 🟥 `architect` | Structure, technologies, and design evaluation |
+| 🟤 `designer` | Interfaces, mockups, and user experience |
+| ⚫ `doc` | Technical and user documentation |
 
 ### Several agents on one task
 
