@@ -39,7 +39,19 @@ A long session with one agent loses structure. Decisions are buried in the
 transcript, handoffs are improvised, and nobody can say which tasks are done. A
 second agent helps only if the work is written down, attributed, and checkable.
 
-Tawassul makes that structure explicit:
+Structure is one reason. Parallel work is the other: several agents can plan the
+same task at once, each on a different model, then analyse the code, hunt for
+problems, propose fixes, and compare the answers. One pass gives you four
+opinions instead of four sequential attempts, and that is where the time comes
+back to you.
+
+The price is tokens. Every extra agent carries its own context and returns its
+own answer, so a wide roster costs more than one careful model. Keep the roster
+on free models where the work allows it — the `-free` variants on `opencode`,
+such as `deepseek-v4.1-flash-free` and `mimo-v2.6-flash-free` — and pay for the
+one role that needs a larger model, not for the whole team.
+
+Tawassul makes the structure explicit:
 
 | Capability | What it gives you |
 | --- | --- |
