@@ -124,7 +124,7 @@ all the clones together:
 @addagent analyst-gemini with model gemini 4 hydrogen from google
 @addagent analyst-deep with model deepseek-v4.1-flash-free from opencode
 @addagent analyst-mimo with model mimo-v2.6-flash-free from opencode
-@addagent analyst-minimax with model minimax from nvidia
+@addagent analyst-minimax with model nvidia/minimaxai/minimax-m3.1-flash from nvidia
 @tawa Use moa with analyst-gemini, analyst-deep, analyst-mimo and
 analyst-minimax on the payment module: one verdict per reviewer for race
 conditions, with the file and line behind it.
@@ -137,15 +137,15 @@ consolidate them. Each clone keeps its own model and runs in its own session, so
 one review carries four opinions instead of one.
 
 The suffix is a short name, not the model path. `gemini`, `deep`, `mimo`, and
-`minimax` are catalog suffixes and work on any host. If you want the name to
+`minimax` are catalog suffixes and work on any host. The model itself comes from
+`with model ... from ...`. The last line spells the full
+`nvidia/minimaxai/minimax-m3.1-flash` because NVIDIA namespaces its model IDs —
+a bare `minimax-m3.1-flash` names a model the provider does not list — and
+`from nvidia` stays because the syntax requires it. If you want the suffix to
 track the model, use one provider token — `hydrogen` for
-`gemini 4 hydrogen from google` — which the named provider must list. A full
-path such as `gemini-4-hydrogen` is not a stable suffix: it passes only where
-the provider list already holds that exact model. The model itself comes from
-`with model ... from ...` — `minimax` above resolves to
-`nvidia/minimaxai/minimax-m3.1-flash`. An invented suffix is rejected with the
-accepted names. The same pattern applies to `reviewer`, `tester`, `architect`,
-`designer`, and `doc`.
+`gemini 4 hydrogen from google` — which the named provider must list. An
+invented suffix is rejected with the accepted names. The same pattern applies to
+`reviewer`, `tester`, `architect`, `designer`, and `doc`.
 
 For work that splits into independent parts rather than parallel opinions, use
 `task_orchestrate` with `mode: "parallel"`: it cuts the task, dispatches the
