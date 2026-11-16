@@ -137,7 +137,12 @@ check(!/server\s*:/.test(readFileSync(indexPath, "utf8")), "src/index.ts still d
 
 const args = process.argv.slice(2);
 const tagIndex = args.indexOf("--tag");
-const tag = tagIndex >= 0 ? args[tagIndex + 1] : process.env.GITHUB_REF_NAME;
+const tag =
+  tagIndex >= 0
+    ? args[tagIndex + 1]
+    : process.env.GITHUB_REF_TYPE === "tag"
+      ? process.env.GITHUB_REF_NAME
+      : undefined;
 if (tag) {
   check(tag === `v${version}`, `tag ${tag} does not match v${version}`);
 }

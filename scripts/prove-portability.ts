@@ -194,7 +194,7 @@ try {
   const ramProc = helper("tawassul_free_ram_mb", [], envWith(NOSTAT_DIR));
   assert(ramProc.code === 0 && /^\d+$/.test(ramProc.out) && Number(ramProc.out) > 0, "tawassul_free_ram_mb falls through to the python3 /proc rung");
 
-  const avail = helper("tawassul_avail_bytes", [`"/tmp/opencode"`], envWith(SHIMS));
+  const avail = helper("tawassul_avail_bytes", [`"${WORK}"`], envWith(SHIMS));
   assert(avail.code === 0 && /^\d+$/.test(avail.out) && Number(avail.out) > 1024, "tawassul_avail_bytes uses the POSIX df -Pk form");
 
   const noTool = helper("tawassul_file_bytes", [`"${DB}"`], envWith(EMPTY));
