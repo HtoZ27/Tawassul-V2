@@ -207,6 +207,11 @@ The roster should list the built-in agents plus `tawa`, `analyst`, `architect`,
 package plugins, not files discovered in the plugin directory, so it is not the
 right check for this install.
 
+The roster is selectable in the desktop app only with **Show agent** on:
+**Settings → General → Show agent** ("Switch between agents in the composer").
+With it off, every session stays on the Build agent, and the specialists load
+but cannot be chosen.
+
 The plugin directory must exist before the host starts. The installer creates it;
 a hand-made install must create it too, or the host refuses to start with
 `Location plugins did not finish activating`.
