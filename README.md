@@ -121,6 +121,7 @@ A base role is a starting point. Add one clone per model, then send one task to
 all the clones together:
 
 ```text
+@addagent reviewer-deep with model deepseek-v4.1-flash-free from opencode
 @addagent analyst-gemini with model gemini 4 hydrogen from google
 @addagent analyst-deep with model deepseek-v4.1-flash-free from opencode
 @addagent analyst-mimo with model mimo-v2.6-flash-free from opencode
@@ -130,11 +131,23 @@ analyst-minimax on the payment module: one verdict per reviewer for race
 conditions, with the file and line behind it.
 ```
 
-The four add lines name each variant explicitly and pin it to one exact model,
-so the roster carries exactly the names the `moa` request uses. `moa` dispatches
-one copy per name; read the verdicts with `show_board`, or ask `@analyst` to
-consolidate them. Each clone keeps its own model and runs in its own session, so
-one review carries four opinions instead of one.
+The add lines name each variant explicitly and pin it to one exact model, so
+every name resolves to a roster entry. `moa` dispatches one copy per name; read
+the verdicts with `show_board`, or ask `@analyst` to consolidate them. Each clone
+keeps its own model and runs in its own session, so one review carries four
+opinions instead of one.
+
+Typing `@` in the message box is the direct route. Pick one agent, or keep
+typing `@` and pick as many as you want; each mention runs on the model you gave
+that agent, and the text after the mentions is the shared task:
+
+```text
+@reviewer-deep @analyst-mimo @analyst-minimax @analyst-gemini atomic
+evaluation of the project, with a comparison of the findings
+```
+
+The add lines above create these names, so the picker offers them. No `@tawa` is
+needed for this route.
 
 The suffix is a short name, not the model path. `gemini`, `deep`, `mimo`, and
 `minimax` are catalog suffixes and work on any host. The model itself comes from
