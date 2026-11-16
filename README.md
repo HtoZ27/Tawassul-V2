@@ -1,14 +1,34 @@
-# Tawassul
+<div align="center">
 
-**A team runtime for OpenCode: eight agents, 44 tools, and a ledger
-that remembers what was decided.**
+<img src="assets/tawassul-social-preview.png" alt="Tawassul — Collaborative AI Agents" width="100%">
+
+<h3>A team runtime for OpenCode</h3>
+
+<p><b>Eight base agents · the model variants you choose · 44 tools · a ledger that remembers what was decided</b></p>
+
+<p>
+  <a href="https://github.com/HtoZ27/Tawassul-V2/actions/workflows/ci.yml"><img src="https://github.com/HtoZ27/Tawassul-V2/actions/workflows/ci.yml/badge.svg" alt="ci"></a>
+  <a href="https://github.com/HtoZ27/Tawassul-V2/releases"><img src="https://img.shields.io/github/v/release/HtoZ27/Tawassul-V2?include_prereleases" alt="release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="license"></a>
+  <a href="docs/compatibility.md"><img src="https://img.shields.io/badge/OpenCode-%E2%89%A52.3.0-111111" alt="OpenCode"></a>
+</p>
+
+<p>
+  <a href="#quick-start"><b>Quick start</b></a> ·
+  <a href="GUIDE.md">Guide</a> ·
+  <a href="WORKFLOW.md">Workflow</a> ·
+  <a href="docs/README.md">Documentation</a> ·
+  <a href="docs/release-notes-0.1.1.md">Release notes</a>
+</p>
+
+</div>
 
 Tawassul is an OpenCode plugin. It adds routing, handoffs, a goal ledger,
 mission boards, checkpoints, memory records, and a disciplined tool surface to a
 single workspace or to every workspace of a user. It is local-first: state lives
 on your disk, in your configuration directory, and nowhere else.
 
-**Status:** `0.1.0-experimental`. The Linux lane carries the full feature set.
+**Status:** `0.1.1-experimental`. The Linux lane carries the full feature set.
 Native Windows x64 is supported for the bundle and wasm lane (native receipt
 2026-11-02, re-run on 2026-11-03); database maintenance and scheduled triggers
 need the Linux lane. Emulator evidence is published and clearly labelled.
@@ -38,7 +58,19 @@ Tawassul makes that structure explicit:
 
 Requires OpenCode `>=2.3.0`, Node.js `26.13.0` (see `.nvmrc`), and Bun `1.3.x`.
 
-Install the release for every workspace of the current user:
+> **Use project scope for local projects.** A project install keeps the plugin
+> inside that workspace, loads it only there, and never touches your OpenCode
+> configuration. Global scope is for a user who wants Tawassul in every
+> workspace.
+
+Install the release into one workspace:
+
+```bash
+sh install.sh --project <dir> --dry-run
+sh install.sh --project <dir>
+```
+
+Install it for every workspace of the current user:
 
 ```bash
 sh install.sh --global --dry-run
@@ -47,7 +79,6 @@ sh install.sh --global
 
 The installer verifies the bundle and the runtime archive against
 `SHA256SUMS`, stages the four wasm grammars, and never edits `opencode.json`.
-`sh install.sh --project <dir>` installs into one workspace, and
 `sh install.sh --global --uninstall` reverses it. See
 [docs/installation.md](docs/installation.md#release-installer).
 
@@ -75,14 +106,40 @@ bun scripts/install-global.ts --verify
 
 | Agent | Role |
 | --- | --- |
-| `tawa` | Experts' intermediary; activates only on an explicit `@tawa` request |
-| `dev` | Implements and fixes, choosing a model by task complexity |
-| `analyst` | Quality supervision, risk, and model selection |
-| `tester` | Tests, edge cases, and test reports |
-| `reviewer` | Line-by-line review and security audit |
-| `architect` | Structure, technologies, and design evaluation |
-| `designer` | Interfaces, mockups, and user experience |
-| `doc` | Technical and user documentation |
+| 🟪 `tawa` | Experts' intermediary; activates only on an explicit `@tawa` request |
+| 🟦 `dev` | Implements and fixes, choosing a model by task complexity |
+| 🟩 `analyst` | Quality supervision, risk, and model selection |
+| 🟨 `tester` | Tests, edge cases, and test reports |
+| 🟧 `reviewer` | Line-by-line review and security audit |
+| 🟥 `architect` | Structure, technologies, and design evaluation |
+| 🟤 `designer` | Interfaces, mockups, and user experience |
+| ⚫ `doc` | Technical and user documentation |
+
+### Several agents on one task
+
+A base role is a starting point. Clone it once per model you want, then send one
+task to all the clones together:
+
+```text
+addagent analyst-gemini   with model gemini from google
+addagent analyst-deepseek with model opencode/deepseek-v4.1-flash-free
+addagent analyst-mimo     with model mimo   from opencode
+addagent analyst-minimax  with model minimax from opencode
+
+moa(task: "Review the payment module for race conditions. One verdict per
+reviewer, with the file and line behind it.",
+    agents: ["analyst-gemini", "analyst-deepseek", "analyst-mimo", "analyst-minimax"])
+```
+
+Each clone is a real agent: it keeps its own model, runs in its own session, and
+answers independently, so one review carries four opinions instead of one. The
+suffix is yours — `analyst-glm`, `analyst-gptsol`, or any provider/model you have
+— and the same pattern applies to `reviewer`, `tester`, `architect`, `designer`,
+and `doc`.
+
+For work that splits into independent parts rather than parallel opinions, use
+`task_orchestrate` with `mode: "parallel"`: it cuts the task, dispatches the
+parts at once, and keeps each part's files and bundle separate.
 
 ## Skills
 
@@ -132,12 +189,13 @@ the evidence level of every row, is in
 
 | Document | Content |
 | --- | --- |
-| [docs/release-notes-0.1.0.md](docs/release-notes-0.1.0.md) | What this release contains and what it does not claim |
+| [docs/release-notes-0.1.1.md](docs/release-notes-0.1.1.md) | What this release contains and what it does not claim |
 | [docs/features.md](docs/features.md) | Capability catalogue and the status of each claim |
 | [docs/installation.md](docs/installation.md) | Project and global install, upgrade, uninstall |
 | [docs/plugins.md](docs/plugins.md) | Package layout, discovery, a manual host entry |
 | [docs/upgrade.md](docs/upgrade.md) | Patch upgrades, downgrades, preserved state |
-| [docs/user-guide.md](docs/user-guide.md) | Goals, handoffs, reviews, long sessions |
+| [WORKFLOW.md](WORKFLOW.md) | The working rhythm: goals, handoffs, reviews, long sessions |
+| [GUIDE.md](GUIDE.md) | The complete team guide: agents, variants, memory, locks, tools, skills |
 | [docs/configuration.md](docs/configuration.md) | Config file, keys, environment variables |
 | [docs/environment.md](docs/environment.md) | Environment variable precedence and contracts |
 | [docs/state.md](docs/state.md) | State topology, retention, backup, deletion |

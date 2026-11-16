@@ -11,11 +11,11 @@ and how it protects your work.
 | [Features](features.md) | You want the capability catalogue, with the status of every claim |
 | [Installation](installation.md) | You want the plugin running in a workspace or for a whole user |
 | [Plugins](plugins.md) | You want the package layout, discovery, or a manual host entry |
-| [Release notes](release-notes-0.1.0.md) | You want to know what this release contains and what it does not claim |
+| [Release notes](release-notes-0.1.1.md) | You want to know what this release contains and what it does not claim |
 | [Upgrade](upgrade.md) | You are moving an existing install to a new build |
 | [Compatibility](compatibility.md) | You need to know which host and platform are supported |
-| [User guide](user-guide.md) | You want the working rhythm: goals, handoffs, reviews, long sessions |
-| [End-user guide](end-user-guide.md) | You want the complete team guide: agents, parallel comparison, memory, locks, tools, skills |
+| [Workflow](../WORKFLOW.md) | You want the working rhythm: goals, handoffs, reviews, long sessions |
+| [Guide](../GUIDE.md) | You want the complete team guide: agents, variants, parallel comparison, memory, locks, tools, skills |
 | [Configuration](configuration.md) | You need the config file, its keys, or an environment variable |
 | [Environment](environment.md) | You need an environment variable's precedence or its contract |
 | [Agents](agents.md) | You want to know who does what, and how routing works |

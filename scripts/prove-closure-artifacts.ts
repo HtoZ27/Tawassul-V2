@@ -80,7 +80,7 @@ const CLOSURES: Closure[] = [
     proof: "scripts/check-sdk-pins.ts",
     markers: [
       ["scripts/check-sdk-pins.ts", "the .opencode lockfile pins the declared SDK"],
-      [".opencode/package.json", "@opencode/plugin"],
+      ["docs/installation.md", "\"@opencode/plugin\":\"^2.3.0\""],
     ],
   },
 ];

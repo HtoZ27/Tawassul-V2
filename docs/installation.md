@@ -9,6 +9,9 @@ Tawassul runs inside OpenCode as a plugin. There are two supported scopes:
 Project scope needs no installer and never touches your OpenCode configuration.
 Global scope is an explicit, reversible operation with its own verification pass.
 
+> **Recommendation:** use project scope for local projects. Install globally
+> only when you want Tawassul in every workspace of the user.
+
 ## Prerequisites
 
 | Requirement | Version | Notes |
@@ -68,7 +71,7 @@ A successful install prints the bundle path, its version, and the number of
 wasm assets staged:
 
 ```
-install-global: installed ~/.config/opencode/plugins/tawassul.js (v0.1.0-experimental, <bundle-sha>)
+install-global: installed ~/.config/opencode/plugins/tawassul.js (v0.1.1-experimental, <bundle-sha>)
 install-global: installed 4 wasm assets under ~/.config/opencode/tawassul-runtime/wasm
 install-global: no opencode.json edit is needed; the host discovers this file
 ```

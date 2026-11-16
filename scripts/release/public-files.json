@@ -15,8 +15,6 @@
     "docs/installation.md",
     "docs/upgrade.md",
     "docs/compatibility.md",
-    "docs/user-guide.md",
-    "docs/end-user-guide.md",
     "docs/configuration.md",
     "docs/agents.md",
     "docs/tools.md",
@@ -33,6 +31,7 @@
     "docs/plugins.md",
     "docs/roadmap.md",
     "docs/release-notes-0.1.0.md",
+    "docs/release-notes-0.1.1.md",
     "docs/i18n/LANGUAGES.md",
     "docs/monitoring.md",
     "docs/security-model.md",
@@ -50,6 +49,8 @@
     "examples/custom-roster.md"
   ],
   "rootFiles": [
+    "GUIDE.md",
+    "WORKFLOW.md",
     ".editorconfig",
     ".gitattributes",
     ".gitignore",

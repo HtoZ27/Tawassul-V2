@@ -5,10 +5,19 @@ All notable changes to Tawassul are recorded here. The format follows
 semantic versioning with an explicit experimental suffix while the project is
 pre-stable.
 
-## [Unreleased]
+## [0.1.1-experimental]
 
 ### Added
 
+- A repository front page built for the repository interface: a full-width
+  project banner, a centred title and summary line, CI, release, licence, and
+  host badges, and quick links to the quick start, both guides, the
+  documentation index, and these notes.
+- `assets/tawassul-social-preview.png`: a 1280×640 banner rendered from the
+  project logo, used at the top of the README and as the social-preview image.
+- A project-scope recommendation in the README and in `docs/installation.md`: a
+  local project keeps its plugin entry inside the workspace instead of the
+  global configuration directory.
 - The roster rule in the `help` description and output: a foreign-project model
   now learns that `addagent` and `kick` change the roster and that the generated
   agent files are not hand-edited. Funded by description trims; the steady-state
@@ -57,6 +66,12 @@ pre-stable.
 
 ### Fixed
 
+- `model-failover-e2e` failed on a fresh clone because it symlinked
+  `.opencode/node_modules`, which only exists after a project-lane install. It
+  now uses the root install when the project lane is absent.
+- `usage-shadow` read the development plan `docs/plan-token-burn-control.md`,
+  which the public tree excludes by design. The status line is asserted when the
+  plan is present and announced as skipped when it is not.
 - An explicit `@addagent` request now reaches the model as delegation guidance:
   the main session calls the `subagent` tool with `agent: "addagent"` and passes
   the request unchanged instead of calling `addagent` or `kick` itself. The
@@ -117,6 +132,15 @@ pre-stable.
 
 ### Changed
 
+- `GUIDE.md` and `WORKFLOW.md` moved from `docs/` to the repository root. They
+  are complementary: the workflow is the short working rhythm, the guide is the
+  complete team reference.
+- The README summary line names the user-selected model variants instead of a
+  fixed roster: eight base agents, the variants you choose, 44 tools, and a
+  ledger that remembers what was decided.
+- The release gate runs on a fresh clone: both CI checkouts fetch the full
+  history, and the proofs seed `.opencode/agents` and the canonical
+  `opencode.json` they read.
 - The host floor is `2.2.1`; the audited version is `2.3.0`. The installer, the
   isolated launcher, the release smoke, and the doctor refuse `2.2.0`, and the
   plugin refuses a reported version below `2.2.1` at both entry paths.
@@ -193,4 +217,5 @@ platform or host row without a receipt is not a support claim.
 - No hosted documentation site, no npm package, no stable API promise.
 - The evals stage is a pilot, not a benchmark.
 
+[0.1.1-experimental]: docs/release-notes-0.1.1.md
 [0.1.0-experimental]: docs/release-notes-0.1.0.md

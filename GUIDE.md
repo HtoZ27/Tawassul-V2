@@ -1,13 +1,13 @@
-# End-user guide
+# Guide
 
 This guide is for the person using Tawassul, not the person changing its code.
 It covers the team, adding and removing agents, the normal and distributed ways
 of working, parallel comparison, planning, shared memory, write locks, every
 tool, and every skill.
 
-The short working rhythm is in [User guide](user-guide.md). The exact tool list
-is in [Tools](tools.md). The roster reference is in [Agents](agents.md), and the
-skill reference is in [Skills](skills.md).
+The short working rhythm is in [Workflow](WORKFLOW.md). The exact tool list
+is in [Tools](docs/tools.md). The roster reference is in [Agents](docs/agents.md), and the
+skill reference is in [Skills](docs/skills.md).
 
 ## What you are running
 
@@ -36,7 +36,7 @@ Tawassul runs inside OpenCode. Project scope needs no installer: build the
 plugin in the workspace and the host discovers `.opencode/plugins/tawassul.js`.
 Global scope installs one file for every workspace and has its own verification
 pass. The exact commands, prerequisites, and platform notes are in
-[Installation](installation.md).
+[Installation](docs/installation.md).
 
 After the plugin loads, run `health()` and `check()`. If either one reports a
 problem, fix it before you add agents or dispatch work.
