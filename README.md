@@ -18,7 +18,7 @@
   <a href="GUIDE.md">Guide</a> ·
   <a href="WORKFLOW.md">Workflow</a> ·
   <a href="docs/README.md">Documentation</a> ·
-  <a href="docs/release-notes-0.1.1.md">Release notes</a>
+  <a href="docs/release-notes-0.1.2.md">Release notes</a>
 </p>
 
 </div>
@@ -61,6 +61,7 @@ Tawassul makes the structure explicit:
 | Handoffs | Work moves between agents with context, checkpoints, and a completion record |
 | Goal ledger | Objectives, items, and definition-of-done criteria persist across sessions and compactions |
 | Mission boards | Task state, agent health, and system status in one place |
+| Activity timeline | What happened and when, by time, agent, range, or milestone |
 | Checkpoints | A code snapshot before a risky change, restorable after it |
 | Memory records | Decisions, fixes, incidents, and notes that survive the session |
 | Discussions | Agents propose, vote, and divide work with evidence attached |
@@ -266,9 +267,12 @@ the evidence level of every row, is in
 
 | Document | Content |
 | --- | --- |
-| [docs/release-notes-0.1.1.md](docs/release-notes-0.1.1.md) | What this release contains and what it does not claim |
+| [docs/release-notes-0.1.2.md](docs/release-notes-0.1.2.md) | What this release contains and what it does not claim |
 | [docs/features.md](docs/features.md) | Capability catalogue and the status of each claim |
 | [docs/installation.md](docs/installation.md) | Project and global install, upgrade, uninstall |
+| [docs/agents.md](docs/agents.md) | Who does what, and how routing works |
+| [docs/tools.md](docs/tools.md) | The 44-tool surface, grouped by purpose |
+| [docs/skills.md](docs/skills.md) | The shipped procedures, and how each one is measured |
 | [docs/plugins.md](docs/plugins.md) | Package layout, discovery, a manual host entry |
 | [docs/upgrade.md](docs/upgrade.md) | Patch upgrades, downgrades, preserved state |
 | [WORKFLOW.md](WORKFLOW.md) | The working rhythm: goals, handoffs, reviews, long sessions |
@@ -285,7 +289,10 @@ the evidence level of every row, is in
 | [docs/i18n/LANGUAGES.md](docs/i18n/LANGUAGES.md) | Canonical language, runtime tables, translation plan |
 | [docs/security-model.md](docs/security-model.md) | Assets, trust boundaries, controls, limits |
 | [docs/privacy.md](docs/privacy.md) | Stored data, outbound flows, retention, deletion |
+| [docs/monitoring.md](docs/monitoring.md) | Health, logs, the timeline, and the operational thresholds |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom, cause, fix |
+| [docs/known-issues.md](docs/known-issues.md) | What is broken now, and the workaround |
+| [docs/limitations.md](docs/limitations.md) | The boundaries that are by design |
 | [docs/faq.md](docs/faq.md) | Short answers to common questions |
 | [docs/roadmap.md](docs/roadmap.md) | What ships next, and what is out of scope |
 | [examples/README.md](examples/README.md) | Five end-to-end recipes, with conventions |

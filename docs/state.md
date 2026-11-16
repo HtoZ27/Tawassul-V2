@@ -86,11 +86,18 @@ tar -czf tawassul-state-$(date +%Y%m%d).tar.gz \
 The key is separate on purpose: back it up only if you intend to restore state
 signed with it. A key is a secret; store the archive accordingly.
 
-Restoring state signed by a different key produces a read-only session, which is
-the intended refusal, not a bug.
+## Restore
 
-Restoring state signed by a different key produces a read-only session, which is
-the intended refusal, not a bug.
+Stop the host, then extract the archive at the same root it was created from,
+with the matching key in place:
+
+```bash
+tar -xzf tawassul-state-YYYYMMDD.tar.gz -C "<same root>"
+```
+
+Restart and run `health()`. A state file signed by a key this device does not
+have comes back read-only, which is the intended refusal, not a bug; restoring
+on the same machine with the same key is the path that keeps writes enabled.
 
 ## Deletion
 

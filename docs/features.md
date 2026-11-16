@@ -57,7 +57,7 @@ Status meanings:
 | Project-scope build and discovery | Ready | [installation](installation.md) |
 | Global installer with a marker and verification | Ready | POSIX lane verified |
 | Wasm staging beside the bundle | Ready | Four grammars |
-| Installer on native Windows | Experimental | Emulator receipt only; native pending |
+| Installer on native Windows | Ready | Native receipt; bundle and wasm lane only |
 | Per-project database isolation | Ready | HMAC of the workspace path |
 | Database maintenance ladder | Ready on Linux | Manual on macOS; unavailable on native Windows |
 | Scheduled triggers | Ready on Linux | systemd or cron; none on macOS |
@@ -90,7 +90,7 @@ Status meanings:
 | --- | --- | --- |
 | Public documentation set with a gate | Ready | [docs index](README.md) |
 | English-only and no-comments gate | Ready | [validation](validation.md) |
-| 151 isolated proofs | Ready | One child process each |
+| 186 isolated proofs | Ready | One child process each |
 | Fast, proofs, and smoke stages | Ready | [validation](validation.md) |
 | Release tarball, runtime archive, and checksums | Ready | [validation](validation.md#packaging) |
 | Shell installer verified against `SHA256SUMS` | Ready | [installation](installation.md#release-installer) |
@@ -103,15 +103,18 @@ Status meanings:
 
 | Capability | Linux x64 | macOS | Native Windows | WSL2 |
 | --- | --- | --- | --- | --- |
-| Plugin load and tools | Ready | Experimental | Experimental | Experimental |
-| Goals, handoffs, records | Ready | Experimental | Experimental | Experimental |
-| Global installer | Ready | Experimental | Pending | Experimental |
+| Plugin load and tools | Ready | Experimental | Ready | Experimental |
+| Goals, handoffs, records | Ready | Experimental | Ready | Experimental |
+| Global installer | Ready | Experimental | Ready | Experimental |
 | Database maintenance | Ready | Manual | None | Ready |
 | Scheduled triggers | Ready | None | None | Ready |
 | POSIX file modes for the key | Ready | Ready | ACL instead | Ready on ext4 |
 
-Native Windows is not called supported. The installer cycle was exercised under
-an emulator; a real Windows host receipt is still required. See
+Native Windows x64 is supported for the bundle and wasm lane: install, verify,
+in-place upgrade, uninstall, and purge were exercised on a real Windows 10 host,
+with an `icacls` ACL on the key, and the receipt is
+`docs/experiments/receipts/2026-11-02-windows-install-cycle-native.md`. It has
+no database maintenance and no scheduled trigger. See
 [compatibility](compatibility.md).
 
 ## What this page is not

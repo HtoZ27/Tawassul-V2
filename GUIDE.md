@@ -53,6 +53,12 @@ pass. The exact commands, prerequisites, and platform notes are in
 After the plugin loads, run `health()` and `check()`. If either one reports a
 problem, fix it before you add agents or dispatch work.
 
+In the desktop app, open **Settings → General** and turn on **Show agent**, which
+the app labels "Switch between agents in the composer". While it is off the
+session stays on the Build agent and no specialist can be picked; with it on,
+the agent picker appears in the composer and mentions such as `@dev` and
+`@reviewer` work.
+
 Write your requests in Arabic or English. Tool names and arguments (`handoff`,
 `parallelCopies`, `@addagent`) stay in English; the prose around them does not.
 

@@ -24,7 +24,7 @@ after an edit; `npm run ci` is the check before a tag.
 
 ## Fast stage
 
-The fourteen steps, in order:
+The sixteen steps, in order:
 
 | Step | What it rejects |
 | --- | --- |
@@ -32,9 +32,11 @@ The fourteen steps, in order:
 | `docs` | A broken public link, a missing tool/agent/skill, a foreign project name |
 | `public-tree` | A tracked file that is neither public nor declared internal, a retired name, a personal path, a secret, or a hidden control character |
 | `sbom` | A missing licence, a copyleft dependency, or an unreadable lockfile |
+| `notices` | A third-party notice that drifted from the installed inventory |
 | `shell-syntax` | A shell script that does not parse |
 | `typecheck` | A strict TypeScript error |
 | `config` | A generated host configuration that drifted |
+| `schema` | A generated JSON schema that drifted from the config type |
 | `facts` | A fact table or version pin that no longer matches |
 | `sdk-pins` | A dependency pin outside the audited range |
 | `upstream-registry` | A host registry change the plugin has not accounted for |
@@ -54,7 +56,7 @@ prints `PROOF PASS` with its assertion count, and exits non-zero on failure.
 Examples: a state file cannot escape its namespace, the web tool refuses a
 private address, a torn ledger tail is skipped, an uninstall removes exactly the
 files in its marker. The host-floor proof asserts that the installer and both
-plugin entry paths refuse `2.2.0` and accept `2.2.1`.
+plugin entry paths refuse a host below `2.3.0` and accept `2.3.0`.
 
 At this release the tree holds <!-- generated:proof-files -->189<!-- /generated --> proof files and the proofs stage runs <!-- generated:proof-steps -->186<!-- /generated --> of
 them. The remaining proofs run where they belong: <!-- generated:fast-proof-steps -->1<!-- /generated --> in the fast stage
