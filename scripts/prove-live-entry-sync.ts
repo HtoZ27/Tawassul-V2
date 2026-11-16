@@ -1,8 +1,10 @@
 import {
   chmodSync,
+  fstatSync,
   fsyncSync as realFsync,
   lstatSync,
   mkdtempSync,
+  openSync,
   readFileSync,
   readdirSync,
   renameSync as realRename,
@@ -66,7 +68,7 @@ try {
   const changed = syncLiveEntry(source, live, {
     fs: {
       fsyncSync: (descriptor) => {
-        events.push("fsync");
+        events.push(fstatSync(descriptor).isDirectory() ? "fsync-dir" : "fsync-file");
         return realFsync(descriptor);
       },
       renameSync: (from, to) => {
@@ -80,7 +82,8 @@ try {
   assert(readFileSync(live).equals(readFileSync(source)), "the live entry equals the source after the write");
   assert(changedAfter.ino !== identicalAfter.ino, "the atomic replace changes the inode");
   equal(changedAfter.mode & 0o777, 0o755, "the existing entry mode survives the replace");
-  equal(events.join(","), "fsync,rename", "fsync completes before the rename");
+  equal(events.join(","), "fsync-file,rename,fsync-dir", "the file is synced before the rename and the directory after it");
+  equal(events[2], "fsync-dir", "the containing directory is synced after the rename");
 
   writeFileSync(source, "console.log('v3')\nTAWASSUL_SOURCE_SHA=current\n");
   writeFileSync(live, "console.log('stale-body')\nTAWASSUL_SOURCE_SHA=current\n");
@@ -96,6 +99,25 @@ try {
   equal(readFileSync(staleTemp, "utf8"), "crashed-build\n", "another build's temp file is left untouched");
   assert(readFileSync(live, "utf8").includes("v4"), "the retried create writes the new bytes");
   rmSync(staleTemp);
+
+  writeFileSync(source, "console.log('v5-no-dir-sync')\n");
+  let deniedDirectory = 0;
+  const noDirectorySync = syncLiveEntry(source, live, {
+    fs: {
+      openSync: ((path: string, flags: string, mode?: number) => {
+        if (path === dirname(live)) {
+          deniedDirectory += 1;
+          const error = new Error("injected EPERM") as Error & { code: string };
+          error.code = "EPERM";
+          throw error;
+        }
+        return openSync(path, flags, mode);
+      }) as typeof openSync,
+    },
+  });
+  equal(noDirectorySync.written, true, "an unopenable directory leaves the sync written");
+  equal(deniedDirectory, 1, "the directory sync is attempted once");
+  assert(readFileSync(live, "utf8").includes("v5-no-dir-sync"), "an unopenable directory does not block the replace");
 
   const linkRoot = mkdtempSync(join(work, "link-"));
   const linkTarget = join(linkRoot, "real-entry.js");

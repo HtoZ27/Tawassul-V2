@@ -134,5 +134,14 @@ export function syncLiveEntry(
     }
   }
 
+  try {
+    const directoryDescriptor = f.openSync(directory, "r");
+    try {
+      f.fsyncSync(directoryDescriptor);
+    } finally {
+      f.closeSync(directoryDescriptor);
+    }
+  } catch {}
+
   return { written: true, target };
 }
