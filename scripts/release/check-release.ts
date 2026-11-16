@@ -13,6 +13,23 @@ function text(file: string): string {
   return readFileSync(join(REPO, file), "utf8");
 }
 
+function stripComments(source: string): string {
+  let out = "";
+  let index = 0;
+  while (index < source.length) {
+    const start = source.indexOf("<!--", index);
+    if (start < 0) {
+      out += source.slice(index);
+      break;
+    }
+    out += source.slice(index, start);
+    const end = source.indexOf("-->", start + 4);
+    if (end < 0) break;
+    index = end + 3;
+  }
+  return out;
+}
+
 const pkg = JSON.parse(text("package.json")) as { version?: string; private?: boolean };
 const version = pkg.version ?? "";
 check(/^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/.test(version), `package.json version is not a release version: ${version}`);
@@ -26,9 +43,11 @@ check(lock.packages?.[""]?.version === version, "package-lock root package versi
 
 const changelog = text("CHANGELOG.md");
 check(changelog.includes(`## [${version}]`), `CHANGELOG has no ## [${version}] heading`);
-const link = new RegExp(`^\\[${version.replace(/\./g, "\\.")}\\]:\\s+(\\S+)$`, "m").exec(changelog);
-check(link !== null, `CHANGELOG has no link reference for ${version}`);
-const notesPath = link?.[1] ?? "";
+const linkLine = changelog
+  .split("\n")
+  .find((line) => line.startsWith(`[${version}]:`));
+check(linkLine !== undefined, `CHANGELOG has no link reference for ${version}`);
+const notesPath = (linkLine ?? "").slice(`[${version}]:`.length).trim();
 check(notesPath.startsWith("docs/") && notesPath.endsWith(".md"), `CHANGELOG link is not a docs page: ${notesPath || "missing"}`);
 check(notesPath.length > 0 && existsSync(join(REPO, notesPath)), `release notes are missing at ${notesPath || "unknown"}`);
 if (notesPath && existsSync(join(REPO, notesPath))) {
@@ -39,6 +58,10 @@ if (notesPath && existsSync(join(REPO, notesPath))) {
 
 const readme = text("README.md");
 check(readme.includes(version), `README does not name ${version}`);
+check(
+  notesPath.length > 0 && readme.includes(notesPath),
+  `README does not link the release notes at ${notesPath || "unknown"}`,
+);
 
 const installer = text("install.sh");
 check(installer.includes(`INSTALLER_VERSION="${version}"`), `install.sh does not embed ${version}`);
@@ -71,7 +94,7 @@ const validation = text("docs/validation.md");
 const validationMatch = /^\| Proofs \| `npm run gate:proofs` \| (\d+) \|/m.exec(validation);
 check(validationMatch !== null, "docs/validation.md has no proofs row");
 check(Number(validationMatch?.[1] ?? -1) === steps.length, `docs/validation.md records ${validationMatch?.[1]} proofs; the manifest has ${steps.length}`);
-const validationPlain = validation.replace(/<!--[\s\S]*?-->/g, "");
+const validationPlain = stripComments(validation);
 const fileMatch = /tree holds (\d+) proof files and the proofs stage runs (\d+) of/.exec(validationPlain);
 const proofFiles = readdirSync(join(REPO, "scripts")).filter((file) => file.startsWith("prove-") && file.endsWith(".ts"));
 check(fileMatch !== null, "docs/validation.md has no proof-file sentence");

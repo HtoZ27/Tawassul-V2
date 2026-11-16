@@ -5,6 +5,29 @@ All notable changes to Tawassul are recorded here. The format follows
 semantic versioning with an explicit experimental suffix while the project is
 pre-stable.
 
+## [0.1.4-experimental]
+
+### Added
+
+- `check-release` rejects a README that does not link
+  `docs/release-notes-<version>.md`, the check that would have caught the
+  mismatch in the previous release.
+
+### Fixed
+
+- The README header, the documentation table, and the docs index pointed at the
+  `0.1.2-experimental` notes while the status line named `0.1.3-experimental`.
+
+### Security
+
+- The OpenCode config lock name is derived with SHA-256 instead of SHA-1.
+- `resolveDbPath` in `scripts/install-global.ts` passes the computed path as a
+  shell argument instead of interpolating it into a `bash -c` command line.
+- `check-release.ts` and `check-shared-parity.ts` parse committed documents
+  instead of relying on single-pass regular-expression sanitization.
+- The transitive `minimatch` alert in the `@opencode/plugin` development tree is
+  dismissed as tolerable risk; the SDK is external in the bundle.
+
 ## [0.1.3-experimental]
 
 ### Added
@@ -282,6 +305,7 @@ platform or host row without a receipt is not a support claim.
 - No hosted documentation site, no npm package, no stable API promise.
 - The evals stage is a pilot, not a benchmark.
 
+[0.1.4-experimental]: docs/release-notes-0.1.4.md
 [0.1.3-experimental]: docs/release-notes-0.1.3.md
 [0.1.2-experimental]: docs/release-notes-0.1.2.md
 [0.1.1-experimental]: docs/release-notes-0.1.1.md
