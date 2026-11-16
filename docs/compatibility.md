@@ -100,3 +100,7 @@ workflow (`.github/workflows/windows.yml`) runs the install cycle, PowerShell 7,
 a 278-character path, and the tree-sitter lane on `windows-latest`; those steps
 are native Windows checks, not proofs. Every other row above is stated with its
 own evidence level, and experimental rows make no promise beyond "it runs here".
+
+---
+
+[Documentation index](README.md)

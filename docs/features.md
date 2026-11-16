@@ -123,3 +123,7 @@ It is not a promise that every row works in every configuration. A feature that
 depends on the host, a provider, or a platform carries that dependency in its
 row. When a claim changes, this page and [compatibility](compatibility.md)
 change in the same release.
+
+---
+
+[Documentation index](README.md)

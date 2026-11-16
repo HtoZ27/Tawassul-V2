@@ -5,6 +5,41 @@ All notable changes to Tawassul are recorded here. The format follows
 semantic versioning with an explicit experimental suffix while the project is
 pre-stable.
 
+## [0.1.3-experimental]
+
+### Added
+
+- Shared memory and per-agent permissions as rows in the README capability
+  table; both shipped without a name on the front page.
+- "Cost and burn limits" in `docs/configuration.md`: the weighted token unit,
+  the root and child caps, the yellow, orange, and red zones, and the fact that
+  only `task` dispatch is refused.
+- A "Restore" section in `docs/state.md`, and a documentation-index link at the
+  end of every documentation page.
+- An asset table in the release body, naming what each uploaded file is for.
+
+### Changed
+
+- `docs/features.md` reports native Windows as ready for the bundle and wasm
+  lane, with the 2026-11-02 native receipt, and quotes 186 proofs.
+- `docs/validation.md` lists all sixteen fast steps, including `notices` and
+  `schema`, and states the host floor as `2.3.0`.
+- `docs/dependencies.md` states the host floor as `2.3.0`.
+- The README documentation table lists the agent, tool, skill, monitoring,
+  known-issues, and limitations pages, and points at the complete index.
+- Release bodies are published with links rewritten to `docs/`, carry an asset
+  table, are marked as pre-releases, and drop the duplicated "(experimental)"
+  from the title.
+
+### Fixed
+
+- Release-note links in the README, the docs index, and the documentation table
+  pointed at `0.1.1-experimental`.
+- The published release body linked `limitations.md` at the repository root,
+  which GitHub resolved to a 404 under the tag.
+- `docs/state.md` repeated a paragraph verbatim.
+- The OpenCode badge used a fill that disappeared against the dark theme.
+
 ## [0.1.2-experimental]
 
 ### Added
@@ -247,6 +282,7 @@ platform or host row without a receipt is not a support claim.
 - No hosted documentation site, no npm package, no stable API promise.
 - The evals stage is a pilot, not a benchmark.
 
+[0.1.3-experimental]: docs/release-notes-0.1.3.md
 [0.1.2-experimental]: docs/release-notes-0.1.2.md
 [0.1.1-experimental]: docs/release-notes-0.1.1.md
 [0.1.0-experimental]: docs/release-notes-0.1.0.md

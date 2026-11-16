@@ -129,3 +129,7 @@ Windows database maintenance lane, no macOS scheduler, no hosted documentation
 site, no npm package, a pilot evals stage, prompt-injection mitigation rather
 than elimination, and a prompt cache that is invalidated when compression
 rewrites the prefix.
+
+---
+
+[Documentation index](README.md)

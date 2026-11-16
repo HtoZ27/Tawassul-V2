@@ -6,7 +6,7 @@ closes it.
 
 ## Shipped
 
-`0.1.2-experimental` is the current public release, built on the first public
+`0.1.3-experimental` is the current public release, built on the first public
 release `0.1.0-experimental`. It carries:
 
 - Eight specialist agents and `tawa` routing, with a roster that is seeded on
@@ -49,3 +49,7 @@ An item moves from this page to a release only when it has a proof or a receipt
 that names its evidence. Until then it is a direction, not a commitment. Known
 defects and their workarounds live in [known issues](known-issues.md); design
 boundaries live in [limitations](limitations.md).
+
+---
+
+[Documentation index](README.md)

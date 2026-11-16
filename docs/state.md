@@ -143,3 +143,7 @@ is absent, the plugin refuses instead of creating one at that path. The global
 installer applies the same contract to `install` and `--verify`: an explicit key
 directory must already hold a 32-byte key, or the command exits 2 before writing
 anything.
+
+---
+
+[Documentation index](README.md)

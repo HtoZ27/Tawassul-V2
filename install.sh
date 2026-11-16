@@ -3,7 +3,7 @@
 # POSIX shell; needs tar, gzip, and either curl or wget when it is not given --from.
 set -eu
 
-INSTALLER_VERSION="0.1.2-experimental"
+INSTALLER_VERSION="0.1.3-experimental"
 REPO_SLUG="HtoZ27/tawassul-v2"
 RELEASE="$INSTALLER_VERSION"
 BASE_URL="${TAWASSUL_RELEASE_BASE_URL:-https://github.com/$REPO_SLUG/releases/download/v$RELEASE}"

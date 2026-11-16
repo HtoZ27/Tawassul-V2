@@ -183,3 +183,7 @@ blaming the host for a stall.
 
 The rhythm is the product. The tools exist so that each step leaves a trace that
 the next session can check.
+
+---
+
+[Documentation index](docs/README.md)

@@ -134,3 +134,7 @@ rewrites the prefix.
 Bugs: open an issue with the version, host, platform, and a minimal
 reproduction. Vulnerabilities: use the private channel in
 [SECURITY](../SECURITY.md). Conduct: see [CODE_OF_CONDUCT](../CODE_OF_CONDUCT.md).
+
+---
+
+[Documentation index](README.md)

@@ -182,3 +182,7 @@ under the pinned ones.
 
 Do not weaken an existing proof to make a change pass. If the invariant moved,
 move the proof with it and say why in the commit.
+
+---
+
+[Documentation index](README.md)

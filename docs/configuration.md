@@ -316,3 +316,7 @@ an API key, and no configuration key accepts one. A model is named as
 
 Tool permissions are declared by the host and enforced by the plugin's guard.
 There is no configuration key that widens a tool's access.
+
+---
+
+[Documentation index](README.md)

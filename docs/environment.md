@@ -106,3 +106,7 @@ fails open and the plugin loads.
   see [permissions](permissions.md).
 - Proof and gate variables. They belong to the development tree and are not part
   of the released plugin contract.
+
+---
+
+[Documentation index](README.md)

@@ -1024,3 +1024,7 @@ is supported without a receipt.
 | `rescue` | `rescue` (ID), `to`, `context` | Reassign a stalled handoff (`@analyst`) |
 | `resumeInterrupted` | `resumeInterrupted` (ID) | Reopen an interrupted handoff; needs `continuity.enabled` |
 | `helpRequest` | `to`, `task`, `context`, `helpRequest: true` | Ask another agent to call a tool |
+
+---
+
+[Documentation index](docs/README.md)

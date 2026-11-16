@@ -120,3 +120,7 @@ installed.
 - The web tool performs a local SSRF preflight and re-checks the final URL after
   the remote fetch service responds.
 - `panic` creates a backup before it resets anything and requires confirmation.
+
+---
+
+[Documentation index](README.md)

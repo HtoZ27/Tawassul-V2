@@ -102,3 +102,7 @@ instead:
 ```bash
 opencode debug agents --standalone
 ```
+
+---
+
+[Documentation index](README.md)

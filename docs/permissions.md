@@ -112,3 +112,7 @@ boundary is the host permission plus the operating-system user.
 Do not work around a denial by editing the guard. A denial is the control doing
 its job; if the policy is wrong, change the policy in one place and prove the
 change.
+
+---
+
+[Documentation index](README.md)
