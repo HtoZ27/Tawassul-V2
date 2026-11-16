@@ -517,9 +517,9 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
       "Add or patch a specialist agent definition.",
       "Format: add spec1 spec2 ... with model model from provider",
       "Shorthand: add all / all / * with model model from provider — adds all seven agents at once",
-      "Model: alias (gemini, mimo, big-pickle, minimax, ox, ling) or provider/model (fail-open with warning if not in catalog)",
+      "Model: alias (gemini, mimo, big-pickle, deep, minimax) or provider/model (fail-open with warning if not in catalog)",
       "Behavior: writes .opencode/agents/<tag>.md and opencode.json/roster programmatically (no edit/bash, no delegation to dev).",
-      "Bare base + model (e.g. analyst with model M): the base is never touched — a variant <base>-<suffix> is derived automatically (short catalog suffix for known models, full model slug for provider-offered customs; unoffered suffixes are rejected fail-closed) and created; an explicit suffix (e.g. analyst-ling) creates <base>-<suffix>.md + new entry; identical re-add = zero writes; a different model on the same suffix = announced update",
+      "Bare base + model (e.g. analyst with model M): the base is never touched — a variant <base>-<suffix> is derived automatically (short catalog suffix for known models, full model slug for provider-offered customs; unoffered suffixes are rejected fail-closed) and created; an explicit suffix (e.g. analyst-mimo) creates <base>-<suffix>.md + new entry; identical re-add = zero writes; a different model on the same suffix = announced update",
       "tawa: singular only (tawa with model X from Y) preserves mode:all; tawa-* is blocked",
       examplesText(),
     ].join("\n"),
@@ -947,9 +947,9 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
           output: t("kickNotAnalystHint", {
             agent: String(cctx.agent ?? "unknown").replace(/^@+/, ""),
             role,
-            spec: hintFromInput?.spec ?? hintFromInput?.fullSpecs ?? "analyst-ling",
-            model: hintFromInput?.model ?? "ling-3.0-flash-fin-free",
-            provider: hintFromInput?.provider ?? "opencode-zen",
+            spec: hintFromInput?.spec ?? hintFromInput?.fullSpecs ?? "analyst-mimo",
+            model: hintFromInput?.model ?? "mimo",
+            provider: hintFromInput?.provider ?? "opencode",
           }),
         };
       }
