@@ -18,23 +18,18 @@ const proofFiles = readdirSync(join(repo, "scripts")).filter(
 );
 const skillsManifest = JSON.parse(
   readFileSync(join(repo, "skills", "manifest.json"), "utf8"),
-) as {
-  skills: Array<{
-    id: string;
-    scope: string;
-    tools: string[];
-    evalId: string;
-    loadRateThreshold: number;
-  }>;
-};
-const skillsTable = [
-  "| Skill | Scope | Tools | Eval | Load threshold |",
-  "| --- | --- | --- | --- | --- |",
-  ...skillsManifest.skills.map(
-    (skill) =>
-      `| \`${skill.id}\` | ${skill.scope} | ${skill.tools.map((tool) => `\`${tool}\``).join(", ")} | \`${skill.evalId}\` | ${skill.loadRateThreshold} |`,
-  ),
-].join("\n") + "\n";
+) as { skills: Array<{ id: string; description: string }> };
+const skillsTable =
+  "\n" +
+  [
+    "| Skill | What it does |",
+    "| --- | --- |",
+    ...skillsManifest.skills
+      .slice()
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((skill) => `| \`${skill.id}\` | ${skill.description} |`),
+  ].join("\n") +
+  "\n";
 const stageProofSteps = (stage: string): number =>
   (manifest[stage] ?? []).filter((step) => step.cmd.some((part) => part.startsWith("scripts/prove-")))
     .length;

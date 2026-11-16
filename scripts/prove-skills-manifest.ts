@@ -183,14 +183,17 @@ assert(
 const readme = readFileSync(join(repo, "README.md"), "utf8");
 const table = readme.match(/<!-- generated:skills-table -->([\s\S]*?)<!-- \/generated -->/);
 if (!table) fail("the README carries the generated skill table");
-const expectedTable = [
-  "| Skill | Scope | Tools | Eval | Load threshold |",
-  "| --- | --- | --- | --- | --- |",
-  ...manifest.skills.map(
-    (skill) =>
-      `| \`${skill.id}\` | ${skill.scope} | ${skill.tools.map((tool) => `\`${tool}\``).join(", ")} | \`${skill.evalId}\` | ${skill.loadRateThreshold} |`,
-  ),
-].join("\n") + "\n";
+const expectedTable =
+  "\n" +
+  [
+    "| Skill | What it does |",
+    "| --- | --- |",
+    ...manifest.skills
+      .slice()
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((skill) => `| \`${skill.id}\` | ${skill.description} |`),
+  ].join("\n") +
+  "\n";
 assert(table[1] === expectedTable, "the README skill table matches the manifest");
 
 console.log(`PROOF PASS: the skills manifest matches the files, the registry, the eval ledger and the README table (${passed} assertions)`);

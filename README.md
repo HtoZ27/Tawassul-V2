@@ -184,28 +184,40 @@ parts at once, and keeps each part's files and bundle separate.
 
 ## Skills
 
-Sixteen procedures ship in-process and load only when the task matches them.
-Nothing is copied into a skills directory, and an uninstall leaves no skill
-files behind.
+A skill is a procedure the model loads when the task matches it. Sixteen ship
+in-process: nothing is copied into a skills directory, and an uninstall leaves
+no skill files behind.
 
-<!-- generated:skills-table -->| Skill | Scope | Tools | Eval | Load threshold |
-| --- | --- | --- | --- | --- |
-| `tawassul-goal-review` | goal lifecycle review across the board, items and definition of done | `goal`, `show_board`, `record` | `goal-review-basic` | 0.5 |
-| `tawassul-handoff-triage` | handoff lifecycle triage across the board, timeline and ledger | `show_board`, `timeline`, `record`, `handoff` | `handoff-triage-basic` | 0.5 |
-| `tawassul-context-continue` | portable context handoff across pack, read and continue | `thread`, `record` | `context-continue-basic` | 0.5 |
-| `tawassul-integration-engineer` | safe change integration across dependencies, invariants, execution paths and regression verification | `goal`, `show_board`, `timeline`, `record`, `handoff` | `integration-engineer-basic` | 0.5 |
-| `tawassul-adversarial-review` | adversarial review across changed-file coverage, attack dimensions, fact-check and verdict | `show_board`, `timeline`, `goal`, `record`, `handoff` | `adversarial-review-basic` | 0.5 |
-| `tawassul-enrich-task` | request intake across scope, reuse, requirements, acceptance and open questions | `goal`, `show_board`, `record`, `handoff` | `enrich-task-basic` | 0.5 |
-| `tawassul-step-back` | direction reassessment across drift signals, the cleaner alternative and the decision | `timeline`, `show_board`, `record`, `handoff` | `step-back-basic` | 0.5 |
-| `tawassul-diagnosing-bugs` | root-cause diagnosis across reproduction, ranked hypotheses, probes and the regression seam | `timeline`, `record`, `handoff` | `diagnosing-bugs-basic` | 0.5 |
-| `tawassul-verification-planning` | verification planning across claims, failure modes, evidence paths and budget | `goal`, `record`, `handoff` | `verification-planning-basic` | 0.5 |
-| `tawassul-code-explorer` | feature tracing across entry points, flow, dependencies and extension points | `show_board`, `timeline`, `record`, `handoff` | `code-explorer-basic` | 0.5 |
-| `tawassul-incident-response` | incident handling across classification, containment, evidence, communication and close-out | `show_board`, `record`, `handoff`, `timeline` | `incident-response-basic` | 0.5 |
-| `tawassul-to-tickets` | decomposition across vertical slices, blocking edges and dispatch order | `goal`, `record`, `handoff` | `to-tickets-basic` | 0.5 |
-| `tawassul-retro` | session retrospective across navigation, checks, standards, context bloat, tool economy and information access | `timeline`, `show_board`, `record`, `goal`, `handoff` | `retro-basic` | 0.5 |
-| `tawassul-writing-for-agents` | agent-facing writing across pointers, load budgets, completion criteria, leading words and pruning | `show_board`, `record`, `goal`, `handoff` | `writing-for-agents-basic` | 0.5 |
-| `tawassul-codebase-design` | module design across interface depth, seams, adapters and testability | `show_board`, `record`, `goal`, `handoff` | `codebase-design-basic` | 0.5 |
-| `tawassul-interface-design` | interface direction and critique across aesthetic intent, tokens, accessibility and generic-output tests | `show_board`, `record`, `handoff` | `interface-design-basic` | 0.5 |
+You do not switch one on. Ask for the outcome in plain words, or name the skill
+you want:
+
+```text
+Use tawassul-handoff-triage and close the stale handoffs.
+```
+
+The table lists all sixteen. The second column is the sentence the model reads
+before it decides to load the procedure, so it is the best short answer to
+"what is this one for".
+
+<!-- generated:skills-table -->
+| Skill | What it does |
+| --- | --- |
+| `tawassul-adversarial-review` | Use when a diff is about to be accepted: attack the change, cover every changed file and end in a safe or not-safe verdict. |
+| `tawassul-code-explorer` | Use when an unfamiliar area is about to change: trace the feature from entry point to storage and name the files that matter. |
+| `tawassul-codebase-design` | Use when a module boundary is designed or reviewed: choose the seam, test the depth and record the design. |
+| `tawassul-context-continue` | Pack the current session, read the pack back, and continue the work in a successor session. |
+| `tawassul-diagnosing-bugs` | Use when a failure resists the obvious fix: build a red loop, rank causes and land the regression test at a real seam. |
+| `tawassul-enrich-task` | Use when a request arrives as a sentence or a screenshot: turn it into scope, acceptance criteria and the open questions. |
+| `tawassul-goal-review` | Review open goals, attach evidence, and close the goals whose items and criteria are complete. |
+| `tawassul-handoff-triage` | Triage the handoff ledger: complete delivered work, revert accepted work, and reassign stalled work. |
+| `tawassul-incident-response` | Use when a severe regression or host failure lands: stabilise, contain, preserve evidence and verify recovery. |
+| `tawassul-integration-engineer` | Land a change safely: map dependencies, trace execution, verify integration and regression. |
+| `tawassul-interface-design` | Use when a user-facing surface is designed or judged: set the direction, then score the result against the rubric. |
+| `tawassul-retro` | Use when a session went badly: find the environment change that would have prevented it. |
+| `tawassul-step-back` | Use when fixes start stacking: reassess the direction and put the cleaner alternative in front of the user. |
+| `tawassul-to-tickets` | Use when a goal is too large for one handoff: cut it into vertical slices, each demoable and each declaring its blocking edge. |
+| `tawassul-verification-planning` | Use when a non-trivial change is planned: name the claim, choose the evidence path and set the verification budget. |
+| `tawassul-writing-for-agents` | Use when an agent-facing document is written or edited: a skill, a rules file, a handoff context or a tool description. |
 <!-- /generated -->
 
 More in [docs/skills.md](docs/skills.md).
