@@ -121,26 +121,28 @@ A base role is a starting point. Add one clone per model, then send one task to
 all the clones together:
 
 ```text
-@addagent analyst with model gemini from google
-@addagent analyst with model deep from nvidia
-@addagent analyst with model mimo from opencode
-@addagent analyst with model minimax from nvidia
+@addagent analyst-gemini with model gemini 4 hydrogen from google
+@addagent analyst-deep with model deepseek-v4.1-flash-free from opencode
+@addagent analyst-mimo with model mimo-v2.6-flash-free from opencode
+@addagent analyst-minimax with model minimax from nvidia
 @tawa Use moa with analyst-gemini, analyst-deep, analyst-mimo and
 analyst-minimax on the payment module: one verdict per reviewer for race
 conditions, with the file and line behind it.
 ```
 
-The add lines derive the four suffixes — `analyst-gemini`, `analyst-deep`,
-`analyst-mimo`, `analyst-minimax` — and leave the base `analyst` untouched, so
-the names in the `moa` request are the names the roster now carries. `moa`
-dispatches one copy per name; read the verdicts with `show_board`, or ask
-`@analyst` to consolidate them. Each clone keeps its own model and runs in its
-own session, so one review carries four opinions instead of one.
+The four add lines name each variant explicitly and pin it to one exact model,
+so the roster carries exactly the names the `moa` request uses. `moa` dispatches
+one copy per name; read the verdicts with `show_board`, or ask `@analyst` to
+consolidate them. Each clone keeps its own model and runs in its own session, so
+one review carries four opinions instead of one.
 
-The suffix is not free text: the model must be a catalog alias (`gemini`,
-`mimo`, `minimax`, `deep`, ...) or a `provider/model` the named provider lists.
-An invented suffix is rejected with the accepted names. The same pattern
-applies to `reviewer`, `tester`, `architect`, `designer`, and `doc`.
+The suffix is not free text: it must be a catalog suffix (`gemini`, `deep`,
+`mimo`, `minimax`, ...) or a token the named provider lists. The model is the
+exact provider model — `minimax` above resolves to
+`nvidia/minimaxai/minimax-m3.1-flash`. A bare base plus a model with no catalog
+suffix derives an ungoverned name and is rejected, which is why these lines name
+the variant. An invented suffix is rejected with the accepted names. The same
+pattern applies to `reviewer`, `tester`, `architect`, `designer`, and `doc`.
 
 For work that splits into independent parts rather than parallel opinions, use
 `task_orchestrate` with `mode: "parallel"`: it cuts the task, dispatches the
