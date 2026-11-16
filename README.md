@@ -10,7 +10,7 @@
   <a href="https://github.com/HtoZ27/Tawassul-V2/actions/workflows/ci.yml"><img src="https://github.com/HtoZ27/Tawassul-V2/actions/workflows/ci.yml/badge.svg" alt="ci"></a>
   <a href="https://github.com/HtoZ27/Tawassul-V2/releases"><img src="https://img.shields.io/github/v/release/HtoZ27/Tawassul-V2?include_prereleases" alt="release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="license"></a>
-  <a href="docs/compatibility.md"><img src="https://img.shields.io/badge/OpenCode-%E2%89%A52.3.0-111111" alt="OpenCode"></a>
+  <a href="docs/compatibility.md"><img src="https://img.shields.io/badge/OpenCode-%E2%89%A52.3.0-555" alt="OpenCode"></a>
 </p>
 
 <p>
@@ -18,7 +18,7 @@
   <a href="GUIDE.md">Guide</a> ·
   <a href="WORKFLOW.md">Workflow</a> ·
   <a href="docs/README.md">Documentation</a> ·
-  <a href="docs/release-notes-0.1.1.md">Release notes</a>
+  <a href="docs/release-notes-0.1.2.md">Release notes</a>
 </p>
 
 </div>
@@ -28,7 +28,7 @@ mission boards, checkpoints, memory records, and a disciplined tool surface to a
 single workspace or to every workspace of a user. It is local-first: state lives
 on your disk, in your configuration directory, and nowhere else.
 
-**Status:** `0.1.2-experimental`. The Linux lane carries the full feature set.
+**Status:** `0.1.3-experimental`. The Linux lane carries the full feature set.
 Native Windows x64 is supported for the bundle and wasm lane (native receipt
 2026-11-02, re-run on 2026-11-03); database maintenance and scheduled triggers
 need the Linux lane. Emulator evidence is published and clearly labelled.
@@ -61,11 +61,14 @@ Tawassul makes the structure explicit:
 | Handoffs | Work moves between agents with context, checkpoints, and a completion record |
 | Goal ledger | Objectives, items, and definition-of-done criteria persist across sessions and compactions |
 | Mission boards | Task state, agent health, and system status in one place |
+| Activity timeline | What happened and when, by time, agent, range, or milestone |
 | Checkpoints | A code snapshot before a risky change, restorable after it |
 | Memory records | Decisions, fixes, incidents, and notes that survive the session |
+| Shared memory | Decisions, learnings, warnings, file and agent context, and handoff history, read by every agent |
 | Discussions | Agents propose, vote, and divide work with evidence attached |
 | Context packs | A long session is packed and continued in a successor without losing the thread |
 | Skills | Sixteen procedures that load when the task matches; no files are installed |
+| Per-agent permissions | A role matrix decides which tools each specialist may call, behind the host gate |
 | Guardrails | Write locks, rate limits, iteration budgets, and two permission layers |
 | Diagnostics | `health()` and `check()` report the runtime, the roster, and the host |
 | 44 tools | File reading, AST queries, dependency maps, search, git diffs, web fetches, and the orchestration surface |
@@ -82,14 +85,14 @@ Requires OpenCode `>=2.3.0`, Node.js `26.13.0` (see `.nvmrc`), and Bun `1.3.x`.
 
 Install the release into one workspace:
 
-```bash
+```sh
 sh install.sh --project <dir> --dry-run
 sh install.sh --project <dir>
 ```
 
 Install it for every workspace of the current user:
 
-```bash
+```sh
 sh install.sh --global --dry-run
 sh install.sh --global
 ```
@@ -266,9 +269,12 @@ the evidence level of every row, is in
 
 | Document | Content |
 | --- | --- |
-| [docs/release-notes-0.1.1.md](docs/release-notes-0.1.1.md) | What this release contains and what it does not claim |
+| [docs/release-notes-0.1.2.md](docs/release-notes-0.1.2.md) | What this release contains and what it does not claim |
 | [docs/features.md](docs/features.md) | Capability catalogue and the status of each claim |
 | [docs/installation.md](docs/installation.md) | Project and global install, upgrade, uninstall |
+| [docs/agents.md](docs/agents.md) | Who does what, and how routing works |
+| [docs/tools.md](docs/tools.md) | The 44-tool surface, grouped by purpose |
+| [docs/skills.md](docs/skills.md) | The shipped procedures, and how each one is measured |
 | [docs/plugins.md](docs/plugins.md) | Package layout, discovery, a manual host entry |
 | [docs/upgrade.md](docs/upgrade.md) | Patch upgrades, downgrades, preserved state |
 | [WORKFLOW.md](WORKFLOW.md) | The working rhythm: goals, handoffs, reviews, long sessions |
@@ -285,7 +291,10 @@ the evidence level of every row, is in
 | [docs/i18n/LANGUAGES.md](docs/i18n/LANGUAGES.md) | Canonical language, runtime tables, translation plan |
 | [docs/security-model.md](docs/security-model.md) | Assets, trust boundaries, controls, limits |
 | [docs/privacy.md](docs/privacy.md) | Stored data, outbound flows, retention, deletion |
+| [docs/monitoring.md](docs/monitoring.md) | Health, logs, the timeline, and the operational thresholds |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom, cause, fix |
+| [docs/known-issues.md](docs/known-issues.md) | What is broken now, and the workaround |
+| [docs/limitations.md](docs/limitations.md) | The boundaries that are by design |
 | [docs/faq.md](docs/faq.md) | Short answers to common questions |
 | [docs/roadmap.md](docs/roadmap.md) | What ships next, and what is out of scope |
 | [examples/README.md](examples/README.md) | Five end-to-end recipes, with conventions |
@@ -293,6 +302,9 @@ the evidence level of every row, is in
 | [SUPPORT.md](SUPPORT.md) | Where to ask, what to include, scope |
 | [CHANGELOG.md](CHANGELOG.md) | What changed in each release |
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability |
+
+The complete index, including the evidence receipts and the translated guides,
+is [docs/README.md](docs/README.md).
 
 ## Development
 

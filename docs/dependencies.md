@@ -9,7 +9,7 @@ provide, and how the dependency inventory is audited.
 
 | Requirement | Version | Why |
 | --- | --- | --- |
-| OpenCode | `>= 2.2.1`, audited at `2.3.0` | Host runtime and plugin API |
+| OpenCode | `>= 2.3.0`, audited at `2.3.0` | Host runtime and plugin API |
 | Node.js or Bun | Whatever the host itself runs on | The bundle is an ES module |
 | `sqlite3` CLI | Any recent build | Database maintenance and backups only |
 | POSIX shell and `bash` | - | Maintenance and installer scripts |
@@ -137,3 +137,7 @@ a copyleft licence appears. It is a fast-gate step.
   floating install.
 - The build prints whether the host package was treated as external, so a bundle
   that silently stopped externalising it is visible in the build log.
+
+---
+
+[Documentation index](README.md)

@@ -28,3 +28,7 @@
 | **Router** | `tawa`, the agent that only routes and never implements. |
 | **Consent word** | An accepted answer that authorises a destructive tool call. |
 | **Read-only** | A session that refuses to persist because its state belongs to another key, or because it is isolated. |
+
+---
+
+[Documentation index](README.md)

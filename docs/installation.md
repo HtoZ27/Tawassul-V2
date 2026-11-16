@@ -71,7 +71,7 @@ A successful install prints the bundle path, its version, and the number of
 wasm assets staged:
 
 ```
-install-global: installed ~/.config/opencode/plugins/tawassul.js (v0.1.2-experimental, <bundle-sha>)
+install-global: installed ~/.config/opencode/plugins/tawassul.js (v0.1.3-experimental, <bundle-sha>)
 install-global: installed 4 wasm assets under ~/.config/opencode/tawassul-runtime/wasm
 install-global: no opencode.json edit is needed; the host discovers this file
 ```
@@ -253,3 +253,7 @@ a hand-made install must create it too, or the host refuses to start with
 | `TAWASSUL_HMAC_KEY_DIR points at … which is absent` | The variable must name a directory that already holds a 32-byte key | Write the key there, point the variable at an existing key directory, or unset it and let Tawassul manage `~/.config/tawassul` |
 
 More in [troubleshooting](troubleshooting.md).
+
+---
+
+[Documentation index](README.md)

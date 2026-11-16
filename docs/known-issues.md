@@ -140,3 +140,7 @@ configuration separately.
 delete the HMAC to force a read; that removes the check, not the problem.
 
 **Closes when:** nothing to close; the refusal is the control.
+
+---
+
+[Documentation index](README.md)

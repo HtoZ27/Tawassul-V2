@@ -126,6 +126,32 @@ Agent bases: parent 90, subagent 60.
 raises the effective limit up to the ceiling; setting it to `false` makes every
 budget fixed.
 
+### Cost and burn limits
+
+An iteration budget caps turns; a burn limit caps tokens. The unit is a weighted
+token: a read token counts `0.1`, a write token counts `1.25`, and the ledger
+sums both.
+
+| Scope | Default cap | Covers |
+| --- | --- | --- |
+| Root | 149,841,699 weighted tokens | The whole session tree |
+| Child | 5,866,687 weighted tokens | One subagent, and the tree it belongs to |
+
+The caps are calibrated from measured p99 usage plus a 1.5 headroom, and no
+configuration key overrides them.
+
+| Zone | Starts at | What happens |
+| --- | --- | --- |
+| Green | 0% | Normal |
+| Yellow | 50% | One advisory in the log for the session |
+| Orange | 75% | `task` dispatch is refused; every other tool still runs |
+| Red | 90% | Same refusal, with the budget named in the message |
+
+Only dispatch is refused, not the session: the agent can finish the work in
+hand, write its result, and return it to the caller. `health()` prints the usage
+ledger — the unit, the root and child session counts, and the p50, p90, and p99
+of weighted tokens — so the zone is visible before it blocks anything.
+
 ### Agent evaluation
 
 | Key | Default | Effect |
@@ -290,3 +316,7 @@ an API key, and no configuration key accepts one. A model is named as
 
 Tool permissions are declared by the host and enforced by the plugin's guard.
 There is no configuration key that widens a tool's access.
+
+---
+
+[Documentation index](README.md)

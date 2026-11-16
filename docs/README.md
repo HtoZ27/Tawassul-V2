@@ -11,7 +11,8 @@ and how it protects your work.
 | [Features](features.md) | You want the capability catalogue, with the status of every claim |
 | [Installation](installation.md) | You want the plugin running in a workspace or for a whole user |
 | [Plugins](plugins.md) | You want the package layout, discovery, or a manual host entry |
-| [Release notes](release-notes-0.1.1.md) | You want to know what this release contains and what it does not claim |
+| [Release notes](release-notes-0.1.2.md) | You want to know what this release contains and what it does not claim |
+| [Earlier release notes](release-notes-0.1.1.md) | You installed the previous release and want its notes |
 | [Upgrade](upgrade.md) | You are moving an existing install to a new build |
 | [Compatibility](compatibility.md) | You need to know which host and platform are supported |
 | [Workflow](../WORKFLOW.md) | You want the working rhythm: goals, handoffs, reviews, long sessions |
@@ -64,6 +65,7 @@ and how it protects your work.
 | [Third-party notices](../THIRD-PARTY-NOTICES.md) | The complete installed inventory at the release lockfile |
 | [ACKNOWLEDGEMENTS](../ACKNOWLEDGEMENTS.md) | The prior art this project learned from |
 | [CODE_OF_CONDUCT](../CODE_OF_CONDUCT.md) | Community expectations |
+| [LICENSE](../LICENSE) | The Apache-2.0 terms the release ships under |
 
 ## Conventions used here
 

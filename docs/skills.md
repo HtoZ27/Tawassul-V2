@@ -90,3 +90,7 @@ load the body. State the trigger conditions, not the implementation.
 
 Do not use a skill to hide a permission change. Skills carry procedure; tool
 access is declared where permissions are declared.
+
+---
+
+[Documentation index](README.md)

@@ -116,3 +116,7 @@ Builds made before the first public release are development artifacts. They are
 not an upgrade source with a compatibility promise. If you run one, export what
 matters (goals, records, documents) before moving to a public release, and start
 the public release with a clean state if a migration refuses.
+
+---
+
+[Documentation index](README.md)

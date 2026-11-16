@@ -91,3 +91,7 @@ explicitly with `TAWASSUL_LOG_FILE`.
 
 Report a vulnerability through the private advisory channel described in
 [SECURITY.md](../SECURITY.md). Do not open a public issue.
+
+---
+
+[Documentation index](README.md)

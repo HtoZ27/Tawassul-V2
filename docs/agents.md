@@ -59,3 +59,7 @@ opencode debug agents --standalone
 The output lists the host's built-in agents and the eight Tawassul agents. If the
 Tawassul agents are missing, the plugin did not load; see
 [troubleshooting](troubleshooting.md).
+
+---
+
+[Documentation index](README.md)

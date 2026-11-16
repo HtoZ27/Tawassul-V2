@@ -85,3 +85,7 @@ its error strings are read by models as well as people. A single canonical
 language keeps the tool surface, the proofs, and the documentation aligned. The
 translation layer exists for the people who use the product, not for the code
 that implements it.
+
+---
+
+[Documentation index](../README.md)

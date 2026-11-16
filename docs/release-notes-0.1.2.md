@@ -105,7 +105,7 @@ database maintenance and no scheduled trigger. The full matrix is in
 | Proofs | 186 steps, one child process each |
 | Smoke | 6 steps, including the release artifacts, global boot, and independence boot |
 | Proof files | 189, all catalogued across the stages |
-| Public docs | 46 files, 44 tools, 8 agents, 16 skills |
+| Public docs | 47 files, 44 tools, 8 agents, 16 skills |
 | Native Windows | Native receipts for the bundle and wasm lane; database lane unavailable |
 
 The counts are generated from `scripts/gate-manifest.json`. See
@@ -129,3 +129,7 @@ Windows database maintenance lane, no macOS scheduler, no hosted documentation
 site, no npm package, a pilot evals stage, prompt-injection mitigation rather
 than elimination, and a prompt cache that is invalidated when compression
 rewrites the prefix.
+
+---
+
+[Documentation index](README.md)

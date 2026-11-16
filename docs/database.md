@@ -151,3 +151,7 @@ demand.
 - A live database is never vacuumed.
 - A database from the other generation is never opened.
 - The plugin never creates a database; it only names a path and guards it.
+
+---
+
+[Documentation index](README.md)

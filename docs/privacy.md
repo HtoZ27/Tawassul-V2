@@ -98,3 +98,7 @@ prompt.
 If a release adds a new outbound flow or a new stored field, this page changes in
 the same release. A privacy-relevant change without a documentation change is a
 release blocker.
+
+---
+
+[Documentation index](README.md)

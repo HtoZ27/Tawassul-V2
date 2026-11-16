@@ -148,3 +148,7 @@ matches text mode: `1` when any check fails.
 `--help` lists the modes. An unknown flag exits 64 rather than running a
 partial report. Redaction covers paths only; logs still need a review for
 tokens, keys, and transcript content. Never paste a key or a token.
+
+---
+
+[Documentation index](README.md)

@@ -114,3 +114,7 @@ workspace paths and tool summaries.
 There is no Prometheus endpoint, no OpenTelemetry exporter, and no remote log
 sink. Adding one is a design change, not a configuration key: the plugin is
 local-first, and an unsolicited network listener would contradict that.
+
+---
+
+[Documentation index](README.md)

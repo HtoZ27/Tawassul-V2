@@ -92,3 +92,7 @@ the field. Two conventions are worth knowing:
 
 The full argument reference for each tool is its built-in description, available
 with the `help` tool and summarised in [tools](tools.md).
+
+---
+
+[Documentation index](README.md)

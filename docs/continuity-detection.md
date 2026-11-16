@@ -46,3 +46,7 @@ creates a new pending handoff for the new agent.
 `handoff(resumeInterrupted)` does. `thread.continue` and
 `task_control.revive` act on a session and a subagent respectively, so they do
 not change a handoff ledger entry.
+
+---
+
+[Documentation index](README.md)

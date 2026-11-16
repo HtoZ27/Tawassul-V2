@@ -114,3 +114,7 @@ of its respective maintainers.
 Bugs: open an issue with the version, host, platform, and a minimal
 reproduction. Vulnerabilities: use the private advisory channel in
 [SECURITY.md](../SECURITY.md), never a public issue.
+
+---
+
+[Documentation index](README.md)

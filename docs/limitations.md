@@ -52,3 +52,7 @@ of running the plugin honestly.
   better.
 - It will not claim a platform is supported without a receipt.
 - It will not retry a failed proof until it passes.
+
+---
+
+[Documentation index](README.md)

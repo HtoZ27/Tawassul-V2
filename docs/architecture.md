@@ -167,3 +167,7 @@ those files.
 
 The build is deterministic for a fixed commit: the same tree produces the same
 bytes, which is what makes the hash in the marker meaningful.
+
+---
+
+[Documentation index](README.md)
