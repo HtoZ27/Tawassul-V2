@@ -147,6 +147,24 @@ track the model, use one provider token — `hydrogen` for
 invented suffix is rejected with the accepted names. The same pattern applies to
 `reviewer`, `tester`, `architect`, `designer`, and `doc`.
 
+`moa` is the router's dispatcher, not the only way to several agents. An
+ordinary agent can open a `handoff` with `parallelCopies`: one primary target
+plus N-1 copies drawn from the rest of the roster, all running the same task.
+This is the route for comparing implementations, cross-checking an analysis,
+collecting independent reviews, or weighing competing plans — no `@tawa`
+needed. Each copy stores its own result, and the aggregated report returns them
+side by side.
+
+```text
+@tester Compare three independent reviews of the retry fix: open a handoff to
+@reviewer with parallelCopies: 3, send the failing test and the patch, then list
+the points the three reviews disagree on.
+```
+
+You name the primary target and the count, not the copies. `bestAgent` is the
+answer closest to the others — a consensus signal, not a quality ranking. Read
+the differences; that is where the extra opinions pay off.
+
 For work that splits into independent parts rather than parallel opinions, use
 `task_orchestrate` with `mode: "parallel"`: it cuts the task, dispatches the
 parts at once, and keeps each part's files and bundle separate.

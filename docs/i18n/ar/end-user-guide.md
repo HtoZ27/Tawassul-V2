@@ -253,12 +253,12 @@ Check the team configuration before I add anything.
 | ما تريده | ما تقوله | النتيجة |
 | --- | --- | --- |
 | مراجع ثانٍ على نموذج آخر | `@addagent reviewer with model gemini from google` | `reviewer-gemini`؛ الأساس `reviewer` لا يتغيّر |
-| اسم نسخة صريح | `@addagent reviewer-ling with model ling from opencode` | `reviewer-ling` |
+| اسم نسخة صريح | `@addagent reviewer-mimo with model mimo from opencode` | `reviewer-mimo` |
 | مجموعة على نموذج واحد | `@addagent reviewer tester with model gemini from google` | `reviewer-gemini` و`tester-gemini` |
 | الفريق كله على نموذج واحد | `@addagent all with model gemini from google` | سبع نسخ، واحدة لكل متخصص؛ `tawa` مستثنى |
 
 اللاحقة ليست نصاً حراً. يجب أن تكون لاحقة نموذج معروفة: اسم مستعار في الكتالوج
-مثل `gemini` أو `ling` أو `mimo`، أو رمز يذكره المزوّد المسمّى. اسم مخترع مثل
+مثل `gemini` أو `mimo` أو `deep`، أو رمز يذكره المزوّد المسمّى. اسم مخترع مثل
 `reviewer-fast` يُرفض، ويعرض الخطأ اللواحق المسموحة.
 
 اسم أساسي مجرّد مع نموذج يشتق نسخة دائماً. الدور الأساسي لا يتغيّر أبداً. هذا
@@ -267,8 +267,8 @@ Check the team configuration before I add anything.
 `tawa` هو الاستثناء. `@addagent tawa with model gemini from google` يعيد توجيه
 الموجّه نفسه؛ و`tawa-<أي شيء>` محظور.
 
-يمكن أن يكون النموذج اسماً مستعاراً (`gemini` و`ling` و`mimo` و`big-pickle`
-و`deep` و`minimax` و`ox` وغيرها) أو `provider/model` كاملاً. الاسم المستعار
+يمكن أن يكون النموذج اسماً مستعاراً (`gemini` و`mimo` و`big-pickle`
+و`deep` و`minimax` وغيرها) أو `provider/model` كاملاً. الاسم المستعار
 المجهول أو `provider/model` المجهول يُرفض مع قائمة الأسماء المستعارة. النموذج
 الذي يُحلّ لكنه غائب من قائمة المزوّد المسمّى يُرفض أيضاً؛ وإذا تعذّرت قراءة
 قائمة المزوّد يُقبل مع تحذير. الفريق محدود بـ`maxDynamicAgents` (الافتراضي 50)؛
@@ -301,7 +301,7 @@ Check the team configuration before I add anything.
 عدة أسماء تحذف مجموعة في سطر واحد:
 
 ```
-@addagent remove dev-ling tester-mimo with model gemini from google
+@addagent remove dev-gemini tester-mimo with model gemini from google
 ```
 
 الاسم يحدّد المدخل: `remove reviewer-gemini ...` يحذف تلك النسخة، أي نموذج
@@ -317,7 +317,7 @@ Check the team configuration before I add anything.
   تأكيد في الجلسة الرئيسية. وبلا هذا التأكيد يفشل الحذف الجماعي مغلقاً.
 - `remove all with model gemini from google` يتمدد إلى الأدوار الأساسية السبعة
   الموسومة بذلك النموذج (`dev-gemini` و`analyst-gemini` وغيرها)، لا إلى نسخ
-  على لواحق أخرى مثل `dev-ling`. و`remove all-gemini with model gemini from
+  على لواحق أخرى مثل `dev-mimo`. و`remove all-gemini with model gemini from
   google` هو التمدد نفسه للاحقة واحدة.
 - حذف وكيل لا يعيد كتابة سجل التسليمات. أنهِ تسليماته المفتوحة أو أعد تعيينها
   أولاً، ثم احذفه.

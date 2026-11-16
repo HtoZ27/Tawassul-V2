@@ -265,12 +265,12 @@ Four forms cover almost every case:
 | You want | Say | Result |
 | --- | --- | --- |
 | A second reviewer on another model | `@addagent reviewer with model gemini from google` | `reviewer-gemini`; base `reviewer` untouched |
-| An explicit variant name | `@addagent reviewer-ling with model ling from opencode` | `reviewer-ling` |
+| An explicit variant name | `@addagent reviewer-mimo with model mimo from opencode` | `reviewer-mimo` |
 | A group on one model | `@addagent reviewer tester with model gemini from google` | `reviewer-gemini` and `tester-gemini` |
 | The whole team on one model | `@addagent all with model gemini from google` | Seven variants, one per specialist; `tawa` excluded |
 
 The suffix is not free text. It must be a known model suffix: a catalog alias
-such as `gemini`, `ling`, `mimo`, or a token the named provider lists. An
+such as `gemini`, `mimo`, `deep`, or a token the named provider lists. An
 invented name such as `reviewer-fast` is rejected, and the error lists the
 suffixes that are allowed.
 
@@ -281,9 +281,9 @@ the roster to its previous state.
 `tawa` is the exception. `@addagent tawa with model gemini from google` re-points
 the router itself; `tawa-<anything>` is blocked.
 
-The model can be an alias (`gemini`, `ling`, `mimo`, `big-pickle`, `deep`,
-`minimax`, `ox`, and others) or a full `provider/model`. An unknown alias or an
-unknown `provider/model` is rejected with the alias list. A model that resolves
+The model can be an alias (`gemini`, `mimo`, `big-pickle`, `deep`, `minimax`,
+and others) or a full `provider/model`. An unknown alias or an unknown
+`provider/model` is rejected with the alias list. A model that resolves
 but is missing from the named provider's list is rejected too; if the provider
 list cannot be read, it is allowed with a warning. The roster is capped by
 `maxDynamicAgents` (default 50); past the cap, the oldest dynamic agents are
@@ -317,7 +317,7 @@ Removal runs through the same picker: type `@`, choose `addagent`, then put
 Several names remove a group in one line:
 
 ```
-@addagent remove dev-ling tester-mimo with model gemini from google
+@addagent remove dev-gemini tester-mimo with model gemini from google
 ```
 
 The name identifies the entry: `remove reviewer-gemini ...` removes that
@@ -335,7 +335,7 @@ Rules that protect the team:
   removal fails closed.
 - `remove all with model gemini from google` expands to the seven base roles
   tagged with that model (`dev-gemini`, `analyst-gemini`, ...), not to variants
-  on other suffixes such as `dev-ling`. `remove all-gemini with model gemini
+  on other suffixes such as `dev-mimo`. `remove all-gemini with model gemini
   from google` is the same expansion for one suffix.
 - Removing an agent does not rewrite the handoff ledger. Finish or reassign its
   open handoffs first, then remove it.
