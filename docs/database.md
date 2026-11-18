@@ -146,8 +146,9 @@ schedule this lane owns, and records `"trigger": "off"`.
 The lane coexists with the plugin in either order; when the plugin installed
 the scripts first, pass `--force` so the lane takes them and the schedule over.
 When a repository `VERSION` marker records the database lane,
-`--db-maintenance --uninstall` removes only `MAINTENANCE` and keeps the shared
-scripts; `install-global` skips the database lane and preserves it on uninstall
+`--db-maintenance --uninstall` removes only `MAINTENANCE`, keeps the shared
+scripts, and prints the cleanup command for the schedule it leaves;
+`install-global` skips the database lane and preserves it on uninstall
 while `MAINTENANCE` exists.
 
 ### Removing it by hand

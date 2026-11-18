@@ -1655,22 +1655,23 @@ function installGlobalLaneCases(): void {
 
 function maintenanceMarkerUninstallCases(): void {
   const maint = join(DB_DIR, "MAINTENANCE");
-  writeFileSync(
-    maint,
-    `${JSON.stringify(
-      {
-        package: "tawassul-v2",
-        lane: "install.sh --db-maintenance",
-        version: "0.0.0",
-        db: SMOKE_DB,
-        trigger: "manual",
-        gapSeconds: 86400,
-        installedAt: "2026-11-17T00:00:00Z",
-      },
-      null,
-      2,
-    )}\n`,
-  );
+  const markerText = `${JSON.stringify(
+    {
+      package: "tawassul-v2",
+      lane: "install.sh --db-maintenance",
+      version: "0.0.0",
+      db: SMOKE_DB,
+      trigger: "manual",
+      gapSeconds: 86400,
+      installedAt: "2026-11-17T00:00:00Z",
+    },
+    null,
+    2,
+  )}\n`;
+  writeFileSync(maint, markerText);
+  const scheduled = join(DB_DIR, "opencode-db-scheduled.sh");
+  const servicePath = join(CONFIG, "systemd", "user", "tawassul-db-maintenance.service");
+  const timerPath = join(CONFIG, "systemd", "user", "tawassul-db-maintenance.timer");
   const sidecarDb = join(HOME, ".local", "share", "opencode", "tawassul-v2", "opencode.db");
   mkdirSync(dirname(sidecarDb), { recursive: true });
   writeFileSync(sidecarDb, "");
@@ -1687,18 +1688,41 @@ function maintenanceMarkerUninstallCases(): void {
       dry.code === 0 && dry.out.includes("would remove only") && dry.out.includes("VERSION records the repository database lane"),
       "the maintenance uninstall dry run reports the VERSION.db preserve path",
     );
-    assert(existsSync(join(DB_DIR, "opencode-db-scheduled.sh")), "the dry run keeps the five scripts");
+    assert(existsSync(scheduled), "the dry run keeps the five scripts");
     const refused = runSh(["--db-maintenance"]);
     assert(
       refused.code !== 0 && refused.out.includes("records the repository database lane"),
       "the maintenance lane refuses a repository VERSION.db without --force",
     );
+    writeForeignUnitPair(CONFIG, "install-global", scheduled);
     const real = runSh(["--db-maintenance", "--uninstall"]);
     assert(real.code === 0 && !existsSync(maint), "uninstall removes only the maintenance marker under VERSION.db");
-    assert(existsSync(join(DB_DIR, "opencode-db-scheduled.sh")), "the five scripts survive the VERSION.db uninstall");
+    assert(
+      real.out.includes(servicePath) &&
+        real.out.includes(timerPath) &&
+        real.out.includes("owner=install-global") &&
+        real.out.includes("systemctl --user disable --now tawassul-db-maintenance.timer"),
+      "the VERSION.db uninstall prints the install-global owner's cleanup command",
+    );
+    assert(existsSync(scheduled), "the five scripts survive the VERSION.db uninstall");
     assert(existsSync(MARKER), "the repository VERSION survives the maintenance uninstall");
+
+    writeFileSync(maint, markerText);
+    writeForeignUnitPair(CONFIG, "install.sh-db-maintenance", scheduled);
+    const forcedReal = runSh(["--db-maintenance", "--uninstall"]);
+    assert(
+      forcedReal.code === 0 && !existsSync(maint),
+      "the VERSION.db uninstall removes only the maintenance marker again",
+    );
+    assert(
+      forcedReal.out.includes("owner=install.sh-db-maintenance") &&
+        forcedReal.out.includes("grep -vF '# tawassul-db-maintenance owner=install.sh-db-maintenance' | crontab -"),
+      "the VERSION.db uninstall prints the forced lane owner's cleanup command",
+    );
   } finally {
     rmSync(maint, { force: true });
+    rmSync(servicePath, { force: true });
+    rmSync(timerPath, { force: true });
   }
 }
 

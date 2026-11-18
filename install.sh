@@ -348,6 +348,7 @@ uninstall_maintenance() {
     rmdir "$DB_DIR" 2>/dev/null || true
     say "removed the database maintenance marker at $MARKER"
     say "kept the five scripts and the schedule recorded by $RUNTIME/VERSION"
+    scan_foreign_schedule
     exit 0
   fi
   if [ "$DRY_RUN" = "1" ]; then

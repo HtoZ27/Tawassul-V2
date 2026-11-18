@@ -21,6 +21,8 @@ pre-stable.
 
 ### Fixed
 
+- `install.sh --db-maintenance --uninstall` beside a repository `VERSION.db`
+  now prints the owner-matched cleanup command for the schedule it keeps.
 - `addagent` accepts a model-derived variant suffix when the provider cache is
   absent, while an explicitly typed unknown suffix is still rejected with
   guidance to use the derived form. Provider cache slugs also gain a joined form

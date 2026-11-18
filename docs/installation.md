@@ -182,8 +182,9 @@ exact, owner-matched cleanup command; it never edits a schedule it does not own.
 `--db-maintenance` and the plugin coexist in either order; when the plugin
 installed the scripts first, pass `--force` so the lane takes them and the
 schedule over. When a repository `VERSION` marker records the database lane,
-`--db-maintenance --uninstall` removes only `MAINTENANCE` and keeps the shared
-scripts, because that marker still points at them. `install-global` does the
+`--db-maintenance --uninstall` removes only `MAINTENANCE`, keeps the shared
+scripts, and prints the cleanup command for the schedule it leaves, because
+that marker still points at them. `install-global` does the
 mirror image: while `MAINTENANCE` exists it installs the bundle and grammars,
 skips the database scripts, timer, and cron line, and preserves them on
 uninstall.
