@@ -75,15 +75,13 @@ sh install.sh --project /path/to/workspace
 | Asset | Use |
 | --- | --- |
 | `tawassul-0.1.4-experimental.global.js` | The bundle the installer verifies and installs |
-| `tawassul-runtime-0.1.4-experimental.tar.gz` | The staging runtime: four wasm grammars |
-| `tawassul-db-maintenance-0.1.4-experimental.tar.gz` | The five database scripts, installed only by `install.sh --db-maintenance` |
+| `tawassul-runtime-0.1.4-experimental.tar.gz` | The staging runtime: wasm grammars and database scripts |
 | `tawassul-0.1.4-experimental.index.js` | The plugin entry for a project build |
 | `tawassul-0.1.4-experimental.tgz` | The package as npm would see it, for inspection |
 | `SHA256SUMS`, `VERSION`, `NOTICE.md`, `.cdx.json` | Checksums, version stamp, third-party notices, SBOM |
 
-The installer verifies the staged artifacts — the bundle, the runtime archive,
-and, for `--db-maintenance`, the maintenance archive — against `SHA256SUMS` and
-refuses an unverified or offline asset. See
+The installer verifies both artifacts against `SHA256SUMS` and refuses an
+unverified or offline asset. See
 [installation](installation.md#release-installer) for `--prefix`, `--from`,
 `--release`, and the uninstall.
 
