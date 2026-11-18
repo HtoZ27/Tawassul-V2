@@ -19,6 +19,22 @@ case "${1:-run}" in
   *) echo "unknown option: $1 (use --check or --run)" >&2; exit 2 ;;
 esac
 
+SKIPPED=0
+LOCK_OWNED=0
+GAP_SECONDS="${TAWASSUL_DB_GAP_SECONDS:-}"
+if [ -n "$GAP_SECONDS" ]; then
+  case "$GAP_SECONDS" in
+    *[!0-9]*) echo "TAWASSUL_DB_GAP_SECONDS is not a non-negative integer; using the marker value" >&2; GAP_SECONDS="" ;;
+  esac
+fi
+if [ -z "$GAP_SECONDS" ]; then
+  GAP_SECONDS="$(sed -n 's/.*"gapSeconds"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$H/MAINTENANCE" 2>/dev/null | head -n 1 || true)"
+fi
+GAP_SECONDS="${GAP_SECONDS:-86400}"
+case "$GAP_SECONDS" in
+  ''|*[!0-9]*) GAP_SECONDS=86400 ;;
+esac
+
 LOG_DIR="$(tawassul_backup_dir)"
 mkdir -p "$LOG_DIR" 2>/dev/null || true
 LOG="$LOG_DIR/opencode-db-scheduled.log"
@@ -35,13 +51,127 @@ log() {
   fi
 }
 
-cleanup_trigger() {
-  if [ -n "${TAWASSUL_TRIGGER_LOCK:-}" ]; then
-    rm -rf "$TAWASSUL_TRIGGER_LOCK" 2>/dev/null || true
-  fi
+STAMP_DIR="$(printf '%s/tawassul-v2/db-maintenance' "$(xdg_data_home)")"
+STAMP_FILE="$STAMP_DIR/last-run.stamp"
+
+lock_pid_alive() {
+  pid_file="$1/pid"
+  [ -f "$pid_file" ] || return 2
+  pid="$(cat "$pid_file" 2>/dev/null || true)"
+  case "$pid" in
+    ''|*[!0-9]*) return 2 ;;
+  esac
+  [ "$pid" -gt 0 ] || return 2
+  if kill -0 "$pid" 2>/dev/null; then return 0; fi
+  return 1
 }
+
+reclaim_stale() {
+  mutex="$1"
+  pid="$(cat "$mutex/pid" 2>/dev/null || true)"
+  at="$(cat "$mutex/at" 2>/dev/null || true)"
+  case "$pid" in ''|*[!0-9]*) pid="" ;; esac
+  case "$at" in ''|*[!0-9]*) at="" ;; esac
+  now="$(date +%s)"
+  if [ -n "$pid" ]; then
+    if ! kill -0 "$pid" 2>/dev/null; then return 0; fi
+    if [ -n "$at" ] && [ $(( now - at )) -gt 120 ]; then return 0; fi
+    return 1
+  fi
+  if [ -n "$at" ] && [ $(( now - at )) -gt 120 ]; then return 0; fi
+  mtime="$(tawassul_mtime_epoch "$mutex" 2>/dev/null || printf '0')"
+  [ $(( now - mtime )) -gt 10800 ]
+}
+
+sweep_stale_tombstones() {
+  parent="$1"
+  now="$(date +%s)"
+  for tomb in "$parent"/trigger.lock.stale.*; do
+    [ -e "$tomb" ] || continue
+    mtime="$(tawassul_mtime_epoch "$tomb" 2>/dev/null || printf '0')"
+    if [ $(( now - mtime )) -gt 10800 ]; then
+      rm -rf "$tomb" 2>/dev/null || true
+    fi
+  done
+}
+
+acquire_trigger_lock() {
+  lock="$1"
+  self="$2"
+  parent="$(dirname "$lock")"
+  mkdir -p "$parent" 2>/dev/null || true
+  sweep_stale_tombstones "$parent"
+  if mkdir "$lock" 2>/dev/null; then
+    printf '%s\n' "$self" > "$lock/pid" 2>/dev/null || true
+    return 0
+  fi
+  lock_pid_alive "$lock"
+  alive=$?
+  if [ "$alive" = "0" ]; then return 1; fi
+  if [ "$alive" = "2" ]; then
+    mtime="$(tawassul_mtime_epoch "$lock" 2>/dev/null || printf '0')"
+    if [ $(( $(date +%s) - mtime )) -lt 10800 ]; then return 1; fi
+  fi
+  reclaim="$lock.reclaim"
+  if ! mkdir "$reclaim" 2>/dev/null; then
+    if reclaim_stale "$reclaim"; then
+      rm -rf "$reclaim" 2>/dev/null || true
+      mkdir "$reclaim" 2>/dev/null || return 1
+    else
+      return 1
+    fi
+  fi
+  printf '%s\n' "$self" > "$reclaim/pid" 2>/dev/null || true
+  printf '%s\n' "$(date +%s)" > "$reclaim/at" 2>/dev/null || true
+  lock_pid_alive "$lock"
+  alive=$?
+  if [ "$alive" = "0" ]; then
+    rm -rf "$reclaim" 2>/dev/null || true
+    return 1
+  fi
+  if [ "$alive" = "2" ]; then
+    mtime="$(tawassul_mtime_epoch "$lock" 2>/dev/null || printf '0')"
+    if [ $(( $(date +%s) - mtime )) -lt 10800 ]; then
+      rm -rf "$reclaim" 2>/dev/null || true
+      return 1
+    fi
+  fi
+  tombstone="$lock.stale.$$"
+  if ! mv "$lock" "$tombstone" 2>/dev/null; then
+    rm -rf "$reclaim" 2>/dev/null || true
+    return 1
+  fi
+  rm -rf "$tombstone" 2>/dev/null || true
+  if mkdir "$lock" 2>/dev/null; then
+    printf '%s\n' "$self" > "$lock/pid" 2>/dev/null || true
+    rm -rf "$reclaim" 2>/dev/null || true
+    return 0
+  fi
+  rm -rf "$reclaim" 2>/dev/null || true
+  return 1
+}
+
+cleanup_trigger() {
+  [ "$LOCK_OWNED" = "1" ] || return 0
+  [ -n "${TAWASSUL_TRIGGER_LOCK:-}" ] || return 0
+  lock="$TAWASSUL_TRIGGER_LOCK"
+  pid="$(cat "$lock/pid" 2>/dev/null || true)"
+  [ "$pid" = "$$" ] || return 0
+  reclaim="$lock.reclaim"
+  if ! mkdir "$reclaim" 2>/dev/null; then
+    if reclaim_stale "$reclaim"; then
+      rm -rf "$reclaim" 2>/dev/null || true
+      mkdir "$reclaim" 2>/dev/null || return 0
+    else
+      return 0
+    fi
+  fi
+  rm -rf "$lock" 2>/dev/null || true
+  rm -rf "$reclaim" 2>/dev/null || true
+}
+
 stamp_last_run() {
-  if [ "$MODE" = "check" ]; then return 0; fi
+  if [ "$MODE" = "check" ] || [ "$SKIPPED" = "1" ]; then return 0; fi
   local rc="${1:-1}" stamp_dir stamp failure
   stamp_dir="$(printf '%s/tawassul-v2/db-maintenance' "$(xdg_data_home)")"
   mkdir -p "$stamp_dir" 2>/dev/null || true
@@ -61,6 +191,30 @@ stamp_last_run() {
   return 0
 }
 trap 'rc=$?; stamp_last_run "$rc"; cleanup_trigger; exit "$rc"' EXIT
+
+if [ "$MODE" = "run" ]; then
+  if [ -f "$STAMP_FILE" ] && [ "$GAP_SECONDS" -gt 0 ]; then
+    STAMP_AT="$(tawassul_mtime_epoch "$STAMP_FILE" 2>/dev/null || printf '0')"
+    NOW="$(date +%s)"
+    if [ $(( NOW - STAMP_AT )) -lt "$GAP_SECONDS" ]; then
+      SKIPPED=1
+      log "skipping: the last successful run is inside the ${GAP_SECONDS}s gap"
+      exit 0
+    fi
+  fi
+  if [ -z "${TAWASSUL_TRIGGER_LOCK:-}" ]; then
+    LOCK_DIR="$STAMP_DIR/trigger.lock"
+    mkdir -p "$STAMP_DIR" 2>/dev/null || true
+    if acquire_trigger_lock "$LOCK_DIR" "$$"; then
+      TAWASSUL_TRIGGER_LOCK="$LOCK_DIR"
+      LOCK_OWNED=1
+    else
+      SKIPPED=1
+      log "skipping: another maintenance run holds the lock at $LOCK_DIR"
+      exit 0
+    fi
+  fi
+fi
 
 log "scheduled run: mode=$MODE"
 db_resolve_path || {

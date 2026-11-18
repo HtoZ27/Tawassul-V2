@@ -128,7 +128,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/core/model-registry.ts",
-            "line": 91,
+            "line": 81,
             "marker": "MODEL_DISPLAY_NAMES"
           },
           "proofs": [
@@ -621,7 +621,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/core/model-registry.ts",
-            "line": 158,
+            "line": 154,
             "marker": "getProviderModelTokens"
           },
           "proofs": [
@@ -1453,7 +1453,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/core/model-registry.ts",
-            "line": 192,
+            "line": 188,
             "marker": "shouldWarnUnverifiedModel"
           },
           "proofs": [

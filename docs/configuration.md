@@ -294,7 +294,8 @@ is not here is either internal to a proof or has no documented contract.
 | Variable | Effect |
 | --- | --- |
 | `TAWASSUL_NO_AUTOCONFIG=1` | Do not generate the minimal OpenCode contract or seed the roster |
-| `TAWASSUL_DB_MAINTENANCE=off` | Disable the background database maintenance trigger |
+| `TAWASSUL_DB_MAINTENANCE=off` | Disable the background database maintenance trigger; the maintenance installer removes a schedule it owns and records `off` |
+| `TAWASSUL_DB_GAP_SECONDS` | Minimum seconds between scheduled runs; the `MAINTENANCE` marker's `gapSeconds` is the fallback, then 86400 |
 | `TAWASSUL_DB_SCRIPT` | Path to the database maintenance script |
 | `TAWASSUL_MAX_CONTEXT_TOKENS` | Context budget used when packing a session |
 | `TAWASSUL_CONTEXT_HANDOFF` | Enable session handoff independently of the config file |

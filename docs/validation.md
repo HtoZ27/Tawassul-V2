@@ -112,13 +112,15 @@ configuration, and it does not install over a live host.
 | --- | --- |
 | `tawassul-<version>.tgz` | The package layout: `dist/`, the four wasm grammars, README, licence, changelog, notice |
 | `tawassul-runtime-<version>.tar.gz` | `tawassul-runtime/wasm/` only |
+| `tawassul-db-maintenance-<version>.tar.gz` | The five database scripts, installed only by `install.sh --db-maintenance` |
 | `tawassul-<version>.global.js` | The self-contained bundle `install.sh` installs |
 | `tawassul-<version>.index.js` | The externalising bundle the package entry uses |
 | `tawassul-<version>.cdx.json` | The CycloneDX SBOM for the build |
 | `VERSION`, `NOTICE.md`, `SHA256SUMS` | The version, the notices, and the checksums |
 
 `npm run verify:release-artifact` checks the set: every checksum, the exact
-tarball and archive file lists, the four wasm hashes against the SBOM, the
+tarball and archive file lists, the five maintenance scripts against
+`scripts/`, the four wasm hashes against the SBOM, the
 version against `package.json`, and the absence of source, tests, docs, and
 state inside the archives. `SOURCE_DATE_EPOCH` fixes the archive timestamps, and
 the SBOM serial is derived from the component list, so a rebuild from the same

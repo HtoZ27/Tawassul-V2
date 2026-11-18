@@ -39,6 +39,14 @@ check(existsSync(versionFile), "VERSION is missing");
 const version = existsSync(versionFile) ? readFileSync(versionFile, "utf8").trim() : "";
 const NAME = `tawassul-${version}`;
 const RUNTIME_NAME = `tawassul-runtime-${version}`;
+const DB_MAINTENANCE_NAME = `tawassul-db-maintenance-${version}`;
+const DB_FILES = [
+  "db-env.sh",
+  "doctor-v2.sh",
+  "guard-db-generation.sh",
+  "opencode-db-maintenance.sh",
+  "opencode-db-scheduled.sh",
+];
 
 const manifest = JSON.parse(readFileSync(join(REPO, "package.json"), "utf8")) as { version?: string };
 check(manifest.version === version, `VERSION ${version} does not match package.json ${manifest.version}`);
@@ -46,6 +54,7 @@ check(manifest.version === version, `VERSION ${version} does not match package.j
 const EXPECTED_ASSETS = [
   `${NAME}.tgz`,
   `${RUNTIME_NAME}.tar.gz`,
+  `${DB_MAINTENANCE_NAME}.tar.gz`,
   `${NAME}.global.js`,
   `${NAME}.index.js`,
   `${NAME}.cdx.json`,
@@ -138,6 +147,37 @@ if (existsSync(runtime)) {
     JSON.stringify(actualRuntime) === JSON.stringify(expectedRuntime),
     `runtime archive lists ${actualRuntime.join(", ")}; expected the four wasm grammars`,
   );
+}
+
+const maintenance = join(OUT, `${DB_MAINTENANCE_NAME}.tar.gz`);
+if (existsSync(maintenance)) {
+  const expectedMaintenance = DB_FILES.map((file) => `tawassul-db-maintenance/${file}`).sort();
+  const actualMaintenance = archiveFiles(maintenance);
+  check(
+    JSON.stringify(actualMaintenance) === JSON.stringify(expectedMaintenance),
+    `maintenance archive lists ${actualMaintenance.join(", ")}; expected the five database scripts`,
+  );
+  for (const file of DB_FILES) {
+    const source = join(REPO, "scripts", file);
+    if (!existsSync(source)) {
+      failures.push(`maintenance source is missing: ${source}`);
+      continue;
+    }
+    const entry = `tawassul-db-maintenance/${file}`;
+    if (!actualMaintenance.includes(entry)) continue;
+    let extractedHash = "";
+    let scratch: string | undefined;
+    try {
+      scratch = mkdtempSync(join(tmpdir(), "tawassul-maint-"));
+      execFileSync("tar", ["-xzf", maintenance, "-C", scratch, entry], { encoding: "utf8" });
+      extractedHash = sha256(join(scratch, entry));
+    } catch (error) {
+      failures.push(`cannot extract ${entry}: ${(error as Error).message}`);
+    } finally {
+      if (scratch) rmSync(scratch, { recursive: true, force: true });
+    }
+    check(extractedHash === sha256(source), `${entry} does not match scripts/${file}`);
+  }
 }
 
 const globalFile = join(OUT, `${NAME}.global.js`);

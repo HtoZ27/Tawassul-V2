@@ -589,12 +589,15 @@ function dbSmoke(resolved: string): void {
 }
 
 const TRIGGER_TAG = "tawassul-db-maintenance";
+const TRIGGER_OWNER = "install-global";
+const MAINTENANCE_OWNER = "install.sh-db-maintenance";
+const MAINTENANCE_FILE = join(DB_DIR, "MAINTENANCE");
 const TRIGGER_UNITS = {
   service: "tawassul-db-maintenance.service",
   timer: "tawassul-db-maintenance.timer",
 };
 
-function triggerMode(): string {
+function triggerMode(): "off" | "systemd" | "cron" | "manual" | "auto" {
   const value = process.env.TAWASSUL_REGISTER_TRIGGERS?.trim().toLowerCase();
   if (value === "off" || value === "systemd" || value === "cron" || value === "manual") return value;
   return "auto";
@@ -610,6 +613,61 @@ function systemdUnitPath(name: string): string {
 
 function scheduledPath(): string {
   return join(DB_DIR, "opencode-db-scheduled.sh");
+}
+
+function maintenanceLane(): boolean {
+  try {
+    const marker = JSON.parse(readFileSync(MAINTENANCE_FILE, "utf-8")) as { package?: unknown; lane?: unknown };
+    return marker.package === PLUGIN_ID && marker.lane === "install.sh --db-maintenance";
+  } catch {
+    return false;
+  }
+}
+
+function unitStamp(path: string): string | undefined {
+  try {
+    const first = (readFileSync(path, "utf-8").split("\n", 1)[0] ?? "").trim();
+    const match = first.match(/^# tawassul-owner: (.+)$/);
+    return match?.[1]?.trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function unitShapeOurs(path: string): boolean {
+  try {
+    const text = readFileSync(path, "utf-8");
+    if (!text.includes("Description=Tawassul v2 DB maintenance")) return false;
+    if (path === systemdUnitPath(TRIGGER_UNITS.timer)) {
+      return /^\[Timer\]$/m.test(text) && /^OnCalendar=/m.test(text);
+    }
+    return text.includes(scheduledPath());
+  } catch {
+    return false;
+  }
+}
+
+function cronOwner(line: string): string | undefined {
+  const match = line.match(new RegExp(`# ${TRIGGER_TAG} owner=([^ ]+)`));
+  return match?.[1];
+}
+
+function cronShapeOurs(line: string): boolean {
+  return line.includes(TRIGGER_TAG) && line.includes(scheduledPath()) && line.includes("--run");
+}
+
+function markerProvesDb(marker: Marker | undefined): boolean {
+  return marker?.package === PLUGIN_ID && Object.keys(marker.db ?? {}).length > 0;
+}
+
+function printCleanup(owner: string): void {
+  console.log(`install-global: remove the ${TRIGGER_TAG} schedule owned by ${owner} with:`);
+  console.log(`  systemctl --user disable --now ${TRIGGER_UNITS.timer}`);
+  console.log(
+    `  rm -f ${shellQuote(systemdUnitPath(TRIGGER_UNITS.service))} ${shellQuote(systemdUnitPath(TRIGGER_UNITS.timer))}`,
+  );
+  console.log("  systemctl --user daemon-reload");
+  console.log(`  crontab -l | grep -vF ${shellQuote(`# ${TRIGGER_TAG} owner=${owner}`)} | crontab -`);
 }
 
 function unitContentSafe(script: string): boolean {
@@ -645,6 +703,7 @@ function writeUnitFiles(script: string, dbPath: string): void {
   writeAtomic(
     systemdUnitPath(TRIGGER_UNITS.service),
     [
+      `# tawassul-owner: ${TRIGGER_OWNER}`,
       "[Unit]",
       "Description=Tawassul v2 DB maintenance lane",
       "",
@@ -659,6 +718,7 @@ function writeUnitFiles(script: string, dbPath: string): void {
   writeAtomic(
     systemdUnitPath(TRIGGER_UNITS.timer),
     [
+      `# tawassul-owner: ${TRIGGER_OWNER}`,
       "[Unit]",
       "Description=Tawassul v2 DB maintenance schedule",
       "",
@@ -694,16 +754,21 @@ function cronLine(script: string, dbPath: string): string {
     .map((entry) => `${entry.split("=")[0]}=${shellQuote(entry.slice(entry.indexOf("=") + 1))}`)
     .join(" ");
   const env = prefix.length > 0 ? `${prefix} ` : "";
-  return `17 4 * * * ${env}/usr/bin/env bash ${shellQuote(script)} --run # ${TRIGGER_TAG}`;
+  return `17 4 * * * ${env}/usr/bin/env bash ${shellQuote(script)} --run # ${TRIGGER_TAG} owner=${TRIGGER_OWNER}`;
 }
 
-function readCrontab(): { ok: boolean; lines: Array<string> } {
+type CronListing = { ok: boolean; lines: Array<string>; reason?: "absent" | "unreadable" };
+
+function readCrontab(): CronListing {
   const result = spawnSync("crontab", ["-l"], { encoding: "utf-8", timeout: 15_000 });
   if ((result.status ?? -1) === 0) return { ok: true, lines: (result.stdout ?? "").split("\n") };
   if (result.error === undefined && /no crontab for/i.test(`${result.stderr ?? ""}`)) {
     return { ok: true, lines: [] };
   }
-  return { ok: false, lines: [] };
+  if ((result.error as NodeJS.ErrnoException | undefined)?.code === "ENOENT") {
+    return { ok: false, lines: [], reason: "absent" };
+  }
+  return { ok: false, lines: [], reason: "unreadable" };
 }
 
 function writeCrontab(lines: Array<string>): boolean {
@@ -714,20 +779,161 @@ function tryCron(script: string, dbPath: string): string | undefined {
   if (!unitContentSafe(script)) return undefined;
   const listing = readCrontab();
   if (!listing.ok) return undefined;
-  if (listing.lines.some((line) => line.includes(TRIGGER_TAG))) return "cron";
-  const kept = listing.lines.filter((line) => line.trim() !== "");
-  if (!writeCrontab([...kept, cronLine(script, dbPath)])) return undefined;
+  const lines = listing.lines.filter((line) => line.trim() !== "");
+  const wanted = cronLine(script, dbPath);
+  const tagged = lines.filter((line) => line.includes(TRIGGER_TAG));
+  if (tagged.length === 1 && tagged[0] === wanted) return "cron";
+  const kept = lines.filter((line) => !line.includes(TRIGGER_TAG));
+  if (!writeCrontab([...kept, wanted])) return undefined;
   return "cron";
 }
 
-function registerTriggers(dbPath: string): string {
+function removeUnits(): void {
+  const paths = [systemdUnitPath(TRIGGER_UNITS.service), systemdUnitPath(TRIGGER_UNITS.timer)];
+  if (!paths.some((path) => existsSync(path))) return;
+  runTriggerCommand("systemctl", ["--user", "disable", "--now", TRIGGER_UNITS.timer]);
+  removeUnitFiles();
+  runTriggerCommand("systemctl", ["--user", "daemon-reload"]);
+}
+
+function removeOwnedCron(includeForeign: boolean): void {
+  const listing = readCrontab();
+  if (!listing.ok) {
+    if (listing.reason !== "absent") {
+      console.log("install-global: crontab could not be read; the previous cron entry was left in place");
+    }
+    return;
+  }
+  const marker = readMarker();
+  const proven = markerProvesDb(marker) && !maintenanceLane();
+  const lines = listing.lines.filter((line) => line.trim() !== "");
+  const drop = lines.filter((line) => {
+    if (!line.includes(TRIGGER_TAG)) return false;
+    const owner = cronOwner(line);
+    if (owner === TRIGGER_OWNER) return true;
+    if (includeForeign) return true;
+    return owner === undefined && proven && cronShapeOurs(line);
+  });
+  if (drop.length === 0) return;
+  const kept = lines.filter((line) => !drop.includes(line));
+  if (writeCrontab(kept)) console.log(`install-global: removed ${drop.length} ${TRIGGER_TAG} cron line(s)`);
+  else console.log("install-global: could not rewrite the crontab; the owned cron line remains");
+}
+
+type TriggerPlan = "off" | "manual" | "systemd" | "cron" | "auto";
+
+function removeOwnedSchedule(): boolean {
+  const listing = readCrontab();
+  if (!listing.ok && listing.reason !== "absent") {
+    console.log("install-global: crontab could not be read; the owned schedule, if any, was left untouched");
+    return false;
+  }
+  const marker = readMarker();
+  const proven = markerProvesDb(marker) && !maintenanceLane();
+  const paths = [systemdUnitPath(TRIGGER_UNITS.service), systemdUnitPath(TRIGGER_UNITS.timer)];
+  const present = paths.filter((path) => existsSync(path));
+  const stamps = present.map((path) => unitStamp(path));
+  const foreign = stamps.find((stamp) => stamp !== undefined && stamp !== TRIGGER_OWNER);
+  const ownsAll =
+    present.length > 0 &&
+    stamps.every((stamp, index) => {
+      if (stamp === TRIGGER_OWNER) return true;
+      return stamp === undefined && proven && unitShapeOurs(present[index] as string);
+    });
+  if (foreign) {
+    console.log(`install-global: left the ${TRIGGER_TAG} unit pair owned by ${foreign} in place`);
+  } else if (ownsAll) {
+    removeUnits();
+  }
+  const lines = listing.lines.filter((line) => line.trim() !== "");
+  const drop = lines.filter((line) => {
+    if (!line.includes(TRIGGER_TAG)) return false;
+    const owner = cronOwner(line);
+    if (owner === TRIGGER_OWNER) return true;
+    return owner === undefined && proven && cronShapeOurs(line);
+  });
+  if (drop.length === 0) return true;
+  const kept = lines.filter((line) => !drop.includes(line));
+  if (writeCrontab(kept)) {
+    console.log(`install-global: removed ${drop.length} owned cron line(s)`);
+    return true;
+  }
+  console.log("install-global: could not rewrite the crontab; the owned cron line remains");
+  return false;
+}
+
+function foreignTrigger(
+  marker: Marker | undefined,
+): { owner: string; mechanisms: Array<"systemd" | "cron"> } | undefined {
+  const proven = markerProvesDb(marker) && !maintenanceLane();
+  const mechanisms: Array<"systemd" | "cron"> = [];
+  let owner = "";
+  for (const name of [TRIGGER_UNITS.service, TRIGGER_UNITS.timer]) {
+    const path = systemdUnitPath(name);
+    if (!existsSync(path)) continue;
+    const stamp = unitStamp(path);
+    if (stamp === TRIGGER_OWNER) continue;
+    if (stamp === undefined && proven && unitShapeOurs(path)) continue;
+    if (!owner) owner = stamp ?? "an unstamped unit";
+    mechanisms.push("systemd");
+  }
+  for (const line of readCrontab().lines) {
+    if (!line.includes(TRIGGER_TAG)) continue;
+    const token = cronOwner(line);
+    if (token === TRIGGER_OWNER) continue;
+    if (token === undefined && proven && cronShapeOurs(line)) continue;
+    if (!owner) owner = token ?? "an unstamped cron line";
+    mechanisms.push("cron");
+  }
+  return owner ? { owner, mechanisms } : undefined;
+}
+
+function preflightTriggers(marker: Marker | undefined): TriggerPlan {
+  const optOut = (process.env.TAWASSUL_DB_MAINTENANCE ?? "").trim().toLowerCase();
+  if (optOut === "off" || optOut === "0" || optOut === "false" || optOut === "disabled") {
+    console.log("install-global: TAWASSUL_DB_MAINTENANCE disables the schedule — the owned trigger will be removed");
+    return "off";
+  }
   const mode = triggerMode();
-  if (mode === "off") {
-    console.log("install-global: trigger registration skipped (TAWASSUL_REGISTER_TRIGGERS=off)");
+  if (mode === "off" || mode === "manual") {
+    console.log(`install-global: trigger registration skipped (TAWASSUL_REGISTER_TRIGGERS=${mode})`);
     return "manual";
   }
-  if (mode === "manual") {
-    console.log("install-global: trigger registration skipped (TAWASSUL_REGISTER_TRIGGERS=manual)");
+  const foreign = foreignTrigger(marker);
+  if (!foreign) return mode;
+  if (!flags.has("--force")) {
+    if (mode === "systemd" || mode === "cron") {
+      fail(
+        `install-global: a ${TRIGGER_TAG} schedule owned by ${foreign.owner} already exists; ` +
+          `refusing to register ${mode} (pass --force to take it over)`,
+      );
+    }
+    console.log(
+      `install-global: a ${TRIGGER_TAG} schedule owned by ${foreign.owner} already exists — leaving the trigger manual`,
+    );
+    return "manual";
+  }
+  const mechanisms = [...new Set(foreign.mechanisms)];
+  console.log(
+    `install-global: taking over the ${TRIGGER_TAG} schedule owned by ${foreign.owner} (${mechanisms.join(", ")})`,
+  );
+  if (mode !== "auto") return mode;
+  return mechanisms.includes("systemd") ? "systemd" : "cron";
+}
+
+function registerTriggers(plan: TriggerPlan, dbPath: string): string {
+  if (plan === "off") {
+    const removed = removeOwnedSchedule();
+    console.log(
+      removed
+        ? "install-global: trigger registration skipped (TAWASSUL_DB_MAINTENANCE is off); the owned schedule was removed"
+        : "install-global: trigger registration skipped (TAWASSUL_DB_MAINTENANCE is off); the owned schedule could not be fully removed",
+    );
+    return "off";
+  }
+  if (plan === "manual") {
+    console.log("install-global: trigger registration skipped — the trigger stays manual");
+    console.log(`install-global: run the lane manually with: bash ${shellQuote(scheduledPath())} --run`);
     return "manual";
   }
   if (!existsSync(scheduledPath())) {
@@ -735,69 +941,127 @@ function registerTriggers(dbPath: string): string {
     return "manual";
   }
   const script = scheduledPath();
-  if (mode === "systemd") {
+  if (plan === "systemd" || plan === "auto") {
     const systemd = trySystemd(script, dbPath);
     if (systemd) {
+      removeOwnedCron(flags.has("--force"));
       console.log("install-global: registered systemd user timer tawassul-db-maintenance.timer");
       return systemd;
     }
-    console.log("install-global: systemd registration failed (TAWASSUL_REGISTER_TRIGGERS=systemd) — trigger is manual");
-    return "manual";
-  }
-  if (mode === "cron") {
-    const cron = tryCron(script, dbPath);
-    if (cron) {
-      console.log("install-global: registered cron line (tagged) for the daily run");
-      return cron;
+    if (plan === "systemd") {
+      console.log("install-global: systemd registration failed (TAWASSUL_REGISTER_TRIGGERS=systemd) — trigger is manual");
+      return "manual";
     }
-    console.log("install-global: cron registration failed (TAWASSUL_REGISTER_TRIGGERS=cron) — trigger is manual");
-    return "manual";
   }
-  const systemd = trySystemd(script, dbPath);
-  if (systemd) {
-    console.log("install-global: registered systemd user timer tawassul-db-maintenance.timer");
-    return systemd;
-  }
+  removeUnits();
   const cron = tryCron(script, dbPath);
   if (cron) {
-    console.log("install-global: systemd unavailable — registered cron line (tagged) for the daily run");
+    console.log("install-global: registered cron line (tagged) for the daily run");
     return cron;
+  }
+  if (plan === "cron") {
+    console.log("install-global: cron registration failed (TAWASSUL_REGISTER_TRIGGERS=cron) — trigger is manual");
+    return "manual";
   }
   console.log("install-global: no systemd or cron available — trigger is manual (the plugin still triggers at boot)");
   return "manual";
 }
 
-function unitIsOwned(): boolean {
-  try {
-    const service = readFileSync(systemdUnitPath(TRIGGER_UNITS.service), "utf-8");
-    return service.includes("opencode-db-scheduled.sh");
-  } catch {
-    return false;
-  }
-}
-
 function uninstallTriggers(): void {
-  if (flags.has("--dry-run")) {
-    if (unitIsOwned()) console.log(`install-global: dry run — would remove the ${TRIGGER_TAG} systemd timer`);
-    if (readCrontab().lines.some((line) => line.includes(TRIGGER_TAG))) {
-      console.log(`install-global: dry run — would remove the tagged ${TRIGGER_TAG} cron line`);
+  const listing = readCrontab();
+  if (!listing.ok && listing.reason === "unreadable") {
+    if (!flags.has("--dry-run")) {
+      fail("install-global: crontab could not be read; the uninstall was not performed");
     }
+    console.log("install-global: dry run — crontab could not be read; the cron line would be left untouched");
+  }
+  const marker = readMarker();
+  const maintenance = maintenanceLane();
+  const proven = markerProvesDb(marker) && !maintenance;
+  const unitPaths = [systemdUnitPath(TRIGGER_UNITS.service), systemdUnitPath(TRIGGER_UNITS.timer)];
+  const units = unitPaths.filter((path) => existsSync(path));
+  const stamps = units.map((path) => unitStamp(path));
+  const foreignUnits = [
+    ...new Set(stamps.filter((stamp): stamp is string => stamp !== undefined && stamp !== TRIGGER_OWNER)),
+  ];
+  const ownedUnits =
+    units.length > 0 &&
+    stamps.every((stamp, index) => {
+      if (stamp === TRIGGER_OWNER) return true;
+      return stamp === undefined && proven && unitShapeOurs(units[index] as string);
+    });
+  const unstampedUnits = units.some(
+    (path, index) => stamps[index] === undefined && !(proven && unitShapeOurs(path)),
+  );
+  const lines = listing.ok ? listing.lines.filter((line) => line.trim() !== "") : [];
+  const tagged = lines.filter((line) => line.includes(TRIGGER_TAG));
+  const ownedCron = tagged.filter((line) => {
+    const owner = cronOwner(line);
+    if (owner === TRIGGER_OWNER) return true;
+    return owner === undefined && proven && cronShapeOurs(line);
+  });
+  const foreignOwners = [
+    ...new Set(
+      [...stamps, ...tagged.map((line) => cronOwner(line))].filter(
+        (owner): owner is string => owner !== undefined && owner !== TRIGGER_OWNER,
+      ),
+    ),
+  ];
+  const unstampedCron = tagged.some((line) => !cronOwner(line) && !ownedCron.includes(line));
+  const reportForeign = (): void => {
+    for (const owner of foreignOwners) {
+      if (owner === MAINTENANCE_OWNER && maintenance) {
+        console.log(
+          `install-global: the ${TRIGGER_TAG} schedule owned by ${owner} is preserved while ${MAINTENANCE_FILE} exists`,
+        );
+      } else {
+        printCleanup(owner);
+      }
+    }
+  };
+
+  if (flags.has("--dry-run")) {
+    if (ownedUnits) console.log(`install-global: dry run — would remove the ${TRIGGER_TAG} systemd timer`);
+    if (ownedCron.length > 0) {
+      console.log(`install-global: dry run — would remove ${ownedCron.length} tagged ${TRIGGER_TAG} cron line(s)`);
+    }
+    if (unstampedUnits) {
+      console.log(`install-global: dry run — ${TRIGGER_UNITS.service} has no owner stamp and would be left untouched`);
+    }
+    if (unstampedCron) {
+      console.log("install-global: dry run — a tagged cron line without an owner stamp would be left untouched");
+    }
+    reportForeign();
     return;
   }
-  if (unitIsOwned()) {
-    runTriggerCommand("systemctl", ["--user", "disable", "--now", "tawassul-db-maintenance.timer"]);
+  if (foreignUnits.length > 0) {
+    console.log(`install-global: the ${TRIGGER_TAG} unit pair is owned by ${foreignUnits.join(", ")} — left untouched`);
+  } else if (ownedUnits) {
+    runTriggerCommand("systemctl", ["--user", "disable", "--now", TRIGGER_UNITS.timer]);
     removeUnitFiles();
     runTriggerCommand("systemctl", ["--user", "daemon-reload"]);
-  } else if (existsSync(systemdUnitPath(TRIGGER_UNITS.service))) {
-    console.log(`install-global: ${TRIGGER_UNITS.service} exists but is not owned by this install — left untouched`);
+  } else if (unstampedUnits) {
+    console.log(`install-global: ${TRIGGER_UNITS.service} exists without an owner stamp — left untouched`);
   }
-  const listing = readCrontab();
-  const owned = listing.lines.filter((line) => line.includes(TRIGGER_TAG));
-  if (owned.length > 0) {
-    const kept = listing.lines.filter((line) => !line.includes(TRIGGER_TAG) && line.trim() !== "");
-    if (writeCrontab(kept)) console.log(`install-global: removed ${owned.length} tagged cron line(s)`);
+  if (ownedCron.length > 0) {
+    const kept = lines.filter((line) => !ownedCron.includes(line));
+    if (writeCrontab(kept)) console.log(`install-global: removed ${ownedCron.length} tagged cron line(s)`);
     else console.log("install-global: could not rewrite the crontab — the tagged cron line remains");
   }
+  if (unstampedCron) console.log("install-global: a tagged cron line without an owner stamp was left untouched");
+  reportForeign();
+}
+
+function unstampedOwnedArtifact(marker: Marker | undefined): boolean {
+  const proven = markerProvesDb(marker) && !maintenanceLane();
+  if (!proven) return false;
+  for (const name of [TRIGGER_UNITS.service, TRIGGER_UNITS.timer]) {
+    const path = systemdUnitPath(name);
+    if (existsSync(path) && unitStamp(path) === undefined && unitShapeOurs(path)) return true;
+  }
+  return readCrontab().lines.some(
+    (line) => line.includes(TRIGGER_TAG) && cronOwner(line) === undefined && cronShapeOurs(line),
+  );
 }
 
 function writeMarker(
@@ -822,7 +1086,7 @@ function writeMarker(
       bytes: bundleBytes.length,
     },
     wasm,
-    db,
+    ...(Object.keys(db).length > 0 ? { db } : {}),
     preflight: usesPosixDatabaseLane(installLane(process.platform)) ? preflightMarks() : {},
     trigger,
     installedAt: new Date().toISOString(),
@@ -924,9 +1188,10 @@ function install(): void {
   const bundle = requireBundle();
   const assets = resolveAssets();
   const wasm = assetRecords(assets);
-  const db = dbRecords();
-  const staleWasm = staleWasmFiles(wasm);
   const existing = readMarker();
+  const maintenance = posixDb && maintenanceLane();
+  const db = posixDb && !maintenance ? dbRecords() : {};
+  const staleWasm = staleWasmFiles(wasm);
   if (existsSync(TARGET) && !existing && !flags.has("--force")) {
     fail(`target exists without a Tawassul marker: ${TARGET} (use --force to replace)`);
   }
@@ -940,7 +1205,13 @@ function install(): void {
     );
     console.log(`install-global: dry run — would write ${assets.length} wasm assets under ${WASM_DIR}`);
     if (posixDb) {
-      console.log(`install-global: dry run — would write ${DB_SHIP.length} db scripts under ${DB_DIR}`);
+      if (maintenance) {
+        console.log(
+          `install-global: dry run — ${MAINTENANCE_FILE} owns the database lane; no db scripts would be written`,
+        );
+      } else {
+        console.log(`install-global: dry run — would write ${DB_SHIP.length} db scripts under ${DB_DIR}`);
+      }
     } else {
       console.log("install-global: dry run — Windows lane stages no db scripts");
     }
@@ -949,11 +1220,14 @@ function install(): void {
     }
     return;
   }
+  const triggerPlan = posixDb && !maintenance ? preflightTriggers(existing) : undefined;
   const pruned = pruneStaleWasm(wasm);
   if (pruned > 0) {
     console.log(`install-global: removed ${pruned} stale wasm file(s) under ${WASM_DIR}`);
   }
-  if (upToDate(existing, bundle.sha, wasm, bundle.sourceSha, bundle.contentSha, db)) {
+  const reconcile =
+    triggerPlan === "off" || (triggerPlan !== undefined && triggerPlan !== "manual" && unstampedOwnedArtifact(existing));
+  if (!reconcile && upToDate(existing, bundle.sha, wasm, bundle.sourceSha, bundle.contentSha, db)) {
     claimOwnership();
     console.log(
       `install-global: already installed at ${TARGET} ` +
@@ -964,7 +1238,7 @@ function install(): void {
   try {
     mkdirSync(PLUGIN_DIR, { recursive: true, mode: 0o700 });
     mkdirSync(RUNTIME, { recursive: true, mode: 0o700 });
-    if (posixDb) mkdirSync(DB_DIR, { recursive: true, mode: 0o700 });
+    if (posixDb && !maintenance) mkdirSync(DB_DIR, { recursive: true, mode: 0o700 });
   } catch (e) {
     const code = (e as NodeJS.ErrnoException)?.code ?? "unknown";
     fail(
@@ -983,7 +1257,7 @@ function install(): void {
     mkdirSync(dirname(asset.dest), { recursive: true, mode: 0o700 });
     writeAtomic(asset.dest, readFileSync(asset.source));
   }
-  if (posixDb) {
+  if (posixDb && !maintenance) {
     for (const item of DB_SHIP) {
       writeAtomic(join(DB_DIR, item.file), readFileSync(dbShipSource(item)), 0o700);
     }
@@ -991,9 +1265,9 @@ function install(): void {
   preflightLaptop();
   if (posixDb) {
     const dbPath = resolveDbPath();
-    const trigger = registerTriggers(dbPath);
+    const trigger = maintenance ? "manual" : registerTriggers(triggerPlan ?? "manual", dbPath);
     writeMarker(bundle.sha, wasm, db, bundle.sourceSha, bundle.contentSha, host.version, trigger);
-    dbSmoke(dbPath);
+    if (!maintenance) dbSmoke(dbPath);
   } else {
     secureWindowsKeyDir();
     writeMarker(bundle.sha, wasm, db, bundle.sourceSha, bundle.contentSha, host.version, "none");
@@ -1015,13 +1289,17 @@ function ownedRuntimeFiles(marker: Marker | undefined): string[] {
   files.add(MARKER_FILE);
   if (marker?.bundle?.path) files.add(fromMarker(marker.bundle.path));
   for (const record of Object.values(marker?.wasm ?? {})) files.add(fromMarker(record.path));
-  for (const record of Object.values(marker?.db ?? {})) files.add(fromMarker(record.path));
+  if (!maintenanceLane()) {
+    for (const record of Object.values(marker?.db ?? {})) files.add(fromMarker(record.path));
+  }
   return [...files].filter(insideGlobalDir);
 }
 
 function fallbackRuntimeFiles(): string[] {
   const files: string[] = [MARKER_FILE];
-  for (const item of DB_SHIP) files.push(join(DB_DIR, item.file));
+  if (!maintenanceLane()) {
+    for (const item of DB_SHIP) files.push(join(DB_DIR, item.file));
+  }
   for (const asset of ASSETS) files.push(join(WASM_DIR, asset.relative));
   return files;
 }
@@ -1157,6 +1435,13 @@ function uninstall(): void {
     return;
   }
   const marker = readMarker();
+  if (!targetExists && (!marker || marker.package !== PLUGIN_ID) && maintenanceLane()) {
+    console.log(
+      `install-global: no plugin installed at ${TARGET}; the database maintenance lane is managed by ` +
+        "install.sh --db-maintenance --uninstall",
+    );
+    return;
+  }
   if ((!marker || marker.package !== PLUGIN_ID) && !flags.has("--force")) {
     fail(`refusing to remove ${TARGET}: no Tawassul marker (use --force)`);
   }
@@ -1261,7 +1546,7 @@ async function verify(): Promise<void> {
       fail(`wasm hash mismatch for ${asset.id}: run npm run install:global`);
     }
   }
-  if (usesPosixDatabaseLane(installLane(process.platform))) {
+  if (usesPosixDatabaseLane(installLane(process.platform)) && !maintenanceLane()) {
     if (!marker.db || Object.keys(marker.db).length !== DB_SHIP.length) {
       fail(`marker has no db payload — reinstall (npm run install:global) to stage tawassul-runtime/db`);
     }

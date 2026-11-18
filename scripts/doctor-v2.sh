@@ -174,15 +174,102 @@ PY
   else
     info "no global runtime marker at $MARKER_DB (project install or not installed)"
   fi
+  MARKER_MAINT="$CONFIG_BASE/opencode/tawassul-runtime/db/MAINTENANCE"
+  MAINT_GAP=""
+  if [ -f "$MARKER_MAINT" ]; then
+    maint_package="$(sed -n 's/.*"package"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MARKER_MAINT" | head -n1)"
+    maint_lane="$(sed -n 's/.*"lane"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MARKER_MAINT" | head -n1)"
+    maint_version="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MARKER_MAINT" | head -n1)"
+    maint_trigger="$(sed -n 's/.*"trigger"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MARKER_MAINT" | head -n1)"
+    maint_db="$(sed -n 's/.*"db"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MARKER_MAINT" | head -n1)"
+    MAINT_GAP="$(sed -n 's/.*"gapSeconds"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$MARKER_MAINT" | head -n1)"
+    if [ "$maint_package" != "tawassul-v2" ]; then
+      warn "maintenance marker does not declare package tawassul-v2: $MARKER_MAINT"
+    fi
+    info "maintenance lane: version=${maint_version:-unknown} lane=${maint_lane:-unknown} trigger=${maint_trigger:-unknown} gap=${MAINT_GAP:-86400}s"
+    info "maintenance db: ${maint_db:-unknown}"
+    maint_dir="$(dirname "$MARKER_MAINT")"
+    for maint_file in db-env.sh doctor-v2.sh guard-db-generation.sh opencode-db-maintenance.sh opencode-db-scheduled.sh; do
+      [ -f "$maint_dir/$maint_file" ] || warn "maintenance lane incomplete: $maint_dir/$maint_file"
+    done
+    maint_flat="$CONFIG_BASE/opencode/plugins/tawassul.js"
+    maint_project="$ROOT/.opencode/plugins/tawassul.js"
+    if [ ! -f "$maint_flat" ] && [ ! -f "$maint_project" ]; then
+      info "standalone maintenance lane (no plugin required): remove it with install.sh --db-maintenance --uninstall"
+    fi
+  else
+    info "no maintenance lane marker at $MARKER_MAINT"
+  fi
+  GAP_SECONDS="${TAWASSUL_DB_GAP_SECONDS:-}"
+  case "$GAP_SECONDS" in
+    '') ;;
+    *[!0-9]*) warn "TAWASSUL_DB_GAP_SECONDS is not a non-negative integer; using the marker value"; GAP_SECONDS="" ;;
+  esac
+  if [ -z "$GAP_SECONDS" ]; then
+    GAP_SECONDS="$MAINT_GAP"
+    case "$GAP_SECONDS" in ''|*[!0-9]*) GAP_SECONDS=86400 ;; esac
+  fi
+  UNIT_BASE="$CONFIG_BASE/systemd/user"
+  SERVICE_FILE="$UNIT_BASE/tawassul-db-maintenance.service"
+  TIMER_FILE="$UNIT_BASE/tawassul-db-maintenance.timer"
+  MAINT_OWNERS_REPORTED=" "
+  maint_owner_label() {
+    case "$1" in
+      '') printf 'owner=unknown' ;;
+      install.sh-db-maintenance|install-global) printf 'owner=%s' "$1" ;;
+      *) printf 'foreign owner (%s)' "$1" ;;
+    esac
+  }
+  maint_cleanup() {
+    owner="$1"
+    mechanism="$2"
+    case "$MAINT_OWNERS_REPORTED" in
+      *" ${mechanism}:${owner:-unknown} "*) return 0 ;;
+    esac
+    MAINT_OWNERS_REPORTED="$MAINT_OWNERS_REPORTED${mechanism}:${owner:-unknown} "
+    case "$mechanism" in
+      systemd) info "cleanup (owner=${owner:-unknown}): systemctl --user disable --now tawassul-db-maintenance.timer; rm -f '$SERVICE_FILE' '$TIMER_FILE'; systemctl --user daemon-reload" ;;
+      cron) info "cleanup (owner=${owner:-unknown}): crontab -l | grep -vF '# tawassul-db-maintenance owner=${owner:-unknown}' | crontab -" ;;
+    esac
+  }
+  maint_schedule_path() {
+    case "$1" in
+      *"'"*opencode-db-scheduled.sh*) printf '%s' "$1" | sed -n "s/.*'\([^']*opencode-db-scheduled\.sh\)'.*/\1/p" | head -n1 ;;
+      *'"'*opencode-db-scheduled.sh*) printf '%s' "$1" | sed -n 's/.*"\([^"]*opencode-db-scheduled\.sh\)".*/\1/p' | head -n1 ;;
+      *) printf '%s' "$1" | sed -n 's/.*[[:space:]]\([^[:space:]]*opencode-db-scheduled\.sh\).*/\1/p' | head -n1 ;;
+    esac
+  }
   if command -v systemctl >/dev/null 2>&1; then
     trigger_state="$(systemctl --user is-enabled "$TAG.timer" 2>/dev/null || printf 'not-found')"
-    info "systemd trigger: tawassul-db-maintenance.timer is $trigger_state"
+    if [ -f "$SERVICE_FILE" ]; then
+      unit_own="$(sed -n '1s/^# tawassul-owner: *//p' "$SERVICE_FILE")"
+      info "systemd trigger: tawassul-db-maintenance.timer is $trigger_state $(maint_owner_label "$unit_own")"
+      unit_path="$(maint_schedule_path "$(grep -m1 '^ExecStart=' "$SERVICE_FILE" || true)")"
+      if [ -n "$unit_path" ] && [ ! -f "$unit_path" ]; then
+        warn "stale maintenance schedule: systemd -> $unit_path (missing)"
+        maint_cleanup "$unit_own" systemd
+      fi
+    else
+      info "systemd trigger: tawassul-db-maintenance.timer is $trigger_state (no service unit at $SERVICE_FILE)"
+    fi
   else
     info "systemd trigger: systemctl missing"
   fi
   if command -v crontab >/dev/null 2>&1; then
-    if crontab -l 2>/dev/null | grep -Fq "$TAG"; then
-      info "cron trigger: found (tagged line)"
+    cron_lines="$(crontab -l 2>/dev/null | grep -F "$TAG" || true)"
+    if [ -n "$cron_lines" ]; then
+      while IFS= read -r cron_line; do
+        [ -n "$cron_line" ] || continue
+        cron_own="$(printf '%s\n' "$cron_line" | sed -n 's/.*# tawassul-db-maintenance owner=\([^ ]*\).*/\1/p' | head -n1)"
+        info "cron trigger: found (tagged line) $(maint_owner_label "$cron_own")"
+        cron_path="$(maint_schedule_path "$cron_line")"
+        if [ -n "$cron_path" ] && [ ! -f "$cron_path" ]; then
+          warn "stale maintenance schedule: cron -> $cron_path (missing)"
+          maint_cleanup "$cron_own" cron
+        fi
+      done <<EOF
+$cron_lines
+EOF
     else
       info "cron trigger: absent"
     fi
@@ -196,7 +283,7 @@ PY
     stamp_at="$(sed -n 's/^at=//p' "$MAINT_STAMP" | head -n1)"
     stamp_mt="$(tawassul_mtime_epoch "$MAINT_STAMP" 2>/dev/null || printf 0)"
     stamp_age="stale"
-    if [ "$stamp_mt" -gt 0 ] && [ "$(( $(date +%s) - stamp_mt ))" -lt 86400 ]; then stamp_age="fresh"; fi
+    if [ "$stamp_mt" -gt 0 ] && [ "$(( $(date +%s) - stamp_mt ))" -lt "$GAP_SECONDS" ]; then stamp_age="fresh"; fi
     info "last scheduled run: rc=$stamp_rc at=$stamp_at ($stamp_age): $MAINT_STAMP"
   else
     info "last scheduled run: no stamp yet ($MAINT_STAMP)"

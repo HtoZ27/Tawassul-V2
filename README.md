@@ -97,9 +97,19 @@ sh install.sh --global --dry-run
 sh install.sh --global
 ```
 
-The installer verifies the bundle and the runtime archive against
+The standalone database maintenance lane installs on its own, with no plugin
+and no workspace:
+
+```sh
+sh install.sh --db-maintenance --dry-run
+sh install.sh --db-maintenance
+```
+
+The installer verifies the bundle, the runtime archive, and — for
+`--db-maintenance` — the maintenance archive against
 `SHA256SUMS`, stages the four wasm grammars, and never edits `opencode.json`.
-`sh install.sh --global --uninstall` reverses it. See
+`sh install.sh --global --uninstall` reverses a plugin install, and
+`sh install.sh --db-maintenance --uninstall` removes the lane. See
 [docs/installation.md](docs/installation.md#release-installer).
 
 From a source checkout:

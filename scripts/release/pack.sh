@@ -88,6 +88,21 @@ for rel in $WASM_FILES; do
   cp "$(wasm_source "$rel")" "$PKG/tawassul-runtime/wasm/$rel"
 done
 
+DB_MAINTENANCE_NAME="tawassul-db-maintenance-$VERSION"
+DB_FILES="
+db-env.sh
+doctor-v2.sh
+guard-db-generation.sh
+opencode-db-maintenance.sh
+opencode-db-scheduled.sh
+"
+mkdir -p "$STAGE/maintenance/tawassul-db-maintenance"
+for file in $DB_FILES; do
+  [ -f "$REPO/scripts/$file" ] || fail "missing db script source for $file"
+  cp "$REPO/scripts/$file" "$STAGE/maintenance/tawassul-db-maintenance/$file"
+done
+tar_create "$OUT/$DB_MAINTENANCE_NAME.tar.gz" "$STAGE/maintenance" tawassul-db-maintenance
+
 VERSION="$VERSION" node -e '
 const fs = require("node:fs");
 const manifest = {
@@ -126,13 +141,14 @@ SOURCE_DATE_EPOCH="$MOUNT_EPOCH" bun "$REPO/scripts/gen-sbom.ts" --out "$OUT/$NA
 (
   cd "$OUT"
   rm -f SHA256SUMS
-  sha256sum "$NAME.tgz" "$RUNTIME_NAME.tar.gz" "$NAME.global.js" "$NAME.index.js" \
+  sha256sum "$NAME.tgz" "$RUNTIME_NAME.tar.gz" "$DB_MAINTENANCE_NAME.tar.gz" "$NAME.global.js" "$NAME.index.js" \
     "$NAME.cdx.json" "VERSION" "NOTICE.md" | LC_ALL=C sort -k2 > SHA256SUMS
 )
 
 echo "pack: wrote $OUT ($NAME)"
 echo "pack:   $NAME.tgz"
 echo "pack:   $RUNTIME_NAME.tar.gz"
+echo "pack:   $DB_MAINTENANCE_NAME.tar.gz"
 echo "pack:   $NAME.global.js"
 echo "pack:   $NAME.index.js"
 echo "pack:   $NAME.cdx.json"

@@ -68,7 +68,7 @@ sh install.sh --project /path/to/workspace
 | Asset | Use |
 | --- | --- |
 | `tawassul-0.1.3-experimental.global.js` | The bundle the installer verifies and installs |
-| `tawassul-runtime-0.1.3-experimental.tar.gz` | The staging runtime: wasm grammars and database scripts |
+| `tawassul-runtime-0.1.3-experimental.tar.gz` | The staging runtime: four wasm grammars |
 | `tawassul-0.1.3-experimental.index.js` | The plugin entry for a project build |
 | `tawassul-0.1.3-experimental.tgz` | The package as npm would see it, for inspection |
 | `SHA256SUMS`, `VERSION`, `NOTICE.md`, `.cdx.json` | Checksums, version stamp, third-party notices, SBOM |

@@ -93,9 +93,19 @@ For a project scope, name the workspace:
 sh install.sh --project /path/to/workspace
 ```
 
+A standalone daily database maintenance lane is a third mode. It installs no
+plugin and needs no workspace:
+
+```bash
+sh install.sh --db-maintenance --dry-run
+sh install.sh --db-maintenance
+sh install.sh --db-maintenance --uninstall
+```
+
 The installer downloads the bundle and the runtime archive from the GitHub
 release, verifies both against `SHA256SUMS`, refuses when the expected hash is
-unavailable, and stages the flat layout:
+unavailable, and stages the flat layout. `--db-maintenance` downloads
+`tawassul-db-maintenance-<version>.tar.gz` instead and verifies it the same way.
 
 | Path | Content |
 | --- | --- |
@@ -109,15 +119,72 @@ instead of the network, for an offline or audited install. `--release <v>`
 installs a different version. `--dry-run` prints the plan and writes nothing.
 `--version` prints the installer version.
 
-The release installer stages the bundle and the grammars. It does not register
-the scheduled database maintenance trigger and does not probe the host version;
-the repository installer above does both. Use the repository installer from a
-source checkout when you want that lane.
+The release installer stages the bundle and the grammars. `--global` and
+`--project` do not register the scheduled database maintenance trigger and do
+not probe the host version; the repository installer above does both.
+`--db-maintenance` is the exception: it registers the schedule and installs no
+plugin at all. Use the repository installer from a source checkout when you
+want the plugin and the lane together.
 
 A second run replaces the same files and produces the same layout. An uninstall
 removes the bundle, the four grammars, and the marker, and keeps every file the
 installer did not write. Neither installer edits `opencode.json` or
 `opencode.jsonc`.
+
+### Database maintenance lane
+
+`--db-maintenance` installs one global, standalone lane: the five scripts under
+`<config>/opencode/tawassul-runtime/db/` and a `MAINTENANCE` marker beside them.
+It writes no plugin bundle, no `VERSION` marker, and no project configuration,
+so it works on a host that never installs the plugin.
+
+The target is the desktop sidecar database,
+`<data>/opencode/tawassul-v2/opencode.db`, and it must already exist: the host
+creates it on first launch. The installer refuses a symlinked or foreign path,
+and it refuses a home that has never started the host once. Pass `--db` to name
+a different sidecar database.
+
+The daily run is registered with a systemd user timer when available and a cron
+line otherwise. `TAWASSUL_REGISTER_TRIGGERS` chooses the mechanism: `auto` (the
+default), `systemd`, `cron`, `manual`, or `off`. A schedule owned by another
+installer is never overwritten silently: under `auto` the lane stays `manual`
+and names the schedule's owner, while a forced `systemd` or `cron` fails
+loudly. `--force` takes the schedule over and re-stamps it.
+
+Under a `--prefix` that is not the real config root, registration is `manual`:
+nothing is written to the host's user units or crontab, the marker records
+`"trigger": "manual"`, and the installer prints the command that runs the lane.
+Such an installation appears only in that prefix's doctor report; when the
+prefix resolves to the real config root, the real doctor reports it.
+
+`TAWASSUL_DB_GAP_SECONDS` sets the minimum interval between runs; the marker's
+`gapSeconds` is the fallback, and 86400 seconds is the default.
+`TAWASSUL_DB_MAINTENANCE=off` installs the scripts without a schedule, removes a
+schedule this lane owns, and records `"trigger": "off"`.
+
+### Removing the lane
+
+The lane is global and standalone. Deleting the plugin file, ending a project,
+or deleting a project directory does not remove its scripts, `MAINTENANCE`,
+timer, or cron line, and the daily run continues. Remove it with:
+
+```bash
+sh install.sh --db-maintenance --uninstall
+```
+
+A project install is removed with `sh install.sh --project <dir> --uninstall`.
+If the runtime directory was deleted by hand, `doctor` reports
+`stale maintenance schedule: <mechanism> -> <path> (missing)` and prints the
+exact, owner-matched cleanup command; it never edits a schedule it does not own.
+
+`--db-maintenance` and the plugin coexist in either order; when the plugin
+installed the scripts first, pass `--force` so the lane takes them and the
+schedule over. When a repository `VERSION` marker records the database lane,
+`--db-maintenance --uninstall` removes only `MAINTENANCE` and keeps the shared
+scripts, because that marker still points at them. `install-global` does the
+mirror image: while `MAINTENANCE` exists it installs the bundle and grammars,
+skips the database scripts, timer, and cron line, and preserves them on
+uninstall.
 
 ### What the installer writes
 
@@ -125,7 +192,7 @@ installer did not write. Neither installer edits `opencode.json` or
 | --- | --- | --- |
 | `~/.config/opencode/plugins/tawassul.js` | The plugin bundle | Yes |
 | `~/.config/opencode/tawassul-runtime/wasm/` | Four wasm files (one runtime, three grammars) | Yes |
-| `~/.config/opencode/tawassul-runtime/db/` | Database scripts (POSIX only) | Yes |
+| `~/.config/opencode/tawassul-runtime/db/` | Database scripts and `MAINTENANCE`, written by `--db-maintenance` and by the repository installer (POSIX only) | `--db-maintenance --uninstall` removes them; `install-global --uninstall` preserves them while `MAINTENANCE` exists |
 | `~/.config/opencode/tawassul-runtime/VERSION` | Marker: version, hashes, owner, host | Yes |
 
 The installer records what it wrote, so an uninstall removes exactly that set
@@ -143,6 +210,8 @@ config or project agent files. Global `addagent` and `kick` write the roster to
 | Variable | Effect |
 | --- | --- |
 | `TAWASSUL_GLOBAL_DIR` | Install under this config root instead of the default |
+| `TAWASSUL_REGISTER_TRIGGERS` | Schedule mechanism for `--db-maintenance`: `auto`, `systemd`, `cron`, `manual`, or `off` |
+| `TAWASSUL_DB_GAP_SECONDS` | Minimum seconds between scheduled maintenance runs (default 86400) |
 | `OPENCODE_BIN` | Path to the host binary the installer probes for a version |
 | `TAWASSUL_OPENCODE_VERSION` | Pin the host version instead of probing it |
 | `TAWASSUL_ASSET_ROOTS` | Extra search roots for the wasm grammars |

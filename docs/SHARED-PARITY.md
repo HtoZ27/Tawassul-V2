@@ -28,7 +28,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-003 | Every tool execute result is converted from the v1 shape to the v2 shape. | `src/v2/adapters.ts:108` `toV2Result` | `scripts/prove-v2-compat.ts` | verified |
 | S-004 | Setup aborts before registration when the host lacks the session or tool domain. | `src/v2/setup.ts:493` `host missing required domains` | `scripts/prove-host-entry.ts` | verified |
 | S-005 | The role to tool matrix is ported without an i18n or NLP dependency. | `src/role-matrix.ts:40` `TAWASSUL_TOOL_ROLES` | `scripts/prove-s005.ts`, `scripts/prove-s013.ts` | verified |
-| S-006 | Model display names are English-only with no bilingual shape or lang parameter. | `src/core/model-registry.ts:91` `MODEL_DISPLAY_NAMES` | `scripts/prove-feature-index-english.ts` | verified |
+| S-006 | Model display names are English-only with no bilingual shape or lang parameter. | `src/core/model-registry.ts:81` `MODEL_DISPLAY_NAMES` | `scripts/prove-feature-index-english.ts` | verified |
 | S-007 | A full-tree port must never overwrite hand-fixed files. | - | - | n-a |
 | S-008 | The translations loader is English-canonical, ships the Arabic table for runtime languages, and has no logger dependency. | `src/translations.ts:4` `LANGUAGES` | `scripts/prove-feature-index-english.ts` | verified |
 | S-009 | The entry carries no v1 server member; the v2 host initializes through setup. | `src/index.ts:7` `export const tawassul: Plugin.Plugin = {` | `scripts/prove-host-entry.ts` | verified |
@@ -51,7 +51,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-025 | The round-2 findings are ported and no blocker remains. | `src/services/ask-channel-parse.ts:16` `YES_RE` | `scripts/prove-s024.ts` | verified |
 | S-026 | The rule gate rejects comments, Arabic literals, and glued directives. | `scripts/check-v2-rules.mjs:9` `ARABIC_RE` | `scripts/prove-rule-gate.ts` | verified |
 | S-027 | The S-022 closure was re-verified bilaterally. | - | - | doc-only |
-| S-028 | The provider model cache is the source of truth for suffix governance. | `src/core/model-registry.ts:158` `getProviderModelTokens` | `scripts/prove-s028.ts` | verified |
+| S-028 | The provider model cache is the source of truth for suffix governance. | `src/core/model-registry.ts:154` `getProviderModelTokens` | `scripts/prove-s028.ts` | verified |
 | S-029 | R7 variant pins, dispatch precedence, dotted suffixes, and the log default are ported. | `src/tools/agent-management.ts:223` `computePinEntries` | `scripts/prove-s029.ts` | verified |
 | S-030 | The live roster follows config-derived deletion plus additive generation. | `src/scripts/gen-opencode-config.ts:272` `export function derivedExpectedCount` | `scripts/prove-s029.ts`, `scripts/prove-gen-merge-guards.ts` | verified |
 | S-031 | The documented install path materializes the plugin entry on every build. | `build-v2.mjs:133` `tawassul.js` | `scripts/release-smoke.sh` | verified |
@@ -94,7 +94,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-054 | The frozen boot-scorecard fixes are ported. | `scripts/boot-scorecard-v2.sh:30` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
 | S-055 | The v1 docs and atomic backlog is triaged before retirement. | - | - | doc-only |
 | S-056 | The legacy state directory and fallback reads are removed; HMAC key and signature compatibility remain. | `src/utils/state-paths.ts:41` `export function statePath(` | `scripts/prove-v2-independence.ts`, `scripts/prove-s017.ts` | verified |
-| S-057 | The addagent advisory consults the provider before warning about an unknown model. | `src/core/model-registry.ts:192` `shouldWarnUnverifiedModel` | `scripts/prove-s028.ts` | verified |
+| S-057 | The addagent advisory consults the provider before warning about an unknown model. | `src/core/model-registry.ts:188` `shouldWarnUnverifiedModel` | `scripts/prove-s028.ts` | verified |
 
 ## Open items
 

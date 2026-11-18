@@ -14,9 +14,12 @@ The host discovers the bundle without any configuration edit:
 | Global | `<config>/opencode/plugins/tawassul.js` | `<config>/opencode/tawassul-runtime/` |
 
 `<config>` is the OpenCode configuration root, `~/.config` by default. The
-runtime directory holds the four wasm files (one runtime, three grammars) and,
-on POSIX, the database scripts. The plugin directory must exist before the host
-starts; the installer creates it.
+runtime directory holds the four wasm files (one runtime, three grammars).
+The repository installer also stages the database scripts under
+`tawassul-runtime/db/` on POSIX; the release installer stages no database
+scripts in its `--project` and `--global` modes, while its `--db-maintenance`
+mode stages those five scripts and no plugin. The plugin directory must exist
+before the host starts; the installer creates it.
 
 The entry file is a real file, not a symlink. A symlinked entry is reported as a
 failure by `doctor`, because a link can point outside the install and disappear

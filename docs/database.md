@@ -122,6 +122,49 @@ The soft limit, target, cap, backup directory, and database path are overridable
 with `TAWASSUL_SOFT_BYTES`, `TAWASSUL_TARGET_BYTES`, `TAWASSUL_CAP_BYTES`,
 `TAWASSUL_BACKUP_DIR`, and `OPENCODE_DB`.
 
+## The standalone maintenance lane
+
+`sh install.sh --db-maintenance` installs the same five scripts as one global
+lane, without the plugin: the scripts and a `MAINTENANCE` marker under
+`<config>/opencode/tawassul-runtime/db/`. It targets the desktop sidecar
+database, `<data>/opencode/tawassul-v2/opencode.db`, which must exist already —
+the host creates it on first launch. Pass `--db` to name a different sidecar
+database.
+
+The daily run is registered with a systemd user timer when available and a cron
+line otherwise; `TAWASSUL_REGISTER_TRIGGERS` chooses `auto` (the default),
+`systemd`, `cron`, `manual`, or `off`. A schedule owned by another installer is
+never overwritten silently. Under `auto` the lane stays `manual` and names the
+schedule's owner; a forced `systemd` or `cron` fails loudly. `--force` takes
+the schedule over and re-stamps it.
+
+`TAWASSUL_DB_GAP_SECONDS` sets the minimum interval between runs, the marker's
+`gapSeconds` is the fallback, and 86400 seconds is the default.
+`TAWASSUL_DB_MAINTENANCE=off` installs the scripts without a schedule, removes a
+schedule this lane owns, and records `"trigger": "off"`.
+
+The lane coexists with the plugin in either order; when the plugin installed
+the scripts first, pass `--force` so the lane takes them and the schedule over.
+When a repository `VERSION` marker records the database lane,
+`--db-maintenance --uninstall` removes only `MAINTENANCE` and keeps the shared
+scripts; `install-global` skips the database lane and preserves it on uninstall
+while `MAINTENANCE` exists.
+
+### Removing it by hand
+
+The lane is global and standalone. Deleting the plugin file, ending a project,
+or deleting a project directory does not remove its scripts, `MAINTENANCE`,
+timer, or cron line, and the daily run continues. Remove it with:
+
+```bash
+sh install.sh --db-maintenance --uninstall
+```
+
+A project install is removed with `sh install.sh --project <dir> --uninstall`.
+If the runtime directory was deleted by hand, `doctor` reports
+`stale maintenance schedule: <mechanism> -> <path> (missing)` and prints the
+exact, owner-matched cleanup command; it never edits a schedule it does not own.
+
 ## The in-process trigger
 
 On a POSIX host the plugin arms a trigger at init. It checks every six hours,

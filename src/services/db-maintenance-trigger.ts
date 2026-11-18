@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dataRoot } from "../bootstrap/db-isolation.ts";
@@ -8,7 +8,7 @@ import { logger } from "../utils/logger.ts";
 
 const RUN_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const STALE_LOCK_MS = 3 * 60 * 60 * 1000;
-const MIN_RUN_GAP_MS = 24 * 60 * 60 * 1000;
+let gapEnvWarned = false;
 
 function dbMaintenanceRoot(): string {
   return resolve(dataRoot(), "tawassul-v2", "db-maintenance");
@@ -47,78 +47,209 @@ function dbExists(): boolean {
   return existsSync(override || resolve(dataRoot(), "opencode", "opencode.db"));
 }
 
-function stampFresh(): boolean {
+function gapSeconds(projectDir: string): number {
+  const env = process.env.TAWASSUL_DB_GAP_SECONDS?.trim();
+  if (env) {
+    const value = Number(env);
+    if (Number.isInteger(value) && value >= 0) return value;
+    if (!gapEnvWarned) {
+      gapEnvWarned = true;
+      logger.warn("[tawassul] TAWASSUL_DB_GAP_SECONDS is not a non-negative integer; using the marker value");
+    }
+  }
+  const script = laneScript(projectDir);
+  if (script) {
+    try {
+      const parsed = JSON.parse(readFileSync(resolve(dirname(script), "MAINTENANCE"), "utf-8")) as {
+        gapSeconds?: unknown;
+      };
+      const value = parsed.gapSeconds;
+      if (typeof value === "number" && Number.isInteger(value) && value >= 0) return value;
+    } catch {
+      return 86400;
+    }
+  }
+  return 86400;
+}
+
+function stampFresh(projectDir: string): boolean {
   try {
-    return Date.now() - statSync(stampPath()).mtimeMs < MIN_RUN_GAP_MS;
+    return Date.now() - statSync(stampPath()).mtimeMs < gapSeconds(projectDir) * 1000;
   } catch {
     return false;
   }
 }
 
-function lockOwnerAlive(lock: string): boolean | undefined {
+function readPid(file: string): number | undefined {
   try {
-    const raw = readFileSync(resolve(lock, "pid"), "utf-8").trim();
+    const raw = readFileSync(file, "utf-8").trim();
     const pid = Number(raw);
-    if (!Number.isInteger(pid) || pid <= 0) return undefined;
-    try {
-      process.kill(pid, 0);
-      return true;
-    } catch {
-      return false;
-    }
+    return Number.isInteger(pid) && pid > 0 ? pid : undefined;
   } catch {
     return undefined;
   }
 }
 
-function acquireLock(): boolean {
-  const lock = lockPath();
-  mkdirSync(dirname(lock), { recursive: true });
+function readAt(file: string): number | undefined {
   try {
-    mkdirSync(lock);
+    const raw = readFileSync(file, "utf-8").trim();
+    const at = Number(raw);
+    return Number.isInteger(at) && at >= 0 ? at : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
     return true;
+  } catch {
+    return false;
+  }
+}
+
+function lockState(lock: string): "alive" | "dead" | "unknown" {
+  const pid = readPid(resolve(lock, "pid"));
+  if (pid === undefined) return "unknown";
+  return pidAlive(pid) ? "alive" : "dead";
+}
+
+function lockMtime(lock: string): number | undefined {
+  try {
+    return statSync(lock).mtimeMs;
+  } catch {
+    return undefined;
+  }
+}
+
+function reclaimStale(mutex: string): boolean {
+  const pid = readPid(resolve(mutex, "pid"));
+  const at = readAt(resolve(mutex, "at"));
+  const now = Date.now();
+  if (pid !== undefined) {
+    if (!pidAlive(pid)) return true;
+    if (at !== undefined && now / 1000 - at > 120) return true;
+    return false;
+  }
+  if (at !== undefined && now / 1000 - at > 120) return true;
+  const mtime = lockMtime(mutex);
+  return mtime !== undefined && now - mtime > STALE_LOCK_MS;
+}
+
+function writePid(dir: string, pid: number): void {
+  try {
+    writeFileSync(resolve(dir, "pid"), `${pid}\n`, { mode: 0o600 });
+  } catch {
+    return;
+  }
+}
+
+function takeMutex(mutex: string): boolean {
+  try {
+    mkdirSync(mutex);
   } catch (error) {
-    const err = error as { code?: string };
-    if (err.code !== "EEXIST") throw error;
-    const alive = lockOwnerAlive(lock);
-    if (alive === true) return false;
-    if (alive === undefined) {
-      try {
-        if (Date.now() - statSync(lock).mtimeMs < STALE_LOCK_MS) return false;
-      } catch {
-        return false;
-      }
-    }
-    rmSync(lock, { recursive: true, force: true });
+    if ((error as NodeJS.ErrnoException)?.code !== "EEXIST") return false;
+    if (!reclaimStale(mutex)) return false;
+    rmSync(mutex, { recursive: true, force: true });
     try {
-      mkdirSync(lock);
-      return true;
+      mkdirSync(mutex);
     } catch {
       return false;
     }
   }
+  writePid(mutex, process.pid);
+  try {
+    writeFileSync(resolve(mutex, "at"), `${Math.floor(Date.now() / 1000)}\n`, { mode: 0o600 });
+  } catch {
+    return true;
+  }
+  return true;
 }
 
-function recordLockOwner(pid: number | undefined): void {
-  if (pid === undefined) return;
+function sweepStaleTombstones(root: string): void {
+  let entries: string[];
   try {
-    writeFileSync(resolve(lockPath(), "pid"), `${pid}\n`, { mode: 0o600 });
+    entries = readdirSync(root);
   } catch {
     return;
   }
+  for (const entry of entries) {
+    if (!entry.startsWith("trigger.lock.stale.")) continue;
+    const path = resolve(root, entry);
+    const mtime = lockMtime(path);
+    if (mtime !== undefined && Date.now() - mtime > STALE_LOCK_MS) {
+      rmSync(path, { recursive: true, force: true });
+    }
+  }
 }
 
-function releaseLock(): void {
+function acquireLock(): boolean {
+  const lock = lockPath();
+  const root = dbMaintenanceRoot();
+  mkdirSync(root, { recursive: true });
+  sweepStaleTombstones(root);
   try {
-    rmSync(lockPath(), { recursive: true, force: true });
-  } catch {
-    return;
+    mkdirSync(lock);
+    writePid(lock, process.pid);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code !== "EEXIST") throw error;
+  }
+  const initial = lockState(lock);
+  if (initial === "alive") return false;
+  if (initial === "unknown") {
+    const mtime = lockMtime(lock);
+    if (mtime === undefined || Date.now() - mtime < STALE_LOCK_MS) return false;
+  }
+  const mutex = `${lock}.reclaim`;
+  if (!takeMutex(mutex)) return false;
+  try {
+    const again = lockState(lock);
+    if (again === "alive") return false;
+    if (again === "unknown") {
+      const mtime = lockMtime(lock);
+      if (mtime === undefined || Date.now() - mtime < STALE_LOCK_MS) return false;
+    }
+    const tombstone = `${lock}.stale.${process.pid}`;
+    try {
+      renameSync(lock, tombstone);
+    } catch {
+      return false;
+    }
+    rmSync(tombstone, { recursive: true, force: true });
+    try {
+      mkdirSync(lock);
+    } catch {
+      return false;
+    }
+    writePid(lock, process.pid);
+    return true;
+  } finally {
+    rmSync(mutex, { recursive: true, force: true });
+  }
+}
+
+function recordLockOwner(pid: number): void {
+  writePid(lockPath(), pid);
+}
+
+function releaseLock(pid: number): void {
+  const lock = lockPath();
+  if (readPid(resolve(lock, "pid")) !== pid) return;
+  const mutex = `${lock}.reclaim`;
+  if (!takeMutex(mutex)) return;
+  try {
+    if (readPid(resolve(lock, "pid")) !== pid) return;
+    rmSync(lock, { recursive: true, force: true });
+  } finally {
+    rmSync(mutex, { recursive: true, force: true });
   }
 }
 
 function attemptRun(projectDir: string, why: string): void {
   try {
-    if (stampFresh()) return;
+    if (stampFresh(projectDir)) return;
     const script = laneScript(projectDir);
     if (!script) {
       logger.debug("[tawassul] db maintenance lane script missing — retry next cycle");
@@ -134,13 +265,15 @@ function attemptRun(projectDir: string, why: string): void {
       stdio: "ignore",
       env: { ...process.env, TAWASSUL_TRIGGER_LOCK: lockPath() },
     });
-    recordLockOwner(child.pid);
+    const owner = child.pid ?? process.pid;
+    recordLockOwner(owner);
     child.unref();
-    child.on("error", releaseLock);
+    child.on("error", () => releaseLock(owner));
+    child.on("exit", () => releaseLock(owner));
     logger.debug(`[tawassul] db maintenance spawned (${why})`);
   } catch (error) {
     logger.debug("[tawassul] db maintenance trigger skipped:", (error as Error)?.message ?? error);
-    releaseLock();
+    releaseLock(process.pid);
   }
 }
 
