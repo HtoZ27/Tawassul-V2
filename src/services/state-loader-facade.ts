@@ -6,6 +6,7 @@ import type { AgentRating } from "../context/types.ts";
 import type { TawaOrchestratorContext } from "../core/service-context.ts";
 import { normalizeName } from "../utils/name-utils.ts";
 import { logger } from "../utils/logger.ts";
+import { registerDynamicRoles, resetDynamicRoles } from "../utils/agent.ts";
 import { MAX_DYNAMIC_AGENTS_DEFAULT } from "../context/constants.ts";
 import { walReplay, loadFeatureIndex } from "./state-loader.ts";
 
@@ -64,6 +65,8 @@ export async function loadAllState(ctx: TawaOrchestratorContext): Promise<void> 
   ctx.agentManager.dynamicAgents = [
     ...new Set((result.dynamicAgents ?? []).map((n) => normalizeName(n)).filter(Boolean)),
   ];
+  resetDynamicRoles();
+  registerDynamicRoles(ctx.agentManager.dynamicAgents);
   const normalizedModelMap: Record<string, string> = {};
   for (const [k, v] of Object.entries(result.agentModelMap ?? {})) {
     normalizedModelMap[normalizeName(k)] = v;

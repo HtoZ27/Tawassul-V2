@@ -26,7 +26,7 @@ import {
   type InstallScope,
 } from "../utils/path-resolver.ts";
 import { normalizeName } from "../utils/name-utils.ts";
-import { resolveRole } from "../utils/agent.ts";
+import { resolveRole, registerDynamicRoles, unregisterDynamicRoles } from "../utils/agent.ts";
 import { atomicWriteFile } from "../utils/atomic.ts";
 import type { TawassulContext } from "../context.ts";
 import type { ToolDefinition, ToolContext } from "../tool.ts";
@@ -380,6 +380,7 @@ async function addSingleAgent(ctx: TawassulContext, spec: string, fullModel: str
   if (!(BASE_ROLE_NAMES as ReadonlySet<string>).has(tag) && !ctx.dynamicAgents.includes(tag)) {
     ctx.dynamicAgents.push(tag);
   }
+  registerDynamicRoles([tag]);
   ctx.agentModelMap[normalizeName(tag)] = fullModel;
   return already ? "updated" : null;
 }
@@ -400,6 +401,7 @@ function rollbackAdd(ctx: TawassulContext, specs: string[]): void {
     }
     const idx = ctx.dynamicAgents.indexOf(tag);
     if (idx >= 0) ctx.dynamicAgents.splice(idx, 1);
+    unregisterDynamicRoles([tag]);
     delete ctx.agentModelMap[normalizeName(tag)];
     const mdPath = resolve(resolveAgentsDir(ctx.stateDir, SCOPE), `${tag}.md`);
     const backupKey = mdBackupKey(ctx.stateDir, tag);
@@ -572,7 +574,7 @@ export function buildAddAgentTool(ctx: TawassulContext): ToolDefinition {
       if (!parsed) {
         return { output: t("addagentBadFormat") + "\n\n" + examplesText() };
       }
-      const validationErr = validateAddInput(parsed.specs, parsed.model);
+      const validationErr = validateAddInput(parsed.specs, parsed.model, parsed.derived);
       if (validationErr) return { output: validationErr };
       const fullModel = resolveModelAlias(parsed.model)!;
       const usedAlias = Boolean(MODEL_ALIASES[parsed.model.toLowerCase()]);
@@ -1219,6 +1221,7 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
       }
 
       for (const tag of result.removed) {
+        unregisterDynamicRoles([tag]);
         dropAgentState(ctx, tag);
       }
 

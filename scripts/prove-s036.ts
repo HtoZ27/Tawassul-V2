@@ -53,6 +53,7 @@ assert(!cryptoSource.includes("openssl"), "HMAC key generation never shells out 
 
 const policySource = readFileSync("src/security-policy.ts", "utf8");
 assert(!policySource.includes("DELETED_" + "AGENTS"), "the static deletion list is gone from the security policy");
-assert(buildAgents()["analyst-ling"] !== undefined, "default generation keeps the formerly retired variant");
+assert(buildAgents()["analyst-minimax"] !== undefined, "default generation keeps every catalog variant");
+assert(buildAgents()["analyst-ling"] === undefined, "a retired model emits no variant");
 
 console.log(`PROOF PASS: the agent-management hardening week is ported (${passed} assertions)`);

@@ -131,10 +131,11 @@ function applyBareDerivation(
   provider: string,
 ): { specs: string[]; derived: Record<string, string> } {
   const derived: Record<string, string> = {};
+  const explicit = new Set(specs.map((s) => normalizeName(s)));
   const out = specs.map((s) => {
     const d = deriveVariantSpec(s, model, provider);
     if (d) {
-      derived[d.tag] = d.from;
+      if (!explicit.has(normalizeName(d.tag))) derived[d.tag] = d.from;
       return d.tag;
     }
     return s;
@@ -167,7 +168,11 @@ export function parseAddInput(input: string): ParsedAddInput | null {
   return null;
 }
 
-export function validateAddInput(specs: string[], model: string): string | null {
+export function validateAddInput(
+  specs: string[],
+  model: string,
+  derived: Record<string, string> = {},
+): string | null {
   const resolved = resolveModelAlias(model);
   if (!resolved) {
     const aliases = Object.keys(MODEL_ALIASES).join(", ");
@@ -210,14 +215,20 @@ export function validateAddInput(specs: string[], model: string): string | null 
     if (compound) {
       const suffixLower = compound.suffix.toLowerCase();
       const providerOf = model.includes("/") ? model.split("/")[0]!.toLowerCase() : "";
+      const autoDerived = Object.prototype.hasOwnProperty.call(derived, spec);
       const governed =
         KNOWN_MODEL_SUFFIXES.has(suffixLower) ||
-        (providerOf !== "" && getProviderModelTokens(providerOf).has(suffixLower));
+        (providerOf !== "" && getProviderModelTokens(providerOf).has(suffixLower)) ||
+        (autoDerived && availability === "unknown");
       if (!governed) {
-        return t("addagentCompoundInvalidSuffix", {
+        const key =
+          availability === "unknown" ? "addagentCompoundInvalidSuffixNoCache" : "addagentCompoundInvalidSuffix";
+        return t(key, {
           spec,
           suffix: compound.suffix,
           available: [...KNOWN_MODEL_SUFFIXES].sort().join(", "),
+          base: compound.base,
+          model,
         });
       }
       continue;

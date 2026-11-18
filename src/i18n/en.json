@@ -26,6 +26,7 @@
   "addagentBadFormat": "❌ Invalid format.\nExample: add dev doc analyst with model gemini from google",
   "addagentCompoundInvalidBase": "❌ \"{base}\" is not a valid base in \"{spec}\". Did you mean \"{suggestion}\"?\nAvailable: {available}",
   "addagentCompoundInvalidSuffix": "❌ Suffix \"{suffix}\" in \"{spec}\" is unknown — ungoverned custom agents are rejected.\nKnown suffixes (from registry): {available}",
+  "addagentCompoundInvalidSuffixNoCache": "❌ Suffix \"{suffix}\" in \"{spec}\" is unknown and the provider cache cannot verify it, so an explicitly typed suffix is rejected. Use the base role with the model so the suffix is derived: \"{base} with model {model}\".",
   "addagentDidYouMean": "⚠️ Did you mean @addagent?",
   "addagentEmpty": "❌ Specify the specializations, model, and provider.\nExample: add dev with model gemini from google",
   "addagentErrors": "❌ Failed to add: {list}",

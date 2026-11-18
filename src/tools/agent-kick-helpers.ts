@@ -39,7 +39,9 @@ export function parseKickInput(input: string): string[] | null {
     if (specs.length === 1) {
       const first = specs[0]!;
       if (WILDCARD.has(first.toLowerCase())) {
-        specs = ALL_AGENTS.filter((a) => a.name !== "tawa").map((a) => normalizeName(`${a.name}-${suffixEn}`));
+        specs = ALL_AGENTS.filter((a) => a.name !== "tawa").map(
+          (a) => deriveVariantSpec(a.name, fullEn, providerEn)?.tag ?? normalizeName(`${a.name}-${suffixEn}`),
+        );
       } else {
         const tagged = expandAllSuffixToken(
           first,
@@ -52,8 +54,10 @@ export function parseKickInput(input: string): string[] | null {
           if (derived) specs = [derived.tag];
         }
       }
+    } else {
+      specs = specs.map((s) => deriveVariantSpec(s, fullEn, providerEn)?.tag ?? s);
     }
-    return specs;
+    return [...new Set(specs)];
   }
   return null;
 }

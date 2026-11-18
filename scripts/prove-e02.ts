@@ -202,7 +202,7 @@ async function main(): Promise<void> {
 
   const repo = dirname(dirname(fileURLToPath(import.meta.url)));
   const generated = buildAgents(undefined, { projectRoot: resolve(repo) });
-  assert(Object.keys(generated).length === 58, "full-capacity generation is 58 keys");
+  assert(Object.keys(generated).length === 44, "full-capacity generation is 44 keys");
   assert(
     caseInsensitiveDuplicates(BASH_READ_ONLY).length === 0,
     "the read-only bash map carries no case-insensitive duplicate keys",

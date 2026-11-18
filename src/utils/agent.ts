@@ -22,6 +22,23 @@ for (const agent of ALL_AGENTS) {
   AGENT_ROLE_MAP[agent.name.toLowerCase()] = agent.name.toLowerCase();
 }
 
+const REGISTERED_DYNAMIC_AGENTS: Set<string> = new Set();
+
+export function registerDynamicRoles(names: readonly string[]): void {
+  for (const name of names) {
+    const normalized = normalizeName(name);
+    if (normalized !== "") REGISTERED_DYNAMIC_AGENTS.add(normalized);
+  }
+}
+
+export function unregisterDynamicRoles(names: readonly string[]): void {
+  for (const name of names) REGISTERED_DYNAMIC_AGENTS.delete(normalizeName(name));
+}
+
+export function resetDynamicRoles(): void {
+  REGISTERED_DYNAMIC_AGENTS.clear();
+}
+
 
 export function resolveRole(agent: string): string | null {
   const normalized = normalizeAgentName(agent);
@@ -33,7 +50,7 @@ export function resolveRole(agent: string): string | null {
   if (dashIdx > 0) {
     const base = normalized.slice(0, dashIdx);
     const suffix = normalized.slice(dashIdx + 1);
-    if (AGENT_ROLE_MAP[base] && (KNOWN_MODEL_SUFFIXES.has(suffix) || getAllProviderModelTokens().has(suffix)))
+    if (AGENT_ROLE_MAP[base] && (KNOWN_MODEL_SUFFIXES.has(suffix) || getAllProviderModelTokens().has(suffix) || REGISTERED_DYNAMIC_AGENTS.has(normalized)))
       return AGENT_ROLE_MAP[base];
   }
   return null;

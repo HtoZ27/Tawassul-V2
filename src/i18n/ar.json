@@ -26,6 +26,7 @@
   "addagentBadFormat": "❌ صيغة غير صالحة.\nمثال: add dev doc analyst with model gemini from google",
   "addagentCompoundInvalidBase": "❌ \"{base}\" ليس أساسًا صالحًا في \"{spec}\". هل قصدت \"{suggestion}\"؟\nالمتاح: {available}",
   "addagentCompoundInvalidSuffix": "❌ اللاحقة \"{suffix}\" في \"{spec}\" غير معروفة — الوكلاء المخصصون غير المحكومين مرفوضون.\nاللواحق المعروفة (من السجل): {available}",
+  "addagentCompoundInvalidSuffixNoCache": "❌ اللاحقة \"{suffix}\" في \"{spec}\" غير معروفة، وكاش المزوّد لا يستطيع التحقق منها، لذلك تُرفض اللاحقة المكتوبة صراحةً. استخدم الدور الأساسي مع الطراز لتُشتق اللاحقة: \"{base} with model {model}\".",
   "addagentDidYouMean": "⚠️ هل قصدت @addagent؟",
   "addagentEmpty": "❌ حدّد التخصصات والطراز والمزوّد.\nمثال: add dev with model gemini from google",
   "addagentErrors": "❌ فشلت الإضافة: {list}",

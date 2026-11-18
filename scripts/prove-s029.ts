@@ -10,6 +10,7 @@ import { defaultAgentModelForRole } from "../src/services/proxy-fallback-chains.
 import { sameRoleDistributionGuard, deletedAgentGuard } from "../src/hooks/guards/dispatch-guards.ts";
 import { isKnownDynamicAgent } from "../src/scripts/gen-opencode-config.ts";
 import { stripJsoncComments } from "../src/utils/opencode-config.ts";
+import { resolveRole } from "../src/utils/agent.ts";
 import {
   buildAgents,
 } from "../src/scripts/gen-opencode-config.ts";
@@ -95,7 +96,8 @@ assert(isKnownDynamicAgent("analyst-ling-3.1-flash-free"), "dotted provider suff
 assert(isKnownDynamicAgent("analyst-ling"), "plain suffix accepted");
 assert(!isKnownDynamicAgent("analyst-evil!"), "invalid characters rejected");
 assert(!isKnownDynamicAgent("analyst"), "base name without suffix rejected");
-assert(buildAgents()["analyst-ling"] !== undefined, "default generation keeps every variant");
+assert(buildAgents()["analyst-minimax"] !== undefined, "default generation keeps every catalog variant");
+assert(buildAgents()["analyst-ling"] === undefined, "a retired model emits no variant");
 
 const root = mkdtempSync(join(tmpdir(), "s029-"));
 function runLoggerChild(extraEnv: Record<string, string>, dropKeys: string[] = []): number {
@@ -172,7 +174,7 @@ function runLoggerChild(extraEnv: Record<string, string>, dropKeys: string[] = [
     } as unknown as ToolContext;
     const addText = toolOutput(
       await buildAddAgentTool(noconfigCtx).execute(
-        { name: "dev-ling with model ling-3.0-flash-fin-free from opencode" },
+        { name: "dev-mimo with model mimo from opencode" },
         toolCtx,
       ),
     );
@@ -181,7 +183,7 @@ function runLoggerChild(extraEnv: Record<string, string>, dropKeys: string[] = [
     assert(!existsSync(join(projectDir, "opencode.json")), "a refused project add creates no config");
     const kickText = toolOutput(
       await buildKickTool(noconfigCtx).execute(
-        { agent: "remove dev-ling with model ling-3.0-flash-fin-free from opencode" },
+        { agent: "remove dev-mimo with model mimo from opencode" },
         toolCtx,
       ),
     );
@@ -247,22 +249,48 @@ function runLoggerChild(extraEnv: Record<string, string>, dropKeys: string[] = [
     try {
       const addText = toolOutput(
         await buildAddAgentTool(makeCtx(jsonDir)).execute(
-          { name: "dev-ling with model ling-3.0-flash-fin-free from opencode" },
+          { name: "dev-mimo with model mimo from opencode" },
           makeToolCtx(jsonDir),
         ),
       );
       assert(addText.includes("Added"), "a project add with an existing config writes it");
       const afterAdd = JSON.parse(readFileSync(jsonPath, "utf-8")) as { agent?: Record<string, unknown> };
-      assert(afterAdd.agent?.["dev-ling"] !== undefined, "a project add records the agent in opencode.json");
+      assert(afterAdd.agent?.["dev-mimo"] !== undefined, "a project add records the agent in opencode.json");
       const kickText = toolOutput(
         await buildKickTool(makeCtx(jsonDir)).execute(
-          { agent: "remove dev-ling with model ling-3.0-flash-fin-free from opencode" },
+          { agent: "remove dev-mimo with model mimo from opencode" },
           makeToolCtx(jsonDir),
         ),
       );
       assert(kickText.includes("Removed"), "a project kick with an existing config writes it");
       const afterKick = JSON.parse(readFileSync(jsonPath, "utf-8")) as { agent?: Record<string, unknown> };
-      assert(afterKick.agent?.["dev-ling"] === undefined, "a project kick removes the agent from opencode.json");
+      assert(afterKick.agent?.["dev-mimo"] === undefined, "a project kick removes the agent from opencode.json");
+      const absentModelsPath = join(root, "s029-absent-models.json");
+      const previousModels = process.env.TAWASSUL_MODELS_JSON;
+      process.env.TAWASSUL_MODELS_JSON = absentModelsPath;
+      try {
+        const dynamicTag = "dev-hy4-flash-free";
+        const dynamicCtx = makeCtx(jsonDir);
+        const derivedAdd = toolOutput(
+          await buildAddAgentTool(dynamicCtx).execute(
+            { name: "dev with model hy4-flash-free from opencode" },
+            makeToolCtx(jsonDir),
+          ),
+        );
+        assert(derivedAdd.includes("Added"), "a derived provider suffix agent is added");
+        assert(resolveRole(dynamicTag) === "dev", "the added dynamic variant resolves before kick");
+        const derivedKick = toolOutput(
+          await buildKickTool(dynamicCtx).execute(
+            { agent: "remove dev-hy4-flash-free with model hy4-flash-free from opencode" },
+            makeToolCtx(jsonDir),
+          ),
+        );
+        assert(derivedKick.includes("Removed"), "the derived variant is kicked");
+        assert(resolveRole(dynamicTag) === null, "kick unregisters the dynamic role");
+      } finally {
+        if (previousModels === undefined) delete process.env.TAWASSUL_MODELS_JSON;
+        else process.env.TAWASSUL_MODELS_JSON = previousModels;
+      }
     } finally {
       rmSync(jsonDir, { recursive: true, force: true });
     }
@@ -352,11 +380,11 @@ const cctx = {
 const out =
   mode === "add"
     ? await buildAddAgentTool(ctx).execute(
-        { name: "dev-ling with model ling-3.0-flash-fin-free from opencode" },
+        { name: "dev-mimo with model mimo from opencode" },
         cctx,
       )
     : await buildKickTool(ctx).execute(
-        { agent: "remove dev-ling with model ling-3.0-flash-fin-free from opencode" },
+        { agent: "remove dev-mimo with model mimo from opencode" },
         cctx,
       );
 const text = typeof out === "string" ? out : out.output;
@@ -380,7 +408,7 @@ console.log(text);
     assert(add.code === 0, `a global add child exits clean (${add.out.trim().slice(-200)})`);
     assert(add.out.includes("Added"), "a global add reports the addition");
     const afterAdd = JSON.parse(readFileSync(rosterPath, "utf-8")) as { agents?: Record<string, unknown> };
-    assert(afterAdd.agents?.["dev-ling"] !== undefined, "a global add writes the roster to tawassul.jsonc");
+    assert(afterAdd.agents?.["dev-mimo"] !== undefined, "a global add writes the roster to tawassul.jsonc");
     assert(readFileSync(configPath, "utf-8") === configBody, "a global add leaves global opencode.jsonc byte-identical");
     assert(!existsSync(join(globalDir, "opencode.json")), "a global add creates no global opencode.json");
     const kick = runChild("kick");
@@ -390,9 +418,9 @@ console.log(text);
       agents?: Record<string, unknown>;
       deleted?: unknown;
     };
-    assert(afterKick.agents?.["dev-ling"] === undefined, "a global kick drops the roster entry from tawassul.jsonc");
+    assert(afterKick.agents?.["dev-mimo"] === undefined, "a global kick drops the roster entry from tawassul.jsonc");
     assert(
-      Array.isArray(afterKick.deleted) && afterKick.deleted.includes("dev-ling"),
+      Array.isArray(afterKick.deleted) && afterKick.deleted.includes("dev-mimo"),
       "a global kick records the deletion in tawassul.jsonc",
     );
     assert(readFileSync(configPath, "utf-8") === configBody, "a global kick leaves global opencode.jsonc byte-identical");

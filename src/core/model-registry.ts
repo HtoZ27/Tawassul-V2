@@ -48,24 +48,14 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [ // @truth provider: the prov
     aliases: ["muse-spark-1.2", "muse-spark-1.2-free", "muse-1.2"],
     display: "Muse Spark 1.2 (OpenCode)",
   },
-  {
-    id: "opencode/x-preview-f-free",
-    suffix: "ox",
-    aliases: ["ox", "ox-alpha", "x-preview-f-free"],
-    display: "OX Alpha (OpenCode)",
-  },
-  {
-    id: "opencode/ling-3.0-flash-fin-free",
-    suffix: "ling",
-    aliases: ["ling", "ling-3.0-flash", "ling-3.0-flash-fin-free"],
-    display: "Ling 3.0 Flash (OpenCode Zen)",
-  },
 ];
 
 export const RETIRED_MODEL_IDS: ReadonlySet<string> = new Set([
   "opencode/deepseek-v4-flash-free",
   "opencode/nemotron-3-ultra-free",
   "opencode/ox-alpha-free",
+  "opencode/x-preview-f-free",
+  "opencode/ling-3.0-flash-fin-free",
   "opencode/muse-spark-1.2-free",
   "opencode/muse-spark-1.2-contributor-free",
   "opencode/muse-spark-1.3-contributor-free",
@@ -140,6 +130,12 @@ function readProviderTokenCache(): ProviderTokenCache {
         const lower = slug.toLowerCase();
         tokens.add(lower);
         exact.add(lower);
+        const normalized = lower
+          .replace(/_/g, "-")
+          .replace(/\/+/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-+|-+$/g, "");
+        if (normalized !== "" && normalized !== lower) tokens.add(normalized);
         for (const part of lower.split(/[-_.]+/)) {
           if (part !== "") tokens.add(part);
         }
