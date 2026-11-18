@@ -97,13 +97,10 @@ sh install.sh --global --dry-run
 sh install.sh --global
 ```
 
-The standalone database maintenance lane installs on its own, with no plugin
-and no workspace:
-
-```sh
-sh install.sh --db-maintenance --dry-run
-sh install.sh --db-maintenance
-```
+The standalone database maintenance lane installs with no plugin and no
+workspace: `sh install.sh --db-maintenance`. It reduces the database on a daily
+schedule, so read [Database maintenance](#database-maintenance) before you run
+it.
 
 The installer verifies the bundle, the runtime archive, and — for
 `--db-maintenance` — the maintenance archive against
@@ -137,6 +134,50 @@ bun scripts/install-global.ts --dry-run
 bun scripts/install-global.ts
 bun scripts/install-global.ts --verify
 ```
+
+## Database maintenance
+
+Keeping the database bounded does not require the plugin, so the lane ships as
+its own asset, `tawassul-db-maintenance-<version>.tar.gz`: five POSIX shell
+scripts with no bundle, no wasm, no agents, no workspace, and no Node or Bun. A
+host that never installs Tawassul can run it, and so can an offline machine.
+
+```sh
+sh install.sh --db-maintenance --dry-run
+sh install.sh --db-maintenance
+```
+
+With the archive and `SHA256SUMS` already in one directory, install without the
+network:
+
+```sh
+sh install.sh --db-maintenance --from ~/Downloads
+```
+
+To run one pass without installing anything, unpack the archive and run the
+script from the directory it creates, naming the database explicitly:
+
+```sh
+tar -xzf tawassul-db-maintenance-0.1.6-experimental.tar.gz
+bash tawassul-db-maintenance/opencode-db-maintenance.sh \
+  --db "$HOME/.local/share/opencode/tawassul-v2/opencode.db" --check
+```
+
+> **Warning: this lane reduces the database.** A real run prunes messages older
+> than 90 days — never sessions — and then vacuums when no process holds the
+> file. Installing registers that run daily through a systemd user timer or a
+> cron line. Pruned rows are gone from the live file; the backup taken before
+> the prune is the way back, and only the five most recent backups are kept. If
+> you do not want the database reduced, do not install the lane, and do not run
+> the script without `--check`. To install the scripts with no schedule, set
+> `TAWASSUL_DB_MAINTENANCE=off` for the install. `--check` prints what a run
+> would delete and changes nothing, `--prune-days` sets the window, and backups
+> default to `~/.local/share/tawassul-v2/backups`.
+
+Native Windows has no database lane. The flags and exit codes are in
+[docs/database.md](docs/database.md); uninstall and coexistence with the plugin
+are in
+[docs/installation.md](docs/installation.md#database-maintenance-lane).
 
 ## The agent team
 
