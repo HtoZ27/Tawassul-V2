@@ -68,6 +68,44 @@ refuses an unverified or offline asset. See
 [installation](installation.md#release-installer) for `--prefix`, `--from`,
 `--release`, and the uninstall.
 
+### Why the maintenance archive is a separate asset
+
+The archive carries the database maintenance lane and nothing else: five POSIX
+shell scripts. Keeping the database bounded does not require the plugin, so a
+host that never installs Tawassul can still run one bounded pass and own a daily
+schedule. It holds no bundle, no wasm grammar, no agents, and no tools, and it
+needs no Node, Bun, or workspace.
+
+For a normal install you do not unpack it yourself:
+
+```sh
+sh install.sh --db-maintenance
+```
+
+That downloads the archive, verifies it, installs the five scripts and a
+`MAINTENANCE` marker under `~/.config/opencode/tawassul-runtime/db/`, and
+registers the daily run. With the archive and `SHA256SUMS` already downloaded,
+point the installer at the directory that holds both:
+
+```sh
+sh install.sh --db-maintenance --from ~/Downloads
+```
+
+To run one pass without installing anything, unpack the archive and run the
+script from the directory it created, naming the sidecar database explicitly:
+
+```sh
+tar -xzf tawassul-db-maintenance-0.1.6-experimental.tar.gz
+bash tawassul-db-maintenance/opencode-db-maintenance.sh \
+  --db "$HOME/.local/share/opencode/tawassul-v2/opencode.db" --check
+```
+
+`--check` reports and changes nothing; drop it to back up, prune, and vacuum.
+A manual run registers no schedule, refuses a database a live process holds
+unless `--allow-in-use`, and never vacuums a live file. The lane is POSIX only:
+native Windows has no database maintenance. See
+[database](database.md) and [installation](installation.md).
+
 From a source checkout:
 
 ```bash

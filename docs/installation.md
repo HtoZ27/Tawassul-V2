@@ -144,6 +144,39 @@ creates it on first launch. The installer refuses a symlinked or foreign path,
 and it refuses a home that has never started the host once. Pass `--db` to name
 a different sidecar database.
 
+#### Using the downloaded archive
+
+`tawassul-db-maintenance-<version>.tar.gz` is the same lane as a standalone
+asset: exactly the five scripts, with no bundle, no wasm, and no manifest. It
+exists for two cases: a host that never installs the plugin still needs its
+database bounded, and an offline or audited machine must install the lane from
+files it already holds.
+
+`--from <dir>` reads the archive from a local directory instead of GitHub. That
+directory must hold both the archive and the release `SHA256SUMS`; the installer
+checks the archive against that file and refuses a missing or mismatched entry.
+
+```bash
+sh install.sh --db-maintenance --from ~/Downloads
+```
+
+To run one pass without installing anything, unpack the archive and keep the
+five scripts in one directory. They resolve each other from their own location,
+so nothing else is needed:
+
+```bash
+tar -xzf tawassul-db-maintenance-<version>.tar.gz
+bash tawassul-db-maintenance/opencode-db-maintenance.sh \
+  --db "$HOME/.local/share/opencode/tawassul-v2/opencode.db" --check
+```
+
+`--check` prints the sizes and what a run would delete, and changes nothing.
+Drop it to back up, prune, and vacuum. A manual run registers no schedule: the
+daily timer or cron line exists only when the installer writes it. The script
+refuses a database a live process holds unless `--allow-in-use`, and it always
+refuses a live `VACUUM`. See [database](database.md) for every flag, the exit
+codes, and the retention window.
+
 The daily run is registered with a systemd user timer when available and a cron
 line otherwise. `TAWASSUL_REGISTER_TRIGGERS` chooses the mechanism: `auto` (the
 default), `systemd`, `cron`, `manual`, or `off`. A schedule owned by another
