@@ -5,7 +5,7 @@ All notable changes to Tawassul are recorded here. The format follows
 semantic versioning with an explicit experimental suffix while the project is
 pre-stable.
 
-## [Unreleased]
+## [0.1.5-experimental]
 
 ### Added
 
@@ -338,6 +338,7 @@ platform or host row without a receipt is not a support claim.
 - No hosted documentation site, no npm package, no stable API promise.
 - The evals stage is a pilot, not a benchmark.
 
+[0.1.5-experimental]: docs/release-notes-0.1.5.md
 [0.1.4-experimental]: docs/release-notes-0.1.4.md
 [0.1.3-experimental]: docs/release-notes-0.1.3.md
 [0.1.2-experimental]: docs/release-notes-0.1.2.md

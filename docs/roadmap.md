@@ -6,7 +6,7 @@ closes it.
 
 ## Shipped
 
-`0.1.4-experimental` is the current public release, built on the first public
+`0.1.5-experimental` is the current public release, built on the first public
 release `0.1.0-experimental`. It carries:
 
 - Eight specialist agents and `tawa` routing, with a roster that is seeded on
@@ -19,6 +19,9 @@ release `0.1.0-experimental`. It carries:
   and a read-only degradation path when the state directory cannot be written.
 - A release installer for project and global discovery, with a native Windows
   lane for the bundle and wasm.
+- A standalone database maintenance lane: five scripts and a `MAINTENANCE`
+  marker, a systemd timer or tagged cron line, coexistence with the plugin, and
+  a doctor report for both markers.
 - English documentation, a JSON Schema for the configuration, and a
   reproducible release artifact.
 
