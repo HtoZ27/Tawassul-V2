@@ -7,6 +7,17 @@ pre-stable.
 
 ## [Unreleased]
 
+### Added
+
+- `install.sh --db-maintenance` installs the standalone database maintenance
+  lane: the five scripts, the marker-backed gap window, and a systemd user timer
+  or a tagged cron line it owns. A schedule owned by another installer is never
+  overwritten silently, and a foreign `--prefix` registers `manual`.
+- `install-global` coexists with the lane: it installs the bundle and the
+  grammars, skips the lane's scripts and schedule while `MAINTENANCE` exists,
+  and preserves them on uninstall. `doctor` reports both markers and prints one
+  cleanup command matched to the mechanism.
+
 ### Fixed
 
 - `addagent` accepts a model-derived variant suffix when the provider cache is

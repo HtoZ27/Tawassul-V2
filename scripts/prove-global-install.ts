@@ -750,6 +750,12 @@ function installShLaneCases(): void {
     scratchForced.code !== 0 && scratchForced.out.includes("a scratch --prefix cannot register systemd"),
     "a forced systemd mode under a foreign prefix fails loudly",
   );
+  assert(
+    scratchForced.out.includes(
+      `bash "${join(scratchPrefix, ".config", "opencode", "tawassul-runtime", "db", "opencode-db-scheduled.sh")}" --run`,
+    ),
+    "the forced refusal prints the manual run command",
+  );
   const scratchManual = runLane(scratchHome, ["--db-maintenance", "--prefix", scratchPrefix], {
     TAWASSUL_REGISTER_TRIGGERS: "auto",
   });
@@ -1201,6 +1207,150 @@ function installShLaneCases(): void {
   );
   assert(existsSync(join(crossRuntime, "VERSION")), "the lane uninstall keeps the install-global marker");
   assert(runWith(["--uninstall"], crossBunEnv).code === 0, "install-global uninstalls after the lane removal");
+
+  const versionDb = lane("version-db-refusal");
+  writeFileSync(shim.cron, "");
+  assert(runLane(versionDb.home, ["--global"]).code === 0, "the refusal case seeds a global marker");
+  const versionPath = join(versionDb.runtime, "VERSION");
+  const versionBase = JSON.parse(readFileSync(versionPath, "utf-8")) as Record<string, unknown>;
+  writeFileSync(
+    versionPath,
+    `${JSON.stringify(
+      {
+        ...versionBase,
+        db: {
+          "opencode-db-scheduled.sh": {
+            path: join(versionDb.runtime, "db", "opencode-db-scheduled.sh"),
+            sha256: "0".repeat(64),
+            bytes: 1,
+          },
+        },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  const versionRefusedInstall = runLane(versionDb.home, ["--global"]);
+  assert(
+    versionRefusedInstall.code !== 0 &&
+      versionRefusedInstall.out.includes("records a database payload; pass --force to overwrite it"),
+    "a global install refuses a foreign VERSION.db without --force",
+  );
+  const versionRefusedUninstall = runLane(versionDb.home, ["--global", "--uninstall"]);
+  assert(
+    versionRefusedUninstall.code !== 0 &&
+      versionRefusedUninstall.out.includes("records a database payload; pass --force to remove it"),
+    "a global uninstall refuses a foreign VERSION.db without --force",
+  );
+  assert(
+    existsSync(join(versionDb.config, "opencode", "plugins", "tawassul.js")),
+    "the refused global uninstall keeps the bundle",
+  );
+
+  const cleanupLane = lane("global-uninstall-cleanup");
+  writeFileSync(shim.cron, "");
+  assert(
+    runLane(cleanupLane.home, ["--db-maintenance"], { TAWASSUL_REGISTER_TRIGGERS: "cron" }).code === 0,
+    "the cleanup case installs a cron-owned lane",
+  );
+  assert(
+    readFileSync(shim.cron, "utf-8").includes("owner=install.sh-db-maintenance"),
+    "the cleanup case owns the cron line",
+  );
+  assert(runLane(cleanupLane.home, ["--global"]).code === 0, "the global install completes beside the cron lane");
+  const cleanupUninstall = runLane(cleanupLane.home, ["--global", "--uninstall"]);
+  assert(cleanupUninstall.code === 0, "the global uninstall completes beside the cron lane");
+  assert(
+    cleanupUninstall.out.includes("the maintenance schedule is owned by install.sh-db-maintenance"),
+    "the global uninstall names the lane owner",
+  );
+  assert(
+    cleanupUninstall.out.includes(systemdPath(cleanupLane.config, serviceName)) &&
+      cleanupUninstall.out.includes(systemdPath(cleanupLane.config, timerName)),
+    "the global uninstall names the lane's unit paths",
+  );
+  assert(
+    cleanupUninstall.out.includes("crontab -l | grep -vF '# tawassul-db-maintenance owner=install.sh-db-maintenance' | crontab -"),
+    "the global uninstall prints the lane owner's cron cleanup command",
+  );
+  assert(
+    readFileSync(shim.cron, "utf-8").includes("owner=install.sh-db-maintenance"),
+    "the global uninstall leaves the lane's cron line",
+  );
+  assert(
+    existsSync(join(cleanupLane.runtime, "db", "MAINTENANCE")),
+    "the global uninstall keeps the lane marker",
+  );
+
+  const forcedLane = lane("force-lane-beside-version");
+  writeFileSync(shim.cron, "");
+  assert(runLane(forcedLane.home, ["--global"]).code === 0, "the lane force case seeds a global marker");
+  const forcedVersionPath = join(forcedLane.runtime, "VERSION");
+  const forcedVersionBefore = readFileSync(forcedVersionPath, "utf-8");
+  writeForeignUnitPair(forcedLane.config, "install-global", join(forcedLane.runtime, "db", "opencode-db-scheduled.sh"));
+  const forcedLaneRun = runLane(forcedLane.home, ["--db-maintenance", "--force"], {
+    TAWASSUL_REGISTER_TRIGGERS: "systemd",
+  });
+  assert(forcedLaneRun.code === 0, "the lane force takes over a foreign unit beside a global marker");
+  assert(
+    readFileSync(systemdPath(forcedLane.config, serviceName), "utf-8").startsWith(
+      "# tawassul-owner: install.sh-db-maintenance\n",
+    ),
+    "the lane force rewrites the unit with its own stamp",
+  );
+  assert(
+    readFileSync(forcedVersionPath, "utf-8") === forcedVersionBefore,
+    "the lane force leaves the global VERSION marker intact",
+  );
+
+  const forcedGlobal = lane("force-global-beside-maint");
+  writeFileSync(shim.cron, "");
+  assert(
+    runLane(forcedGlobal.home, ["--db-maintenance"], { TAWASSUL_REGISTER_TRIGGERS: "manual" }).code === 0,
+    "the global force case installs the lane first",
+  );
+  const forcedMaintPath = join(forcedGlobal.runtime, "db", "MAINTENANCE");
+  const forcedMaintBefore = readFileSync(forcedMaintPath, "utf-8");
+  writeForeignUnitPair(forcedGlobal.config, "install.sh-db-maintenance", join(forcedGlobal.runtime, "db", "opencode-db-scheduled.sh"));
+  const forcedGlobalEnv: NodeJS.ProcessEnv = {
+    ...proofEnv(),
+    HOME: forcedGlobal.home,
+    XDG_CONFIG_HOME: forcedGlobal.config,
+    XDG_DATA_HOME: join(forcedGlobal.home, ".local", "share"),
+    TAWASSUL_GLOBAL_DIR: join(forcedGlobal.config, "opencode"),
+    PATH: `${shim.dir}:/usr/bin:/bin`,
+    OPENCODE_DB: forcedGlobal.db,
+    TAWASSUL_REGISTER_TRIGGERS: "systemd",
+  };
+  const forcedGlobalRun = runWith(["--force"], forcedGlobalEnv);
+  assert(forcedGlobalRun.code === 0, "install-global --force completes beside the maintenance lane");
+  assert(
+    readFileSync(systemdPath(forcedGlobal.config, serviceName), "utf-8").startsWith(
+      "# tawassul-owner: install.sh-db-maintenance\n",
+    ),
+    "install-global --force leaves the lane's unit intact",
+  );
+  assert(
+    readFileSync(forcedMaintPath, "utf-8") === forcedMaintBefore,
+    "install-global --force leaves the lane marker intact",
+  );
+
+  const dryRunLane = lane("dry-run-plain");
+  writeFileSync(shim.cron, "");
+  assert(
+    runLane(dryRunLane.home, ["--db-maintenance"], { TAWASSUL_REGISTER_TRIGGERS: "manual" }).code === 0,
+    "the dry-run case installs a plain lane",
+  );
+  const plainDry = runLane(dryRunLane.home, ["--db-maintenance", "--uninstall", "--dry-run"]);
+  assert(
+    plainDry.code === 0 &&
+      plainDry.out.includes("would remove the database scripts, marker and this lane's own schedule"),
+    "the maintenance uninstall dry run reports the removal path without VERSION.db",
+  );
+  assert(
+    existsSync(join(dryRunLane.runtime, "db", "opencode-db-scheduled.sh")),
+    "the plain dry run keeps the five scripts",
+  );
 }
 
 function globalTriggerEnv(label: string, extra: NodeJS.ProcessEnv = {}): {

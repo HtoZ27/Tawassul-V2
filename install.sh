@@ -528,7 +528,8 @@ register_db_timer() {
       || [ -z "$CONFIG_REAL" ] || [ -z "$EXPECTED_CONFIG_REAL" ] \
       || [ "$CONFIG_REAL" != "$EXPECTED_CONFIG_REAL" ]; then
       if [ "$MODE_REQ" = "systemd" ] || [ "$MODE_REQ" = "cron" ]; then
-        printf '%s\n' "install: a scratch --prefix cannot register $MODE_REQ; the host schedule would point into $PREFIX. Re-run without --prefix" >&2
+        printf '%s\n' "install: a scratch --prefix cannot register $MODE_REQ; the host schedule would point into $PREFIX" >&2
+        printf '%s\n' "install: set TAWASSUL_REGISTER_TRIGGERS=manual to install without a host schedule and run: bash \"$DB_DIR/opencode-db-scheduled.sh\" --run" >&2
         return 5
       fi
       printf '%s\n' "install: scratch --prefix detected; leaving the trigger manual (no host schedule)" >&2
