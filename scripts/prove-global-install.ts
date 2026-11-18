@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import {
   appendFileSync,
   chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -305,23 +306,22 @@ function doctorMaintenanceCases(): void {
     }
     return `${result.stdout ?? ""}`;
   };
+  const maintenanceText = (gap: number): string =>
+    `${JSON.stringify(
+      {
+        package: "tawassul-v2",
+        lane: "install.sh --db-maintenance",
+        version: "0.1.4-experimental",
+        db: SMOKE_DB,
+        trigger: "manual",
+        gapSeconds: gap,
+        installedAt: "2026-11-17T00:00:00Z",
+      },
+      null,
+      2,
+    )}\n`;
   const writeMaintenance = (gap: number): void => {
-    writeFileSync(
-      maintFile,
-      `${JSON.stringify(
-        {
-          package: "tawassul-v2",
-          lane: "install.sh --db-maintenance",
-          version: "0.1.4-experimental",
-          db: SMOKE_DB,
-          trigger: "manual",
-          gapSeconds: gap,
-          installedAt: "2026-11-17T00:00:00Z",
-        },
-        null,
-        2,
-      )}\n`,
-    );
+    writeFileSync(maintFile, maintenanceText(gap));
   };
   writeFileSync(stampFile, "rc=0\nat=2026-11-17 00:00:00\n");
   const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
@@ -336,6 +336,34 @@ function doctorMaintenanceCases(): void {
     assert(
       fresh.includes("last scheduled run:") && fresh.includes("(fresh)"),
       "doctor reports a fresh stamp under a non-default gap",
+    );
+    const aloneRoot = join(ROOT, "doctor-alone");
+    const aloneConfig = join(aloneRoot, "config");
+    const aloneDb = join(aloneConfig, "opencode", "tawassul-runtime", "db");
+    mkdirSync(aloneDb, { recursive: true });
+    for (const name of [
+      "db-env.sh",
+      "doctor-v2.sh",
+      "guard-db-generation.sh",
+      "opencode-db-maintenance.sh",
+      "opencode-db-scheduled.sh",
+    ]) {
+      copyFileSync(join(DB_DIR, name), join(aloneDb, name));
+    }
+    writeFileSync(join(aloneDb, "MAINTENANCE"), maintenanceText(86400));
+    const aloneRun = spawnSync("bash", [join(aloneDb, "doctor-v2.sh"), "--db-contract"], {
+      env: env({
+        HOME: join(aloneRoot, "home"),
+        XDG_CONFIG_HOME: aloneConfig,
+        XDG_DATA_HOME: join(aloneRoot, "home", ".local", "share"),
+        TAWASSUL_DOCTOR_ROOT: join(aloneRoot, "project"),
+      }),
+      encoding: "utf-8",
+    });
+    const alone = `${aloneRun.stdout ?? ""}${aloneRun.stderr ?? ""}`;
+    assert(
+      aloneRun.status === 0 && alone.includes("no global runtime marker at") && alone.includes("maintenance lane:"),
+      "doctor reports the maintenance lane when only that marker exists",
     );
     const stale = doctor({ TAWASSUL_DB_GAP_SECONDS: "60" });
     assert(stale.includes("(stale)"), "doctor lets the environment gap win for stamp freshness");
@@ -592,6 +620,12 @@ function installShLaneCases(): void {
   assert(
     readFileSync(foreignUnit, "utf-8").startsWith("# tawassul-owner: install-global\n"),
     "the failed registration leaves the foreign unit untouched",
+  );
+  assert(
+    readFileSync(systemdPath(forcedFail.config, timerName), "utf-8").startsWith(
+      "# tawassul-owner: install-global\n",
+    ),
+    "the failed registration leaves the foreign timer untouched",
   );
   assert(
     readFileSync(join(forcedFail.runtime, "db", "MAINTENANCE"), "utf-8") === markerBefore,
@@ -1461,6 +1495,7 @@ function installGlobalLaneCases(): void {
     "a forced systemd registration fails on a foreign unit",
   );
   assert(!existsSync(join(forced.global, "plugins", "tawassul.js")), "the failure writes no bundle");
+  assert(!existsSync(join(forced.global, "tawassul-install-owner")), "the failure claims no ownership");
   assert(!existsSync(join(forced.global, "tawassul-runtime", "VERSION")), "the failure writes no marker");
   assert(!existsSync(join(forced.global, "tawassul-runtime", "db")), "the failure stages no db scripts");
   assert(existsSync(staleWasm), "the failure leaves stale wasm pruning undone");

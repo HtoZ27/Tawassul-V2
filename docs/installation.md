@@ -154,8 +154,10 @@ loudly. `--force` takes the schedule over and re-stamps it.
 Under a `--prefix` that is not the real config root, registration is `manual`:
 nothing is written to the host's user units or crontab, the marker records
 `"trigger": "manual"`, and the installer prints the command that runs the lane.
-Such an installation appears only in that prefix's doctor report; when the
-prefix resolves to the real config root, the real doctor reports it.
+Forcing `systemd` or `cron` there is refused with the same manual command
+instead of writing a schedule that points into the prefix. Such an installation
+appears only in that prefix's doctor report; when the prefix resolves to the
+real config root, the real doctor reports it.
 
 `TAWASSUL_DB_GAP_SECONDS` sets the minimum interval between runs; the marker's
 `gapSeconds` is the fallback, and 86400 seconds is the default.

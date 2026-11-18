@@ -12,7 +12,8 @@ pre-stable.
 - `install.sh --db-maintenance` installs the standalone database maintenance
   lane: the five scripts, the marker-backed gap window, and a systemd user timer
   or a tagged cron line it owns. A schedule owned by another installer is never
-  overwritten silently, and a foreign `--prefix` registers `manual`.
+  overwritten silently; a foreign `--prefix` registers `manual`, and a forced
+  `systemd` or `cron` there is refused with the manual run command.
 - `install-global` coexists with the lane: it installs the bundle and the
   grammars, skips the lane's scripts and schedule while `MAINTENANCE` exists,
   and preserves them on uninstall. `doctor` reports both markers and prints one
