@@ -5,6 +5,24 @@ All notable changes to Tawassul are recorded here. The format follows
 semantic versioning with an explicit experimental suffix while the project is
 pre-stable.
 
+## [0.1.6-experimental]
+
+### Fixed
+
+- `doctor` prints the tag-only cleanup command
+  `crontab -l | grep -vF '# tawassul-db-maintenance' | crontab -` for an
+  unstamped legacy cron line, instead of an `owner=unknown` pattern that
+  matched no line.
+- The `tawassul-runtime-0.1.4-experimental.tar.gz` row in the 0.1.4 notes now
+  says the archive held the four wasm grammars, which is what was published.
+
+### Security
+
+- `install-global` refuses a resolved `OPENCODE_DB` that carries a control
+  character or one of `"`, `'`, a backtick, `$`, `%`, or a backslash, before it
+  writes the bundle, marker, systemd unit, or cron line. The rule matches the
+  one `install.sh` applies to its database lane.
+
 ## [0.1.5-experimental]
 
 ### Added
@@ -338,6 +356,7 @@ platform or host row without a receipt is not a support claim.
 - No hosted documentation site, no npm package, no stable API promise.
 - The evals stage is a pilot, not a benchmark.
 
+[0.1.6-experimental]: docs/release-notes-0.1.6.md
 [0.1.5-experimental]: docs/release-notes-0.1.5.md
 [0.1.4-experimental]: docs/release-notes-0.1.4.md
 [0.1.3-experimental]: docs/release-notes-0.1.3.md

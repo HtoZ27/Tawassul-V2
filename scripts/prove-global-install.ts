@@ -410,6 +410,20 @@ function doctorMaintenanceCases(): void {
       "doctor prints only the cron cleanup command for a stale cron line",
     );
 
+    writeFileSync(
+      crontabFile,
+      `17 4 * * * OPENCODE_DB='${SMOKE_DB}' /usr/bin/env bash '${missingScript}' --run # tawassul-db-maintenance\n`,
+    );
+    const legacyCron = doctor();
+    assert(
+      legacyCron.includes("crontab -l | grep -vF '# tawassul-db-maintenance' | crontab -"),
+      "doctor prints the tag-only cleanup command for an unstamped cron line",
+    );
+    assert(
+      !legacyCron.includes("owner=unknown' | crontab -"),
+      "doctor never prints the placeholder owner in a cleanup command",
+    );
+
     writeFileSync(crontabFile, "");
     const guard = join(DB_DIR, "guard-db-generation.sh");
     const guardBackup = `${guard}.doctor-bak`;
@@ -1653,6 +1667,25 @@ function installGlobalLaneCases(): void {
   );
 }
 
+function installGlobalUnsafeDbCase(): void {
+  const unsafe = globalTriggerEnv("unsafe-db");
+  const dbPath = `${join(unsafe.global, "ok.db")}\nExecStart=/bin/true`;
+  const refused = runWith([], { ...unsafe.env, OPENCODE_DB: dbPath, TAWASSUL_REGISTER_TRIGGERS: "systemd" });
+  assert(
+    refused.code !== 0 && refused.out.includes("unsupported character in the database path"),
+    "install-global refuses a newline in OPENCODE_DB",
+  );
+  assert(!existsSync(join(unsafe.global, "plugins", "tawassul.js")), "the unsafe DB refusal writes no bundle");
+  assert(!existsSync(join(unsafe.global, "tawassul-install-owner")), "the unsafe DB refusal claims no ownership");
+  assert(!existsSync(join(unsafe.global, "tawassul-runtime", "VERSION")), "the unsafe DB refusal writes no marker");
+  assert(
+    !existsSync(join(unsafe.config, "systemd", "user", "tawassul-db-maintenance.service")) &&
+      !existsSync(join(unsafe.config, "systemd", "user", "tawassul-db-maintenance.timer")),
+    "the unsafe DB refusal writes no systemd unit",
+  );
+  assert(readFileSync(unsafe.cron, "utf-8").trim() === "", "the unsafe DB refusal writes no cron line");
+}
+
 function maintenanceMarkerUninstallCases(): void {
   const maint = join(DB_DIR, "MAINTENANCE");
   const markerText = `${JSON.stringify(
@@ -1992,6 +2025,7 @@ try {
   doctorMaintenanceCases();
   maintenanceMarkerUninstallCases();
   installGlobalLaneCases();
+  installGlobalUnsafeDbCase();
 
   const rangeEnv = proofEnv();
   delete rangeEnv.TAWASSUL_OPENCODE_VERSION;

@@ -229,7 +229,7 @@ PY
     MAINT_OWNERS_REPORTED="$MAINT_OWNERS_REPORTED${mechanism}:${owner:-unknown} "
     case "$mechanism" in
       systemd) info "cleanup (owner=${owner:-unknown}): systemctl --user disable --now tawassul-db-maintenance.timer; rm -f '$SERVICE_FILE' '$TIMER_FILE'; systemctl --user daemon-reload" ;;
-      cron) info "cleanup (owner=${owner:-unknown}): crontab -l | grep -vF '# tawassul-db-maintenance owner=${owner:-unknown}' | crontab -" ;;
+      cron) info "cleanup (owner=${owner:-unknown}): crontab -l | grep -vF '# tawassul-db-maintenance${owner:+ owner=$owner}' | crontab -" ;;
     esac
   }
   maint_schedule_path() {

@@ -564,11 +564,18 @@ function preflightLaptop(): void {
   }
 }
 
+function dbPathSafe(path: string): boolean {
+  return !/[\x00-\x1f\x7f"'`$%\\]/.test(path);
+}
+
 function resolveDbPath(): string {
   const opencodeDb = process.env.OPENCODE_DB;
-  if (opencodeDb) return opencodeDb;
   const dataHome = process.env.XDG_DATA_HOME || join(HOME, ".local", "share");
-  return join(dataHome, "opencode", "opencode.db");
+  const resolved = opencodeDb || join(dataHome, "opencode", "opencode.db");
+  if (!dbPathSafe(resolved)) {
+    fail(`unsupported character in the database path: ${resolved}`);
+  }
+  return resolved;
 }
 
 function dbSmoke(resolved: string): void {
@@ -1180,6 +1187,8 @@ function install(): void {
   assertKeyDirectoryUsable();
   const lane = installLane(process.platform);
   const posixDb = usesPosixDatabaseLane(lane);
+  const maintenance = posixDb && maintenanceLane();
+  const dbPath = posixDb && !maintenance ? resolveDbPath() : "";
   const host = checkHosts();
   refuseLegacyPackage();
   refuseProjectDuplicate();
@@ -1189,7 +1198,6 @@ function install(): void {
   const assets = resolveAssets();
   const wasm = assetRecords(assets);
   const existing = readMarker();
-  const maintenance = posixDb && maintenanceLane();
   const db = posixDb && !maintenance ? dbRecords() : {};
   const staleWasm = staleWasmFiles(wasm);
   if (existsSync(TARGET) && !existing && !flags.has("--force")) {
@@ -1264,7 +1272,6 @@ function install(): void {
   }
   preflightLaptop();
   if (posixDb) {
-    const dbPath = resolveDbPath();
     const trigger = maintenance ? "manual" : registerTriggers(triggerPlan ?? "manual", dbPath);
     writeMarker(bundle.sha, wasm, db, bundle.sourceSha, bundle.contentSha, host.version, trigger);
     if (!maintenance) dbSmoke(dbPath);
