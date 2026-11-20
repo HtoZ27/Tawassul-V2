@@ -1,0 +1,4 @@
+{
+  "consentAcceptWords": "ja|klar|sicher|einverstanden|weiter",
+  "consentRejectWords": "nein|abbrechen"
+}

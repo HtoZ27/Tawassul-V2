@@ -1,6 +1,6 @@
 import { TAWASSUL_TOOL_NAMES } from "../../../tool-names.ts";
 import { TAWASSUL_TOOL_ROLES } from "../../../role-matrix.ts";
-import { normalizeToolName } from "../../../utils/name-utils.ts";
+import { normalizeName, normalizeToolName } from "../../../utils/name-utils.ts";
 
 
 export const ALL_TAWASSUL_TOOLS = new Set(TAWASSUL_TOOL_NAMES);
@@ -225,10 +225,37 @@ export function isDangerousCommand(command: string): boolean {
   return analyzeCommand(command, 0);
 }
 
+const BASE_AGENT_NAMES = new Set(["analyst", "architect", "dev", "reviewer", "tester", "designer", "doc"]);
+
+function kickTargets(input: string): string[] {
+  const cleaned = input.trim().replace(/^(?:add|remove|delete)[\s]+/i, "");
+  const match = cleaned.match(/^([@\w\s*/\-.\u0600-\u06FF]+?)\s+with\s+model\s+.+?\s+from\s+[\w\s.-]+$/i);
+  if (!match) return [];
+  return match[1]!
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((spec) => normalizeName(spec));
+}
+
+function isVariantTarget(name: string): boolean {
+  if (BASE_AGENT_NAMES.has(name)) return true;
+  const dash = name.indexOf("-");
+  return dash > 0 && BASE_AGENT_NAMES.has(name.slice(0, dash));
+}
+
+function isVariantOnlyKick(args: Record<string, unknown>): boolean {
+  const input = typeof args?.agent === "string" ? args.agent : "";
+  const targets = kickTargets(input);
+  if (targets.length !== 1) return false;
+  return isVariantTarget(targets[0]!);
+}
+
 export function requiresConsent(inputTool: string, args: Record<string, unknown>): boolean {
   const tool = normalizeToolName(inputTool);
   if (!CONSENT_TOOLS.has(tool)) return false;
-  if (tool === "delete" || tool === "kick") return true;
+  if (tool === "delete") return true;
+  if (tool === "kick") return !isVariantOnlyKick(args);
   if (isShellTool(tool)) {
     const command = typeof args?.command === "string" ? args.command : "";
     return isDangerousCommand(command);

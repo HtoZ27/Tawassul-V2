@@ -1044,6 +1044,7 @@ export function buildKickTool(ctx: TawassulContext): ToolDefinition {
         }
         const status = classifyRemove(ctx, name);
         if (status === "removed") {
+          variantsToPersist.push(name);
           result.removed.push(tag);
         } else if (status === "protected") {
           result.protected_.push(tag);

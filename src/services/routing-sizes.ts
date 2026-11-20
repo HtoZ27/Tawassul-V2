@@ -29,7 +29,7 @@ export const DETAILED_PHRASES_REGEX = /(from\s?a\s?to\s?z|in\sfull\sdetail|step\
 export const ALL_OF_PLURAL_REGEX = /all\s+(?:of\s+)?the\s+[\p{L}]{4,}(?=\s|$|[.,])/iu;
 
 export const SAFETY_PATTERNS = [
-  /\b(api[_-]?key|api key|apikey|secret|token|password|passwd)\b/i,
+  /\b(api[_-]?key|api key|secret|password|passwd)\b/i,
   /delete\s+(database|table|collection)/i,
   /drop\s+(database|table|collection)/i,
   /rm\s+-rf/i,

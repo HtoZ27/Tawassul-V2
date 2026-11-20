@@ -153,11 +153,11 @@ try {
   const arabicNo = String.fromCodePoint(0x0644, 0x0627);
   const tokensFile = join(root, "consent-tokens.json");
   process.env.TAWASSUL_CONSENT_TOKENS = tokensFile;
-  assert(parseUserReply(arabicYes, confirm) === undefined, "chat path ignores an unconfigured non-English approval");
-  assert(parseUserReply(arabicNo, confirm) === undefined, "chat path ignores an unconfigured non-English denial");
-  writeFileSync(tokensFile, JSON.stringify({ accept: [arabicYes], deny: [arabicNo] }), "utf-8");
-  assert(parseUserReply(arabicYes, confirm) === true, "chat path honors a configured approval word");
-  assert(parseUserReply(arabicNo, confirm) === false, "chat path honors a configured denial word");
+  assert(parseUserReply(arabicYes, confirm) === true, "chat path accepts a built-in non-English approval");
+  assert(parseUserReply(arabicNo, confirm) === false, "chat path accepts a built-in non-English denial");
+  writeFileSync(tokensFile, JSON.stringify({ accept: ["shipit"], deny: ["holdit"] }), "utf-8");
+  assert(parseUserReply("shipit", confirm) === true, "chat path honors a configured approval word");
+  assert(parseUserReply("holdit", confirm) === false, "chat path honors a configured denial word");
   assert(parseUserReply("ok", confirm) === true, "chat path honors ok");
   assert(parseUserReply("please help me with the code", confirm) === undefined, "chat path ignores prose");
   const guardSrc = readFileSync("src/hooks/guards/consent-gate-guard.ts", "utf-8");

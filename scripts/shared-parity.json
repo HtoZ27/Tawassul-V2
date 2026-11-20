@@ -558,7 +558,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/ask-channel-parse.ts",
-            "line": 16,
+            "line": 37,
             "marker": "YES_RE"
           },
           "proofs": [
@@ -1046,7 +1046,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/services/ask-channel-parse.ts",
-            "line": 12,
+            "line": 33,
             "marker": "multiselect"
           },
           "proofs": [

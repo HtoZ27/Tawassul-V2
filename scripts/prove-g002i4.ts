@@ -1,4 +1,9 @@
 import { requiresConsent, isDangerousCommand } from "../src/hooks/guards/shared/limits.ts";
+import { isAcceptToken, isRejectToken } from "../src/services/ask-channel-parse.ts";
+import ar from "../src/i18n/ar.json" with { type: "json" };
+import ja from "../src/i18n/ja.json" with { type: "json" };
+import es from "../src/i18n/es.json" with { type: "json" };
+import ru from "../src/i18n/ru.json" with { type: "json" };
 
 let passed = 0;
 
@@ -76,8 +81,28 @@ function shapeChecks(): void {
   assert(!isDangerousCommand("git push origin main"), "no git push pattern remains in the set");
   assert(requiresConsent("delete", { file: "notes.md" }) === true, "delete stays consent-gated regardless of the path");
   assert(requiresConsent("kick", { agent: "dev" }) === true, "kick stays consent-gated");
+  assert(requiresConsent("kick", { agent: "remove analyst-glm-5.3-flash-free with model glm-5.3-flash-free from opencode" }) === false, "a single variant kick is not consent-gated");
+  assert(requiresConsent("kick", { agent: "remove analyst with model glm-5.3-flash-free from opencode" }) === false, "a base plus model kick derives a variant and is not consent-gated");
+  assert(requiresConsent("kick", { agent: "remove all with model big-pickle from opencode" }) === true, "a bulk kick stays consent-gated");
+  assert(requiresConsent("kick", { agent: "remove dev-mimo analyst-pickle with model big-pickle from opencode" }) === true, "a multi-target kick stays consent-gated");
+  assert(requiresConsent("kick", { agent: "remove analyst-glm-5.3-flash-free with model glm-5.3-flash-free" }) === true, "a kick without the provider clause stays consent-gated");
+  assert(requiresConsent("kick", { agent: "remove analyst with model glm-5.3-flash-free" }) === true, "a base plus model kick without the provider clause stays consent-gated");
   assert(requiresConsent("bash", { command: "git status" }) === false, "a read-only command is not gated");
   assert(requiresConsent("grep", { pattern: "x" }) === false, "non-consent tools are ungated");
+}
+
+function consentWords(): void {
+  assert(isAcceptToken("yes please"), "an English approval phrase is accepted");
+  assert(isAcceptToken(es.consentAcceptWords.split("|")[0]!), "a Spanish approval word is accepted");
+  assert(isAcceptToken(ja.consentAcceptWords.split("|")[0]!), "a Japanese approval word is accepted");
+  assert(isRejectToken(ru.consentRejectWords.split("|")[0]!), "a Russian rejection word is rejected");
+  assert(isRejectToken(ja.consentRejectWords.split("|")[0]!), "a Japanese rejection word is rejected");
+  assert(isAcceptToken(ar.consentAcceptWords.split("|")[0]!), "an Arabic approval word is accepted");
+  assert(isRejectToken(ar.consentRejectWords.split("|")[0]!), "an Arabic rejection word is rejected");
+  assert(!isAcceptToken("ok but no"), "a contradictory reply never grants consent");
+  assert(!isAcceptToken("yes actually no"), "a rejection word anywhere vetoes approval");
+  assert(isRejectToken("ok but no"), "a contradictory reply is treated as a rejection");
+  assert(!isAcceptToken("sure, no thanks"), "a rejection phrase after an approval phrase still vetoes");
 }
 
 try {
@@ -85,6 +110,7 @@ try {
   consent(UNGATED, false);
   normalizedShellAlias();
   shapeChecks();
+  consentWords();
   console.log(`PROOF PASS: the consent set is irreversible-only with the missing pipe and case patterns (${passed} assertions)`);
 } catch (e) {
   if (!String((e as Error)?.message ?? "").includes("PROOF FAIL")) {

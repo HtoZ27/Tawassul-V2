@@ -67,6 +67,10 @@ const SIZE: Expectation[] = [
 
 const SAFETY: Expectation[] = [
   { text: "my password is hunter2, store it in the config", warn: true, action: "none", note: "a secret is warned about and not routed" },
+  { text: "set the api key in the config", warn: true, note: "an api key is still a secret" },
+  { text: "store the api_key in the vault", warn: true, note: "an underscored api key is still a secret" },
+  { text: "the provider offers a token endpoint", warn: false, note: "a bare token word is not a secret" },
+  { text: "call the api for the provider list", warn: false, note: "a bare api word is not a secret" },
 ];
 
 function evaluate(expectation: Expectation): string | null {

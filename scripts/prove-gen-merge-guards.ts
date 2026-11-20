@@ -10,6 +10,7 @@ import {
 } from "../src/scripts/gen-opencode-config.ts";
 import { buildKickTool } from "../src/tools/agent-management.ts";
 import { RETIRED_MODEL_IDS, MODEL_SUFFIX_MAP } from "../src/core/variant-names.ts";
+import { SecurityPolicy, setDynamicDeletedAgents, setUserPreservedAgents } from "../src/security-policy.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..");
@@ -197,6 +198,9 @@ async function proveKickOmission(): Promise<void> {
     const kickedRaw = readFileSync(configPath, "utf-8");
     const kickedConfig = JSON.parse(kickedRaw) as { agent: Record<string, unknown> };
     if ("dev-ling" in kickedConfig.agent) fail("the kick must remove dev-ling from the config");
+    if (!SecurityPolicy.checkDeletedAgent("dev-ling")) {
+      fail("a removed ad-hoc variant must be recorded as deleted so the roster is not treated as truncated");
+    }
     const first = JSON.parse(buildExpectedConfig(kickedRaw, { projectRoot: REPO })) as {
       agent: Record<string, unknown>;
     };
@@ -208,6 +212,8 @@ async function proveKickOmission(): Promise<void> {
     }
     console.log("kick-omission ok");
   } finally {
+    setDynamicDeletedAgents([]);
+    setUserPreservedAgents([]);
     rmSync(dir, { recursive: true, force: true });
   }
 }
