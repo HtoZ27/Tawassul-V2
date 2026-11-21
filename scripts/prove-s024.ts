@@ -76,6 +76,7 @@ try {
   assert(m.getFlushStats().consecutiveFailures === 0, "backoff resets on success");
   await m.dispose();
 
+  assert(NEVER_DEDUP_TOOLS.has("read"), "dedup set covers read");
   assert(NEVER_DEDUP_TOOLS.has("delete"), "dedup set covers delete");
   assert(NEVER_DEDUP_TOOLS.has("kick"), "dedup set covers kick");
   assert(NEVER_DEDUP_TOOLS.has("addagent"), "dedup set covers addagent");
@@ -85,6 +86,8 @@ try {
   const log = new ToolRunLog(logDir);
   log.record({ tool: "handoff", agent: "@a", sessionId: "s1", argsHash: "h", status: "success" });
   assert(log.findCrossSessionDuplicate("handoff", "h", Date.now()) === undefined, "handoff never deduped");
+  log.record({ tool: "read", agent: "@a", sessionId: "s1", argsHash: "r", status: "success" });
+  assert(log.findCrossSessionDuplicate("read", "r", Date.now()) === undefined, "parallel reads are never deduped across sessions");
   const explicit = log.record({ tool: "bash", agent: "@a", sessionId: "s1", argsHash: "x", status: "error", turn: 99, input: { c: 1 } });
   assert(explicit.turn === 99, "explicit caller turn honored");
   const seq1 = log.record({ tool: "bash", agent: "@a", sessionId: "s2", argsHash: "y", status: "error", input: { c: 2 } });

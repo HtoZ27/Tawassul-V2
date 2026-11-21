@@ -46,6 +46,7 @@ export interface ToolRunRecordInput {
 
 
 export const NEVER_DEDUP_TOOLS = new Set([
+  "read",
   "bash",
   "edit",
   "write",
