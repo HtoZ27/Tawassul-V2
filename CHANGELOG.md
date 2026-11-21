@@ -5,6 +5,35 @@ All notable changes to Tawassul are recorded here. The format follows
 semantic versioning with an explicit experimental suffix while the project is
 pre-stable.
 
+## [0.1.7-experimental]
+
+### Added
+
+- A recorded demo site under `site/`: three scenarios captured in an isolated
+  demo workspace, published to GitHub Pages on `main` with pinned actions.
+- A public demo now links the current release notes from the site footer.
+
+### Changed
+
+- Matching prefers an available configured variant of a base role, so a
+  development assignment goes to `dev-beam` while `dev` is the fallback. A
+  paused, stuck, or saturated variant does not hide the base role, and an
+  explicit target is still honoured.
+- The candidate list follows the live roster: an added variant is selectable on
+  the next dispatch, and a removed one is gone even if it still has a health
+  record.
+- A handoff or MoA record resolves the configured roster model for a variant
+  that has no `.md` file, and the MoA result lists the agents that ran.
+
+### Fixed
+
+- `read` is never deduplicated across sessions, so parallel specialists reading
+  the same file all receive it.
+- A removed variant stays removed in the live process: the deleted set keeps a
+  smaller roster from reading as truncated. Approval and rejection words are
+  accepted across the 21 language tables with rejection winning, and the safety
+  warning no longer fires on a bare `token` or `api`.
+
 ## [0.1.6-experimental]
 
 ### Fixed
@@ -356,6 +385,7 @@ platform or host row without a receipt is not a support claim.
 - No hosted documentation site, no npm package, no stable API promise.
 - The evals stage is a pilot, not a benchmark.
 
+[0.1.7-experimental]: docs/release-notes-0.1.7.md
 [0.1.6-experimental]: docs/release-notes-0.1.6.md
 [0.1.5-experimental]: docs/release-notes-0.1.5.md
 [0.1.4-experimental]: docs/release-notes-0.1.4.md
