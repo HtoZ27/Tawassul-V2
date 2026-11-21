@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recorded scenarios — Tawassul</title>
+  <meta name="description" content="Three recorded Tawassul runs from an isolated demo workspace: routing to a derived specialist, five specialists in parallel, and a goal ledger that refuses an early close.">
+  <link rel="canonical" href="https://htoz27.github.io/Tawassul-V2/scenarios.html">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Tawassul">
+  <meta property="og:title" content="Recorded scenarios — Tawassul">
+  <meta property="og:description" content="Replay images, receipts, and sanitised transcripts from three recorded runs.">
+  <meta property="og:url" content="https://htoz27.github.io/Tawassul-V2/scenarios.html">
+  <meta property="og:image" content="https://htoz27.github.io/Tawassul-V2/assets/og.png">
+  <meta name="theme-color" content="#070b17">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src https://api.github.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="./index.html">
+        <img src="./favicon.svg" alt="" width="30" height="30">
+        <span>Tawassul</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="nav" id="site-nav" aria-label="Primary" data-nav>
+        <a href="./index.html">Home</a>
+        <a href="./scenarios.html" aria-current="page">Scenarios</a>
+        <a href="./docs.html">Docs</a>
+        <a href="./index.html#install">Install</a>
+        <a href="./index.html#releases">Releases</a>
+        <div class="nav-actions">
+          <span class="pill pill--version" data-version>v0.1.6-experimental</span>
+          <a class="btn btn--ghost btn--small" href="https://github.com/HtoZ27/Tawassul-V2">GitHub</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="page-hero">
+      <div class="wrap">
+        <p class="eyebrow">Recorded scenarios</p>
+        <h1>Three runs you can audit.</h1>
+        <p class="lede">Each image is a replay rendered from the committed JSON, not a mockup. The prompt, the models, the token counts, and the refusal text on this page come from those files. Every run is labelled <strong>Example demo</strong> and was executed in an isolated workspace.</p>
+        <div class="hero-pills">
+          <span class="pill">Example demo</span>
+          <span class="pill">Captured 2026-11-21</span>
+          <span class="pill">Recorded cost $0.00</span>
+          <span class="pill">English UI</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="scenario" id="route">
+      <div class="wrap">
+        <div class="scenario-head">
+          <div>
+            <p class="scenario-kicker">Scenario 01 · Routing</p>
+            <h2>One prompt, one owner.</h2>
+            <p class="scenario-lede"><span class="mono">tawa</span> reads <span class="mono">src/pricing.js</span> and names the derived developer specialist this workspace dispatches to. It chooses <span class="mono">@dev-beam</span>, not the base <span class="mono">@dev</span> template. This run answers an ownership question; it does not dispatch work.</p>
+          </div>
+          <span class="pill pill--version">route.json</span>
+        </div>
+
+        <div class="scenario-grid">
+          <div>
+            <figure class="figure">
+              <a href="./assets/shots/route-1.webp" data-lightbox>
+                <img src="./assets/shots/route-1.webp" alt="Replay of the routing run: the prompt asks which derived specialist should own a pricing bug; tawa reads src/pricing.js and answers dev-beam." width="1200" height="750" loading="lazy">
+              </a>
+              <figcaption>Replay rendered from the recorded JSON · 2026-11-21 · tawa · opencode/big-pickle</figcaption>
+            </figure>
+            <p class="figure-note muted">The full answer names <span class="mono">@dev-beam</span> and says the base <span class="mono">@dev</span> role is a template, not a dispatch target.</p>
+
+            <div class="reproduce">
+              <h3>Reproduce</h3>
+              <pre><code id="cmd-route">opencode run --standalone --auto --archived --format json --agent tawa --title "Tawassul demo: tawa routing" "Review src/pricing.js. Name the derived specialist in this workspace that you would route a pricing bug to. Do not edit any file."</code></pre>
+              <p class="small mt-sm"><a class="transcript-link" href="./assets/shots/transcripts/route.json">View the recorded transcript (JSON) →</a></p>
+            </div>
+          </div>
+
+          <div class="scenario-side">
+            <div class="card">
+              <h3>What to notice</h3>
+              <ul class="notice-list">
+                <li>The answer names one owner, <span class="mono">@dev-beam</span>; the workspace pins that specialist to <span class="mono">opencode/beam-free</span>.</li>
+                <li>The justification is the workspace's live agent configuration and the task type, not a generic preference.</li>
+                <li>No handoff card appears, because the recording contains no handoff call.</li>
+                <li>The base <span class="mono">@dev</span> agent stays a template; the derived variant is the target.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <table class="receipts-table">
+                <caption>Receipt from route.json</caption>
+                <tbody>
+                  <tr><th>Input tokens</th><td>37,726</td></tr>
+                  <tr><th>Output tokens</th><td>463</td></tr>
+                  <tr><th>Reasoning tokens</th><td>632</td></tr>
+                  <tr><th>Wall clock</th><td>11.5s</td></tr>
+                  <tr><th>Tool calls</th><td>4</td></tr>
+                  <tr><th>Recorded cost</th><td>$0.00</td></tr>
+                  <tr><th>Agent model</th><td class="mono">opencode/big-pickle</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scenario" id="parallel">
+      <div class="wrap">
+        <div class="scenario-head">
+          <div>
+            <p class="scenario-kicker">Scenario 02 · Parallel specialists</p>
+            <h2>Five specialists, one question.</h2>
+            <p class="scenario-lede">Five <span class="mono">subagent</span> calls run in independent sessions, each pinned to a different derived specialist and a different model. The coordinator waits for all five, then states the consensus, the dissent, and the test the team recommends.</p>
+          </div>
+          <span class="pill pill--version">parallel.json</span>
+        </div>
+
+        <div class="scenario-grid">
+          <div>
+            <figure class="figure">
+              <a href="./assets/shots/parallel-1.webp" data-lightbox>
+                <img src="./assets/shots/parallel-1.webp" alt="Replay of five dispatch lanes: dev-beam, analyst, tester, reviewer, and architect each answer the same pricing review with a different model." width="1200" height="750" loading="lazy">
+              </a>
+              <figcaption>Five dispatch lanes rendered from the recorded JSON · 2026-11-21 · one prompt, five models</figcaption>
+            </figure>
+            <figure class="figure mt-md">
+              <a href="./assets/shots/parallel-2.webp" data-lightbox>
+                <img src="./assets/shots/parallel-2.webp" alt="Replay of the coordinator synthesis: four specialists agree on floating-point money errors, and the architect dissents with a fractional-rate bug." width="1200" height="750" loading="lazy">
+              </a>
+              <figcaption>The coordinator's synthesis rendered from the recorded JSON · 2026-11-21 · consensus and dissent kept apart</figcaption>
+            </figure>
+
+            <div class="reproduce">
+              <h3>Reproduce</h3>
+              <pre><code id="cmd-parallel">opencode run --standalone --auto --archived --format json --agent tawa --title "Tawassul demo: five derived specialists" "Use the subagent tool five times, once per derived specialist: dev-beam, analyst-hy4, tester-flint-40b-free, reviewer-longcat-2.5-free, architect-iceman-free. For each call use this exact prompt: Read src/pricing.js with the read tool and nothing else. Do not run any shell command and do not read any other file or directory. Name the single highest-risk defect in that file and the one test that would catch it. Reply in at most three sentences. Do not edit any file. Launch all five before waiting for results. When all five have finished, synthesise: state the consensus, any dissent, and the one test the team recommends. Do not edit any file."</code></pre>
+              <p class="small mt-sm"><a class="transcript-link" href="./assets/shots/transcripts/parallel.json">View the recorded transcript (JSON) →</a></p>
+            </div>
+          </div>
+
+          <div class="scenario-side">
+            <div class="card">
+              <h3>What to notice</h3>
+              <ul class="notice-list">
+                <li>Five sessions, five models, one question. No specialist sees another's answer before replying.</li>
+                <li>Four specialists name the same money-arithmetic defect; the architect dissents with a different one.</li>
+                <li>The synthesis keeps the dissent instead of averaging it away.</li>
+                <li>The team recommends one exact-decimal test: <span class="mono">expect(orderTotal([{ price: 0.1, qty: 3 }], 1)).toBe(0.3)</span>.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <table class="receipts-table">
+                <caption>Receipt from parallel.json</caption>
+                <tbody>
+                  <tr><th>Input tokens</th><td>40,865</td></tr>
+                  <tr><th>Output tokens</th><td>1,132</td></tr>
+                  <tr><th>Reasoning tokens</th><td>1,040</td></tr>
+                  <tr><th>Wall clock</th><td>48.8s</td></tr>
+                  <tr><th>Tool calls</th><td>5 subagent calls</td></tr>
+                  <tr><th>Recorded cost</th><td>$0.00</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card">
+              <h3>The five dispatches</h3>
+              <ul class="notice-list mono small">
+                <li>dev-beam · opencode/beam-free</li>
+                <li>analyst-hy4 · opencode/hy4-flash-free</li>
+                <li>tester-flint-40b-free · opencode/flint-40b-free</li>
+                <li>reviewer-longcat-2.5-free · opencode/longcat-2.5-free</li>
+                <li>architect-iceman-free · opencode/iceman-free</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scenario" id="ledger">
+      <div class="wrap">
+        <div class="scenario-head">
+          <div>
+            <p class="scenario-kicker">Scenario 03 · Goal ledger</p>
+            <h2>The ledger refuses an early close.</h2>
+            <p class="scenario-lede">A goal is created with two items and one definition of done. The first item is marked done with evidence. The close is still refused, because the second item is pending and the criterion is unmet. The refusal is mechanical, not a prompt suggestion.</p>
+          </div>
+          <span class="pill pill--version">ledger.json</span>
+        </div>
+
+        <div class="scenario-grid">
+          <div>
+            <figure class="figure">
+              <a href="./assets/shots/ledger-1.webp" data-lightbox>
+                <img src="./assets/shots/ledger-1.webp" alt="Replay of goal creation: G-001 has two items and one definition of done; the first item is marked done with evidence and progress is 50 percent." width="1200" height="750" loading="lazy">
+              </a>
+              <figcaption>Goal creation and the evidenced item transition · 2026-11-21 · G-001 at 50%</figcaption>
+            </figure>
+            <figure class="figure mt-md">
+              <a href="./assets/shots/ledger-2.webp" data-lightbox>
+                <img src="./assets/shots/ledger-2.webp" alt="Replay of the refused close: the ledger lists the pending second item and the unmet definition of done in the rejection text." width="1200" height="750" loading="lazy">
+              </a>
+              <figcaption>The refused close and the exact missing-gate text · 2026-11-21 · G-001 remains open</figcaption>
+            </figure>
+
+            <div class="reproduce">
+              <h3>Reproduce</h3>
+              <pre><code id="cmd-ledger">opencode run --standalone --auto --archived --format json --agent tawa --title "Tawassul demo: goal ledger" "Create a goal titled 'Harden the pricing formatter'. Add two items: 'Write the failing test' and 'Round every total to cents'. Add one definition-of-done criterion: 'formatTotal(0.1 * 3) returns $0.30'. Mark the first item done with the evidence 'test added: formatTotal(0.1 * 3) fails with $0.30000000000000004'. Then call close on the goal. It must be refused. Read the goal back and report the exact refusal text, which items are done and pending, and the DoD status. Do not edit any file."</code></pre>
+              <p class="small mt-sm"><a class="transcript-link" href="./assets/shots/transcripts/ledger.json">View the recorded transcript (JSON) →</a></p>
+            </div>
+          </div>
+
+          <div class="scenario-side">
+            <div class="card">
+              <h3>What to notice</h3>
+              <ul class="notice-list">
+                <li><span class="mono">G-001</span> is created with item IDs <span class="mono">G-001-I1</span> and <span class="mono">G-001-I2</span>.</li>
+                <li><span class="mono">G-001-I1</span> moves to done with a stored evidence string.</li>
+                <li>The close is rejected with the exact missing gates, not a generic error.</li>
+                <li>The goal stays open at 50%: a refused close changes nothing.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <table class="receipts-table">
+                <caption>Receipt from ledger.json</caption>
+                <tbody>
+                  <tr><th>Input tokens</th><td>37,692</td></tr>
+                  <tr><th>Output tokens</th><td>579</td></tr>
+                  <tr><th>Reasoning tokens</th><td>90</td></tr>
+                  <tr><th>Wall clock</th><td>18.8s</td></tr>
+                  <tr><th>Tool calls</th><td>5</td></tr>
+                  <tr><th>Recorded cost</th><td>$0.00</td></tr>
+                  <tr><th>Final progress</th><td>50%</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card">
+              <h3>The refusal, verbatim</h3>
+              <p class="mono small">Close rejected — missing: item:G-001-I2 (pending); dod:formatTotal(0.1 * 3) returns $0.30</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <div class="notice">
+          <h3>How these captures are sanitised</h3>
+          <ul>
+            <li>Paths are relative to the demo workspace (<span class="mono">src/pricing.js</span>); no home directory, state path, or secret is committed.</li>
+            <li>Model IDs and token counts are dated capture facts. They are not a catalog and not a promise about availability.</li>
+            <li>The replay images are rendered from the same JSON linked on this page, so a reader can compare the image with the receipt.</li>
+            <li>If a run does not contain the event a scenario claims, the scenario is dropped rather than illustrated.</li>
+          </ul>
+        </div>
+        <p class="small mt-md"><a href="./docs.html">Open the docs hub →</a> · <a href="./index.html#install">Install Tawassul →</a></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="./index.html">
+            <img src="./favicon.svg" alt="" width="30" height="30">
+            <span>Tawassul</span>
+          </a>
+          <p>A team runtime for OpenCode. Recorded demo sessions, English UI, no analytics and no external fonts.</p>
+        </div>
+        <div class="footer-col">
+          <h3>Site</h3>
+          <a href="./index.html">Home</a>
+          <a href="./scenarios.html">Scenarios</a>
+          <a href="./docs.html">Docs</a>
+          <a href="./index.html#install">Install</a>
+        </div>
+        <div class="footer-col">
+          <h3>Project</h3>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/LICENSE">License</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/NOTICE">Notice</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/SECURITY.md">Security</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/CONTRIBUTING.md">Contributing</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/SUPPORT.md">Support</a>
+        </div>
+        <div class="footer-col">
+          <h3>Reference</h3>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/README.md">README</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/GUIDE.md">Guide</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/WORKFLOW.md">Workflow</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/release-notes-0.1.6.md">Release notes</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span data-year>2026</span> Tawassul · Apache-2.0 · v0.1.6-experimental</span>
+        <span>Not affiliated with OpenCode. Maintained by HtoZ27.</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tawassul — a team runtime for OpenCode</title>
+  <meta name="description" content="Tawassul gives OpenCode a routed team of specialist agents, a durable goal ledger, parallel opinions, and guardrails. Watch recorded sessions from an isolated demo workspace.">
+  <link rel="canonical" href="https://htoz27.github.io/Tawassul-V2/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Tawassul">
+  <meta property="og:title" content="Tawassul — a team runtime for OpenCode">
+  <meta property="og:description" content="Recorded sessions: one prompt routed to a derived specialist, five specialists in parallel, and a goal ledger that keeps the proof.">
+  <meta property="og:url" content="https://htoz27.github.io/Tawassul-V2/">
+  <meta property="og:image" content="https://htoz27.github.io/Tawassul-V2/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Tawassul — a team runtime for OpenCode">
+  <meta name="twitter:description" content="Recorded sessions from an isolated demo workspace: routing, parallel specialists, and a goal ledger.">
+  <meta name="twitter:image" content="https://htoz27.github.io/Tawassul-V2/assets/og.png">
+  <meta name="theme-color" content="#070b17">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src https://api.github.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="./index.html">
+        <img src="./favicon.svg" alt="" width="30" height="30">
+        <span>Tawassul</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="nav" id="site-nav" aria-label="Primary" data-nav>
+        <a href="./scenarios.html">Scenarios</a>
+        <a href="#why">Why</a>
+        <a href="#install">Install</a>
+        <a href="./docs.html">Docs</a>
+        <a href="#releases">Releases</a>
+        <div class="nav-actions">
+          <span class="pill pill--version" data-version>v0.1.6-experimental</span>
+          <a class="btn btn--ghost btn--small" href="https://github.com/HtoZ27/Tawassul-V2">GitHub</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">Team runtime for OpenCode</p>
+          <h1>A routed team of specialists, with a ledger that keeps the proof.</h1>
+          <p class="lede">Tawassul gives OpenCode a coordinator, derived specialist agents, a durable goal ledger, and guardrails that keep dispatch honest. Every image below comes from a recorded session in an isolated demo workspace.</p>
+          <div class="hero-pills">
+            <span class="pill">Apache-2.0</span>
+            <span class="pill">OpenCode &gt;= 2.3.0</span>
+            <span class="pill pill--version">v0.1.6-experimental</span>
+            <span class="pill">Linux + Windows x64</span>
+          </div>
+          <div class="hero-cta">
+            <a class="btn" href="./scenarios.html">See a recorded session</a>
+            <a class="btn btn--ghost" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/GUIDE.md">Read the guide</a>
+          </div>
+        </div>
+        <div class="hero-art">
+          <div class="hero-glow" aria-hidden="true"></div>
+          <figure class="terminal">
+            <div class="terminal-bar" aria-hidden="true">
+              <span class="terminal-dot"></span><span class="terminal-dot"></span><span class="terminal-dot"></span>
+              <span class="terminal-title">tawassul-demo — tawa routing</span>
+            </div>
+            <picture>
+              <source srcset="./assets/shots/hero-terminal.webp" media="(prefers-reduced-motion: reduce)">
+              <img src="./assets/shots/hero-terminal-anim.webp" alt="Terminal completion of the recorded tawa routing run: the prompt asks which derived specialist should own a pricing bug, and the answer names dev-beam as the owner." width="1200" height="440" fetchpriority="high">
+            </picture>
+            <figcaption class="terminal-caption">
+              <strong>Example demo</strong> · live screen capture of the completion · 2026-11-21 · animated WebP · <span class="mono">tawa · opencode/big-pickle</span>
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="work">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">See it work</p>
+          <h2>Three recorded runs, not a feature list.</h2>
+          <p>Each card opens a scenario with the replay image, the receipt table, and the sanitised transcript that produced it. Every run is labelled <strong>Example demo</strong>.</p>
+        </div>
+        <div class="gallery-grid">
+          <a class="shot-card" href="./scenarios.html#route">
+            <figure>
+              <img src="./assets/shots/route-1.webp" alt="Replay of the routing run: tawa reads src/pricing.js and names dev-beam as the derived developer specialist." width="1200" height="750" loading="lazy">
+            </figure>
+            <div class="shot-card-body">
+              <h3>One prompt, one owner</h3>
+              <p><span class="mono">tawa</span> reads the pricing code and names <span class="mono">dev-beam</span>, a derived developer with its own model, as the owner for a pricing bug.</p>
+              <p class="meta">Example demo · 2026-11-21 · opencode/beam-free</p>
+            </div>
+          </a>
+          <a class="shot-card" href="./scenarios.html#parallel">
+            <figure>
+              <img src="./assets/shots/parallel-1.webp" alt="Replay of five derived specialists answering the same pricing review in parallel, each with a different model." width="1200" height="750" loading="lazy">
+            </figure>
+            <div class="shot-card-body">
+              <h3>Five specialists, one question</h3>
+              <p>Five derived agents review the same file in parallel; the synthesis keeps the consensus and the dissent instead of averaging them away.</p>
+              <p class="meta">Example demo · 2026-11-21 · five demo models</p>
+            </div>
+          </a>
+          <a class="shot-card" href="./scenarios.html#ledger">
+            <figure>
+              <img src="./assets/shots/ledger-1.webp" alt="Replay of the goal ledger: G-001 is created with two items and a definition of done." width="1200" height="750" loading="lazy">
+            </figure>
+            <div class="shot-card-body">
+              <h3>The ledger keeps the proof</h3>
+              <p>A goal carries stable item IDs, evidence strings, and a definition of done that the tool refuses to close early.</p>
+              <p class="meta">Example demo · 2026-11-21 · G-001</p>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="receipts" aria-label="Recorded receipts">
+      <div class="wrap">
+        <div class="receipts-inner">
+          <div class="receipt"><strong>5</strong><span>derived agents</span></div>
+          <div class="receipt"><strong>5</strong><span>demo models</span></div>
+          <div class="receipt"><strong>0</strong><span>cost</span></div>
+          <div class="receipt"><strong>G-001</strong><span>ledger goal</span></div>
+          <div class="receipt"><strong>2026-11-21</strong><span>capture date</span></div>
+        </div>
+        <p class="receipts-note">Example demo; measured from the committed transcripts, not estimates.</p>
+      </div>
+    </section>
+
+    <section class="section" id="why">
+      <div class="wrap two-col">
+        <div class="prose">
+          <p class="eyebrow">Why it exists</p>
+          <h2>Long sessions lose structure. One opinion hides disagreement.</h2>
+          <p>A single assistant drifts: tasks blur, decisions lose their evidence, and the reason a change was accepted disappears into the transcript. Tawassul keeps that structure outside the model — owners, handoffs, goal items, and evidence — so a later turn can inspect what happened instead of guessing.</p>
+          <p>Parallel specialists are not automatically better. They cost more and they can disagree. Tawassul makes the disagreement visible, records the bill, and lets the coordinator decide. The parallel scenario on this site shows both the consensus and the dissent.</p>
+        </div>
+        <div class="card">
+          <h3>The rule the demo follows</h3>
+          <p>Every claim is tied to a recorded event. Model names are dated capture facts, not a catalog. The roster is a generated example, not a personal configuration. When a mechanism fails, the scenario is dropped rather than illustrated.</p>
+          <a class="arrow" href="./scenarios.html">Open the recorded scenarios →</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Capabilities</p>
+          <h2>What the recorded runs actually exercise.</h2>
+        </div>
+        <div class="card-grid">
+          <a class="card" href="./scenarios.html#route">
+            <h3><span class="card-icon" aria-hidden="true">→</span> Routing and handoffs</h3>
+            <p><span class="mono">tawa</span> names the owner, records the model, and passes context. It does not implement the task itself.</p>
+            <p class="arrow">See the routing run →</p>
+          </a>
+          <a class="card" href="./scenarios.html#ledger">
+            <h3><span class="card-icon" aria-hidden="true">✓</span> Goal ledger</h3>
+            <p>Goals, item states, and definitions of done survive the session. A close is refused while an item or criterion is unmet.</p>
+            <p class="arrow">See the ledger run →</p>
+          </a>
+          <a class="card" href="./scenarios.html#parallel">
+            <h3><span class="card-icon" aria-hidden="true">∥</span> Parallel specialists</h3>
+            <p>Independent contexts answer the same question. The coordinator synthesises consensus and records the dissent.</p>
+            <p class="arrow">See the five-agent run →</p>
+          </a>
+          <a class="card" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/permissions.md">
+            <h3><span class="card-icon" aria-hidden="true">⛨</span> Guardrails</h3>
+            <p>Role-gated tools, consent for destructive changes, and a dispatch check that keeps a deleted or paused agent out of the team.</p>
+            <p class="arrow">Read permissions and the security model →</p>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="roster">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Roster in context</p>
+          <h2>Templates stay; the demo dispatches derived specialists.</h2>
+          <p>The eight base roles are templates. The demo adds five derived variants, each pinned to a different model, and the routing table sends work to them. The full table lives in the agents reference.</p>
+        </div>
+        <div class="roster" aria-label="Base role templates">
+          <span>dev</span><span>analyst</span><span>tester</span><span>reviewer</span><span>architect</span><span>designer</span><span>doc</span><span>addagent</span>
+        </div>
+        <p class="small muted mt-sm">Base templates</p>
+        <div class="roster" aria-label="Derived demo specialists">
+          <span class="is-variant">dev-beam</span>
+          <span class="is-variant">analyst-hy4</span>
+          <span class="is-variant">tester-flint-40b-free</span>
+          <span class="is-variant">reviewer-longcat-2.5-free</span>
+          <span class="is-variant">architect-iceman-free</span>
+        </div>
+        <p class="small muted mt-sm">Example demo specialists; each model is a dated capture fact.</p>
+        <p class="small mt-md"><a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/agents.md">Read the agents reference →</a></p>
+      </div>
+    </section>
+
+    <section class="section" id="install">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Install</p>
+          <h2>Three supported paths.</h2>
+          <p>Use project scope for a local workspace. The release installer verifies the bundle and never edits your OpenCode configuration. The <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/installation.md">installation reference</a> is the source of truth for every path and flag.</p>
+        </div>
+        <div class="install-grid">
+          <div class="install-block">
+            <h3>Release installer · project</h3>
+            <div class="copy-row"><span class="mono small">one workspace</span><button class="copy-btn" type="button" data-copy="install-project">Copy</button></div>
+            <pre id="install-project"><code>sh install.sh --project &lt;dir&gt; --dry-run
+sh install.sh --project &lt;dir&gt;</code></pre>
+            <p class="hint muted">Loads only inside that workspace.</p>
+          </div>
+          <div class="install-block">
+            <h3>Release installer · global</h3>
+            <div class="copy-row"><span class="mono small">every workspace</span><button class="copy-btn" type="button" data-copy="install-global">Copy</button></div>
+            <pre id="install-global"><code>sh install.sh --global --dry-run
+sh install.sh --global</code></pre>
+            <p class="hint muted">Writes the plugin and runtime under the user config root.</p>
+          </div>
+          <div class="install-block">
+            <h3>Source checkout</h3>
+            <div class="copy-row"><span class="mono small">build from source</span><button class="copy-btn" type="button" data-copy="install-source">Copy</button></div>
+            <pre id="install-source"><code>nvm use
+npm install
+npm run build</code></pre>
+            <p class="hint muted">Then open the workspace; the host discovers the plugin.</p>
+          </div>
+        </div>
+        <div class="notice notice--warn mt-lg">
+          <h3>One setting lives in the app</h3>
+          <p class="small">Open <strong>Settings → General</strong> and turn on <strong>Show agent</strong>. The composer then carries the agent selector, so a session can run as a derived specialist. While it is off, the app stays on the Build agent.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="releases">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Releases</p>
+          <h2>Latest published builds.</h2>
+          <p>Fetched from the public GitHub API. If the request fails or is rate-limited, the static link below still works.</p>
+        </div>
+        <div class="releases" data-releases hidden></div>
+        <p class="small muted" data-releases-note hidden>Live release data is unavailable right now.</p>
+        <p class="small mt-sm"><a href="https://github.com/HtoZ27/Tawassul-V2/releases">All releases on GitHub →</a></p>
+        <noscript><p class="small muted">JavaScript is disabled; use the link above for the release list.</p></noscript>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Docs</p>
+          <h2>Start with the page that matches the job.</h2>
+        </div>
+        <div class="card-grid">
+          <a class="card" href="./docs.html#start-here">
+            <h3>Start here</h3>
+            <p>Installation, compatibility, plugins, upgrade, and the release notes.</p>
+            <p class="arrow">Open the docs hub →</p>
+          </a>
+          <a class="card" href="./docs.html#work">
+            <h3>Work</h3>
+            <p>Agents, tools, commands, skills, permissions, configuration, environment.</p>
+            <p class="arrow">Open the docs hub →</p>
+          </a>
+          <a class="card" href="./docs.html#operate">
+            <h3>Operate</h3>
+            <p>State, database, architecture, monitoring, security, privacy, troubleshooting.</p>
+            <p class="arrow">Open the docs hub →</p>
+          </a>
+          <a class="card" href="./docs.html#reference">
+            <h3>Reference</h3>
+            <p>Dependencies, validation, FAQ, glossary, roadmap, and project policies.</p>
+            <p class="arrow">Open the docs hub →</p>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="./index.html">
+            <img src="./favicon.svg" alt="" width="30" height="30">
+            <span>Tawassul</span>
+          </a>
+          <p>A team runtime for OpenCode. Recorded demo sessions, English UI, no analytics and no external fonts.</p>
+        </div>
+        <div class="footer-col">
+          <h3>Site</h3>
+          <a href="./scenarios.html">Scenarios</a>
+          <a href="./docs.html">Docs</a>
+          <a href="#install">Install</a>
+          <a href="#releases">Releases</a>
+        </div>
+        <div class="footer-col">
+          <h3>Project</h3>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/LICENSE">License</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/NOTICE">Notice</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/SECURITY.md">Security</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/CONTRIBUTING.md">Contributing</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/SUPPORT.md">Support</a>
+        </div>
+        <div class="footer-col">
+          <h3>Reference</h3>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/README.md">README</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/GUIDE.md">Guide</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/WORKFLOW.md">Workflow</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/release-notes-0.1.6.md">Release notes</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span data-year>2026</span> Tawassul · Apache-2.0 · v0.1.6-experimental</span>
+        <span>Not affiliated with OpenCode. Maintained by HtoZ27.</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

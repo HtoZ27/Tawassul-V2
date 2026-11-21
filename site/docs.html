@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Docs — Tawassul</title>
+  <meta name="description" content="Tawassul documentation index: installation, agents, tools, permissions, state, architecture, security, troubleshooting, and reference pages.">
+  <link rel="canonical" href="https://htoz27.github.io/Tawassul-V2/docs.html">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Tawassul">
+  <meta property="og:title" content="Docs — Tawassul">
+  <meta property="og:description" content="Every Tawassul reference page, grouped by the job you are doing.">
+  <meta property="og:url" content="https://htoz27.github.io/Tawassul-V2/docs.html">
+  <meta property="og:image" content="https://htoz27.github.io/Tawassul-V2/assets/og.png">
+  <meta name="theme-color" content="#070b17">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src https://api.github.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="./index.html">
+        <img src="./favicon.svg" alt="" width="30" height="30">
+        <span>Tawassul</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="nav" id="site-nav" aria-label="Primary" data-nav>
+        <a href="./index.html">Home</a>
+        <a href="./scenarios.html">Scenarios</a>
+        <a href="./docs.html" aria-current="page">Docs</a>
+        <a href="./index.html#install">Install</a>
+        <a href="./index.html#releases">Releases</a>
+        <div class="nav-actions">
+          <span class="pill pill--version" data-version>v0.1.6-experimental</span>
+          <a class="btn btn--ghost btn--small" href="https://github.com/HtoZ27/Tawassul-V2">GitHub</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="page-hero">
+      <div class="wrap">
+        <p class="eyebrow">Documentation</p>
+        <h1>Every page, grouped by the job.</h1>
+        <p class="lede">The Markdown files in the repository are the source of truth. Each card opens the file on GitHub in a new context, so the site never renders a stale copy. Start with installation if this is your first workspace.</p>
+        <div class="docs-tools">
+          <label class="sr-only" for="docs-filter">Filter documentation</label>
+          <input class="search" id="docs-filter" type="search" placeholder="Filter by title, topic, or keyword" autocomplete="off" data-docs-search>
+          <span class="search-count" data-docs-count>19 pages</span>
+        </div>
+        <p class="small muted">English is canonical. The Arabic end-user guide is a translation and is labelled as such.</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <div class="docs-group" data-doc-group id="start-here">
+          <h2>Start here</h2>
+          <div class="docs-grid">
+            <a class="doc-card" data-doc-card data-keywords="install setup release installer project global upgrade first workspace" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/installation.md">
+              <strong>Installation</strong><span>Project and global installs, the release installer, what it writes, and how to uninstall.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="readme overview quick start what is tawassul" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/README.md">
+              <strong>README</strong><span>The project overview, quick start, and the shortest path to a running workspace.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="guide workflow usage walkthrough end user" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/GUIDE.md">
+              <strong>Guide</strong><span>How a session runs: routing, specialists, handoffs, the ledger, and the guardrails.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="workflow day to day operation team" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/WORKFLOW.md">
+              <strong>Workflow</strong><span>The expected day-to-day loop for a workspace that uses the full team.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="features capabilities list" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/features.md">
+              <strong>Features</strong><span>What ships in this release and which mechanism backs each capability.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="plugin host opencode integration" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/plugins.md">
+              <strong>Plugins</strong><span>How the plugin loads in OpenCode, what it registers, and where it stays out of the way.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="upgrade update version migration" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/upgrade.md">
+              <strong>Upgrading</strong><span>Moving an existing install to a newer release, including state and database checks.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="compatibility versions node bun opencode linux windows" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/compatibility.md">
+              <strong>Compatibility</strong><span>Supported OpenCode, Node.js, Bun, and platform versions.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="release notes 0.1.6 changelog new" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/release-notes-0.1.6.md">
+              <strong>Release notes · 0.1.6</strong><span>What changed in the current experimental release and what it means for an existing install.</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="docs-group" data-doc-group id="work">
+          <h2>Work</h2>
+          <div class="docs-grid">
+            <a class="doc-card" data-doc-card data-keywords="agents roles derived variants roster base template addagent kick" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/agents.md">
+              <strong>Agents</strong><span>Base roles, derived specialists, the roster file, and how a variant inherits behaviour.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="tools goal handoff subagent moa check record" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/tools.md">
+              <strong>Tools</strong><span>Every tool the runtime exposes, with its inputs, effects, and when to use it.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="commands slash commands cli" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/commands.md">
+              <strong>Commands</strong><span>The slash commands and what each one does to the session or the ledger.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="skills reusable instructions" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/skills.md">
+              <strong>Skills</strong><span>How skills are discovered, loaded, and scoped to an agent.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="permissions consent destructive security approval" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/permissions.md">
+              <strong>Permissions and consent</strong><span>Role-gated tools, the consent gate, and the paths that require an explicit approval.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="configuration settings jsonc opencode config" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/configuration.md">
+              <strong>Configuration</strong><span>Where configuration lives, which file wins, and how a project roster is resolved.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="environment variables env flags" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/environment.md">
+              <strong>Environment</strong><span>Supported environment variables, defaults, and the test-only overrides.</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="docs-group" data-doc-group id="operate">
+          <h2>Operate</h2>
+          <div class="docs-grid">
+            <a class="doc-card" data-doc-card data-keywords="state files persistence location" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/state.md">
+              <strong>State</strong><span>What is persisted, where it lives, and how a project stays isolated from another.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="database sqlite maintenance backup reduce" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/database.md">
+              <strong>Database and maintenance</strong><span>The SQLite store, the maintenance lane, and how to reduce a large database safely.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="architecture internals modules layers" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/architecture.md">
+              <strong>Architecture</strong><span>The runtime layers, the context object, and how a tool call becomes a recorded event.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="continuity detection session drift" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/continuity-detection.md">
+              <strong>Continuity detection</strong><span>How the runtime notices that a session lost its thread and what it does about it.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="monitoring logs health diagnostics" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/monitoring.md">
+              <strong>Monitoring</strong><span>Health output, logs, and the signals worth watching during a long session.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="security model threat trust boundary" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/security-model.md">
+              <strong>Security model</strong><span>Trust boundaries, the consent gate, and what the plugin does not protect against.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="privacy data local network" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/privacy.md">
+              <strong>Privacy</strong><span>What stays local, what leaves the machine, and which provider receives a prompt.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="troubleshooting fix error broken" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/troubleshooting.md">
+              <strong>Troubleshooting</strong><span>Common failure modes and the check that tells you which layer failed.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="known issues bugs limitations" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/known-issues.md">
+              <strong>Known issues</strong><span>Open defects and the workarounds that are safe to use today.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="limitations scope not supported" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/limitations.md">
+              <strong>Limitations</strong><span>Deliberate boundaries: what the runtime does not attempt and why.</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="docs-group" data-doc-group id="reference">
+          <h2>Reference</h2>
+          <div class="docs-grid">
+            <a class="doc-card" data-doc-card data-keywords="dependencies packages supply chain" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/dependencies.md">
+              <strong>Dependencies</strong><span>Runtime and build dependencies, with the reason each one is present.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="validation tests gates proofs ci" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/validation.md">
+              <strong>Validation</strong><span>The gates, proofs, and smoke tests that must pass before a release.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="faq questions answers" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/faq.md">
+              <strong>FAQ</strong><span>Short answers to the questions that come up before and after install.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="glossary terms definitions" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/glossary.md">
+              <strong>Glossary</strong><span>The vocabulary used across the docs: variant, handoff, ledger, receipt, gate.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="roadmap future planned" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/roadmap.md">
+              <strong>Roadmap</strong><span>What is planned next and which items are explicitly out of scope.</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="docs-group" data-doc-group id="project">
+          <h2>Project</h2>
+          <div class="docs-grid">
+            <a class="doc-card" data-doc-card data-keywords="contributing development pull request" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/CONTRIBUTING.md">
+              <strong>Contributing</strong><span>How to propose a change, run the gates, and keep a diff reviewable.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="code of conduct community" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/CODE_OF_CONDUCT.md">
+              <strong>Code of conduct</strong><span>The behaviour expected in issues, reviews, and discussions.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="security policy report vulnerability" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/SECURITY.md">
+              <strong>Security policy</strong><span>How to report a vulnerability and what to include.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="support help issue" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/SUPPORT.md">
+              <strong>Support</strong><span>Where to ask for help and which diagnostics to attach.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="changelog history versions" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/CHANGELOG.md">
+              <strong>Changelog</strong><span>The full history of releases and the change that defines each one.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="notice attribution license" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/NOTICE">
+              <strong>Notice</strong><span>Attribution and third-party notices.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="license apache 2.0" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/LICENSE">
+              <strong>License</strong><span>Apache License 2.0.</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="docs-group" data-doc-group id="translations">
+          <h2>Translations</h2>
+          <div class="docs-grid">
+            <a class="doc-card" data-doc-card data-keywords="arabic translation end user guide" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/i18n/ar/end-user-guide.md">
+              <strong>End-user guide · Arabic</strong><span>A translation of the end-user guide. English is canonical when the two differ.</span>
+            </a>
+          </div>
+        </div>
+
+        <p class="no-match" data-no-match>No page matches that filter. Try a broader word.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="./index.html">
+            <img src="./favicon.svg" alt="" width="30" height="30">
+            <span>Tawassul</span>
+          </a>
+          <p>A team runtime for OpenCode. Recorded demo sessions, English UI, no analytics and no external fonts.</p>
+        </div>
+        <div class="footer-col">
+          <h3>Site</h3>
+          <a href="./index.html">Home</a>
+          <a href="./scenarios.html">Scenarios</a>
+          <a href="./docs.html">Docs</a>
+          <a href="./index.html#install">Install</a>
+        </div>
+        <div class="footer-col">
+          <h3>Project</h3>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/LICENSE">License</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/NOTICE">Notice</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/SECURITY.md">Security</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/CONTRIBUTING.md">Contributing</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/SUPPORT.md">Support</a>
+        </div>
+        <div class="footer-col">
+          <h3>Reference</h3>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/README.md">README</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/GUIDE.md">Guide</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/WORKFLOW.md">Workflow</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/release-notes-0.1.6.md">Release notes</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span data-year>2026</span> Tawassul · Apache-2.0 · v0.1.6-experimental</span>
+        <span>Not affiliated with OpenCode. Maintained by HtoZ27.</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

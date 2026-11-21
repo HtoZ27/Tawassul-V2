@@ -1,0 +1,61 @@
+{
+  "capturedAt": "2026-11-21",
+  "workspace": "isolated demo",
+  "label": "Example demo",
+  "scenario": "route",
+  "session": "ses_e03f207e7ffeSNC6cx4O0EI6jM",
+  "command": "opencode run --standalone --auto --archived --format json --agent tawa --title \"Tawassul demo: tawa routing\"",
+  "prompt": "Review src/pricing.js. Name the derived specialist in this workspace that you would route a pricing bug to. Do not edit any file.",
+  "agents": [
+    {
+      "name": "tawa",
+      "model": "opencode/big-pickle"
+    }
+  ],
+  "events": [
+    {
+      "type": "tool",
+      "tool": "check",
+      "input": {},
+      "status": "completed"
+    },
+    {
+      "type": "tool",
+      "tool": "batchread",
+      "input": {
+        "paths": [
+          "src/pricing.js"
+        ]
+      },
+      "status": "completed"
+    },
+    {
+      "type": "tool",
+      "tool": "glob",
+      "input": {
+        "pattern": ".opencode/agents/*.md"
+      },
+      "status": "completed"
+    },
+    {
+      "type": "tool",
+      "tool": "directresponse",
+      "input": {
+        "response": "I reviewed `src/pricing.js` (read-only — no files changed). It's a small pricing module: `lineTotal` (price × qty), `orderTotal` (subtotal × rate), and `formatTotal` (a plain `\"$\" + value` stringify). Potential bug surfaces here are calculation/rounding in `orderTotal` and unrounded currency formatting in `formatTotal`.\n\nFor a pricing **bug fix**, the derived specialist I'd route it to is **@dev-beam** — the workspace's derived development specialist (configured on `opencode/beam-free`). The base `@dev` is only a role template; `dev-beam` is the actual derived specialist for implementation work in this workspace.\n\n(If it were a verification task rather than a fix, the matching derived specialists would be @tester-flint-40b-free for testing or @reviewer-longcat-2.5-free for review — but for a fix, @dev-beam is the right one.)"
+      },
+      "status": "completed"
+    },
+    {
+      "type": "text",
+      "text": "I reviewed `src/pricing.js` without editing anything. It's a small pricing module: `lineTotal` (price × qty), `orderTotal` (subtotal × rate), and `formatTotal` (plain `\"$\" + value`). Likely bug surfaces are calculation/rounding in `orderTotal` and unrounded currency output in `formatTotal`.\n\nFor a pricing **bug fix**, the derived specialist I'd route it to is **@dev-beam** — this workspace's derived development specialist. The base `@dev` is only a role template; `dev-beam` is the concrete specialist for implementation work here.\n\nIf you'd rather verify than fix, the corresponding derived specialists are @tester-flint-40b-free (testing) or @reviewer-longcat-2.5-free (review) — but for a fix, @dev-beam is the right choice."
+    }
+  ],
+  "metrics": {
+    "inputTokens": 37726,
+    "outputTokens": 463,
+    "reasoningTokens": 632,
+    "cost": 0,
+    "durationMs": 11499,
+    "toolCalls": 4
+  }
+}
