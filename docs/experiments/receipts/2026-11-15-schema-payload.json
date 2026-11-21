@@ -15,7 +15,8 @@
     "bytes": 24740,
     "estimatedTokens": 6185
   },
-  "descriptionBytes": 15832,
+  "descriptionBytes": 15807,
+  "revised": "2026-11-21: the goal delete line lost the owner restriction (25 B); goal 1510 B, total 15807 B.",
   "schemaLines": [
     {
       "name": "addagent",
@@ -316,8 +317,8 @@
     },
     {
       "name": "goal",
-      "bytes": 1535,
-      "estimatedTokens": 384
+      "bytes": 1510,
+      "estimatedTokens": 378
     },
     {
       "name": "handoff",

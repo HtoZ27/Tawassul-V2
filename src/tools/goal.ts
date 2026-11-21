@@ -41,7 +41,7 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
       "evidence: goal(evidence: <G-xxx>, evidenceText: <text>)",
       "DoD: goal(update: <G-xxx>, acceptId: <criterion>, acceptState: met|not_met[, acceptEvidence: <note>]) — met requires evidence (≥8 chars)",
       "close: goal(close: <G-xxx>) [+ verify: true] — completed/verified ONLY if every DoD is met and no items are unfinished (mechanical gate, never prompt-based)",
-      "delete: goal(delete: <G-xxx>) → dropped (owner or @analyst only)",
+      "delete: goal(delete: <G-xxx>) → dropped",
       "",
       "READ (never gated):",
       '  goal(get: "G-001") → one goal + items + DoD',
@@ -195,9 +195,6 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
         const id = str(args.delete);
         const goal = store.get(id);
         if (!goal) return { output: t("goalNotFound", { id }) };
-        if (normalizeName(goal.owner) !== agent && agent !== "analyst") {
-          return { output: t("goalNoPermission", { id, owner: goal.owner }) };
-        }
         const res = await store.deleteGoal(id);
         if (!res.ok) {
           if (res.reason === "locked") return { output: t("goalLocked") };
@@ -211,6 +208,9 @@ export function buildGoalTool(store: GoalStore): ToolDefinition {
         if (!res.ok) {
           if (res.reason === "locked") return { output: t("goalLocked") };
           if (res.reason === "not-found") return { output: t("goalNotFound", { id }) };
+          if (res.reason === "transition") {
+            return { output: t("goalTransitionBlocked", { missing: (res.missing ?? []).join("; ") }) };
+          }
           return { output: t("goalInvariantBlocked", { missing: (res.missing ?? []).join("; ") }) };
         }
         const closed = res.goal;

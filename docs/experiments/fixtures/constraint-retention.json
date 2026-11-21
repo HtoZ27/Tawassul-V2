@@ -148,11 +148,11 @@
           ]
         },
         {
-          "id": "goal-delete-owner",
-          "kind": "prohibition",
-          "baseline": "delete: → dropped (owner or @analyst only)",
+          "id": "goal-delete-path",
+          "kind": "prerequisite",
+          "baseline": "delete: → dropped for any caller",
           "require": [
-            "owner or @analyst only"
+            "delete: goal(delete: <G-xxx>) → dropped"
           ]
         },
         {

@@ -94,15 +94,15 @@ interface GoalMeta {
 
 const ALLOWED_TRANSITIONS: Record<GoalStatus, readonly GoalStatus[]> = {
   open: ["in_progress", "blocked", "completed", "verified", "dropped"],
-  in_progress: ["partial", "blocked", "completed", "dropped"],
-  partial: ["in_progress", "blocked", "completed", "dropped"],
-  blocked: ["open", "in_progress", "dropped"],
+  in_progress: ["partial", "blocked", "completed", "verified", "dropped"],
+  partial: ["in_progress", "blocked", "completed", "verified", "dropped"],
+  blocked: ["open", "in_progress", "completed", "verified", "dropped"],
   
   
   completed: ["verified", "in_progress", "blocked", "dropped"],
   verified: ["dropped"],
   dropped: ["open"],
-  stale: ["open", "in_progress", "dropped"],
+  stale: ["open", "in_progress", "completed", "verified", "dropped"],
 };
 
 const ACTIVE_STATUS_BASE: readonly GoalStatus[] = ["open", "in_progress", "partial", "blocked"];

@@ -106,6 +106,37 @@ try {
     "flag-off stale goals still consume the active goal cap",
   );
 
+  const staleCloseDir = tempDir("stale-close");
+  const staleCloseStore = makeStore(staleCloseDir);
+  const staleCloseId = await completeGoal(staleCloseStore, "stale close");
+  const staleCloseSwept = await staleCloseStore.markStale(0, Date.now() + 60_000);
+  assert(
+    staleCloseSwept.length === 1 && staleCloseSwept[0] === staleCloseId,
+    "the complete stale-close seed is swept",
+  );
+  const staleClose = await staleCloseStore.close(staleCloseId, false, "@dev");
+  assert(staleClose.ok, "a complete stale goal closes as completed");
+  assert(
+    staleCloseStore.getAny(staleCloseId)?.closedAs === "completed",
+    "the stale close records the completed terminal status",
+  );
+
+  const staleVerifyDir = tempDir("stale-verify");
+  const staleVerifyStore = makeStore(staleVerifyDir);
+  const staleVerifyId = await completeGoal(staleVerifyStore, "stale verify");
+  const staleVerifyEvidence = await staleVerifyStore.appendEvidence(
+    staleVerifyId,
+    "goal evidence for the stale verify path",
+  );
+  assert(staleVerifyEvidence.ok, "the stale verify seed accepts goal evidence");
+  await staleVerifyStore.markStale(0, Date.now() + 60_000);
+  const staleVerify = await staleVerifyStore.close(staleVerifyId, true, "@dev");
+  assert(staleVerify.ok, "a complete stale goal verifies through the close path");
+  assert(
+    staleVerifyStore.getAny(staleVerifyId)?.closedAs === "verified",
+    "the stale verify records the verified terminal status",
+  );
+
   process.env.TAWASSUL_GOAL_AUTOCLOSE = "1";
 
   const closeDir = tempDir("close");

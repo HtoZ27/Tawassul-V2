@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { GoalStore } from "../src/services/goal-store.ts";
+import { buildGoalTool } from "../src/tools/goal.ts";
 import { runTodoReconcile } from "../src/services/goal-auto.ts";
 import { logger } from "../src/utils/logger.ts";
 import type { Goal } from "../src/types/goal-types.ts";
@@ -43,6 +44,26 @@ function makeStore(dir: string, maxGoals?: number): GoalStore {
   };
   if (maxGoals !== undefined) options.maxGoals = maxGoals;
   return new GoalStore(dir, options);
+}
+
+function toolContext(dir: string, agent: string): {
+  sessionID: string;
+  messageID: string;
+  agent: string;
+  directory: string;
+  worktree: string;
+  abort: AbortSignal;
+  metadata: () => void;
+} {
+  return {
+    sessionID: `ses_goal_capture_${agent}`,
+    messageID: `msg_goal_capture_${agent}`,
+    agent,
+    directory: dir,
+    worktree: dir,
+    abort: new AbortController().signal,
+    metadata: () => undefined,
+  };
 }
 
 function countsLine(store: GoalStore): string {
@@ -272,6 +293,52 @@ try {
   assert(
     defaultStore.buildDigest().text.includes("active goal cap reached (5000/5000)"),
     "digest reports the default cap boundary",
+  );
+
+  for (const status of ["in_progress", "partial", "blocked"] as const) {
+    const dir = tempDir(`close-${status}`);
+    const store = makeStore(dir);
+    const id = await createCloseable(store, `close from ${status}`);
+    const entered = await store.update(id, { status: "in_progress" });
+    if (!entered.ok) fail(`the ${status} seed could not enter in_progress: ${entered.reason}`);
+    if (status === "partial") {
+      const partial = await store.update(id, { status: "partial" });
+      if (!partial.ok) fail(`the partial seed could not enter partial: ${partial.reason}`);
+    }
+    if (status === "blocked") {
+      const blocked = await store.update(id, { status: "blocked" });
+      if (!blocked.ok) fail(`the blocked seed could not enter blocked: ${blocked.reason}`);
+    }
+    const evidence = await store.appendEvidence(id, `goal evidence for the ${status} close`);
+    if (!evidence.ok) fail(`the ${status} seed could not accept goal evidence: ${evidence.reason}`);
+    const closed = await store.close(id, true, "@dev");
+    assert(closed.ok, `close(verify) is allowed from ${status}`);
+    assert(closed.ok && closed.goal.status === "verified", `the ${status} goal closes as verified`);
+  }
+
+  const dirAgent = tempDir("agent");
+  const agentStore = makeStore(dirAgent);
+  const agentTool = buildGoalTool(agentStore);
+  const agentCloseId = await createCloseable(agentStore, "cross agent close");
+  const agentClose = await agentTool.execute({ close: agentCloseId }, toolContext(dirAgent, "tester"));
+  assert(
+    String((agentClose as { output?: string }).output ?? "").includes("completed"),
+    "a different agent can close a goal",
+  );
+  assert(agentStore.getAny(agentCloseId)?.closedAs === "completed", "the cross-agent close records completed");
+  const agentDeleteSeed = await agentStore.create({ title: "cross agent delete", owner: "@dev" });
+  if (!agentDeleteSeed.ok) fail(`cross-agent delete seed failed: ${agentDeleteSeed.reason}`);
+  const agentDelete = await agentTool.execute(
+    { delete: agentDeleteSeed.goal.id },
+    toolContext(dirAgent, "tester"),
+  );
+  assert(
+    String((agentDelete as { output?: string }).output ?? "").includes("dropped"),
+    "a different agent can delete a goal",
+  );
+  assert(
+    agentStore.getAny(agentDeleteSeed.goal.id)?.closedAs === "dropped",
+    "the cross-agent delete records dropped",
   );
 
   console.log("PROOF PASS: goal capture closes once, replays counts, and enforces the active cap");
