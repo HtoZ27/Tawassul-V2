@@ -57,6 +57,29 @@ printf '{"type":"module","dependencies":{"@opencode/plugin":"^2.3.0"}}\n' > .ope
 bun install --cwd .opencode
 ```
 
+## Drop-in load
+
+Copying the bundle into a plugin directory is a complete install. The host reads
+that directory at startup and loads the plugin files it finds; nothing registers
+the file, and nothing asks for confirmation.
+
+| Scope | Bundle | Runtime |
+| --- | --- | --- |
+| Project | `<project>/.opencode/plugins/tawassul.js` | `<project>/.opencode/tawassul-runtime/wasm/` |
+| Global | `<config>/opencode/plugins/tawassul.js` | `<config>/opencode/tawassul-runtime/wasm/` |
+
+Copy `dist/global.js` for a hand install: it carries every dependency, so no
+`node_modules` sits beside it and the host runs no package install. The four
+wasm folders keep their names under `tawassul-runtime/wasm/`. The singular
+`plugin/` directory is read as well in both scopes; one copy per scope is the
+rule, and `install-global` refuses to run while a project copy exists.
+
+Create both directories before the host starts; a missing plugin directory stops
+it with `Location plugins did not finish activating`. A hand copy carries no
+install marker, so `--verify` and `--uninstall` do not see it and Windows gets no
+key-directory ACL. Deleting the bundle unloads the plugin on the next start, and
+removing `tawassul-runtime/` also removes the AST grammars.
+
 ## Global scope
 
 The global installer writes outside the workspace, so run it deliberately.

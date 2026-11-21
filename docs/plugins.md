@@ -25,6 +25,11 @@ The entry file is a real file, not a symlink. A symlinked entry is reported as a
 failure by `doctor`, because a link can point outside the install and disappear
 independently of it.
 
+Discovery is the install. The host loads the plugin files in those directories at
+startup with no registration step and no confirmation prompt, so a copied file is
+active on the next start and deleting it is the uninstall. The singular `plugin/`
+directory is read as well as `plugins/`; keep one copy per scope.
+
 ## The configuration entry
 
 If discovery is not an option, the host accepts a manual entry. The OpenCode 2
