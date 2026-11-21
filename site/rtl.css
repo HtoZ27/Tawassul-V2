@@ -1,0 +1,94 @@
+[dir="rtl"] body {
+  font-family: system-ui, "Segoe UI", Tahoma, "Noto Sans Arabic", "Noto Naskh Arabic", sans-serif;
+}
+
+[dir="rtl"] h1,
+[dir="rtl"] h2,
+[dir="rtl"] h3,
+[dir="rtl"] h4,
+[dir="rtl"] .brand span {
+  letter-spacing: 0;
+}
+
+[dir="rtl"] .eyebrow {
+  font-family: var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+[dir="rtl"] .eyebrow::before {
+  background: linear-gradient(270deg, var(--sky), transparent);
+}
+
+[dir="rtl"] .skip-link {
+  left: auto;
+  right: 1rem;
+}
+
+[dir="rtl"] .nav {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+[dir="rtl"] .nav-toggle {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+[dir="rtl"] .nav-actions {
+  margin-left: 0;
+  margin-right: 0.7rem;
+}
+
+[dir="rtl"] .terminal-title {
+  margin-left: 0;
+  margin-right: 0.4rem;
+}
+
+[dir="rtl"] .badge {
+  margin-left: 0;
+  margin-right: 0.35rem;
+}
+
+[dir="rtl"] .notice {
+  border-left-width: 1px;
+  border-right: 3px solid var(--sky);
+  padding-left: 1rem;
+  padding-right: 1.1rem;
+}
+
+[dir="rtl"] .notice--warn {
+  border-left-color: var(--line);
+  border-right-color: var(--warn);
+}
+
+[dir="rtl"] .notice ul,
+[dir="rtl"] .notice-list {
+  padding-left: 0;
+  padding-right: 1.15rem;
+}
+
+[dir="rtl"] .receipts-table caption,
+[dir="rtl"] .receipts-table th,
+[dir="rtl"] .receipts-table td {
+  text-align: right;
+}
+
+[dir="rtl"] .lightbox button {
+  right: auto;
+  left: 1rem;
+}
+
+[dir="rtl"] pre,
+[dir="rtl"] code,
+[dir="rtl"] .mono {
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: left;
+}
+
+@media (max-width: 860px) {
+  [dir="rtl"] .nav-actions {
+    margin-right: 0;
+  }
+}

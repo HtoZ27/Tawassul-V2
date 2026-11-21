@@ -1170,6 +1170,12 @@ a.card:hover {
   margin-top: 1.2rem;
 }
 
+.clipboard-helper {
+  position: fixed;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .mono {
   font-family: var(--mono);
 }

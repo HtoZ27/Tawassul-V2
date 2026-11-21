@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-i18n-copied="تم النسخ" data-i18n-copy-failed="فشل النسخ" data-i18n-release="إصدار" data-i18n-prerelease="إصدار تجريبي" data-i18n-undated="بدون تاريخ" data-i18n-assets="{n} من الأصول" data-i18n-open="فتح" data-i18n-pages="{shown} من {total} صفحة" data-i18n-lightbox="صورة إعادة التشغيل مكبّرة" data-i18n-close="إغلاق">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>المستندات — إضافة تواصل</title>
+  <meta name="description" content="فهرس مستندات إضافة تواصل: التثبيت، والوكلاء، والأدوات، والصلاحيات، والحالة، والبنية، والأمان، واستكشاف الأخطاء، وصفحات المرجع.">
+  <link rel="canonical" href="https://htoz27.github.io/Tawassul-V2/ar/docs.html">
+  <link rel="alternate" hreflang="ar" href="https://htoz27.github.io/Tawassul-V2/ar/docs.html">
+  <link rel="alternate" hreflang="en" href="https://htoz27.github.io/Tawassul-V2/docs.html">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="إضافة تواصل">
+  <meta property="og:locale" content="ar">
+  <meta property="og:title" content="المستندات — إضافة تواصل">
+  <meta property="og:description" content="كل صفحة مرجعية في إضافة تواصل، مجمّعة حسب المهمة التي تؤديها.">
+  <meta property="og:url" content="https://htoz27.github.io/Tawassul-V2/ar/docs.html">
+  <meta property="og:image" content="https://htoz27.github.io/Tawassul-V2/assets/og.png">
+  <meta name="theme-color" content="#070b17">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src https://api.github.com; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+  <link rel="icon" href="../favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="../favicon-180.png">
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="../rtl.css">
+  <script src="../app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">انتقل إلى المحتوى</a>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="./">
+        <img src="../assets/brand-mark.webp" alt="" width="30" height="30">
+        <span>إضافة تواصل</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-label="افتح التنقل" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="nav" id="site-nav" aria-label="التنقل الرئيسي" data-nav>
+        <a href="./">الرئيسية</a>
+        <a href="./scenarios.html">السيناريوهات</a>
+        <a href="./docs.html" aria-current="page">المستندات</a>
+        <a href="./#install">التثبيت</a>
+        <a href="./#releases">الإصدارات</a>
+        <div class="nav-actions">
+          <span class="pill pill--version" data-version>v0.1.7-experimental</span>
+          <a class="btn btn--ghost btn--small" href="https://github.com/HtoZ27/Tawassul-V2">GitHub</a>
+          <a href="../docs.html" hreflang="en" lang="en">English</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="page-hero">
+      <div class="wrap">
+        <p class="eyebrow">المستندات</p>
+        <h1>كل صفحة، مجمّعة حسب المهمة.</h1>
+        <p class="lede">ملفات Markdown في المستودع هي المصدر الموثوق. كل بطاقة تفتح الملف على GitHub في سياق جديد، فلا يعرض الموقع نسخة قديمة. ابدأ بالتثبيت إذا كانت هذه أول مساحة عمل لك.</p>
+        <div class="docs-tools">
+          <label class="sr-only" for="docs-filter">تصفية المستندات</label>
+          <input class="search" id="docs-filter" type="search" placeholder="ابحث بالعنوان أو الموضوع أو الكلمة المفتاحية" autocomplete="off" data-docs-search>
+          <span class="search-count" data-docs-count>39 صفحة</span>
+        </div>
+        <p class="small muted">الإنجليزية هي أصل المستندات. هذه الصفحة ترجمة عربية لواجهة الفهرس؛ أما الملفات المرجعية نفسها فتُفتح بالإنجليزية على GitHub، ودليل المستخدم العربي ترجمة موسومة.</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <div class="docs-group" data-doc-group id="start-here">
+          <h2>ابدأ هنا</h2>
+          <div class="docs-grid">
+            <a class="doc-card" data-doc-card data-keywords="install setup release installer project global upgrade first workspace" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/installation.md">
+              <strong>التثبيت</strong><span>تثبيت المشروع والعام، ومثبّت الإصدار، وما يكتبه، وكيفية إلغاء التثبيت.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="readme overview quick start what is tawassul" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/README.md">
+              <strong>README</strong><span>نظرة عامة على المشروع، وبدء سريع، وأقصر طريق إلى مساحة عمل تعمل.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="guide workflow usage walkthrough end user" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/GUIDE.md">
+              <strong>الدليل</strong><span>كيف تعمل الجلسة: التوجيه، والمتخصصون، والإسنادات، والسجل، والضوابط.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="workflow day to day operation team" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/WORKFLOW.md">
+              <strong>سير العمل</strong><span>الحلقة اليومية المتوقعة لمساحة عمل تستخدم الفريق الكامل.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="features capabilities list" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/features.md">
+              <strong>المزايا</strong><span>ما يُشحن في هذا الإصدار والآلية التي تسند كل قدرة.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="plugin host opencode integration" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/plugins.md">
+              <strong>الإضافات</strong><span>كيف تُحمّل الإضافة في OpenCode، وما تسجّله، وأين تبقى بعيدة عن الطريق.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="upgrade update version migration" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/upgrade.md">
+              <strong>الترقية</strong><span>نقل تثبيت قائم إلى إصدار أحدث، مع فحوص الحالة وقاعدة البيانات.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="compatibility versions node bun opencode linux macos mac windows" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/compatibility.md">
+              <strong>التوافق</strong><span>إصدارات OpenCode وNode.js وBun والمنصات المدعومة على Linux وmacOS وWindows.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="release notes 0.1.7 changelog new" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/release-notes-0.1.7.md">
+              <strong>ملاحظات الإصدار · 0.1.7</strong><span>ما تغيّر في الإصدار التجريبي الحالي وما يعنيه لتثبيت قائم.</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="docs-group" data-doc-group id="work">
+          <h2>العمل</h2>
+          <div class="docs-grid">
+            <a class="doc-card" data-doc-card data-keywords="agents roles derived variants roster base template addagent kick" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/agents.md">
+              <strong>الوكلاء</strong><span>الأدوار الأساسية، والمتخصصون المشتقون، وملف القائمة، وكيف يرث المتغير السلوك.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="tools goal handoff subagent moa check record" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/tools.md">
+              <strong>الأدوات</strong><span>كل أداة تعرضها بيئة التشغيل، بمدخلاتها وآثارها ومتى تُستخدم.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="commands slash commands cli" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/commands.md">
+              <strong>الأوامر</strong><span>أوامر الشرطة المائلة وما يفعله كل منها بالجلسة أو السجل.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="skills reusable instructions" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/skills.md">
+              <strong>المهارات</strong><span>كيف تُكتشف المهارات وتُحمّل وتُقيّد بوكيل.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="permissions consent destructive security approval" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/permissions.md">
+              <strong>الصلاحيات والموافقة</strong><span>أدوات مقيّدة بالأدوار، وبوابة الموافقة، والمسارات التي تتطلب موافقة صريحة.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="configuration settings jsonc opencode config" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/configuration.md">
+              <strong>الإعداد</strong><span>أين يعيش الإعداد، وأي ملف يفوز، وكيف تُحلّ قائمة المشروع.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="environment variables env flags" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/environment.md">
+              <strong>البيئة</strong><span>متغيرات البيئة المدعومة، والقيم الافتراضية، وتجاوزات الاختبار فقط.</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="docs-group" data-doc-group id="operate">
+          <h2>التشغيل</h2>
+          <div class="docs-grid">
+            <a class="doc-card" data-doc-card data-keywords="state files persistence location" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/state.md">
+              <strong>الحالة</strong><span>ما يُحفظ، وأين يعيش، وكيف تبقى مساحة المشروع معزولة عن أخرى.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="database sqlite maintenance backup reduce" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/database.md">
+              <strong>قاعدة البيانات والصيانة</strong><span>مخزن SQLite، ومسار الصيانة، وكيف تُصغّر قاعدة بيانات كبيرة بأمان.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="architecture internals modules layers" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/architecture.md">
+              <strong>البنية</strong><span>طبقات بيئة التشغيل، وكائن السياق، وكيف يصبح نداء الأداة حدثًا مسجّلًا.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="continuity detection session drift" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/continuity-detection.md">
+              <strong>كشف الاستمرارية</strong><span>كيف تلاحظ بيئة التشغيل أن جلسة فقدت خيطها وما تفعله حيال ذلك.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="monitoring logs health diagnostics" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/monitoring.md">
+              <strong>المراقبة</strong><span>مخرجات الصحة، والسجلات، والإشارات الجديرة بالمتابعة في جلسة طويلة.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="security model threat trust boundary" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/security-model.md">
+              <strong>نموذج الأمان</strong><span>حدود الثقة، وبوابة الموافقة، وما لا تحميه الإضافة.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="privacy data local network" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/privacy.md">
+              <strong>الخصوصية</strong><span>ما يبقى محليًا، وما يغادر الجهاز، وأي مزوّد يستقبل الطلب.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="troubleshooting fix error broken" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/troubleshooting.md">
+              <strong>استكشاف الأخطاء</strong><span>أنماط الفشل الشائعة والفحص الذي يخبرك أي طبقة فشلت.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="known issues bugs limitations" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/known-issues.md">
+              <strong>المشكلات المعروفة</strong><span>العيوب المفتوحة والحلول البديلة الآمنة اليوم.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="limitations scope not supported" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/limitations.md">
+              <strong>القيود</strong><span>حدود مقصودة: ما لا تحاول بيئة التشغيل فعله ولماذا.</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="docs-group" data-doc-group id="reference">
+          <h2>المرجع</h2>
+          <div class="docs-grid">
+            <a class="doc-card" data-doc-card data-keywords="dependencies packages supply chain" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/dependencies.md">
+              <strong>الاعتماديات</strong><span>اعتماديات التشغيل والبناء، مع سبب وجود كل واحدة.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="validation tests gates proofs ci" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/validation.md">
+              <strong>التحقق</strong><span>البوابات والأدلة واختبارات الدخان التي يجب أن تنجح قبل الإصدار.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="faq questions answers" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/faq.md">
+              <strong>الأسئلة الشائعة</strong><span>أجوبة قصيرة عن الأسئلة التي تظهر قبل التثبيت وبعده.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="glossary terms definitions" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/glossary.md">
+              <strong>المصطلحات</strong><span>المفردات المستخدمة في المستندات: المتغير، والإسناد، والسجل، والإيصال، والبوابة.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="roadmap future planned" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/roadmap.md">
+              <strong>خارطة الطريق</strong><span>ما هو مخطط تالٍ، وأي البنود خارج النطاق صراحةً.</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="docs-group" data-doc-group id="project">
+          <h2>المشروع</h2>
+          <div class="docs-grid">
+            <a class="doc-card" data-doc-card data-keywords="contributing development pull request" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/CONTRIBUTING.md">
+              <strong>المساهمة</strong><span>كيف تقترح تغييرًا، وتشغّل البوابات، وتُبقي الفرق قابلًا للمراجعة.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="code of conduct community" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/CODE_OF_CONDUCT.md">
+              <strong>قواعد السلوك</strong><span>السلوك المتوقع في المشكلات والمراجعات والنقاشات.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="security policy report vulnerability" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/SECURITY.md">
+              <strong>سياسة الأمان</strong><span>كيف تبلّغ عن ثغرة وما يجب أن تتضمنه.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="support help issue" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/SUPPORT.md">
+              <strong>الدعم</strong><span>أين تطلب المساعدة وأي التشخيصات ترفق.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="changelog history versions" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/CHANGELOG.md">
+              <strong>سجل التغييرات</strong><span>التاريخ الكامل للإصدارات والتغيير الذي يعرّف كل واحد.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="notice attribution license" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/NOTICE">
+              <strong>الإشعار</strong><span>الإسناد وإشعارات الأطراف الثالثة.</span>
+            </a>
+            <a class="doc-card" data-doc-card data-keywords="license apache 2.0" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/LICENSE">
+              <strong>الترخيص</strong><span>رخصة Apache 2.0.</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="docs-group" data-doc-group id="translations">
+          <h2>الترجمات</h2>
+          <div class="docs-grid">
+            <a class="doc-card" data-doc-card data-keywords="arabic translation end user guide" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/i18n/ar/end-user-guide.md">
+              <strong>دليل المستخدم · العربية</strong><span>ترجمة دليل المستخدم. الإنجليزية هي الأصل عند الاختلاف.</span>
+            </a>
+          </div>
+        </div>
+
+        <p class="no-match" data-no-match>لا توجد صفحة تطابق هذا التصفية. جرّب كلمة أوسع.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="./">
+            <img src="../assets/brand-mark.webp" alt="" width="30" height="30">
+            <span>إضافة تواصل</span>
+          </a>
+          <p>بيئة تشغيل فريق لـ OpenCode. جلسات عرض مسجّلة، وواجهة إنجليزية وعربية، بلا تحليلات وبلا خطوط خارجية.</p>
+        </div>
+        <div class="footer-col">
+          <h3>الموقع</h3>
+          <a href="./">الرئيسية</a>
+          <a href="./scenarios.html">السيناريوهات</a>
+          <a href="./docs.html">المستندات</a>
+          <a href="./#install">التثبيت</a>
+        </div>
+        <div class="footer-col">
+          <h3>المشروع</h3>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/LICENSE">الترخيص</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/NOTICE">الإشعار</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/SECURITY.md">الأمان</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/CONTRIBUTING.md">المساهمة</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/SUPPORT.md">الدعم</a>
+        </div>
+        <div class="footer-col">
+          <h3>المرجع</h3>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/README.md">README</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/GUIDE.md">الدليل</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/WORKFLOW.md">سير العمل</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/release-notes-0.1.7.md">ملاحظات الإصدار</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span data-year>2026</span> إضافة تواصل · Apache-2.0 · v0.1.7-experimental</span>
+        <span>غير تابع لـ OpenCode. يصونه HtoZ27.</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

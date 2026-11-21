@@ -3,9 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Tawassul — a team runtime for OpenCode</title>
   <meta name="description" content="Tawassul gives OpenCode a routed team of specialist agents, a durable goal ledger, parallel opinions, and guardrails. Watch recorded sessions from an isolated demo workspace.">
   <link rel="canonical" href="https://htoz27.github.io/Tawassul-V2/">
+  <link rel="alternate" hreflang="en" href="https://htoz27.github.io/Tawassul-V2/">
+  <link rel="alternate" hreflang="ar" href="https://htoz27.github.io/Tawassul-V2/ar/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Tawassul">
   <meta property="og:title" content="Tawassul — a team runtime for OpenCode">
@@ -20,7 +23,7 @@
   <meta name="twitter:image" content="https://htoz27.github.io/Tawassul-V2/assets/og.png">
   <meta name="theme-color" content="#070b17">
   <meta name="color-scheme" content="dark">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src https://api.github.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src https://api.github.com; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'self'; base-uri 'none'; form-action 'none'">
   <link rel="icon" href="./favicon-32.png" sizes="32x32" type="image/png">
   <link rel="apple-touch-icon" href="./favicon-180.png">
   <link rel="stylesheet" href="./styles.css">
@@ -46,6 +49,7 @@
         <div class="nav-actions">
           <span class="pill pill--version" data-version>v0.1.7-experimental</span>
           <a class="btn btn--ghost btn--small" href="https://github.com/HtoZ27/Tawassul-V2">GitHub</a>
+          <a href="./ar/" hreflang="ar" lang="ar" dir="rtl">العربية</a>
         </div>
       </nav>
     </div>
@@ -62,7 +66,7 @@
             <span class="pill">Apache-2.0</span>
             <span class="pill">OpenCode &gt;= 2.3.0</span>
             <span class="pill pill--version">v0.1.7-experimental</span>
-            <span class="pill">Linux + Windows x64</span>
+            <span class="pill">Linux · macOS · Windows x64</span>
           </div>
           <div class="hero-cta">
             <a class="btn" href="./scenarios.html">See a recorded session</a>
@@ -248,6 +252,7 @@ npm run build</code></pre>
           <h3>One setting lives in the app</h3>
           <p class="small">Open <strong>Settings → General</strong> and turn on <strong>Show agent</strong>. The composer then carries the agent selector, so a session can run as a derived specialist. While it is off, the app stays on the Build agent.</p>
         </div>
+        <p class="small muted mt-sm">Platforms: Linux x64 is the full lane, macOS arm64 and x64 are experimental, Windows x64 is supported natively, and WSL2 is experimental. The <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/compatibility.md">compatibility reference</a> states the evidence for each row.</p>
       </div>
     </section>
 
@@ -305,7 +310,7 @@ npm run build</code></pre>
             <img src="./assets/brand-mark.webp" alt="" width="30" height="30">
             <span>Tawassul</span>
           </a>
-          <p>A team runtime for OpenCode. Recorded demo sessions, English UI, no analytics and no external fonts.</p>
+          <p>A team runtime for OpenCode. Recorded demo sessions, English and Arabic UI, no analytics and no external fonts.</p>
         </div>
         <div class="footer-col">
           <h3>Site</h3>

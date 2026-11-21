@@ -3,9 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Docs — Tawassul</title>
   <meta name="description" content="Tawassul documentation index: installation, agents, tools, permissions, state, architecture, security, troubleshooting, and reference pages.">
   <link rel="canonical" href="https://htoz27.github.io/Tawassul-V2/docs.html">
+  <link rel="alternate" hreflang="en" href="https://htoz27.github.io/Tawassul-V2/docs.html">
+  <link rel="alternate" hreflang="ar" href="https://htoz27.github.io/Tawassul-V2/ar/docs.html">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Tawassul">
   <meta property="og:title" content="Docs — Tawassul">
@@ -14,7 +17,7 @@
   <meta property="og:image" content="https://htoz27.github.io/Tawassul-V2/assets/og.png">
   <meta name="theme-color" content="#070b17">
   <meta name="color-scheme" content="dark">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src https://api.github.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src https://api.github.com; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'self'; base-uri 'none'; form-action 'none'">
   <link rel="icon" href="./favicon-32.png" sizes="32x32" type="image/png">
   <link rel="apple-touch-icon" href="./favicon-180.png">
   <link rel="stylesheet" href="./styles.css">
@@ -40,6 +43,7 @@
         <div class="nav-actions">
           <span class="pill pill--version" data-version>v0.1.7-experimental</span>
           <a class="btn btn--ghost btn--small" href="https://github.com/HtoZ27/Tawassul-V2">GitHub</a>
+          <a href="./ar/docs.html" hreflang="ar" lang="ar" dir="rtl">العربية</a>
         </div>
       </nav>
     </div>
@@ -54,9 +58,9 @@
         <div class="docs-tools">
           <label class="sr-only" for="docs-filter">Filter documentation</label>
           <input class="search" id="docs-filter" type="search" placeholder="Filter by title, topic, or keyword" autocomplete="off" data-docs-search>
-          <span class="search-count" data-docs-count>19 pages</span>
+          <span class="search-count" data-docs-count>39 pages</span>
         </div>
-        <p class="small muted">English is canonical. The Arabic end-user guide is a translation and is labelled as such.</p>
+        <p class="small muted">English is canonical. An Arabic translation of this site is available from the language switch, and the Arabic end-user guide is labelled as a translation.</p>
       </div>
     </section>
 
@@ -86,10 +90,10 @@
             <a class="doc-card" data-doc-card data-keywords="upgrade update version migration" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/upgrade.md">
               <strong>Upgrading</strong><span>Moving an existing install to a newer release, including state and database checks.</span>
             </a>
-            <a class="doc-card" data-doc-card data-keywords="compatibility versions node bun opencode linux windows" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/compatibility.md">
-              <strong>Compatibility</strong><span>Supported OpenCode, Node.js, Bun, and platform versions.</span>
+            <a class="doc-card" data-doc-card data-keywords="compatibility versions node bun opencode linux macos mac windows" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/compatibility.md">
+              <strong>Compatibility</strong><span>Supported OpenCode, Node.js, Bun, and platform versions on Linux, macOS, and Windows.</span>
             </a>
-            <a class="doc-card" data-doc-card data-keywords="release notes 0.1.6 changelog new" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/release-notes-0.1.7.md">
+            <a class="doc-card" data-doc-card data-keywords="release notes 0.1.7 changelog new" href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/release-notes-0.1.7.md">
               <strong>Release notes · 0.1.7</strong><span>What changed in the current experimental release and what it means for an existing install.</span>
             </a>
           </div>
@@ -228,7 +232,7 @@
             <img src="./assets/brand-mark.webp" alt="" width="30" height="30">
             <span>Tawassul</span>
           </a>
-          <p>A team runtime for OpenCode. Recorded demo sessions, English UI, no analytics and no external fonts.</p>
+          <p>A team runtime for OpenCode. Recorded demo sessions, English and Arabic UI, no analytics and no external fonts.</p>
         </div>
         <div class="footer-col">
           <h3>Site</h3>

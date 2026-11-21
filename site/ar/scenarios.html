@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-i18n-copied="تم النسخ" data-i18n-copy-failed="فشل النسخ" data-i18n-release="إصدار" data-i18n-prerelease="إصدار تجريبي" data-i18n-undated="بدون تاريخ" data-i18n-assets="{n} من الأصول" data-i18n-open="فتح" data-i18n-pages="{shown} من {total} صفحة" data-i18n-lightbox="صورة إعادة التشغيل مكبّرة" data-i18n-close="إغلاق">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>السيناريوهات المسجّلة — إضافة تواصل</title>
+  <meta name="description" content="ثلاثة تشغيلات مسجّلة لإضافة تواصل من مساحة عمل تجريبية معزولة: توجيه إلى متخصص مشتق، وخمسة متخصصين بالتوازي، وسجلّ أهداف يرفض الإغلاق المبكر.">
+  <link rel="canonical" href="https://htoz27.github.io/Tawassul-V2/ar/scenarios.html">
+  <link rel="alternate" hreflang="ar" href="https://htoz27.github.io/Tawassul-V2/ar/scenarios.html">
+  <link rel="alternate" hreflang="en" href="https://htoz27.github.io/Tawassul-V2/scenarios.html">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="إضافة تواصل">
+  <meta property="og:locale" content="ar">
+  <meta property="og:title" content="السيناريوهات المسجّلة — إضافة تواصل">
+  <meta property="og:description" content="صور إعادة تشغيل وإيصالات ونصوص منقّاة من ثلاثة تشغيلات مسجّلة.">
+  <meta property="og:url" content="https://htoz27.github.io/Tawassul-V2/ar/scenarios.html">
+  <meta property="og:image" content="https://htoz27.github.io/Tawassul-V2/assets/og.png">
+  <meta name="theme-color" content="#070b17">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src https://api.github.com; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+  <link rel="icon" href="../favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="../favicon-180.png">
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="../rtl.css">
+  <script src="../app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">انتقل إلى المحتوى</a>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="./">
+        <img src="../assets/brand-mark.webp" alt="" width="30" height="30">
+        <span>إضافة تواصل</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-label="افتح التنقل" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="nav" id="site-nav" aria-label="التنقل الرئيسي" data-nav>
+        <a href="./">الرئيسية</a>
+        <a href="./scenarios.html" aria-current="page">السيناريوهات</a>
+        <a href="./docs.html">المستندات</a>
+        <a href="./#install">التثبيت</a>
+        <a href="./#releases">الإصدارات</a>
+        <div class="nav-actions">
+          <span class="pill pill--version" data-version>v0.1.7-experimental</span>
+          <a class="btn btn--ghost btn--small" href="https://github.com/HtoZ27/Tawassul-V2">GitHub</a>
+          <a href="../scenarios.html" hreflang="en" lang="en">English</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="page-hero">
+      <div class="wrap">
+        <p class="eyebrow">سيناريوهات مسجّلة</p>
+        <h1>ثلاثة تشغيلات يمكنك تدقيقها.</h1>
+        <p class="lede">كل صورة إعادة تشغيل مرسومة من JSON الملتزم، وليست تصميمًا وهميًا. الطلب والنماذج وأعداد الرموز ونص الرفض في هذه الصفحة مأخوذة من تلك الملفات. كل تشغيل موسوم <strong>Example demo</strong> ونُفّذ في مساحة عمل معزولة.</p>
+        <div class="hero-pills">
+          <span class="pill">Example demo</span>
+          <span class="pill">التقاط 2026-11-21</span>
+          <span class="pill">التكلفة المسجّلة $0.00</span>
+          <span class="pill">واجهة عربية</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="scenario" id="route">
+      <div class="wrap">
+        <div class="scenario-head">
+          <div>
+            <p class="scenario-kicker">السيناريو 01 · التوجيه</p>
+            <h2>طلب واحد، مالك واحد.</h2>
+            <p class="scenario-lede">يقرأ <span class="mono">tawa</span> ملف <span class="mono">src/pricing.js</span> ويسمّي متخصص المطوّر المشتق الذي تسند إليه مساحة العمل. يختار <span class="mono">@dev-beam</span>، لا قالب <span class="mono">@dev</span> الأساسي. هذا التشغيل يجيب عن سؤال الملكية؛ ولا يسند عملًا.</p>
+          </div>
+          <span class="pill pill--version">route.json</span>
+        </div>
+
+        <div class="scenario-grid">
+          <div>
+            <figure class="figure">
+              <a href="../assets/shots/route-1.webp" data-lightbox>
+                <img src="../assets/shots/route-1.webp" alt="إعادة تشغيل مسار التوجيه: يسأل الطلب أي متخصص مشتق يجب أن يملك خطأ تسعير؛ يقرأ tawa ملف src/pricing.js ويجيب dev-beam." width="1200" height="750" loading="lazy">
+              </a>
+              <figcaption>إعادة تشغيل مرسومة من JSON المسجّل · 2026-11-21 · tawa · opencode/big-pickle</figcaption>
+            </figure>
+            <p class="figure-note muted">الجواب الكامل يسمّي <span class="mono">@dev-beam</span> ويقول إن دور <span class="mono">@dev</span> الأساسي قالب، لا هدف إسناد.</p>
+
+            <div class="reproduce">
+              <h3>أعد الإنتاج</h3>
+              <pre><code id="cmd-route">opencode run --standalone --auto --archived --format json --agent tawa --title "Tawassul demo: tawa routing" "Review src/pricing.js. Name the derived specialist in this workspace that you would route a pricing bug to. Do not edit any file."</code></pre>
+              <p class="small mt-sm"><a class="transcript-link" href="../assets/shots/transcripts/route.json">اعرض النص المسجّل (JSON) ←</a></p>
+            </div>
+          </div>
+
+          <div class="scenario-side">
+            <div class="card">
+              <h3>ما ينبغي ملاحظته</h3>
+              <ul class="notice-list">
+                <li>الجواب يسمّي مالكًا واحدًا، <span class="mono">@dev-beam</span>؛ ومساحة العمل تثبّت هذا المتخصص على <span class="mono">opencode/beam-free</span>.</li>
+                <li>التبرير هو إعداد الوكلاء الحيّ في مساحة العمل ونوع المهمة، لا تفضيل عام.</li>
+                <li>لا تظهر بطاقة إسناد، لأن التسجيل لا يحتوي نداء إسناد.</li>
+                <li>يبقى وكيل <span class="mono">@dev</span> الأساسي قالبًا؛ والمتغير المشتق هو الهدف.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <table class="receipts-table">
+                <caption>الإيصال من route.json</caption>
+                <tbody>
+                  <tr><th>رموز الإدخال</th><td>37,726</td></tr>
+                  <tr><th>رموز الإخراج</th><td>463</td></tr>
+                  <tr><th>رموز الاستدلال</th><td>632</td></tr>
+                  <tr><th>الزمن الفعلي</th><td>11.5s</td></tr>
+                  <tr><th>نداءات الأدوات</th><td>4</td></tr>
+                  <tr><th>التكلفة المسجّلة</th><td>$0.00</td></tr>
+                  <tr><th>نموذج الوكيل</th><td class="mono">opencode/big-pickle</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scenario" id="parallel">
+      <div class="wrap">
+        <div class="scenario-head">
+          <div>
+            <p class="scenario-kicker">السيناريو 02 · متخصصون متوازون</p>
+            <h2>خمسة متخصصين، سؤال واحد.</h2>
+            <p class="scenario-lede">خمسة نداءات <span class="mono">subagent</span> تعمل في جلسات مستقلة، كل منها مثبّت على متخصص مشتق مختلف ونموذج مختلف. ينتظر المنسّق الخمسة، ثم يذكر الإجماع والاعتراض والاختبار الذي يوصي به الفريق.</p>
+          </div>
+          <span class="pill pill--version">parallel.json</span>
+        </div>
+
+        <div class="scenario-grid">
+          <div>
+            <figure class="figure">
+              <a href="../assets/shots/parallel-1.webp" data-lightbox>
+                <img src="../assets/shots/parallel-1.webp" alt="إعادة تشغيل خمسة مسارات إسناد: dev-beam وanalyst وtester وreviewer وarchitect، كل منهم يجيب عن مراجعة التسعير نفسها بنموذج مختلف." width="1200" height="750" loading="lazy">
+              </a>
+              <figcaption>خمسة مسارات إسناد مرسومة من JSON المسجّل · 2026-11-21 · طلب واحد، خمسة نماذج</figcaption>
+            </figure>
+            <figure class="figure mt-md">
+              <a href="../assets/shots/parallel-2.webp" data-lightbox>
+                <img src="../assets/shots/parallel-2.webp" alt="إعادة تشغيل تجميع المنسّق: أربعة متخصصين يتفقون على أخطاء الفاصلة العائمة في الأموال، ويعترض المعماري بخلل في المعدل الكسري." width="1200" height="750" loading="lazy">
+              </a>
+              <figcaption>تجميع المنسّق مرسوم من JSON المسجّل · 2026-11-21 · الإجماع والاعتراض منفصلان</figcaption>
+            </figure>
+
+            <div class="reproduce">
+              <h3>أعد الإنتاج</h3>
+              <pre><code id="cmd-parallel">opencode run --standalone --auto --archived --format json --agent tawa --title "Tawassul demo: five derived specialists" "Use the subagent tool five times, once per derived specialist: dev-beam, analyst-hy4, tester-flint-40b-free, reviewer-longcat-2.5-free, architect-iceman-free. For each call use this exact prompt: Read src/pricing.js with the read tool and nothing else. Do not run any shell command and do not read any other file or directory. Name the single highest-risk defect in that file and the one test that would catch it. Reply in at most three sentences. Do not edit any file. Launch all five before waiting for results. When all five have finished, synthesise: state the consensus, any dissent, and the one test the team recommends. Do not edit any file."</code></pre>
+              <p class="small mt-sm"><a class="transcript-link" href="../assets/shots/transcripts/parallel.json">اعرض النص المسجّل (JSON) ←</a></p>
+            </div>
+          </div>
+
+          <div class="scenario-side">
+            <div class="card">
+              <h3>ما ينبغي ملاحظته</h3>
+              <ul class="notice-list">
+                <li>خمس جلسات، خمسة نماذج، سؤال واحد. لا يرى أي متخصص جواب الآخر قبل الرد.</li>
+                <li>أربعة متخصصين يسمّون خلل حساب الأموال نفسه؛ ويعترض المعماري بخلل مختلف.</li>
+                <li>يحفظ التجميع الاعتراض بدل إذابته في متوسط.</li>
+                <li>يوصي الفريق باختبار عشري دقيق واحد: <span class="mono">expect(orderTotal([{ price: 0.1, qty: 3 }], 1)).toBe(0.3)</span>.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <table class="receipts-table">
+                <caption>الإيصال من parallel.json</caption>
+                <tbody>
+                  <tr><th>رموز الإدخال</th><td>40,865</td></tr>
+                  <tr><th>رموز الإخراج</th><td>1,132</td></tr>
+                  <tr><th>رموز الاستدلال</th><td>1,040</td></tr>
+                  <tr><th>الزمن الفعلي</th><td>48.8s</td></tr>
+                  <tr><th>نداءات الأدوات</th><td>5 نداءات subagent</td></tr>
+                  <tr><th>التكلفة المسجّلة</th><td>$0.00</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card">
+              <h3>عمليات الإسناد الخمس</h3>
+              <ul class="notice-list mono small">
+                <li>dev-beam · opencode/beam-free</li>
+                <li>analyst-hy4 · opencode/hy4-flash-free</li>
+                <li>tester-flint-40b-free · opencode/flint-40b-free</li>
+                <li>reviewer-longcat-2.5-free · opencode/longcat-2.5-free</li>
+                <li>architect-iceman-free · opencode/iceman-free</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scenario" id="ledger">
+      <div class="wrap">
+        <div class="scenario-head">
+          <div>
+            <p class="scenario-kicker">السيناريو 03 · سجل الأهداف</p>
+            <h2>السجل يرفض الإغلاق المبكر.</h2>
+            <p class="scenario-lede">يُنشأ هدف ببندين وتعريف إنجاز واحد. يُوسم البند الأول منجزًا بدليل. ويظل الإغلاق مرفوضًا، لأن البند الثاني معلّق والمعيار غير مكتمل. الرفض آلي، لا اقتراح من الطلب.</p>
+          </div>
+          <span class="pill pill--version">ledger.json</span>
+        </div>
+
+        <div class="scenario-grid">
+          <div>
+            <figure class="figure">
+              <a href="../assets/shots/ledger-1.webp" data-lightbox>
+                <img src="../assets/shots/ledger-1.webp" alt="إعادة تشغيل إنشاء الهدف: لدى G-001 بندان وتعريف إنجاز واحد؛ يُوسم البند الأول منجزًا بدليل ويصل التقدم إلى 50 بالمئة." width="1200" height="750" loading="lazy">
+              </a>
+              <figcaption>إنشاء الهدف وانتقال البند الموثّق · 2026-11-21 · G-001 عند 50%</figcaption>
+            </figure>
+            <figure class="figure mt-md">
+              <a href="../assets/shots/ledger-2.webp" data-lightbox>
+                <img src="../assets/shots/ledger-2.webp" alt="إعادة تشغيل الإغلاق المرفوض: يسرد السجل البند الثاني المعلّق وتعريف الإنجاز غير المكتمل في نص الرفض." width="1200" height="750" loading="lazy">
+              </a>
+              <figcaption>الإغلاق المرفوض ونص البوابة الناقصة الدقيق · 2026-11-21 · يبقى G-001 مفتوحًا</figcaption>
+            </figure>
+
+            <div class="reproduce">
+              <h3>أعد الإنتاج</h3>
+              <pre><code id="cmd-ledger">opencode run --standalone --auto --archived --format json --agent tawa --title "Tawassul demo: goal ledger" "Create a goal titled 'Harden the pricing formatter'. Add two items: 'Write the failing test' and 'Round every total to cents'. Add one definition-of-done criterion: 'formatTotal(0.1 * 3) returns $0.30'. Mark the first item done with the evidence 'test added: formatTotal(0.1 * 3) fails with $0.30000000000000004'. Then call close on the goal. It must be refused. Read the goal back and report the exact refusal text, which items are done and pending, and the DoD status. Do not edit any file."</code></pre>
+              <p class="small mt-sm"><a class="transcript-link" href="../assets/shots/transcripts/ledger.json">اعرض النص المسجّل (JSON) ←</a></p>
+            </div>
+          </div>
+
+          <div class="scenario-side">
+            <div class="card">
+              <h3>ما ينبغي ملاحظته</h3>
+              <ul class="notice-list">
+                <li>يُنشأ <span class="mono">G-001</span> بمعرّفي البندين <span class="mono">G-001-I1</span> و<span class="mono">G-001-I2</span>.</li>
+                <li>ينتقل <span class="mono">G-001-I1</span> إلى منجز مع نص دليل محفوظ.</li>
+                <li>يُرفض الإغلاق بالبوابات الناقصة الدقيقة، لا بخطأ عام.</li>
+                <li>يبقى الهدف مفتوحًا عند 50%: الإغلاق المرفوض لا يغيّر شيئًا.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <table class="receipts-table">
+                <caption>الإيصال من ledger.json</caption>
+                <tbody>
+                  <tr><th>رموز الإدخال</th><td>37,692</td></tr>
+                  <tr><th>رموز الإخراج</th><td>579</td></tr>
+                  <tr><th>رموز الاستدلال</th><td>90</td></tr>
+                  <tr><th>الزمن الفعلي</th><td>18.8s</td></tr>
+                  <tr><th>نداءات الأدوات</th><td>5</td></tr>
+                  <tr><th>التكلفة المسجّلة</th><td>$0.00</td></tr>
+                  <tr><th>التقدم النهائي</th><td>50%</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card">
+              <h3>نص الرفض كما هو</h3>
+              <p class="mono small">Close rejected — missing: item:G-001-I2 (pending); dod:formatTotal(0.1 * 3) returns $0.30</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <div class="notice">
+          <h3>كيف تُنقّى هذه اللقطات</h3>
+          <ul>
+            <li>المسارات نسبية إلى مساحة العمل التجريبية (<span class="mono">src/pricing.js</span>)؛ لا يُلتزم دليل منزلي أو مسار حالة أو سر.</li>
+            <li>معرّفات النماذج وأعداد الرموز حقائق التقاط مؤرخة. ليست كتالوجًا ولا وعدًا بالتوافر.</li>
+            <li>صور إعادة التشغيل مرسومة من JSON نفسه المرتبط في هذه الصفحة، ليتمكن القارئ من مقارنة الصورة بالإيصال.</li>
+            <li>إذا لم يحتوي التشغيل على الحدث الذي يدّعيه السيناريو، يُحذف السيناريو بدل توضيحه.</li>
+          </ul>
+        </div>
+        <p class="small mt-md"><a href="./docs.html">افتح مركز المستندات ←</a> · <a href="./#install">ثبّت إضافة تواصل ←</a></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="./">
+            <img src="../assets/brand-mark.webp" alt="" width="30" height="30">
+            <span>إضافة تواصل</span>
+          </a>
+          <p>بيئة تشغيل فريق لـ OpenCode. جلسات عرض مسجّلة، وواجهة إنجليزية وعربية، بلا تحليلات وبلا خطوط خارجية.</p>
+        </div>
+        <div class="footer-col">
+          <h3>الموقع</h3>
+          <a href="./">الرئيسية</a>
+          <a href="./scenarios.html">السيناريوهات</a>
+          <a href="./docs.html">المستندات</a>
+          <a href="./#install">التثبيت</a>
+        </div>
+        <div class="footer-col">
+          <h3>المشروع</h3>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/LICENSE">الترخيص</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/NOTICE">الإشعار</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/SECURITY.md">الأمان</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/CONTRIBUTING.md">المساهمة</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/SUPPORT.md">الدعم</a>
+        </div>
+        <div class="footer-col">
+          <h3>المرجع</h3>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/README.md">README</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/GUIDE.md">الدليل</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/WORKFLOW.md">سير العمل</a>
+          <a href="https://github.com/HtoZ27/Tawassul-V2/blob/main/docs/release-notes-0.1.7.md">ملاحظات الإصدار</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span data-year>2026</span> إضافة تواصل · Apache-2.0 · v0.1.7-experimental</span>
+        <span>غير تابع لـ OpenCode. يصونه HtoZ27.</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

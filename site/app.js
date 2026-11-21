@@ -1,6 +1,12 @@
 (() => {
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+  const root = document.documentElement;
+  const localText = (key, fallback) => root.getAttribute(`data-i18n-${key}`) || fallback;
+  const localFill = (template, values) =>
+    template.replace(/\{(\w+)\}/g, (match, key) =>
+      Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
+    );
 
   const navToggle = $("[data-nav-toggle]");
   const nav = $("[data-nav]");
@@ -39,8 +45,7 @@
     const area = document.createElement("textarea");
     area.value = text;
     area.setAttribute("readonly", "");
-    area.style.position = "fixed";
-    area.style.opacity = "0";
+    area.className = "clipboard-helper";
     document.body.appendChild(area);
     area.select();
     const ok = document.execCommand("copy");
@@ -55,9 +60,9 @@
       const label = button.textContent;
       try {
         await copyText(target.textContent.trim());
-        button.textContent = "Copied";
+        button.textContent = localText("copied", "Copied");
       } catch {
-        button.textContent = "Copy failed";
+        button.textContent = localText("copy-failed", "Copy failed");
       }
       window.setTimeout(() => {
         button.textContent = label;
@@ -72,6 +77,20 @@
   const releaseList = $("[data-releases]");
   if (releaseList) {
     const cacheKey = "tawassul-releases-v1";
+    const releasesUrl = "https://github.com/HtoZ27/Tawassul-V2/releases";
+    const isReleaseUrl = (value) => {
+      if (typeof value !== "string") return false;
+      try {
+        const url = new URL(value);
+        return (
+          url.protocol === "https:" &&
+          url.hostname === "github.com" &&
+          url.pathname.startsWith("/HtoZ27/Tawassul-V2/releases/")
+        );
+      } catch {
+        return false;
+      }
+    };
     const fallback = () => {
       releaseList.hidden = false;
       const note = $("[data-releases-note]");
@@ -100,7 +119,7 @@
         const body = document.createElement("div");
         const name = document.createElement("p");
         name.className = "release-name";
-        name.textContent = item.name || item.tag_name || "Release";
+        name.textContent = item.name || item.tag_name || localText("release", "Release");
         if (item.tag_name) {
           const tag = document.createElement("span");
           tag.className = "pill pill--version";
@@ -110,20 +129,23 @@
         if (item.prerelease) {
           const badge = document.createElement("span");
           badge.className = "badge";
-          badge.textContent = "prerelease";
+          badge.textContent = localText("prerelease", "prerelease");
           name.append(" ", badge);
         }
         const meta = document.createElement("p");
         meta.className = "release-meta";
         const date = item.published_at ? new Date(item.published_at) : null;
-        const when = date && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 10) : "undated";
+        const when = date && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 10) : localText("undated", "undated");
         const assets = Array.isArray(item.assets) ? item.assets.length : 0;
-        meta.textContent = `${when} · ${assets} asset${assets === 1 ? "" : "s"}`;
+        const assetTemplate = root.getAttribute("data-i18n-assets");
+        meta.textContent = assetTemplate
+          ? `${when} · ${localFill(assetTemplate, { n: assets })}`
+          : `${when} · ${assets} asset${assets === 1 ? "" : "s"}`;
         body.append(name, meta);
         const link = document.createElement("a");
         link.className = "btn btn--ghost btn--small";
-        link.href = item.html_url || "https://github.com/HtoZ27/Tawassul-V2/releases";
-        link.textContent = "Open";
+        link.href = isReleaseUrl(item.html_url) ? item.html_url : releasesUrl;
+        link.textContent = localText("open", "Open");
         article.append(body, link);
         releaseList.append(article);
       }
@@ -181,7 +203,7 @@
         const visible = $$("[data-doc-card]", group).some((card) => !card.hidden);
         group.hidden = !visible;
       }
-      if (count) count.textContent = `${shown} of ${cards.length} pages`;
+      if (count) count.textContent = localFill(localText("pages", "{shown} of {total} pages"), { shown, total: cards.length });
       if (empty) empty.classList.toggle("is-visible", shown === 0);
     };
     search.addEventListener("input", apply);
@@ -192,11 +214,11 @@
   if (lightboxLinks.length > 0) {
     const dialog = document.createElement("dialog");
     dialog.className = "lightbox";
-    dialog.setAttribute("aria-label", "Enlarged replay image");
+    dialog.setAttribute("aria-label", localText("lightbox", "Enlarged replay image"));
     const image = document.createElement("img");
     const close = document.createElement("button");
     close.type = "button";
-    close.textContent = "Close";
+    close.textContent = localText("close", "Close");
     dialog.append(image, close);
     document.body.append(dialog);
     let opener = null;
