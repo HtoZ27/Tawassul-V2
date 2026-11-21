@@ -103,6 +103,12 @@ function consentWords(): void {
   assert(!isAcceptToken("yes actually no"), "a rejection word anywhere vetoes approval");
   assert(isRejectToken("ok but no"), "a contradictory reply is treated as a rejection");
   assert(!isAcceptToken("sure, no thanks"), "a rejection phrase after an approval phrase still vetoes");
+  assert(!isAcceptToken("continue the refactor but do not delete anything"), "a sentence that starts with an approval word is not consent");
+  assert(!isAcceptToken("proceed but skip the delete"), "prose after an approval word is not consent");
+  assert(!isAcceptToken("yes please but do not delete anything"), "an approval phrase plus prose is not consent");
+  assert(!isAcceptToken("si el test falla, corrigelo"), "an accentless conditional word is not consent");
+  assert(!isAcceptToken("了解"), "an acknowledgment is not consent");
+  assert(!isAcceptToken("yes, please delete everything"), "an approval phrase plus an instruction is not consent");
 }
 
 try {

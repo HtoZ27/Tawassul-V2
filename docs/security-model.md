@@ -49,10 +49,12 @@ copied or edited state file into a denial, not into silent trust.
 
 ### Consent words
 
-Destructive actions require a consent word. The built-in English words are
-extended by `consent-tokens.json`; matching ignores case, surrounding
-punctuation, Arabic diacritics, and common letter variants, so a natural answer
-is accepted without teaching the user a syntax.
+Destructive actions require a consent word. The built-in words cover English and
+20 other languages; `consent-tokens.json` extends them. The reply must be the
+word itself, or a listed approval phrase, so a sentence that only starts with
+one is not an approval. A reject word anywhere in the reply vetoes it. Matching
+ignores case, surrounding punctuation, Arabic diacritics, and common letter
+variants, so a natural answer is accepted without teaching the user a syntax.
 
 ### SSRF and path guards
 

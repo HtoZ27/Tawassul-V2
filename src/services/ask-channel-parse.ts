@@ -53,10 +53,17 @@ function wordsIn(token: string): string[] {
   return token.split(" ").map(normalizeToken).filter(Boolean);
 }
 
+const ACCEPT_PHRASES = new Set([
+  "yes please",
+  "yes, please",
+  "yes do it",
+  "please proceed",
+  "please go ahead",
+  "go ahead please",
+]);
+
 function matchesWord(token: string, words: Set<string>): boolean {
-  if (words.has(token)) return true;
-  const first = wordsIn(token)[0] ?? "";
-  return first !== "" && words.has(first);
+  return words.has(token) || ACCEPT_PHRASES.has(token);
 }
 
 function containsWord(token: string, words: Set<string>): boolean {

@@ -26,19 +26,27 @@ cannot make the plugin skip its own checks.
    `maxTotalTasks` bounds the session total.
 5. **Path.** A path argument is resolved against the workspace. A traversal, a
    symlink escape, or a protected system root is refused.
-6. **Consent.** A destructive tool requires an accepted consent word.
+6. **Consent.** A destructive tool requires an accepted consent word. A single
+   derived-variant removal is the one exception.
 
 The refusal is returned as the tool result, with the reason. It is not a silent
 no-op: a caller that ignores the error will still see that nothing happened.
 
 ## Consent words
 
-Destructive tools are `bash`, `shell`, `delete`, and `kick`. Before one runs, the
-plugin asks for confirmation and accepts a natural answer.
+Destructive tools are `bash`, `shell`, `delete`, and `kick`. A single removal of
+a derived variant, such as `remove dev-beam with model … from …`, is not gated;
+a bare base removal, a bulk removal, and a multi-target removal stay gated.
 
-Built-in accept words include `yes`, `y`, `sure`, `ok`, `okay`, `go ahead`,
+Before a gated call runs, the plugin asks for confirmation and accepts a natural
+answer. The built-in words cover English and 20 other languages. The reply must
+be the word itself, or one of the listed approval phrases such as `yes please`,
+so a sentence that merely starts with an approval word does not count.
+
+Built-in English accept words include `yes`, `y`, `sure`, `ok`, `okay`, `go ahead`,
 `fine`, `true`, and `1`. Built-in reject words include `no`, `stop`, `reject`,
-`deny`, `decline`, `not now`, `false`, and `0`.
+`deny`, `decline`, `not now`, `false`, and `0`. A reject word anywhere in the
+reply vetoes approval.
 
 Matching is deliberately forgiving:
 
