@@ -153,6 +153,17 @@ export class AgentManager {
     return generation >= this._rosterGeneration && sequence >= this._opencodeCommitSequence;
   }
 
+  private _modelsFromEntries(entries: Iterable<[string, unknown]>): Map<string, string> {
+    const models = new Map<string, string>();
+    for (const [name, cfg] of entries) {
+      if (cfg && typeof cfg === "object" && !Array.isArray(cfg)) {
+        const model = (cfg as { model?: unknown }).model;
+        if (typeof model === "string" && model.length > 0) models.set(normalizeName(name), model);
+      }
+    }
+    return models;
+  }
+
   private _commitRoster(
     result: string[],
     models: Map<string, string>,
@@ -182,9 +193,11 @@ export class AgentManager {
         const result = Object.keys(roster.agents)
           .filter((name) => name !== "tawa" && name !== "addagent")
           .map((name) => `@${name}`);
+        const models = this._modelsFromEntries(Object.entries(roster.agents));
         if (!this._canCommit(generation, sequence)) return;
         this._opencodeAgentsCache = { result, ts: Date.now() };
         this._opencodeAgentsLastGood = result;
+        this._opencodeAgentModels = models;
         this._opencodeCommitGeneration = generation;
         this._opencodeCommitSequence = sequence;
         this._lastRosterEvaluation = {
@@ -276,13 +289,7 @@ export class AgentManager {
       return;
     }
     const result = keys.filter((name) => name !== "tawa" && name !== "addagent").map((name) => `@${name}`);
-    const models = new Map<string, string>();
-    for (const [name, cfg] of entries) {
-      if (cfg && typeof cfg === "object" && !Array.isArray(cfg)) {
-        const model = (cfg as { model?: unknown }).model;
-        if (typeof model === "string" && model.length > 0) models.set(normalizeName(name), model);
-      }
-    }
+    const models = this._modelsFromEntries(entries);
     const empty = keys.length === 0;
     this._commitRoster(result, models, generation, sequence, evaluation.complete, empty, opencodePath);
     if (evaluation.complete) {
@@ -477,6 +484,7 @@ export class AgentManager {
           .map((name) => `@${name}`);
         this._opencodeAgentsCache = { result, ts: now };
         this._opencodeAgentsLastGood = result;
+        this._opencodeAgentModels = this._modelsFromEntries(Object.entries(roster.agents));
         setUserPreservedAgents(Object.keys(roster.agents));
         clearRosterWarnings(rosterPath);
         return result;

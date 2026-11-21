@@ -63,11 +63,35 @@ export class AgentMatcher {
     private getAllCapabilities?: () => CapInfo[],
     private isAgentUnavailable?: (agent: string) => boolean,
     private getAgentScoreWithCI?: (agent: string) => { mean: number; lower: number; upper: number } | null,
+    private getKnownAgents?: () => string[],
   ) {}
+
+  private candidateStatuses(): AgentStatus[] {
+    const statuses = this.getAgentStatuses();
+    const known = this.getKnownAgents?.() ?? [];
+    if (known.length === 0) return statuses;
+    const byName = new Map(statuses.map((status) => [normalizeName(status.agent), status]));
+    for (const agent of known) {
+      const key = normalizeName(agent);
+      if (byName.has(key)) continue;
+      byName.set(key, {
+        agent: key,
+        lastActive: Date.now(),
+        pendingCount: 0,
+        acceptedCount: 0,
+        completedCount: 0,
+        failedCount: 0,
+        state: "HEALTHY" as AgentStatus["state"],
+        stuckSince: null,
+        autoPausedSince: null,
+      });
+    }
+    return [...byName.values()];
+  }
 
   
   findBestAgents(request: MatchRequest, topN: number = 3): AgentMatchResult[] {
-    const allAgents = this.getAgentStatuses();
+    const allAgents = this.candidateStatuses();
     
     
     const capMap = this.getAllCapabilities ? new Map(this.getAllCapabilities().map((c) => [c.agent, c])) : null;
@@ -120,10 +144,11 @@ export class AgentMatcher {
 
     
     const roleStr = resolveRole(status.agent) ?? normalizeName(status.agent);
+    const requested = request.preferredRole ? normalizeName(request.preferredRole) : "";
     const roleMatch = request.preferredRole
-      ? roleStr === normalizeName(request.preferredRole)
+      ? normalizeName(status.agent) === requested || roleStr === requested
         ? 1.0
-        : this.rolesRelated(roleStr, normalizeName(request.preferredRole))
+        : this.rolesRelated(roleStr, requested)
           ? 0.6
           : 0.2
       : 0.5; 
@@ -280,7 +305,7 @@ export class AgentMatcher {
 
   
   suggestParallelTeam(primaryRole: string, _specializations: string[]): string[] {
-    const allAgents = this.getAgentStatuses();
+    const allAgents = this.candidateStatuses();
 
     
     const roleMap = new Map<string, { agent: string; score: number }>();

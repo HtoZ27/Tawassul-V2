@@ -100,6 +100,11 @@ assert(handoffSource.includes("resolveAgentModelRef(args.to as string, agentMode
 assert(handoffSource.includes("implementer,") && handoffSource.includes("reviewer,"), "both model refs enter the handoff payload");
 const executeSource = read("src/hooks/tool-execute.ts");
 assert(executeSource.includes("model: ctx.getAgentModel(normalizedAgent)"), "the tool run records the invocation model");
+const hooksSource = read("src/bootstrap/hooks-registration.ts");
+assert(
+  hooksSource.includes("tawaCtx.agentManager.getRosterModel(agent)"),
+  "a configured roster model is consulted before the role fallback",
+);
 
 const dir = mkdtempSync(join(tmpdir(), "tawassul-dispatch-model-"));
 try {

@@ -95,7 +95,8 @@ export function createHooks(
 
   const getAgentModel = (agent: string) => {
     const key = normalizeName(agent);
-    const raw = tawaCtx.modelManager.agentModelMap[key] as string | undefined;
+    const rosterModel = tawaCtx.agentManager.getRosterModel(agent);
+    const raw = (rosterModel ?? tawaCtx.modelManager.agentModelMap[key]) as string | undefined;
     const isMissing = !raw;
     const isDynamic = raw === DYNAMIC_MODEL_SENTINEL;
     const isRetired = raw !== undefined && modelAvailability(raw) === "absent";

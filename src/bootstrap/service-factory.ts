@@ -733,6 +733,11 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
     
     
     (agent: string) => tawaCtx.capabilityTracker.getAgentScoreWithCI(agent),
+    
+    () => tawaCtx.getAgents().filter((agent) => {
+      const key = normalizeName(agent);
+      return key !== "addagent" && key !== "kick";
+    }),
   );
 
   

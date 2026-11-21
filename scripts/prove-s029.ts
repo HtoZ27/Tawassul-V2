@@ -8,6 +8,7 @@ import type { TawassulContext } from "../src/context.ts";
 import type { ToolContext, ToolResult } from "../src/tool.ts";
 import { defaultAgentModelForRole } from "../src/services/proxy-fallback-chains.ts";
 import { sameRoleDistributionGuard, deletedAgentGuard } from "../src/hooks/guards/dispatch-guards.ts";
+import { AgentMatcher } from "../src/services/agent-matcher.ts";
 import { isKnownDynamicAgent } from "../src/scripts/gen-opencode-config.ts";
 import { stripJsoncComments } from "../src/utils/opencode-config.ts";
 import { resolveRole } from "../src/utils/agent.ts";
@@ -392,7 +393,22 @@ console.log(text);
 `;
   const childPath = join(root, "s029-global-child.ts");
   writeFileSync(childPath, childSource);
-  const runChild = (mode: "add" | "kick"): { code: number; out: string } => {
+  const modelChildSource = `
+import { AgentManager } from ${JSON.stringify(join(repo, "src", "context", "managers", "AgentManager.ts"))};
+
+const dir = process.env.TAWASSUL_PROOF_DIR as string;
+const manager = new AgentManager(dir, undefined, "global");
+manager.stopRefresh();
+await manager.prewarmRoster(1000);
+const warmed = manager.getRosterModel("dev-mimo") ?? "none";
+manager.clearReadCache();
+manager.getAgents();
+const cold = manager.getRosterModel("dev-mimo") ?? "none";
+console.log(\`MODEL=\${warmed}|\${cold}\`);
+`;
+  const modelChildPath = join(root, "s029-global-model.ts");
+  writeFileSync(modelChildPath, modelChildSource);
+  const runChild = (mode: "add" | "kick", script: string = childPath): { code: number; out: string } => {
     const env: Record<string, string> = {};
     for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
     env.TAWASSUL_SCOPE = "global";
@@ -400,7 +416,7 @@ console.log(text);
     env.TAWASSUL_PROOF_DIR = globalDir;
     env.TAWASSUL_PROOF_MODE = mode;
     env.TAWASSUL_LOG_FILE = join(root, `s029-global-${mode}.log`);
-    const res = spawnSync("bun", [childPath], { env, encoding: "utf-8" });
+    const res = spawnSync("bun", [script], { env, encoding: "utf-8" });
     return { code: res.status ?? 1, out: `${res.stdout ?? ""}${res.stderr ?? ""}` };
   };
   try {
@@ -411,6 +427,12 @@ console.log(text);
     assert(afterAdd.agents?.["dev-mimo"] !== undefined, "a global add writes the roster to tawassul.jsonc");
     assert(readFileSync(configPath, "utf-8") === configBody, "a global add leaves global opencode.jsonc byte-identical");
     assert(!existsSync(join(globalDir, "opencode.json")), "a global add creates no global opencode.json");
+    const modelCheck = runChild("add", modelChildPath);
+    assert(modelCheck.code === 0, `a global model read child exits clean (${modelCheck.out.trim().slice(-200)})`);
+    assert(
+      modelCheck.out.includes("MODEL=opencode/mimo-v2.6-flash-free|opencode/mimo-v2.6-flash-free"),
+      "a global roster model is attributed to its agent after a warm and a cold read",
+    );
     const kick = runChild("kick");
     assert(kick.code === 0, `a global kick child exits clean (${kick.out.trim().slice(-200)})`);
     assert(kick.out.includes("Removed"), "a global kick reports the removal");
@@ -428,6 +450,42 @@ console.log(text);
   } finally {
     rmSync(globalDir, { recursive: true, force: true });
   }
+}
+
+{
+  const known = ["dev", "dev-mimo", "analyst-deepseek-v4.1-flash-free", "tester-flint-40b-free"];
+  const matcher = new AgentMatcher(
+    () => [],
+    () => undefined,
+    () => [],
+    () => [],
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    () => known,
+  );
+  for (const agent of ["dev-mimo", "analyst-deepseek-v4.1-flash-free", "tester-flint-40b-free"]) {
+    const match = matcher.findBestAgent({
+      task: "review pricing",
+      preferredRole: agent,
+      specializations: [],
+      requireAvailability: true,
+      excludeAgents: ["tawa"],
+    });
+    assert(match?.agent === agent, `a fresh session routes ${agent} to itself without a health record`);
+  }
+  const base = matcher.findBestAgent({
+    task: "review pricing",
+    preferredRole: "dev",
+    specializations: [],
+    requireAvailability: true,
+  });
+  assert(base?.agent === "dev", "an exact base role still wins over its derived variants");
+  const team = matcher.suggestParallelTeam("dev", []);
+  assert(team[0] === "dev", "parallel team suggestion works from a fresh session");
 }
 
 console.log(`PROOF PASS: s029 pins, dispatch precedence, dynamic suffix, log default, retire census (${passed} assertions)`);
