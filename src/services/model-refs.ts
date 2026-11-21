@@ -9,12 +9,17 @@ import { normalizeName } from "../utils/name-utils.ts";
 import { resolveRole } from "../utils/agent.ts";
 import type { AgentModelRef } from "../context/types.ts";
 
-export function resolveAgentModelRef(agent: string, agentModelMap: Record<string, string>): AgentModelRef {
+export function resolveAgentModelRef(
+  agent: string,
+  agentModelMap: Record<string, string>,
+  configuredModel?: string,
+): AgentModelRef {
   const key = normalizeName(agent);
-  const raw = agentModelMap[key] ?? agentModelMap[agent];
-  if (typeof raw === "string" && raw.trim().length > 0) {
-    const parsed = parseModelTarget(raw);
-    if (parsed && raw !== DYNAMIC_MODEL_SENTINEL && !RETIRED_MODEL_IDS.has(raw)) return parsed;
+  for (const raw of [configuredModel, agentModelMap[key], agentModelMap[agent]]) {
+    if (typeof raw === "string" && raw.trim().length > 0) {
+      const parsed = parseModelTarget(raw);
+      if (parsed && raw !== DYNAMIC_MODEL_SENTINEL && !RETIRED_MODEL_IDS.has(raw)) return parsed;
+    }
   }
   let role = key;
   try {

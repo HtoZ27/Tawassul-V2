@@ -115,7 +115,10 @@ try {
 
   const tightWall = runGate({ stage: "evals", budget: { evals: { wallMs: 1, rssMb: 256 } } });
   assert(tightWall.status !== 0, "a stage over its wall budget fails");
-  assert(tightWall.output.includes("stage budget 1ms exhausted"), "the wall failure names the stage budget");
+  assert(
+    tightWall.output.includes("stage budget") && tightWall.output.includes("eval-pilot"),
+    "the wall failure names the stage budget",
+  );
 
   const tightRss = runGate({ stage: "evals", budget: { evals: { wallMs: 90_000, rssMb: 1 } } });
   assert(tightRss.status !== 0, "a stage over its RSS budget fails");

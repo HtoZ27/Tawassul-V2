@@ -70,7 +70,12 @@ export class AgentMatcher {
     const statuses = this.getAgentStatuses();
     const known = this.getKnownAgents?.() ?? [];
     if (known.length === 0) return statuses;
-    const byName = new Map(statuses.map((status) => [normalizeName(status.agent), status]));
+    const knownNames = new Set(known.map(normalizeName));
+    const byName = new Map(
+      statuses
+        .map((status) => [normalizeName(status.agent), status] as const)
+        .filter(([key]) => knownNames.has(key)),
+    );
     for (const agent of known) {
       const key = normalizeName(agent);
       if (byName.has(key)) continue;
@@ -89,6 +94,20 @@ export class AgentMatcher {
     return [...byName.values()];
   }
 
+  private preferDerivedVariants(statuses: AgentStatus[]): AgentStatus[] {
+    const derivedRoles = new Set<string>();
+    for (const status of statuses) {
+      if (!this.isAgentAvailable(status)) continue;
+      const role = resolveRole(status.agent);
+      if (role !== null && normalizeName(status.agent) !== role) derivedRoles.add(role);
+    }
+    if (derivedRoles.size === 0) return statuses;
+    return statuses.filter((status) => {
+      const role = resolveRole(status.agent);
+      return role === null || normalizeName(status.agent) !== role || !derivedRoles.has(role);
+    });
+  }
+
   
   findBestAgents(request: MatchRequest, topN: number = 3): AgentMatchResult[] {
     const allAgents = this.candidateStatuses();
@@ -97,15 +116,15 @@ export class AgentMatcher {
     const capMap = this.getAllCapabilities ? new Map(this.getAllCapabilities().map((c) => [c.agent, c])) : null;
     const candidates: AgentMatchResult[] = [];
 
+    const eligible: AgentStatus[] = [];
     for (const status of allAgents) {
       if (request.excludeAgents?.some((ea) => normalizeName(ea) === normalizeName(status.agent))) continue;
       if (request.requireAvailability && !this.isAgentAvailable(status)) continue;
-      
-      
       if (this.isAgentUnavailable?.(status.agent)) continue;
-
-      const result = this.scoreAgent(status, request, capMap ?? undefined);
-      candidates.push(result);
+      eligible.push(status);
+    }
+    for (const status of this.preferDerivedVariants(eligible)) {
+      candidates.push(this.scoreAgent(status, request, capMap ?? undefined));
     }
 
     
@@ -310,8 +329,8 @@ export class AgentMatcher {
     
     const roleMap = new Map<string, { agent: string; score: number }>();
 
-    for (const status of allAgents) {
-      if (this.isAgentStuck(status) || !this.isAgentAvailable(status)) continue;
+    const eligible = allAgents.filter((status) => this.isAgentAvailable(status));
+    for (const status of this.preferDerivedVariants(eligible)) {
       const role = resolveRole(status.agent) ?? normalizeName(status.agent);
 
       const existing = roleMap.get(role);

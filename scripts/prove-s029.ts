@@ -9,6 +9,10 @@ import type { ToolContext, ToolResult } from "../src/tool.ts";
 import { defaultAgentModelForRole } from "../src/services/proxy-fallback-chains.ts";
 import { sameRoleDistributionGuard, deletedAgentGuard } from "../src/hooks/guards/dispatch-guards.ts";
 import { AgentMatcher } from "../src/services/agent-matcher.ts";
+import { buildMoaTool } from "../src/tools/tawa/moa.ts";
+import type { StrategyDispatcher } from "../src/services/strategy-dispatcher.ts";
+import type { TaskOrchestrator } from "../src/services/task-orchestrator.ts";
+import type { AgentStatus } from "../src/services/agent-health.ts";
 import { isKnownDynamicAgent } from "../src/scripts/gen-opencode-config.ts";
 import { stripJsoncComments } from "../src/utils/opencode-config.ts";
 import { resolveRole } from "../src/utils/agent.ts";
@@ -453,20 +457,22 @@ console.log(\`MODEL=\${warmed}|\${cold}\`);
 }
 
 {
+  const makeMatcher = (known: string[], statuses: AgentStatus[] = []) =>
+    new AgentMatcher(
+      () => statuses,
+      () => undefined,
+      () => [],
+      () => [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      () => known,
+    );
   const known = ["dev", "dev-mimo", "analyst-deepseek-v4.1-flash-free", "tester-flint-40b-free"];
-  const matcher = new AgentMatcher(
-    () => [],
-    () => undefined,
-    () => [],
-    () => [],
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    () => known,
-  );
+  const matcher = makeMatcher(known);
   for (const agent of ["dev-mimo", "analyst-deepseek-v4.1-flash-free", "tester-flint-40b-free"]) {
     const match = matcher.findBestAgent({
       task: "review pricing",
@@ -477,15 +483,128 @@ console.log(\`MODEL=\${warmed}|\${cold}\`);
     });
     assert(match?.agent === agent, `a fresh session routes ${agent} to itself without a health record`);
   }
-  const base = matcher.findBestAgent({
+  const derived = matcher.findBestAgent({
     task: "review pricing",
     preferredRole: "dev",
     specializations: [],
     requireAvailability: true,
   });
-  assert(base?.agent === "dev", "an exact base role still wins over its derived variants");
+  assert(derived?.agent === "dev-mimo", "a base-role request prefers the available derived specialist");
+  const listed = matcher
+    .findBestAgents(
+      { task: "review pricing", preferredRole: "dev", specializations: [], requireAvailability: true },
+      10,
+    )
+    .map((match) => match.agent);
+  assert(
+    listed.includes("dev-mimo") && !listed.includes("dev"),
+    "the derived specialist replaces the base role in the candidate list",
+  );
   const team = matcher.suggestParallelTeam("dev", []);
-  assert(team[0] === "dev", "parallel team suggestion works from a fresh session");
+  assert(team[0] === "dev-mimo", "parallel team suggestion prefers the derived specialist");
+
+  const baseOnly = makeMatcher(["dev", "analyst"]);
+  const base = baseOnly.findBestAgent({
+    task: "review pricing",
+    preferredRole: "dev",
+    specializations: [],
+    requireAvailability: true,
+  });
+  assert(base?.agent === "dev", "the base role remains the fallback when no derived variant exists");
+  assert(baseOnly.suggestParallelTeam("dev", [])[0] === "dev", "a team without derived variants keeps the base role");
+
+  const paused: AgentStatus = {
+    agent: "dev-mimo",
+    lastActive: Date.now(),
+    pendingCount: 0,
+    acceptedCount: 0,
+    completedCount: 0,
+    failedCount: 0,
+    state: "AUTO_PAUSED" as AgentStatus["state"],
+    stuckSince: Date.now(),
+    autoPausedSince: Date.now(),
+  };
+  const pausedMatcher = makeMatcher(["dev", "dev-mimo"], [paused]);
+  const fallback = pausedMatcher.findBestAgent({
+    task: "review pricing",
+    preferredRole: "dev",
+    specializations: [],
+    requireAvailability: true,
+  });
+  assert(fallback?.agent === "dev", "a paused derived variant does not suppress the base role");
+
+  const healthy = (agent: string): AgentStatus => ({
+    agent,
+    lastActive: Date.now(),
+    pendingCount: 0,
+    acceptedCount: 0,
+    completedCount: 0,
+    failedCount: 0,
+    state: "HEALTHY" as AgentStatus["state"],
+    stuckSince: null,
+    autoPausedSince: null,
+  });
+  const removedMatcher = makeMatcher(["dev", "tester", "analyst"], [healthy("dev-beam"), healthy("dev")]);
+  const removed = removedMatcher.findBestAgent({
+    task: "review pricing",
+    preferredRole: "dev",
+    specializations: [],
+    requireAvailability: true,
+  });
+  assert(removed?.agent === "dev", "a removed agent with a stale health record leaves the live list");
+  assert(
+    removedMatcher.suggestParallelTeam("dev", [])[0] === "dev",
+    "a removed agent is absent from the parallel team",
+  );
+
+  const addedMatcher = makeMatcher(["dev", "dev-mimo"], [healthy("dev")]);
+  const added = addedMatcher.findBestAgent({
+    task: "review pricing",
+    preferredRole: "dev",
+    specializations: [],
+    requireAvailability: true,
+  });
+  assert(added?.agent === "dev-mimo", "a newly added agent enters the list immediately");
+}
+
+{
+  const moaCtx = {
+    getAgents: () => ["dev", "tester", "analyst"],
+    updateLastActive: () => undefined,
+    saveState: async () => undefined,
+  } as unknown as TawassulContext;
+  const moaDispatcher = {
+    dispatch: async (_task: unknown, _mode: unknown, roles: readonly string[]) =>
+      roles.map((role) => ({ agentId: `${role}-beam`, output: "ok", files: [], metrics: {} })),
+  } as unknown as StrategyDispatcher;
+  const moaOrchestrator = {
+    decompose: () => [
+      {
+        id: "sub-probe",
+        description: "probe",
+        files: [],
+        agent: "dev",
+        dependencies: [],
+        successCriteria: [],
+        status: "pending" as const,
+      },
+    ],
+  } as unknown as TaskOrchestrator;
+  const moa = buildMoaTool(moaCtx, moaOrchestrator, moaDispatcher);
+  const result = await moa.execute(
+    { task: "probe", agents: ["dev", "tester", "analyst"] },
+    { agent: "tawa", sessionID: "s-probe" } as never,
+  );
+  const output = typeof result === "string" ? result : result.output;
+  const metadata = typeof result === "string" ? undefined : result.metadata;
+  assert(
+    output.includes("**Agents:** dev-beam, tester-beam, analyst-beam"),
+    "the moa record lists the resolved derived agents",
+  );
+  assert(
+    Array.isArray(metadata?.agents) && metadata.agents.join(",") === "dev-beam,tester-beam,analyst-beam",
+    "the moa metadata stores the resolved derived agents",
+  );
 }
 
 console.log(`PROOF PASS: s029 pins, dispatch precedence, dynamic suffix, log default, retire census (${passed} assertions)`);

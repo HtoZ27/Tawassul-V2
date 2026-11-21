@@ -94,10 +94,53 @@ assert(
   "a pre-field handoff is never treated as an equal-model violation",
 );
 
+const configured = resolveAgentModelRef("dev-beam", {}, "opencode/beam-free");
+assert(
+  configured.providerID === "opencode" && configured.modelID === "beam-free",
+  "a configured derived model wins over the role fallback",
+);
+const configuredBeatsMap = resolveAgentModelRef("dev-beam", { "dev-beam": "nvidia/stale-model" }, "opencode/beam-free");
+assert(
+  configuredBeatsMap.providerID === "opencode" && configuredBeatsMap.modelID === "beam-free",
+  "a configured derived model wins over a stale map entry",
+);
+const mapWithoutConfigured = resolveAgentModelRef("dev-beam", { "dev-beam": "opencode/beam-free" });
+assert(
+  mapWithoutConfigured.providerID === "opencode" && mapWithoutConfigured.modelID === "beam-free",
+  "the recorded map still resolves when no configured model is passed",
+);
+const configuredSentinel = resolveAgentModelRef("dev", { dev: "nvidia/deepseek-ai/deepseek-v4.1-flash" }, "dynamic");
+assert(
+  configuredSentinel.providerID === "nvidia" && configuredSentinel.modelID === "deepseek-ai/deepseek-v4.1-flash",
+  "a dynamic configured sentinel falls through to the recorded map",
+);
+
 const handoffSource = read("src/tools/handoff.ts");
-assert(handoffSource.includes("resolveAgentModelRef(cctx.agent, agentModelMap)"), "the handoff records the implementer model");
-assert(handoffSource.includes("resolveAgentModelRef(args.to as string, agentModelMap)"), "the handoff records the reviewer model");
+assert(
+  handoffSource.includes("rosterModel(cctx.agent)"),
+  "the handoff records the configured implementer model",
+);
+assert(
+  handoffSource.includes("rosterModel(args.to as string)"),
+  "the handoff records the configured reviewer model",
+);
+assert(
+  handoffSource.includes("ctx.agentManager?.getRosterModel?.(agent)"),
+  "a partial context without an agent manager still records a handoff",
+);
 assert(handoffSource.includes("implementer,") && handoffSource.includes("reviewer,"), "both model refs enter the handoff payload");
+const factorySource = read("src/bootstrap/service-factory.ts");
+assert(
+  factorySource.includes("tawaCtx.agentManager.getRosterModel(task.from)") &&
+    factorySource.includes("tawaCtx.agentManager.getRosterModel(params.to)"),
+  "every service-factory handoff records the configured roster model",
+);
+const initSource = read("src/bootstrap/plugin-init.ts");
+assert(
+  initSource.includes("tawaCtx.agentManager.getRosterModel(params.from)") &&
+    initSource.includes("tawaCtx.agentManager.getRosterModel(params.to)"),
+  "the discussion handoff records the configured roster model",
+);
 const executeSource = read("src/hooks/tool-execute.ts");
 assert(executeSource.includes("model: ctx.getAgentModel(normalizedAgent)"), "the tool run records the invocation model");
 const hooksSource = read("src/bootstrap/hooks-registration.ts");

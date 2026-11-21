@@ -240,6 +240,8 @@ export function resolveRerouteModel(callerRole: string, currentModel?: string): 
 }
 
 export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
+  const rosterModel = (agent: string): string | undefined =>
+    ctx.agentManager?.getRosterModel?.(agent);
   return tool({
     description: [
       "Handoff — pass tasks between agents, complete, undo, or rescue stalled ones.",
@@ -440,6 +442,16 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
         const agentModelMap = ctx.modelManager.agentModelMap;
         const rescueEntry = {
           id: ctx.nextHandoffId(),
+          implementer: resolveAgentModelRef(
+            cctx.agent,
+            agentModelMap,
+            rosterModel(cctx.agent),
+          ),
+          reviewer: resolveAgentModelRef(
+            args.to as string,
+            agentModelMap,
+            rosterModel(args.to as string),
+          ),
           from: `🚑 ${cctx.agent} (rescue ${rescueId})`,
           to: normalizeName(args.to as string),
           task: `🚑 RESCUE: ${original.task}`,
@@ -465,8 +477,6 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
           timestamp: new Date().toISOString(),
           status: "pending",
           rescue: true,
-          implementer: resolveAgentModelRef(cctx.agent, agentModelMap),
-          reviewer: resolveAgentModelRef(args.to as string, agentModelMap),
         };
         ctx.handoffs.set(rescueEntry.id, rescueEntry as HandoffEntry);
         ctx.recordHandoffInitiated(cctx.agent, rescueEntry.context, rescueEntry.task, !!rescueEntry.checkpoint, false);
@@ -803,8 +813,16 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
       );
 
       const agentModelMap = ctx.modelManager.agentModelMap;
-      const implementer = resolveAgentModelRef(cctx.agent, agentModelMap);
-      const reviewer = resolveAgentModelRef(args.to as string, agentModelMap);
+      const implementer = resolveAgentModelRef(
+        cctx.agent,
+        agentModelMap,
+        rosterModel(cctx.agent),
+      );
+      const reviewer = resolveAgentModelRef(
+        args.to as string,
+        agentModelMap,
+        rosterModel(args.to as string),
+      );
       const dispatchTurn = ctx.toolRunLog ? ctx.toolRunLog.currentTurn(cctx.sessionID) : undefined;
       const entry = {
         id: ctx.nextHandoffId(),
@@ -940,7 +958,7 @@ export function buildHandoffTool(ctx: TawassulContext): ToolDefinition {
             parallelId: entry.id,
             sourceRecordId: entry.id,
             implementer,
-            reviewer: resolveAgentModelRef(agent, agentModelMap),
+            reviewer: resolveAgentModelRef(agent, agentModelMap, rosterModel(agent)),
             sessionId: cctx.sessionID,
             ...(dispatchTurn !== undefined ? { turn: dispatchTurn } : {}),
           };

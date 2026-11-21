@@ -31,6 +31,11 @@ another agent.
 4. Work that needs more than one role moves through handoffs, with a
    checkpoint when the context is large.
 
+Configured variants of a base role take priority during matching. If `dev-beam`
+is available, a development assignment goes to `dev-beam`; the base `dev` is
+used only when no derived variant of that role is available. An explicit
+`subagent` or handoff target is still honoured.
+
 `tawa` is an intermediary, not an implementer. If you want the work done rather
 than routed, ask the specialist directly.
 

@@ -55,20 +55,22 @@ export function buildMoaTool(
       const lines = dispatched.map(
         (d) => `- **${d.id}** → ${d.to}: ${d.ok ? t("twDistributed") : t("twFailed", { err: d.error ?? "" })}`,
       );
+      const resolved = [...new Set(dispatched.map((d) => d.to).filter((agent) => agent !== "none"))];
+      const agents = resolved.length > 0 ? resolved : roles;
       return {
         title: "MoA Result",
         output: [
-          `## 🧠 MoA Execution — ${subtasks.length} subtask(s) × ${roles.length} expert(s)`,
+          `## 🧠 MoA Execution — ${subtasks.length} subtask(s) × ${agents.length} expert(s)`,
           ``,
           `**Task:** ${task}`,
-          `**Agents:** ${roles.join(", ")}`,
+          `**Agents:** ${agents.join(", ")}`,
           `**Parallel group:** ${parallelId}`,
           ``,
           ...lines,
           ``,
           t("twDispatchedVia"),
         ].join("\n"),
-        metadata: { parallelId, dispatched: dispatched.map((d) => d.id), agents: roles },
+        metadata: { parallelId, dispatched: dispatched.map((d) => d.id), agents },
       };
     },
   });

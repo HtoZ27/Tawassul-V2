@@ -685,8 +685,16 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
       from: task.from,
       to: task.to,
       task: task.task,
-      implementer: resolveAgentModelRef(task.from, tawaCtx.modelManager.agentModelMap),
-      reviewer: resolveAgentModelRef(task.to, tawaCtx.modelManager.agentModelMap),
+      implementer: resolveAgentModelRef(
+        task.from,
+        tawaCtx.modelManager.agentModelMap,
+        tawaCtx.agentManager.getRosterModel(task.from),
+      ),
+      reviewer: resolveAgentModelRef(
+        task.to,
+        tawaCtx.modelManager.agentModelMap,
+        tawaCtx.agentManager.getRosterModel(task.to),
+      ),
     });
     tawaCtx.handoffs.set(id, entry);
     healthTracker.onHandoffCreated(task.to, id);
@@ -753,8 +761,16 @@ export function createServices(_tawaCtx: TawaOrchestratorContext, projectDirecto
         context: params.context,
         files: params.files,
         parallelId: params.parallelId,
-        implementer: resolveAgentModelRef("@tawa", tawaCtx.modelManager.agentModelMap),
-        reviewer: resolveAgentModelRef(params.to, tawaCtx.modelManager.agentModelMap),
+        implementer: resolveAgentModelRef(
+          "@tawa",
+          tawaCtx.modelManager.agentModelMap,
+          tawaCtx.agentManager.getRosterModel("@tawa"),
+        ),
+        reviewer: resolveAgentModelRef(
+          params.to,
+          tawaCtx.modelManager.agentModelMap,
+          tawaCtx.agentManager.getRosterModel(params.to),
+        ),
       });
       tawaCtx.handoffs.set(id, entry);
       healthTracker.onHandoffCreated(params.to, id);

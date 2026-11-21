@@ -942,8 +942,16 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
           context: params.context,
           files: params.files,
           sourceDiscussionId: params.sourceDiscussionId,
-          implementer: resolveAgentModelRef(params.from, tawaCtx.modelManager.agentModelMap),
-          reviewer: resolveAgentModelRef(params.to, tawaCtx.modelManager.agentModelMap),
+          implementer: resolveAgentModelRef(
+            params.from,
+            tawaCtx.modelManager.agentModelMap,
+            tawaCtx.agentManager.getRosterModel(params.from),
+          ),
+          reviewer: resolveAgentModelRef(
+            params.to,
+            tawaCtx.modelManager.agentModelMap,
+            tawaCtx.agentManager.getRosterModel(params.to),
+          ),
         });
         tawaCtx.handoffs.set(id, entry);
         return id;
