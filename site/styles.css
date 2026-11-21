@@ -889,6 +889,21 @@ a.card:hover {
   background: rgba(251, 191, 36, 0.055);
 }
 
+.manual-note {
+  margin-top: 0.9rem;
+  border: 1px solid rgba(192, 132, 252, 0.38);
+  border-inline-start: 3px solid var(--violet);
+  border-radius: 10px;
+  padding: 0.75rem 0.95rem;
+  background: rgba(192, 132, 252, 0.09);
+  color: #ddd6fe;
+  font-size: 0.9rem;
+}
+
+.manual-note .mono {
+  color: #f5f3ff;
+}
+
 .receipts-table {
   width: 100%;
   border-collapse: collapse;

@@ -120,9 +120,10 @@ npm run build
 
 Open the workspace in OpenCode. The host discovers
 `.opencode/plugins/tawassul.js` on its own; no configuration edit is needed.
-Copying `dist/global.js` into `.opencode/plugins/` or
-`~/.config/opencode/plugins/` is a complete install as well: the host loads it on
-the next start without asking, and deleting the file unloads it.
+
+> **Copying is installing.** Copying `dist/global.js` into `.opencode/plugins/`
+> or `~/.config/opencode/plugins/` is a complete install as well: the host loads
+> it on the next start without asking, and deleting the file unloads it.
 
 One setting lives in the app rather than in `opencode.json`: open
 **Settings → General** and turn on **Show agent** ("Switch between agents in
