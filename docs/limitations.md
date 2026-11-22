@@ -21,7 +21,7 @@ of running the plugin honestly.
 | A workspace's state is namespaced, not shared | Two workspaces do not see each other's records, goals, or packs |
 | A foreign-key state file is read-only | Restoring state without its key is a refusal, not a migration |
 | Retention is a cap, not an archive | Records and handoffs past the cap are dropped oldest-first |
-| Pruning is irreversible beyond the kept backups | The default keeps 5 backups; a sixth run rotates the oldest away |
+| Pruning is irreversible beyond the kept backups | The default keeps two backups; a third run rotates the oldest away |
 
 ## Session behaviour
 

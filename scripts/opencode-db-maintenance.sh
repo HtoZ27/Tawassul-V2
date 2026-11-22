@@ -16,12 +16,17 @@
 #   3. PRUNE old messages (message/part for legacy schema, session_message for
 #      the v2 schema; sessions are NEVER deleted — other tables reference them).
 #      Offset is wall-clock, messages touching fresh sessions are kept, so
-#      active work is never emptied. Also applies host `event` retention when
-#      the DB is quiescent: every event row predates the current run while
-#      session history stays in message/part/session_message.
+#      active work is never emptied. Before that, oversized `read` tool results
+#      inside surviving v2 messages are replaced by a short placeholder (the
+#      message row and its text stay): file snapshots are the dominant growth
+#      term. Old `reasoning` blocks are replaced the same way. Also applies host
+#      `event` retention when the DB is quiescent: every event row predates the
+#      current run while session history stays in message/part/session_message.
 #   4. VACUUM — rebuilds the file, reclaims every freed page (the actual shrink).
 #      Runs ONLY when no process holds the DB (re-checked here); otherwise it is
-#      skipped with a notice — live VACUUM is forbidden under every flag.
+#      skipped with a notice — live VACUUM is forbidden under every flag. A quiet
+#      run also reclaims a freelist of at least RECLAIM_MIN_FREE bytes even when
+#      there is nothing to prune (the pages an in-use retention pass freed).
 #   5. REPORT before/after sizes. Exit non-zero on any safety refusal.
 #      Exit: 2 refusal/usage · 3 probe failure · 4 backup failure · 5 mutation
 #      failure · 6 VACUUM failure · 7 disk space · 8 lock contention ·
@@ -45,7 +50,8 @@
 #                              [--allow-in-use] [--ignore-low-ram]
 #                              [--allow-archive] [--event-retention all|off]
 #                              [--event-only] [--event-delete] [--cap-bytes N]
-#                              [--plan]
+#                              [--tool-retention-days N]
+#                              [--reasoning-retention-days N] [--plan]
 #
 # Defaults:
 #   --db          OPENCODE_DB env only. There is no implicit fallback: pass --db
@@ -53,8 +59,12 @@
 #                 (OPENCODE_DB set-but-missing fails closed; archive needs
 #                 --allow-archive + CONFIRM.)
 #   --prune-days  90 (0 disables pruning entirely — backup+VACUUM only)
+#   --tool-retention-days 1 (0 disables the read-payload rewrite; runs also
+#                 while the host holds the DB, batched with a 2500 ms timeout)
+#   --reasoning-retention-days 1 (0 disables the reasoning rewrite; runs also
+#                 while the host holds the DB, batched with a 2500 ms timeout)
 #   --backup-dir  ~/.local/share/tawassul-v2/backups
-#   --keep-backups 5 (minimum 1 — 0 would rotate away every backup)
+#   --keep-backups 2 (minimum 1 — 0 would rotate away every backup)
 #   --check       read-only: report sizes (+ prune/vacuum/event would-be deltas)
 #                 and exit 0 — never touches the DB (immutable reads; the
 #                 in-use refusal does not apply, the RAM floor still does).
@@ -81,13 +91,19 @@ H="$(cd "$(dirname "$0")" && pwd -P)"
 DB_PATH=""
 PRUNE_DAYS=90
 BACKUP_DIR="${HOME}/.local/share/tawassul-v2/backups"
-KEEP_BACKUPS=5
+KEEP_BACKUPS=2
 TARGET_BYTES=0
 MAX_BYTES=0
-EXPLICIT_KEEP=0
 PRUNE_BATCH=3000
 PRUNE_MAX_ITER=2000
 PRUNE_ITER=0
+TOOL_RETENTION_DAYS=1
+TOOL_BATCH=500
+TOOL_MAX_ITER=1000
+TOOL_ITER=0
+REASONING_RETENTION_DAYS=1
+REASONING_ITER=0
+RECLAIM_MIN_FREE="${TAWASSUL_RECLAIM_MIN_FREE:-67108864}"
 EVENT_KEEP=1
 EVENT_DELETE_EXPLICIT=0
 case "$PRUNE_BATCH" in (''|*[!0-9]*) echo "❌ --batch-rows must be a positive integer (got: $PRUNE_BATCH)" >&2; exit 2 ;; esac
@@ -108,11 +124,13 @@ while [ "$#" -gt 0 ]; do
     --cooldown-mark) COOLDOWN_MARK_TO_CLEAR="${2:?--cooldown-mark needs a path}"; shift 2 ;;
     --prune-days) PRUNE_DAYS="${2:?--prune-days needs a number}"; EXPLICIT_PRUNE=1; shift 2 ;;
     --backup-dir) BACKUP_DIR="${2:?--backup-dir needs a path}"; shift 2 ;;
-    --keep-backups) KEEP_BACKUPS="${2:?--keep-backups needs a number}"; EXPLICIT_KEEP=1; shift 2 ;;
+    --keep-backups) KEEP_BACKUPS="${2:?--keep-backups needs a number}"; shift 2 ;;
     --target-bytes) TARGET_BYTES="${2:?--target-bytes needs a number}"; shift 2 ;;
     --max-bytes) MAX_BYTES="${2:?--max-bytes needs a number}"; shift 2 ;;
     --batch-rows) PRUNE_BATCH="${2:?--batch-rows needs a number}"; shift 2 ;;
     --max-batches) PRUNE_MAX_ITER="${2:?--max-batches needs a number}"; shift 2 ;;
+    --tool-retention-days) TOOL_RETENTION_DAYS="${2:?--tool-retention-days needs a number}"; shift 2 ;;
+    --reasoning-retention-days) REASONING_RETENTION_DAYS="${2:?--reasoning-retention-days needs a number}"; shift 2 ;;
     --check) MODE="check"; shift ;;
     --event-only) MODE="event"; shift ;;
     --cap-bytes) CAP_BYTES="${2:?--cap-bytes needs a number}"; shift 2 ;;
@@ -141,6 +159,10 @@ case "$PRUNE_DAYS" in (''|*[!0-9]*) echo "❌ --prune-days must be a non-negativ
 case "$KEEP_BACKUPS" in (''|*[!0-9]*) echo "❌ --keep-backups must be a non-negative integer (got: $KEEP_BACKUPS)" >&2; exit 2 ;; esac
 case "$TARGET_BYTES" in (''|*[!0-9]*) echo "❌ --target-bytes must be a non-negative integer (got: $TARGET_BYTES)" >&2; exit 2 ;; esac
 case "$MAX_BYTES" in (''|*[!0-9]*) echo "❌ --max-bytes must be a non-negative integer (got: $MAX_BYTES)" >&2; exit 2 ;; esac
+case "$TOOL_RETENTION_DAYS" in (''|*[!0-9]*) echo "❌ --tool-retention-days must be a non-negative integer (got: $TOOL_RETENTION_DAYS)" >&2; exit 2 ;; esac
+case "$REASONING_RETENTION_DAYS" in (''|*[!0-9]*) echo "❌ --reasoning-retention-days must be a non-negative integer (got: $REASONING_RETENTION_DAYS)" >&2; exit 2 ;; esac
+case "$RECLAIM_MIN_FREE" in (''|*[!0-9]*) echo "❌ TAWASSUL_RECLAIM_MIN_FREE must be a non-negative integer (got: $RECLAIM_MIN_FREE)" >&2; exit 2 ;; esac
+case "${TAWASSUL_VACUUM_MIN_FREE:-1073741824}" in (''|*[!0-9]*) echo "❌ TAWASSUL_VACUUM_MIN_FREE must be a non-negative integer (got: ${TAWASSUL_VACUUM_MIN_FREE:-})" >&2; exit 2 ;; esac
 if [ "$TARGET_BYTES" -gt 0 ] && [ "${EXPLICIT_PRUNE:-0}" = 1 ]; then
   echo "❌ --target-bytes and --prune-days are exclusive — pick the fixed window or the solver." >&2
   exit 2
@@ -211,10 +233,10 @@ prune_candidates() {
   printf '%s' "$t"
 }
 prune_candidate_bytes() {
-  local b=0 v
+  local b=0 v sp
   if [ "$HIST_MESSAGE" = 1 ]; then
     v="$(timeout 300 $RO "$(RO_DB)" "
-      SELECT CAST(total(LENGTH(data)) AS INTEGER) FROM ( $(anchor_candidate_data_sql message "$1") );" 2>/dev/null)" || v=""
+      SELECT CAST(total(LENGTH(CAST(data AS BLOB))) AS INTEGER) FROM ( $(anchor_candidate_data_sql message "$1") );" 2>/dev/null)" || v=""
     case "$v" in ''|*[!0-9]*) printf '' ; return ;; *) b=$(( b + v )) ;; esac
     v="$(timeout 300 $RO "$(RO_DB)" "
       SELECT count(*) FROM part
@@ -223,11 +245,160 @@ prune_candidate_bytes() {
   fi
   if [ "$HIST_V2" = 1 ]; then
     v="$(timeout 300 $RO "$(RO_DB)" "
-      SELECT CAST(total(LENGTH(data)) AS INTEGER) FROM ( $(anchor_candidate_data_sql session_message "$1") );" 2>/dev/null)" || v=""
-    case "$v" in ''|*[!0-9]*) printf '' ; return ;; *) b=$(( b + v )) ;;
+      SELECT CAST(total(LENGTH(CAST(data AS BLOB))) AS INTEGER) FROM ( $(anchor_candidate_data_sql session_message "$1") );" 2>/dev/null)" || v=""
+    case "$v" in ''|*[!0-9]*) printf '' ; return ;; *) b=$(( b + v )) ;; esac
+    sp="$(table_exists "$DB_PATH" session_part)"
+    case "$sp" in
+      \?) printf '' ; return ;;
+      1)
+        v="$(timeout 300 $RO "$(RO_DB)" "
+          SELECT CAST(total(LENGTH(CAST(data AS BLOB))) AS INTEGER) FROM session_part
+           WHERE message_id IN ( $(anchor_candidate_ids_sql session_message "$1") );" 2>/dev/null)" || v=""
+        case "$v" in ''|*[!0-9]*) printf '' ; return ;; *) b=$(( b + v )) ;; esac
+        ;;
     esac
   fi
   printf '%s' "$b"
+}
+tool_payload_candidates() { # $1=cutoff-ms → messages holding a read payload older than the cutoff
+  timeout 900 $RO "$(RO_DB)" "
+    SELECT count(*) FROM session_message sm
+     WHERE sm.time_created < $1
+       AND (CASE WHEN json_valid(sm.data) THEN json_type(sm.data,'\$.content') END)='array'
+       AND EXISTS (SELECT 1 FROM json_each(
+             CASE WHEN json_valid(sm.data)
+                  THEN CASE WHEN json_type(sm.data,'\$.content')='array' THEN sm.data END
+             END,'\$.content') v
+            WHERE (CASE WHEN v.type='object' THEN json_extract(v.value,'\$.type') END)='tool'
+              AND (CASE WHEN v.type='object' THEN json_extract(v.value,'\$.name') END)='read');" 2>/dev/null
+}
+tool_payload_bytes() { # $1=cutoff-ms → bytes held by those read elements
+  timeout 900 $RO "$(RO_DB)" "
+    SELECT CAST(total(b) AS INTEGER) FROM (
+      SELECT LENGTH(CAST(v.value AS BLOB)) AS b
+        FROM session_message sm,
+             json_each(CASE WHEN json_valid(sm.data)
+                            THEN CASE WHEN json_type(sm.data,'\$.content')='array' THEN sm.data END
+                       END,'\$.content') v
+       WHERE sm.time_created < $1
+         AND (CASE WHEN v.type='object' THEN json_extract(v.value,'\$.type') END)='tool'
+         AND (CASE WHEN v.type='object' THEN json_extract(v.value,'\$.name') END)='read');" 2>/dev/null
+}
+batched_tool_prune() { # $1=cutoff-ms → rewritten message rows
+  local cutoff="$1" out del=0 total=0
+  assert_mutation_target session_message
+  while : ; do
+    out="$(timeout 900 sqlite3 -cmd ".timeout 2500" "$DB_PATH" "
+      UPDATE session_message
+         SET data = json_set(data, '\$.content', json((
+               SELECT json_group_array(
+                        CASE WHEN v.type='text' THEN json_quote(v.value)
+                             WHEN v.type='true' THEN json('true')
+                             WHEN v.type='false' THEN json('false')
+                             WHEN v.type='object' THEN
+                               CASE WHEN json_extract(v.value,'\$.type')='tool'
+                                     AND json_extract(v.value,'\$.name')='read'
+                                    THEN json_object('type','text','text',
+                                           '[read output pruned' ||
+                                           CASE WHEN json_extract(v.value,'\$.state.input.path') IS NULL
+                                                THEN ']'
+                                                ELSE ': ' || json_extract(v.value,'\$.state.input.path') || ']' END)
+                                    ELSE json(v.value) END
+                             ELSE json(v.value) END)
+                 FROM json_each(session_message.data,'\$.content') v)))
+       WHERE id IN (
+         SELECT sm.id FROM session_message sm
+          WHERE sm.time_created < ${cutoff}
+            AND (CASE WHEN json_valid(sm.data) THEN json_type(sm.data,'\$.content') END)='array'
+            AND EXISTS (SELECT 1 FROM json_each(
+                  CASE WHEN json_valid(sm.data)
+                       THEN CASE WHEN json_type(sm.data,'\$.content')='array' THEN sm.data END
+                  END,'\$.content') v
+                 WHERE (CASE WHEN v.type='object' THEN json_extract(v.value,'\$.type') END)='tool'
+                   AND (CASE WHEN v.type='object' THEN json_extract(v.value,'\$.name') END)='read')
+          LIMIT ${TOOL_BATCH}
+       );
+      SELECT changes();" 2>>"$LOG_FILE")" || { echo "❌ tool payload prune failed (see ${LOG_FILE}; rerun offline)." >&2; exit 5; }
+    case "$out" in
+      ''|*[!0-9]*) echo "❌ tool payload prune returned no count — refusing to continue blind." >&2; exit 5 ;;
+    esac
+    del="$out"
+    total=$(( total + del ))
+    [ "$del" -eq 0 ] && break
+    TOOL_ITER=$(( TOOL_ITER + 1 ))
+    if [ "$TOOL_ITER" -ge "$TOOL_MAX_ITER" ]; then
+      echo "→ tool payload prune paused: batch cap (${TOOL_MAX_ITER}) reached after ${total} messages — resumes next cycle."
+      return 6
+    fi
+    sleep 0.3
+  done
+  printf '%s' "$total"
+}
+reasoning_candidates() { # $1=cutoff-ms → messages holding reasoning older than the cutoff
+  timeout 900 $RO "$(RO_DB)" "
+    SELECT count(*) FROM session_message sm
+     WHERE sm.time_created < $1
+       AND (CASE WHEN json_valid(sm.data) THEN json_type(sm.data,'\$.content') END)='array'
+       AND EXISTS (SELECT 1 FROM json_each(
+             CASE WHEN json_valid(sm.data)
+                  THEN CASE WHEN json_type(sm.data,'\$.content')='array' THEN sm.data END
+             END,'\$.content') v
+            WHERE (CASE WHEN v.type='object' THEN json_extract(v.value,'\$.type') END)='reasoning');" 2>/dev/null
+}
+reasoning_bytes() { # $1=cutoff-ms → bytes held by those reasoning elements
+  timeout 900 $RO "$(RO_DB)" "
+    SELECT CAST(total(b) AS INTEGER) FROM (
+      SELECT LENGTH(CAST(v.value AS BLOB)) AS b
+        FROM session_message sm,
+             json_each(CASE WHEN json_valid(sm.data)
+                            THEN CASE WHEN json_type(sm.data,'\$.content')='array' THEN sm.data END
+                       END,'\$.content') v
+       WHERE sm.time_created < $1
+         AND (CASE WHEN v.type='object' THEN json_extract(v.value,'\$.type') END)='reasoning');" 2>/dev/null
+}
+batched_reasoning_prune() { # $1=cutoff-ms → rewritten message rows
+  local cutoff="$1" out del=0 total=0
+  assert_mutation_target session_message
+  while : ; do
+    out="$(timeout 900 sqlite3 -cmd ".timeout 2500" "$DB_PATH" "
+      UPDATE session_message
+         SET data = json_set(data, '\$.content', json((
+               SELECT json_group_array(
+                        CASE WHEN v.type='text' THEN json_quote(v.value)
+                             WHEN v.type='true' THEN json('true')
+                             WHEN v.type='false' THEN json('false')
+                             WHEN v.type='object' THEN
+                               CASE WHEN json_extract(v.value,'\$.type')='reasoning'
+                                    THEN json_object('type','text','text','[reasoning pruned]')
+                                    ELSE json(v.value) END
+                             ELSE json(v.value) END)
+                 FROM json_each(session_message.data,'\$.content') v)))
+       WHERE id IN (
+         SELECT sm.id FROM session_message sm
+          WHERE sm.time_created < ${cutoff}
+            AND (CASE WHEN json_valid(sm.data) THEN json_type(sm.data,'\$.content') END)='array'
+            AND EXISTS (SELECT 1 FROM json_each(
+                  CASE WHEN json_valid(sm.data)
+                       THEN CASE WHEN json_type(sm.data,'\$.content')='array' THEN sm.data END
+                  END,'\$.content') v
+                 WHERE (CASE WHEN v.type='object' THEN json_extract(v.value,'\$.type') END)='reasoning')
+          LIMIT ${TOOL_BATCH}
+       );
+      SELECT changes();" 2>>"$LOG_FILE")" || { echo "❌ reasoning prune failed (see ${LOG_FILE}; rerun offline)." >&2; exit 5; }
+    case "$out" in
+      ''|*[!0-9]*) echo "❌ reasoning prune returned no count — refusing to continue blind." >&2; exit 5 ;;
+    esac
+    del="$out"
+    total=$(( total + del ))
+    [ "$del" -eq 0 ] && break
+    REASONING_ITER=$(( REASONING_ITER + 1 ))
+    if [ "$REASONING_ITER" -ge "$TOOL_MAX_ITER" ]; then
+      echo "→ reasoning prune paused: batch cap (${TOOL_MAX_ITER}) reached after ${total} messages — resumes next cycle."
+      return 6
+    fi
+    sleep 0.3
+  done
+  printf '%s' "$total"
 }
 batched_prune() {
   local tbl="$1" out del=0 total=0
@@ -482,6 +653,15 @@ pragma_read() { # $1=pragma $2=timeout_s $3=fallback
   printf '%s' "$out"
 }
 
+pragma_live() { # $1=pragma $2=timeout_s $3=fallback — WAL-inclusive, unlike immutable reads
+  local out="" rc=0
+  out="$(timeout "$2" sqlite3 -readonly "$DB_PATH" "PRAGMA $1;" 2>/dev/null)" || rc=$?
+  case "$out" in
+    ''|*[!0-9]*) out="$3" ;;
+  esac
+  printf '%s' "$out"
+}
+
 table_count() { # $1=target $2=table → count, 0 when absent, "?" when unreadable
   local target="$1" table="$2" has="" n=""
   has="$(timeout 60 sqlite3 -readonly "$target" "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='$table';" 2>>"$LOG_FILE")" || { printf '?'; return 0; }
@@ -614,6 +794,12 @@ PAGES="$(pragma_read page_count 120 0)"
 PAGESIZE="$(pragma_read page_size 30 4096)"
 FREELIST="$(pragma_read freelist_count 30 0)"
 size_report "before" "$PAGES" "$PAGESIZE" "$FREELIST"
+FREE_BYTES=$(( FREELIST * PAGESIZE ))
+RECLAIM_WORTH=0
+if [ "$ALLOW_IN_USE" = 0 ] && [ "$RECLAIM_MIN_FREE" -gt 0 ] && [ "$FREE_BYTES" -ge "$RECLAIM_MIN_FREE" ]; then
+  RECLAIM_WORTH=1
+  echo "→ reclaim: freelist holds ${FREE_BYTES} bytes (>= ${RECLAIM_MIN_FREE}) — a quiet run will VACUUM even with nothing to prune"
+fi
 
 if [ "$MODE" = "check" ]; then
   echo "→ cap: db+wal ${DB_TOTAL_BEFORE} / ${CAP_BYTES} bytes"
@@ -645,11 +831,35 @@ if [ "$MODE" = "check" ]; then
   else
     echo "→ pruning disabled (--prune-days 0); dry-run only, nothing modified."
   fi
+  if [ "$TOOL_RETENTION_DAYS" -gt 0 ]; then
+    CHK_V2T="$(table_exists "$DB_PATH" session_message)"
+    if [ "$CHK_V2T" = 1 ]; then
+      TOOL_CUT="$(cutoff_ms "$TOOL_RETENTION_DAYS")"
+      TC="$(tool_payload_candidates "$TOOL_CUT")"
+      TB="$(tool_payload_bytes "$TOOL_CUT")"
+      case "$TC" in
+        ''|*[!0-9]*) echo "→ tool payloads: count unavailable — run cannot prove the rewrite." >&2 ;;
+        *) echo "→ tool payloads: ${TC} messages hold read results older than ${TOOL_RETENTION_DAYS}d (~${TB:-?} bytes); a run rewrites them (only the VACUUM needs quiescence)." ;;
+      esac
+    fi
+  fi
+  if [ "$REASONING_RETENTION_DAYS" -gt 0 ]; then
+    CHK_V2R="$(table_exists "$DB_PATH" session_message)"
+    if [ "$CHK_V2R" = 1 ]; then
+      REASON_CUT="$(cutoff_ms "$REASONING_RETENTION_DAYS")"
+      RCAND="$(reasoning_candidates "$REASON_CUT")"
+      RBYTES="$(reasoning_bytes "$REASON_CUT")"
+      case "$RCAND" in
+        ''|*[!0-9]*) echo "→ reasoning: count unavailable — run cannot prove the rewrite." >&2 ;;
+        *) echo "→ reasoning: ${RCAND} messages hold reasoning older than ${REASONING_RETENTION_DAYS}d (~${RBYTES:-?} bytes); a run rewrites them (only the VACUUM needs quiescence)." ;;
+      esac
+    fi
+  fi
   EV_ROWS="$(event_count "$(RO_DB)")"
   case "$EV_ROWS" in
     0) echo "→ event retention: 0 rows (no event table or empty)." ;;
     \?) echo "⚠️  event retention: count unavailable — run cannot prove retention (see stderr)." >&2 ;;
-    *) echo "→ event retention: ${EV_ROWS} rows; a quiescent run deletes all of them (--event-retention off keeps them)." ;;
+    *) echo "→ event retention: ${EV_ROWS} rows; a quiescent run with --event-delete deletes rows beyond the newest ${EVENT_KEEP} per aggregate (--event-retention off keeps them)." ;;
   esac
   exit 0
 fi
@@ -693,7 +903,7 @@ fi
 
 HIST_MESSAGE="?"
 HIST_V2="?"
-if [ "$PRUNE_DAYS" -gt 0 ] || [ "$TARGET_BYTES" -gt 0 ]; then
+if [ "$PRUNE_DAYS" -gt 0 ] || [ "$TARGET_BYTES" -gt 0 ] || [ "$TOOL_RETENTION_DAYS" -gt 0 ] || [ "$REASONING_RETENTION_DAYS" -gt 0 ]; then
   HIST_MESSAGE="$(table_exists "$DB_PATH" message)"
   HIST_V2="$(table_exists "$DB_PATH" session_message)"
   case "$HIST_MESSAGE" in \?) echo "❌ cannot probe the legacy message table (fail-closed)." >&2; exit 3 ;; esac
@@ -704,6 +914,24 @@ if [ "$PRUNE_DAYS" -gt 0 ] || [ "$TARGET_BYTES" -gt 0 ]; then
   fi
   echo "→ history schema: message=$HIST_MESSAGE session_message=$HIST_V2"
 fi
+TOOL_WORK=0
+if [ "$TOOL_RETENTION_DAYS" -gt 0 ] && [ "$HIST_V2" = 1 ]; then
+  TC="$(tool_payload_candidates "$(cutoff_ms "$TOOL_RETENTION_DAYS")")"
+  case "$TC" in
+    ''|*[!0-9]*) echo "❌ tool payload probe unavailable — refusing an unprovable run." >&2; exit 3 ;;
+    *) TOOL_WORK="$TC" ;;
+  esac
+  echo "→ tool payloads: ${TOOL_WORK} messages hold read results older than ${TOOL_RETENTION_DAYS}d"
+fi
+REASONING_WORK=0
+if [ "$REASONING_RETENTION_DAYS" -gt 0 ] && [ "$HIST_V2" = 1 ]; then
+  RCAND="$(reasoning_candidates "$(cutoff_ms "$REASONING_RETENTION_DAYS")")"
+  case "$RCAND" in
+    ''|*[!0-9]*) echo "❌ reasoning probe unavailable — refusing an unprovable run." >&2; exit 3 ;;
+    *) REASONING_WORK="$RCAND" ;;
+  esac
+  echo "→ reasoning: ${REASONING_WORK} messages hold reasoning older than ${REASONING_RETENTION_DAYS}d"
+fi
 PROTECTED_BEFORE=""
 if [ "$ALLOW_IN_USE" = 0 ]; then
   PROTECTED_BEFORE="$(protected_fingerprint)" || {
@@ -713,6 +941,10 @@ if [ "$ALLOW_IN_USE" = 0 ]; then
 fi
 
 require_v2_generation || exit 2
+
+if [ -d "$BACKUP_DIR" ]; then
+  find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'opencode-*.db.partial' -o -name 'opencode-*.db.partial-wal' -o -name 'opencode-*.db.partial-shm' -o -name 'opencode-*.db.partial-journal' \) -mmin +60 -delete 2>/dev/null || true
+fi
 
 if [ "$MAX_BYTES" -gt 0 ] && [ "$DB_TOTAL_BEFORE" -lt "$MAX_BYTES" ]; then
   echo "→ db+wal ${DB_TOTAL_BEFORE} below the nothing-to-do gate (--max-bytes ${MAX_BYTES}) — no copy, no rotation (P2.7)."
@@ -733,23 +965,35 @@ if [ "$PRUNE_EFF" -gt 0 ]; then
   esac
 fi
 EV_WORK=0
-if [ "$EVENT_RETENTION" = "all" ]; then
+if [ "$EVENT_RETENTION" = "all" ] && [ "$EVENT_DELETE_EXPLICIT" = 1 ] && [ "$ALLOW_IN_USE" = 0 ]; then
   EV_PRESENT="$(event_present "$DB_PATH")"
   case "$EV_PRESENT" in
-    1) EV_COUNT="$(event_count "$DB_PATH")"; case "$EV_COUNT" in ''|*[!0-9]*) EV_COUNT=0 ;; esac; [ "$EV_COUNT" -gt 0 ] && EV_WORK=1 ;;
+    1)
+      EV_SURPLUS_PRE="$(event_surplus "$DB_PATH" "$EVENT_KEEP")"
+      case "$EV_SURPLUS_PRE" in
+        ''|'?'|*[!0-9]*) ;;
+        *) [ "$EV_SURPLUS_PRE" -gt 0 ] && EV_WORK=1 ;;
+      esac
+      ;;
   esac
 fi
-if [ "$PRUNE_PROBE_OK" = 1 ] && [ "$PRUNE_CANDS" -eq 0 ] && [ "$EV_WORK" = 0 ] && [ "$TARGET_BYTES" -eq 0 ]; then
-  echo "→ nothing to do: 0 prune candidates beyond ${PRUNE_EFF}d and no event work — no copy, no rotation (P2.7)."
+if [ "$PRUNE_PROBE_OK" = 1 ] && [ "$PRUNE_CANDS" -eq 0 ] && [ "$EV_WORK" = 0 ] && [ "$TARGET_BYTES" -eq 0 ] && [ "$TOOL_WORK" -eq 0 ] && [ "$REASONING_WORK" -eq 0 ] && [ "$RECLAIM_WORTH" = 0 ]; then
+  echo "→ nothing to do: 0 prune candidates beyond ${PRUNE_EFF}d, no tool payloads, no reasoning, and no event work — no copy, no rotation (P2.7)."
   exit 0
 fi
-if [ "$TARGET_BYTES" -gt 0 ] && [ "$PRUNE_DAYS" -eq 0 ]; then
+if [ "$TARGET_BYTES" -gt 0 ] && [ "$DB_TOTAL_BEFORE" -le "$TARGET_BYTES" ] && [ "$EV_WORK" = 0 ] && [ "$TOOL_WORK" -eq 0 ] && [ "$REASONING_WORK" -eq 0 ] && [ "$RECLAIM_WORTH" = 0 ]; then
+  echo "→ db+wal ${DB_TOTAL_BEFORE} already at or below the ${TARGET_BYTES}-byte target — no copy, no rotation (P2.7)."
+  size_report "after" "$PAGES" "$PAGESIZE" "$FREELIST"
+  exit 0
+fi
+
+if [ "$TARGET_BYTES" -gt 0 ]; then
   P3="$(prune_candidates "$(cutoff_ms 3)")"
   case "$P3" in
     ''|*[!0-9]*) echo "❌ floor-window candidate count unavailable — refusing an unprovable solver run." >&2; exit 3 ;;
   esac
-  if [ "$P3" -eq 0 ] && [ "$EV_WORK" = 0 ]; then
-    echo "→ nothing to do: 0 prune candidates even at the 3d floor and no event work — no copy, no rotation (P2.7)."
+  if [ "$P3" -eq 0 ] && [ "$EV_WORK" = 0 ] && [ "$TOOL_WORK" -eq 0 ] && [ "$REASONING_WORK" -eq 0 ] && [ "$RECLAIM_WORTH" = 0 ]; then
+    echo "→ nothing to do: 0 prune candidates even at the 3d floor, no tool payloads, no reasoning, and no event work — no copy, no rotation (P2.7)."
     exit 0
   fi
 fi
@@ -758,17 +1002,24 @@ fi
 BACKUP_NAME="opencode-$(date +%Y%m%d-%H%M%S).db"
 mkdir -p "$BACKUP_DIR"
 BACKUP_FILE="$BACKUP_DIR/$BACKUP_NAME"
+BACKUP_TMP="$BACKUP_FILE.partial"
+umask 077
 echo "→ backup → $BACKUP_FILE"
-if ! timeout 1800 sqlite3 "$DB_PATH" ".backup '$BACKUP_FILE'" 2>>"$LOG_FILE"; then
-  echo "❌ backup failed — aborting before any modification (see $LOG_FILE)." >&2
+if ! timeout 1800 sqlite3 "$DB_PATH" ".backup '$BACKUP_TMP'" 2>>"$LOG_FILE"; then
+  rm -f "$BACKUP_TMP" "$BACKUP_TMP-wal" "$BACKUP_TMP-shm" "$BACKUP_TMP-journal" 2>/dev/null || true
+  echo "❌ backup failed — partial removed, aborting before any modification (see $LOG_FILE)." >&2
   exit 4
 fi
-chmod 600 "$BACKUP_FILE"
 # The backup is the only safety net: it must verify before anything mutates.
-if [ "$(timeout 600 sqlite3 -readonly "$BACKUP_FILE" "PRAGMA quick_check;" 2>>"$LOG_FILE")" != "ok" ]; then
-  echo "❌ backup quick_check failed — aborting before any modification (see $LOG_FILE)." >&2
+if [ "$(timeout 1800 sqlite3 -readonly "$(RO_URI "$BACKUP_TMP")" "PRAGMA quick_check;" 2>>"$LOG_FILE")" != "ok" ]; then
+  rm -f "$BACKUP_TMP" "$BACKUP_TMP-wal" "$BACKUP_TMP-shm" "$BACKUP_TMP-journal" 2>/dev/null || true
+  echo "❌ backup quick_check failed — invalid copy removed, aborting before any modification (see $LOG_FILE)." >&2
   exit 4
 fi
+rm -f "$BACKUP_TMP-wal" "$BACKUP_TMP-shm" "$BACKUP_TMP-journal" 2>/dev/null || true
+chmod 600 "$BACKUP_TMP"
+mv -f "$BACKUP_TMP" "$BACKUP_FILE"
+chmod 600 "$BACKUP_FILE"
 # Source MUST be read WAL-inclusive (plain -readonly): the .backup API copies
 # through the WAL, so comparing against an immutable=1 (WAL-blind) source
 # count aborts every run on a live DB (proven: source=1 backup=2 → exit 4).
@@ -786,16 +1037,39 @@ if [ "$SRC_V2" != "$BKP_V2" ] || [ "$SRC_V1" != "$BKP_V1" ] || [ "$SRC_SM" != "$
   exit 4
 fi
 echo "→ backup verified (quick_check=ok, session_v2=$BKP_V2, session=$BKP_V1, session_message=$BKP_SM)"
-if [ "$EXPLICIT_KEEP" = 0 ]; then
-  if [ "$DB_TOTAL_BEFORE" -gt 1073741824 ]; then
-    KEEP_BACKUPS=2
-  else
-    KEEP_BACKUPS=5
-  fi
-  echo "→ keep-backups: ${KEEP_BACKUPS} (size-aware, db+wal ${DB_TOTAL_BEFORE})"
-fi
+echo "→ keep-backups: ${KEEP_BACKUPS}"
 ls -1t "$BACKUP_DIR"/opencode-*.db 2>/dev/null | tail -n +$((KEEP_BACKUPS + 1)) | xargs -r rm -f --
 
+# ── prune old read tool payloads (message rows stay; file snapshots go) ───────
+# A `read` result embeds the file bytes inside the assistant message. At ~3.2GB
+# of a 4.7GB DB these snapshots are the dominant term; the retention window
+# keeps recent reads usable while the VACUUM reclaims the rest.
+if [ "$TOOL_WORK" -gt 0 ]; then
+  TOOL_CUTOFF="$(cutoff_ms "$TOOL_RETENTION_DAYS")"
+  echo "→ tool payloads: pruning read results older than ${TOOL_RETENTION_DAYS}d (cutoff epoch-ms $TOOL_CUTOFF), batches of ${TOOL_BATCH} rows"
+  TOOL_OUT="$(batched_tool_prune "$TOOL_CUTOFF")" || TOOL_RC=$?
+  case "${TOOL_RC:-0}" in
+    0) echo "→ tool payloads: rewrote ${TOOL_OUT} messages (sessions and message rows stay)" ;;
+    6) printf '%s\n' "$TOOL_OUT"; size_report "after" "$(pragma_read page_count 120 0)" "$PAGESIZE" "$(pragma_read freelist_count 30 0)"; exit 6 ;;
+    *) exit "${TOOL_RC:-1}" ;;
+  esac
+  TOOL_RC=0
+fi
+
+# ── prune old reasoning (internal monologue, not user content) ────────────────
+# Reasoning blocks are the model's private trace. After the read pass they are
+# the next largest non-content term; a placeholder keeps the message shape.
+if [ "$REASONING_WORK" -gt 0 ]; then
+  REASONING_CUTOFF="$(cutoff_ms "$REASONING_RETENTION_DAYS")"
+  echo "→ reasoning: pruning reasoning older than ${REASONING_RETENTION_DAYS}d (cutoff epoch-ms $REASONING_CUTOFF), batches of ${TOOL_BATCH} rows"
+  REASONING_OUT="$(batched_reasoning_prune "$REASONING_CUTOFF")" || REASONING_RC=$?
+  case "${REASONING_RC:-0}" in
+    0) echo "→ reasoning: rewrote ${REASONING_OUT} messages (text and tool results stay)" ;;
+    6) printf '%s\n' "$REASONING_OUT"; size_report "after" "$(pragma_read page_count 120 0)" "$PAGESIZE" "$(pragma_read freelist_count 30 0)"; exit 6 ;;
+    *) exit "${REASONING_RC:-1}" ;;
+  esac
+  REASONING_RC=0
+fi
 # ── prune old messages+parts (sessions untouched) ─────────────────────────────
 # foreign_keys=ON is required: the sqlite3 CLI defaults it OFF and part rows
 # would survive as orphans (proven). The session join is intentionally absent:
@@ -803,52 +1077,63 @@ ls -1t "$BACKUP_DIR"/opencode-*.db 2>/dev/null | tail -n +$((KEEP_BACKUPS + 1)) 
 # P2.4 shape: bounded batches (3000 rows), busy timeout 2500 ms, short pause —
 # every write finishes well under the host's 5000 ms lock waiting time.
 if [ "$PRUNE_EFF" -gt 0 ] || [ "$TARGET_BYTES" -gt 0 ]; then
+  MESSAGE_PRUNE=1
   if [ "$TARGET_BYTES" -eq 0 ]; then
     PICK="$PRUNE_DAYS"
   else
-    NEED=$(( DB_TOTAL_BEFORE - TARGET_BYTES ))
+    PAGES_NOW="$(pragma_live page_count 120 "$PAGES")"
+    FREE_NOW="$(pragma_live freelist_count 30 "$FREELIST")"
+    case "$PAGES_NOW" in ''|*[!0-9]*) PAGES_NOW="$PAGES" ;; esac
+    case "$FREE_NOW" in ''|*[!0-9]*) FREE_NOW="$FREELIST" ;; esac
+    PROJECTED=$(( (PAGES_NOW - FREE_NOW) * PAGESIZE ))
+    NEED=$(( PROJECTED - TARGET_BYTES ))
     if [ "$NEED" -le 0 ]; then
-      echo "→ db+wal ${DB_TOTAL_BEFORE} already at or below the ${TARGET_BYTES}-byte target — nothing to prune."
-      size_report "after" "$(pragma_read page_count 120 0)" "$PAGESIZE" "$(pragma_read freelist_count 30 0)"
-      exit 0
-    fi
-    PICK=""
-    EST=0
-    for W in 90 45 21 7 3; do
-      EST="$(prune_candidate_bytes "$(cutoff_ms "$W")")"
-      case "$EST" in
-        ''|*[!0-9]*) echo "❌ window estimate unavailable at ${W}d — refusing an unprovable solver run." >&2; exit 3 ;;
-      esac
-      if [ "$EST" -ge "$NEED" ]; then PICK="$W"; break; fi
-    done
-    if [ -n "$PICK" ]; then
-      echo "→ window ladder picked ${PICK}d: candidates hold ~${EST} bytes of the ${NEED} needed to reach the target"
+      echo "→ projected db ${PROJECTED} at or below the ${TARGET_BYTES}-byte target after retention — message pruning skipped, VACUUM follows."
+      MESSAGE_PRUNE=0
+      PICK=0
     else
-      PICK=3
-      SHORT=$(( NEED - EST ))
-      echo "→ window ladder could not reach the target: the 3d floor holds ~${EST} bytes against ${NEED} — short by ${SHORT} (in-session rung is a later plan step)"
+      PICK=""
+      EST=0
+      for W in 90 45 21 7 3; do
+        EST="$(prune_candidate_bytes "$(cutoff_ms "$W")")"
+        case "$EST" in
+          ''|*[!0-9]*) echo "❌ window estimate unavailable at ${W}d — refusing an unprovable solver run." >&2; exit 3 ;;
+        esac
+        if [ "$EST" -ge "$NEED" ]; then PICK="$W"; break; fi
+      done
+      if [ -n "$PICK" ]; then
+        echo "→ window ladder picked ${PICK}d: candidates hold ~${EST} bytes of the ${NEED} needed to reach the target"
+      else
+        PICK=3
+        SHORT=$(( NEED - EST ))
+        echo "→ window ladder could not reach the target: the 3d floor holds ~${EST} bytes against ${NEED} — short by ${SHORT} (in-session rung is a later plan step)"
+      fi
     fi
   fi
-  CUTOFF="$(cutoff_ms "$PICK")"
-  echo "→ prune: messages/parts older than ${PICK} days (cutoff epoch-ms $CUTOFF), batches of ${PRUNE_BATCH} rows, busy_timeout 2500ms"
-  ROWS_TOTAL=0
-  if [ "$HIST_MESSAGE" = 1 ]; then
-    PRUNE_OUT="$(batched_prune message)" || PRUNE_RC=$?
-    case "${PRUNE_RC:-0}" in
-      6) printf '%s\n' "$PRUNE_OUT"; size_report "after" "$(pragma_read page_count 120 0)" "$PAGESIZE" "$(pragma_read freelist_count 30 0)"; exit 6 ;;
-      *) ROWS_TOTAL=$(( ROWS_TOTAL + PRUNE_OUT )) ;;
-    esac
-    PRUNE_RC=0
+  if [ "$MESSAGE_PRUNE" = 1 ]; then
+    CUTOFF="$(cutoff_ms "$PICK")"
+    echo "→ prune: messages/parts older than ${PICK} days (cutoff epoch-ms $CUTOFF), batches of ${PRUNE_BATCH} rows, busy_timeout 2500ms"
+    ROWS_TOTAL=0
+    if [ "$HIST_MESSAGE" = 1 ]; then
+      PRUNE_OUT="$(batched_prune message)" || PRUNE_RC=$?
+      case "${PRUNE_RC:-0}" in
+        0) ROWS_TOTAL=$(( ROWS_TOTAL + PRUNE_OUT )) ;;
+        6) printf '%s\n' "$PRUNE_OUT"; size_report "after" "$(pragma_read page_count 120 0)" "$PAGESIZE" "$(pragma_read freelist_count 30 0)"; exit 6 ;;
+        *) exit "${PRUNE_RC:-1}" ;;
+      esac
+      PRUNE_RC=0
+    fi
+    if [ "$HIST_V2" = 1 ]; then
+      PRUNE_OUT="$(batched_prune session_message)" || PRUNE_RC=$?
+      case "${PRUNE_RC:-0}" in
+        0) ROWS_TOTAL=$(( ROWS_TOTAL + PRUNE_OUT )) ;;
+        6) printf '%s\n' "$PRUNE_OUT"; size_report "after" "$(pragma_read page_count 120 0)" "$PAGESIZE" "$(pragma_read freelist_count 30 0)"; exit 6 ;;
+        *) exit "${PRUNE_RC:-1}" ;;
+      esac
+      PRUNE_RC=0
+    fi
+    echo "→ prune: deleted ${ROWS_TOTAL} rows total (1.47 ms/row measured — F29), history tables only, sessions untouched"
   fi
-  if [ "$HIST_V2" = 1 ]; then
-    PRUNE_OUT="$(batched_prune session_message)" || PRUNE_RC=$?
-    case "${PRUNE_RC:-0}" in
-      6) printf '%s\n' "$PRUNE_OUT"; size_report "after" "$(pragma_read page_count 120 0)" "$PAGESIZE" "$(pragma_read freelist_count 30 0)"; exit 6 ;;
-      *) ROWS_TOTAL=$(( ROWS_TOTAL + PRUNE_OUT )) ;;
-    esac
-    PRUNE_RC=0
-  fi
-  echo "→ prune: deleted ${ROWS_TOTAL} rows total (1.47 ms/row measured — F29), history tables only, sessions untouched"
 fi
 
 # ── host event retention (S-040) ──────────────────────────────────────────────
@@ -1010,7 +1295,7 @@ echo "✓ done. Backup: $BACKUP_FILE"
 if [ "${VACUUM_SKIPPED:-0}" = 1 ]; then
   echo "→ note: VACUUM was skipped (DB in use or unverifiable) — file not shrunk; rerun offline."
 fi
-if [ "$DB_TOTAL_AFTER" -ge "$CAP_BYTES" ]; then
+if [ "${VACUUM_SKIPPED:-0}" = 0 ] && [ "$DB_TOTAL_AFTER" -ge "$CAP_BYTES" ]; then
   echo "⛔ cap remains after maintenance: ${DB_TOTAL_AFTER} >= ${CAP_BYTES} bytes (db+wal)." >&2
   exit 9
 fi

@@ -2,8 +2,9 @@
 set -euo pipefail
 # scheduled lane (P2) — one invocation escalates through the rungs:
 #   wal rung: WAL above 64 MiB -> wal_checkpoint(TRUNCATE), PASSIVE fallback
-#   in-use rung: db+wal at/above the soft limit -> bounded backup+prune while held
-#   quiescent rung: db+wal at/above the cap AND fuser-quiet -> full maintenance
+#   retention rung: fuser-quiet -> read/reasoning retention, VACUUM when there is work
+#   in-use rung: held AND db+wal at/above the soft limit -> bounded retention
+#   cap rung: quiet AND db+wal at/above the cap -> backup, solver prune, VACUUM
 # --check prints the ladder decision and exits 0; --run is the default action.
 H="$(cd "$(dirname "$0")" && pwd -P)"
 . "$H/db-env.sh"
@@ -11,9 +12,9 @@ H="$(cd "$(dirname "$0")" && pwd -P)"
 MODE="run"
 case "${1:-run}" in
   --check) MODE="check" ;;
-  --run) MODE="run" ;;
+  --run|run) MODE="run" ;;
   --help|-h)
-    sed -n '2,8p' "$0"
+    sed -n '3,7p' "$0"
     exit 0
     ;;
   *) echo "unknown option: $1 (use --check or --run)" >&2; exit 2 ;;
@@ -21,6 +22,7 @@ esac
 
 SKIPPED=0
 LOCK_OWNED=0
+RUN_RC=0
 GAP_SECONDS="${TAWASSUL_DB_GAP_SECONDS:-}"
 if [ -n "$GAP_SECONDS" ]; then
   case "$GAP_SECONDS" in
@@ -53,6 +55,7 @@ log() {
 
 STAMP_DIR="$(printf '%s/tawassul-v2/db-maintenance' "$(xdg_data_home)")"
 STAMP_FILE="$STAMP_DIR/last-run.stamp"
+FAILURE_FILE="$STAMP_DIR/last-failure.stamp"
 
 lock_pid_alive() {
   pid_file="$1/pid"
@@ -193,6 +196,15 @@ stamp_last_run() {
 trap 'rc=$?; stamp_last_run "$rc"; cleanup_trigger; exit "$rc"' EXIT
 
 if [ "$MODE" = "run" ]; then
+  if [ -f "$FAILURE_FILE" ] && [ "$GAP_SECONDS" -gt 0 ]; then
+    FAIL_AT="$(tawassul_mtime_epoch "$FAILURE_FILE" 2>/dev/null || printf '0')"
+    NOW="$(date +%s)"
+    if [ $(( NOW - FAIL_AT )) -lt "$GAP_SECONDS" ]; then
+      SKIPPED=1
+      log "skipping: the last failed run is inside the ${GAP_SECONDS}s retry backoff"
+      exit 0
+    fi
+  fi
   if [ -f "$STAMP_FILE" ] && [ "$GAP_SECONDS" -gt 0 ]; then
     STAMP_AT="$(tawassul_mtime_epoch "$STAMP_FILE" 2>/dev/null || printf '0')"
     NOW="$(date +%s)"
@@ -233,10 +245,25 @@ MAIN_BYTES="$_b"
 _b="$(tawassul_file_bytes "$DB-wal")" || _b=0
 WAL_BYTES="$_b"
 TOTAL=$(( MAIN_BYTES + WAL_BYTES ))
-SOFT=$(( ${TAWASSUL_SOFT_BYTES:-2147483648} ))
-TARGET=$(( ${TAWASSUL_TARGET_BYTES:-1610612736} ))
+SOFT="${TAWASSUL_SOFT_BYTES:-2147483648}"
+case "$SOFT" in ''|*[!0-9]*) log "invalid TAWASSUL_SOFT_BYTES — using 2 GiB"; SOFT=2147483648 ;; esac
+SOFT=$((SOFT + 0))
 WAL_TRIGGER=67108864
+RAW_CAP="${TAWASSUL_CAP_BYTES:-}"
 CAP="$(tawassul_cap_bytes)"
+case "$RAW_CAP" in ''|*[!0-9]*) [ -n "$RAW_CAP" ] && log "invalid TAWASSUL_CAP_BYTES — using 4 GiB" ;; esac
+CAP=$((CAP + 0))
+if [ "$CAP" -lt 1 ]; then log "invalid TAWASSUL_CAP_BYTES — using 4 GiB"; CAP=4294967296; fi
+TARGET="${TAWASSUL_TARGET_BYTES:-$CAP}"
+case "$TARGET" in ''|*[!0-9]*) log "invalid TAWASSUL_TARGET_BYTES — using the cap"; TARGET="$CAP" ;; esac
+TARGET=$((TARGET + 0))
+if [ "$TARGET" -lt 1 ]; then log "invalid TAWASSUL_TARGET_BYTES — using the cap"; TARGET="$CAP"; fi
+if [ "$TARGET" -gt "$CAP" ]; then log "target ${TARGET} above cap ${CAP} — clamping to the cap"; TARGET="$CAP"; fi
+if [ "$SOFT" -lt 0 ] || [ "$SOFT" -gt "$CAP" ]; then log "soft ${SOFT} above cap ${CAP} — clamping to the cap"; SOFT="$CAP"; fi
+TOOL_RETENTION_DAYS="${TAWASSUL_TOOL_RETENTION_DAYS:-1}"
+REASONING_RETENTION_DAYS="${TAWASSUL_REASONING_RETENTION_DAYS:-1}"
+case "$TOOL_RETENTION_DAYS" in ''|*[!0-9]*) log "invalid TAWASSUL_TOOL_RETENTION_DAYS — using 1"; TOOL_RETENTION_DAYS=1 ;; esac
+case "$REASONING_RETENTION_DAYS" in ''|*[!0-9]*) log "invalid TAWASSUL_REASONING_RETENTION_DAYS — using 1"; REASONING_RETENTION_DAYS=1 ;; esac
 MAINT="$H/opencode-db-maintenance.sh"
 BACKUPS="$(tawassul_backup_dir)"
 run_maint() {
@@ -260,36 +287,61 @@ if [ "$WAL_BYTES" -gt "$WAL_TRIGGER" ]; then
   log "wal rung: wal now ${_b} bytes"
 fi
 
-if [ "$TOTAL" -ge "$SOFT" ]; then
-  log "in-use rung: total ${TOTAL} at/above ${SOFT} — bounded backup+prune while held"
-  if ! run_maint --allow-in-use --ignore-low-ram --target-bytes "$TARGET" --event-delete; then
-    log "in-use rung: maintenance exited non-zero — resuming next cycle (fail-closed, no VACUUM was required)"
+HELD=0
+DID_WORK=0
+if command -v fuser >/dev/null 2>&1; then
+  fuser -s "$DB" "$DB-wal" 2>/dev/null && HELD=1
+else
+  log "fuser not found — cannot prove quiescence; the quiescent rungs stay off (fail-closed)"
+  HELD=1
+fi
+
+if [ "$HELD" = 0 ] && { [ "$TOOL_RETENTION_DAYS" -gt 0 ] || [ "$REASONING_RETENTION_DAYS" -gt 0 ]; }; then
+  log "retention rung: quiet — read/reasoning retention, VACUUM when there is work"
+  DID_WORK=1
+  RUNG_RC=0
+  run_maint --prune-days 0 --tool-retention-days "$TOOL_RETENTION_DAYS" --reasoning-retention-days "$REASONING_RETENTION_DAYS" || RUNG_RC=$?
+  if [ "$RUNG_RC" -ne 0 ]; then
+    RUN_RC="$RUNG_RC"
+    log "retention rung: maintenance exited non-zero (rc=$RUNG_RC) — resuming next cycle"
   fi
   _b="$(tawassul_file_bytes "$DB")"; MAIN_BYTES="$_b"
   _b="$(tawassul_file_bytes "$DB-wal")" || _b=0
   TOTAL=$(( MAIN_BYTES + _b ))
 fi
 
-if [ "$TOTAL" -ge "$CAP" ]; then
-  HELD=0
-  if command -v fuser >/dev/null 2>&1; then
-    fuser -s "$DB" "$DB-wal" 2>/dev/null && HELD=1
-  else
-    log "fuser not found — cannot prove quiescence; the quiescent rung stays off (fail-closed)"
-    HELD=1
+if [ "$HELD" = 1 ] && [ "$TOTAL" -ge "$SOFT" ] && { [ "$TOOL_RETENTION_DAYS" -gt 0 ] || [ "$REASONING_RETENTION_DAYS" -gt 0 ]; }; then
+  log "in-use rung: total ${TOTAL} at/above ${SOFT} — bounded retention while held (no VACUUM)"
+  DID_WORK=1
+  RUNG_RC=0
+  run_maint --allow-in-use --ignore-low-ram --prune-days 0 --event-retention off \
+    --tool-retention-days "$TOOL_RETENTION_DAYS" --reasoning-retention-days "$REASONING_RETENTION_DAYS" || RUNG_RC=$?
+  if [ "$RUNG_RC" -ne 0 ]; then
+    RUN_RC="$RUNG_RC"
+    log "in-use rung: maintenance exited non-zero (rc=$RUNG_RC) — resuming next cycle (fail-closed, no VACUUM was required)"
   fi
-  if [ "$HELD" = 0 ]; then
-    log "quiescent rung: total ${TOTAL} at/above ${CAP} and DB is quiet — full maintenance (backup, prune, checkpoint, VACUUM)"
-    if ! run_maint; then
-      log "quiescent rung: maintenance exited non-zero — resuming next cycle"
-    fi
-  else
-    log "quiescent rung: held or unprovable quiet — skipped (the in-use rung is the bound)"
+  _b="$(tawassul_file_bytes "$DB")"; MAIN_BYTES="$_b"
+  _b="$(tawassul_file_bytes "$DB-wal")" || _b=0
+  TOTAL=$(( MAIN_BYTES + _b ))
+fi
+
+if [ "$HELD" = 0 ] && [ "$TOTAL" -ge "$CAP" ]; then
+  log "cap rung: total ${TOTAL} at/above ${CAP} and DB is quiet — solver maintenance (backup, prune, checkpoint, VACUUM)"
+  DID_WORK=1
+  RUNG_RC=0
+  run_maint --cap-bytes "$CAP" --target-bytes "$TARGET" || RUNG_RC=$?
+  if [ "$RUNG_RC" -ne 0 ]; then
+    RUN_RC="$RUNG_RC"
+    log "cap rung: maintenance exited non-zero (rc=$RUNG_RC) — resuming next cycle"
   fi
 fi
 
-if [ "$TOTAL" -lt "$SOFT" ] && [ "$WAL_BYTES" -le "$WAL_TRIGGER" ]; then
+if [ "$DID_WORK" = 0 ] && [ "$TOTAL" -lt "$SOFT" ] && [ "$WAL_BYTES" -le "$WAL_TRIGGER" ]; then
   log "nothing to do: total ${TOTAL} below soft ${SOFT}, wal ${WAL_BYTES} within ${WAL_TRIGGER}"
 fi
-log "scheduled run complete"
-exit 0
+if [ "$RUN_RC" -ne 0 ]; then
+  log "scheduled run failed (rc=$RUN_RC)"
+else
+  log "scheduled run complete"
+fi
+exit "$RUN_RC"

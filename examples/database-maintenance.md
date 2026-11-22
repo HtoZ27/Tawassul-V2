@@ -56,11 +56,15 @@ The ladder:
 | Rung | Condition | Action |
 | --- | --- | --- |
 | WAL | WAL above 64 MiB | `wal_checkpoint(TRUNCATE)`, passive fallback |
-| In use | Database plus WAL at or above the soft limit | Bounded backup and prune while the host holds the file |
-| Quiescent | At or above the 4 GiB cap and no process holds the file | Full backup, prune, and vacuum |
+| Retention | No process holds the file | Read/reasoning retention, then vacuum when there is work |
+| In use | Held and database plus WAL at or above the soft limit | Bounded retention while the host holds the file (no vacuum) |
+| Cap | Quiet and at or above the 4 GiB cap | Solver maintenance: backup, prune messages only if retention did not reach the target, vacuum |
 
 A live vacuum is refused under every flag. If the host holds the database, the
-lane does the bounded work and stops.
+lane does the bounded retention work and stops. The quiet retention rung backs
+up only when there is retention work or when the freelist holds at least 64 MiB
+(`TAWASSUL_RECLAIM_MIN_FREE`), so an idle day writes no copy. Message pruning is
+skipped whenever retention alone brings the projected file under the target.
 
 ## Step 4: run it
 
@@ -89,9 +93,13 @@ before the lane proceeds; a failed probe aborts the run.
 ls -lt "$HOME/.local/share/tawassul-v2/backups" | head
 ```
 
-The default keeps five backups (`--keep-backups 5`). A sixth run rotates the
+The default keeps two backups (`--keep-backups 2`). A third run rotates the
 oldest away. Pruning keeps 90 days by default (`--prune-days 90`), and pruning is
-irreversible beyond the backups that remain.
+irreversible beyond the backups that remain. Read results older than one day are
+replaced by a short placeholder (`--tool-retention-days 1`); the message row and
+its text stay, and `0` disables the rewrite. Reasoning blocks older than one day
+are replaced the same way (`--reasoning-retention-days 1`), leaving the answer
+text and tool results intact.
 
 ## Step 6: run the maintenance script directly
 

@@ -42,7 +42,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-016 | Conflict-marker pollutants must not be propagated. | - | - | n-a |
 | S-017 | The three-day hardening batch is ported on merit: model retirements, generator hardening, governance, and runtime rows. | `src/services/proxy-fallback-chains.ts:73` `sweepRetiredModelPins` | `scripts/prove-s017.ts`, `scripts/prove-gen-lock-contention.ts`, `scripts/prove-gen-merge-guards.ts`, `scripts/prove-gen-guard-wal.ts`, `scripts/prove-roster-boundary.ts`, `scripts/prove-event-trust-p1.ts`, `scripts/prove-web-ssrf.ts`, `scripts/prove-s028.ts` | verified |
 | S-018 | R-008, R-009, and R-011 are ported in a v2 shape with first-boot roster seeding. | `src/utils/opencode-config.ts:559` `ensureGlobalRosterSeed` | `scripts/prove-first-boot-seed.ts` | verified |
-| S-019 | The atomic-audit P0 closures are ported: containment, WAL probe, backup environment, and fail-closed gates. | `scripts/opencode-db-maintenance.sh:596` `require_v2_generation` | `scripts/prove-db-retention.ts` | verified |
+| S-019 | The atomic-audit P0 closures are ported: containment, WAL probe, backup environment, and fail-closed gates. | `scripts/opencode-db-maintenance.sh:776` `require_v2_generation` | `scripts/prove-db-retention.ts` | verified |
 | S-020 | The nine-day batch is ported: tool surface, cache generation, guards, and wiring. | `src/context/model-utils.ts:24` `getPortCacheGen` | `scripts/prove-s020.ts` | verified |
 | S-022 | The 37-commit backlog rows are triaged and the actionable ones ported. | `src/services/goal-store.ts:530` `private async mutate` | `scripts/prove-goal-resurrection.ts` | verified |
 | S-021 | The 37-commit sweep remainders are ported: invocation fallback, scoped budgets, honest cost, and the MAX doctrine. | `src/tools/agent-management.ts:64` `tawaFallbackPermission` | `scripts/prove-s021.ts` | verified |
@@ -67,8 +67,8 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-037 | The v1 test-suite triage and the notify gate have no v2 runtime surface. | - | - | n-a |
 | S-038 | The coexistence seat is per workspace, not process-global. | `src/core/install-scope.ts:56` `claimCoexistence` | `scripts/prove-s038.ts` | verified |
 | S-039 | N2 records a text part only after its message is announced as assistant. | `src/hooks/n2-auto.ts:43` `assistantMessages` | `scripts/prove-v2-compat.ts` | verified |
-| S-040 | Event rows are pruned and the backup probe counts both session tables. | `scripts/opencode-db-maintenance.sh:91` `EVENT_KEEP` | `scripts/prove-db-retention.ts` | verified |
-| S-041.1 | Coexistence items 1 to 6 are implemented in v2 code and gates. | `scripts/opencode-db-maintenance.sh:596` `require_v2_generation` | `scripts/prove-db-retention.ts` | verified |
+| S-040 | Event rows are pruned and the backup probe counts both session tables. | `scripts/opencode-db-maintenance.sh:107` `EVENT_KEEP` | `scripts/prove-db-retention.ts` | verified |
+| S-041.1 | Coexistence items 1 to 6 are implemented in v2 code and gates. | `scripts/opencode-db-maintenance.sh:776` `require_v2_generation` | `scripts/prove-db-retention.ts` | verified |
 | S-041.2 | Item 7 ran as a live dual-generation boot and the v1 guard refused a v2 DB. | `CUTOVER.md:3` `live dual-generation gate` | `CUTOVER.md` | verified |
 | S-042 | Local plugin entries must be deduplicated by the loader, not only by the plugin. | `src/core/install-scope.ts:56` `claimCoexistence` | - | host-bound |
 | S-043 | Legacy config keys no longer produce per-boot normalization warnings. | `src/utils/opencode-config.ts:408` `applyBootRepairs` | `scripts/prove-e02.ts` | verified |
@@ -82,7 +82,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-051 | Permission evaluate mutation and tool reload need public contract documentation. | `src/v2/ask.ts:18` `evaluate` | - | host-bound |
 | S-052 | Goal auto-capture follows the corrected shape, not the v1 code. | `src/services/goal-store.ts:840` `private async finishLocked` | `scripts/prove-goal-capture.ts` | verified |
 | S-053.1 | The watcher policy is owned by the v2 launcher with env over pinned over auto and one decision line. | `scripts/opencode-v2-iso.sh:302` `[launcher] watcher mode=` | `scripts/prove-boot-gate.ts` | verified |
-| S-053.2 | DB retention prunes event rows and the backup probe counts both session tables. | `scripts/opencode-db-maintenance.sh:91` `EVENT_KEEP` | `scripts/prove-db-retention.ts` | verified |
+| S-053.2 | DB retention prunes event rows and the backup probe counts both session tables. | `scripts/opencode-db-maintenance.sh:107` `EVENT_KEEP` | `scripts/prove-db-retention.ts` | verified |
 | S-053.3 | The seven-item unchecked-task census is either ported as tests or recorded as out of scope. | `ISSUES.md:2978` `### E-53` | `scripts/prove-handoff-rescue.ts`, `scripts/prove-seed-agents.ts` | verified |
 | S-053.4 | Pause during a live session halts dispatch and persists the paused handoff set. | `src/tools/system-controls.ts:83` `const pauseState: PauseState = {` | `scripts/prove-s053.ts` | verified |
 | S-053.5 | A task that runs longer than 420 seconds is tracked by the task timeout. | `src/hooks/tool-execute.ts:76` `export const TASK_TIMEOUT_MS = 420_000;` | `scripts/prove-s053.ts` | verified |

@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,11 +26,11 @@ function sqlite(target: string, sql: string): string {
   return execFileSync("sqlite3", [target, sql], { encoding: "utf8", stdio: "pipe" }).trim();
 }
 
-function run(args: string[]): string {
+function run(args: string[], extraEnv: NodeJS.ProcessEnv = {}): string {
   return execFileSync("bash", [maintenance, ...args], {
     encoding: "utf8",
     stdio: "pipe",
-    env: { ...process.env, TMPDIR: work },
+    env: { ...process.env, TMPDIR: work, ...extraEnv },
   });
 }
 
@@ -89,6 +89,7 @@ sqlite(
 
 const check = run(["--db", db, "--check", "--prune-days", "0", "--ignore-low-ram"]);
 assert(check.includes("event retention: 3 rows"), "check mode reports existing event rows");
+assert(check.includes("with --event-delete"), "check mode names the flag that applies event retention");
 assert(check.includes("dry-run only, nothing modified"), "check mode is read-only");
 
 const foreign = mkdtempSync(join(tmpdir(), "tawassul-probe-"));
@@ -149,6 +150,18 @@ assert(sqlite(db, "SELECT count(*) FROM session;") === "1", "event-only keeps le
 assert(sqlite(db, "SELECT count(*) FROM session_v2;") === "1", "event-only keeps v2 sessions");
 
 sqlite(db, `INSERT INTO event VALUES ('e4', 's-old', 4, 't', '{}', ${old}), ('e5', 's-new', 2, 't', '{}', ${now});`);
+
+const dryWork = mkdtempSync(join(tmpdir(), "tawassul-event-dry-"));
+const dryBackups = join(dryWork, "backups");
+mkdirSync(dryBackups, { recursive: true });
+const dry = run(["--db", db, "--prune-days", "0", "--tool-retention-days", "0", "--reasoning-retention-days", "0", "--backup-dir", dryBackups, "--ignore-low-ram"]);
+assert(dry.includes("nothing to do"), "event rows without --event-delete are not counted as work");
+assert(readdirSync(dryBackups).filter((name) => name.endsWith(".db")).length === 0, "a dry-run event pass writes no backup");
+assert(sqlite(db, "SELECT count(*) FROM event;") === "4", "a dry-run event pass deletes nothing");
+const noSurplus = run(["--db", db, "--prune-days", "0", "--tool-retention-days", "0", "--reasoning-retention-days", "0", "--event-delete", "--event-keep", "10", "--backup-dir", dryBackups, "--ignore-low-ram"]);
+assert(noSurplus.includes("nothing to do"), "explicit event retention with no surplus is not work");
+assert(readdirSync(dryBackups).filter((name) => name.endsWith(".db")).length === 0, "a no-surplus event pass writes no backup");
+assert(sqlite(db, "SELECT count(*) FROM event;") === "4", "a no-surplus event pass deletes nothing");
 
 const full = run(["--db", db, "--prune-days", "90", "--event-delete", "--backup-dir", backups, "--ignore-low-ram"]);
 assert(full.includes("session_v2=1, session=1"), "backup probe counts both session tables");
@@ -251,6 +264,121 @@ const cap = runFail(["--db", v2db, "--event-only", "--cap-bytes", "1", "--ignore
 assert(cap.status === 9, "event-only exits 9 when the cap remains");
 assert(cap.output.includes("cap remains"), "cap refusal names the remaining cap");
 
+const toolWork = mkdtempSync(join(tmpdir(), "tawassul-tool-payload-"));
+const toolDb = join(toolWork, "opencode.db");
+const toolBackups = join(toolWork, "backups");
+mkdirSync(toolBackups, { recursive: true });
+const payload = "R".repeat(5000);
+sqlite(
+  toolDb,
+  `
+  CREATE TABLE session_v2 (id TEXT PRIMARY KEY);
+  CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, type TEXT NOT NULL, seq INTEGER NOT NULL, time_created INTEGER NOT NULL, time_updated INTEGER NOT NULL, data TEXT NOT NULL);
+  INSERT INTO session_v2 VALUES ('ts1');
+  INSERT INTO session_message VALUES ('old_read', 'ts1', 'assistant', 1, ${old}, ${old}, '{"content":[{"type":"text","text":"before"},{"type":"tool","name":"read","state":{"status":"completed","input":{"path":"/tmp/old"},"content":[{"type":"text","text":"${payload}"}]}}]}');
+  INSERT INTO session_message VALUES ('new_read', 'ts1', 'assistant', 2, ${now}, ${now}, '{"content":[{"type":"tool","name":"read","state":{"status":"completed","input":{"path":"/tmp/new"},"content":[{"type":"text","text":"${payload}"}]}}]}');
+  INSERT INTO session_message VALUES ('old_shell', 'ts1', 'assistant', 3, ${old}, ${old}, '{"content":[{"type":"tool","name":"shell","state":{"status":"completed","output":"KEEPME"}}]}');
+  INSERT INTO session_message VALUES ('bad_json', 'ts1', 'assistant', 4, ${old}, ${old}, 'not json');
+  INSERT INTO session_message VALUES ('str_content', 'ts1', 'assistant', 5, ${old}, ${old}, '{"content":"plain"}');
+  INSERT INTO session_message VALUES ('mixed_content', 'ts1', 'assistant', 6, ${old}, ${old}, '{"content":[null,true,false,"plain",{"type":"tool","name":"read","state":{"input":{"path":"/tmp/mixed"},"content":[{"type":"text","text":"${payload}"}]}}]}');
+  INSERT INTO session_message VALUES ('old_reason', 'ts1', 'assistant', 7, ${old}, ${old}, '{"content":[{"type":"reasoning","text":"OLD TRACE"},{"type":"text","text":"answer"}]}');
+  INSERT INTO session_message VALUES ('new_reason', 'ts1', 'assistant', 8, ${now}, ${now}, '{"content":[{"type":"reasoning","text":"NEW TRACE"},{"type":"text","text":"fresh"}]}');
+`,
+);
+const toolCheck = run(["--db", toolDb, "--check", "--prune-days", "0", "--tool-retention-days", "1", "--ignore-low-ram"]);
+assert(toolCheck.includes("2 messages hold read results older than 1d"), "check mode counts old read payloads");
+const toolFull = run(["--db", toolDb, "--prune-days", "0", "--tool-retention-days", "1", "--backup-dir", toolBackups, "--ignore-low-ram"]);
+assert(toolFull.includes("tool payloads: rewrote 2 messages"), "the read-payload rewrite reports both messages");
+assert(toolFull.includes("reasoning: rewrote 1 messages"), "the reasoning rewrite reports one message");
+assert(sqlite(toolDb, "SELECT data FROM session_message WHERE id='old_read';").includes("[read output pruned: /tmp/old]"), "the old read result becomes a placeholder");
+assert(!sqlite(toolDb, "SELECT data FROM session_message WHERE id='old_read';").includes(payload), "the old read bytes are gone");
+assert(sqlite(toolDb, "SELECT data FROM session_message WHERE id='new_read';").includes(payload), "a fresh read result is kept");
+assert(sqlite(toolDb, "SELECT data FROM session_message WHERE id='old_shell';").includes("KEEPME"), "non-read tool output is kept");
+assert(sqlite(toolDb, "SELECT data FROM session_message WHERE id='bad_json';") === "not json", "invalid JSON is never rewritten");
+assert(sqlite(toolDb, "SELECT data FROM session_message WHERE id='str_content';") === '{"content":"plain"}', "non-array content is never rewritten");
+assert(sqlite(toolDb, "SELECT json_valid(data) FROM session_message WHERE id='mixed_content';") === "1", "mixed content stays valid JSON");
+assert(sqlite(toolDb, "SELECT data FROM session_message WHERE id='mixed_content';").includes("[read output pruned: /tmp/mixed]"), "a read inside mixed content is rewritten");
+assert(sqlite(toolDb, "SELECT data FROM session_message WHERE id='mixed_content';").includes('"plain"'), "a string sibling survives the rewrite");
+assert(sqlite(toolDb, "SELECT json_type(data,'$.content[1]') FROM session_message WHERE id='mixed_content';") === "true", "a boolean true sibling survives the rewrite");
+assert(sqlite(toolDb, "SELECT json_type(data,'$.content[2]') FROM session_message WHERE id='mixed_content';") === "false", "a boolean false sibling survives the rewrite");
+assert(sqlite(toolDb, "SELECT data FROM session_message WHERE id='old_reason';").includes("[reasoning pruned]"), "old reasoning becomes a placeholder");
+assert(sqlite(toolDb, "SELECT data FROM session_message WHERE id='old_reason';").includes("answer"), "the answer text survives reasoning pruning");
+assert(sqlite(toolDb, "SELECT data FROM session_message WHERE id='new_reason';").includes("NEW TRACE"), "fresh reasoning is kept");
+assert(sqlite(toolDb, "SELECT count(*) FROM session_message;") === "8", "the rewrite keeps every message row");
+assert(sqlite(toolDb, "SELECT json_valid(data) FROM session_message WHERE id='old_read';") === "1", "the rewritten message stays valid JSON");
+assert(sqlite(toolDb, "SELECT count(*) FROM session_v2;") === "1", "the rewrite keeps the session row");
+const toolBackupFiles = readdirSync(toolBackups).filter((name) => name.endsWith(".db"));
+assert(toolBackupFiles.length === 1, "the read-payload run writes one backup");
+const toolBackupPath = join(toolBackups, toolBackupFiles[0] ?? "");
+assert(sqlite(toolBackupPath, "SELECT data FROM session_message WHERE id='old_read';").includes(payload), "the backup carries the original read payload");
+const toolAgain = run(["--db", toolDb, "--prune-days", "0", "--tool-retention-days", "1", "--backup-dir", toolBackups, "--ignore-low-ram"]);
+assert(toolAgain.includes("nothing to do"), "a second read-payload run is a no-op");
+
+const inUseWork = mkdtempSync(join(tmpdir(), "tawassul-in-use-"));
+const inUseDb = join(inUseWork, "opencode.db");
+const inUseBackups = join(inUseWork, "backups");
+mkdirSync(inUseBackups, { recursive: true });
+sqlite(
+  inUseDb,
+  `
+  CREATE TABLE session_v2 (id TEXT PRIMARY KEY);
+  CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, type TEXT NOT NULL, seq INTEGER NOT NULL, time_created INTEGER NOT NULL, time_updated INTEGER NOT NULL, data TEXT NOT NULL);
+  INSERT INTO session_v2 VALUES ('iu1');
+  INSERT INTO session_message VALUES ('iu_old', 'iu1', 'assistant', 1, ${old}, ${old}, '{"content":[{"type":"tool","name":"read","state":{"input":{"path":"/tmp/iu"},"content":[{"type":"text","text":"${payload}"}]}}]}');
+`,
+);
+const inUseRun = run([
+  "--db", inUseDb, "--allow-in-use", "--prune-days", "0", "--tool-retention-days", "1",
+  "--backup-dir", inUseBackups, "--ignore-low-ram",
+]);
+assert(inUseRun.includes("tool payloads: rewrote 1 messages"), "in-use mode rewrites read payloads");
+assert(
+  sqlite(inUseDb, "SELECT data FROM session_message WHERE id='iu_old';").includes("[read output pruned: /tmp/iu]"),
+  "the in-use rewrite lands without quiescence",
+);
+assert(sqlite(inUseDb, "SELECT count(*) FROM session_message;") === "1", "the in-use rewrite keeps the message row");
+sqlite(
+  inUseDb,
+  `INSERT INTO session_message VALUES ('iu_cap', 'iu1', 'assistant', 2, ${old}, ${old}, '{"content":[{"type":"tool","name":"read","state":{"input":{"path":"/tmp/iu-cap"},"content":[{"type":"text","text":"${payload}"}]}}]}');`,
+);
+const capHolder = spawn("bash", ["-c", `exec 3<"${inUseDb}"; sleep 20`], { stdio: "ignore" });
+try {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
+  const inUseCap = run([
+    "--db", inUseDb, "--allow-in-use", "--prune-days", "0", "--tool-retention-days", "1",
+    "--cap-bytes", "1", "--backup-dir", inUseBackups, "--ignore-low-ram",
+  ]);
+  assert(inUseCap.includes("note: VACUUM was skipped"), "an in-use run exits 0 with a note when the cap cannot be reclaimed");
+} finally {
+  capHolder.kill();
+}
+
+const solverWork = mkdtempSync(join(tmpdir(), "tawassul-solver-retention-"));
+const solverDb = join(solverWork, "opencode.db");
+const solverBackups = join(solverWork, "backups");
+mkdirSync(solverBackups, { recursive: true });
+sqlite(
+  solverDb,
+  `
+  CREATE TABLE session_v2 (id TEXT PRIMARY KEY);
+  CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, type TEXT NOT NULL, seq INTEGER NOT NULL, time_created INTEGER NOT NULL, time_updated INTEGER NOT NULL, data TEXT NOT NULL);
+  INSERT INTO session_v2 VALUES ('sv1');
+  INSERT INTO session_message VALUES ('sv_old', 'sv1', 'assistant', 1, ${old}, ${old}, '{"content":[{"type":"tool","name":"read","state":{"input":{"path":"/tmp/solver"},"content":[{"type":"text","text":"${payload}"}]}}]}');
+`,
+);
+const solverRun = run([
+  "--db", solverDb, "--target-bytes", "10485760", "--tool-retention-days", "1",
+  "--backup-dir", solverBackups, "--ignore-low-ram",
+]);
+assert(solverRun.includes("message pruning skipped, VACUUM follows"), "a retention pass that meets the target skips message pruning");
+assert(!solverRun.includes("prune: deleted"), "no message row is deleted when retention meets the target");
+assert(sqlite(solverDb, "SELECT count(*) FROM session_message WHERE id='sv_old';") === "1", "the old message row survives the solver run");
+assert(
+  sqlite(solverDb, "SELECT data FROM session_message WHERE id='sv_old';").includes("[read output pruned: /tmp/solver]"),
+  "the solver run rewrote the read payload",
+);
+assert(solverRun.includes("vacuum into-swap") || solverRun.includes("vacuum ("), "the solver run still vacuums after retention");
+
 const floorWork = mkdtempSync(join(tmpdir(), "tawassul-floor-"));
 const floorDb = join(floorWork, "opencode.db");
 const floorBackups = join(floorWork, "backups");
@@ -322,8 +450,51 @@ assert(spaceRefused.output.includes("db+wal+1GiB gate"), "the refusal names the 
 assert(sqlite(spDb, "PRAGMA quick_check;") === "ok", "the refused VACUUM leaves the database intact");
 assert(sqlite(spDb, "SELECT count(*) FROM session_message;") === "1", "the prune still applied before the refused VACUUM");
 
+const headroomRefused = runFailEnv(
+  ["--db", spDb, "--prune-days", "3", "--backup-dir", spBackups, "--ignore-low-ram"],
+  { ...process.env, TMPDIR: spWork, TAWASSUL_VACUUM_MIN_FREE: "1G" },
+);
+assert(headroomRefused.status === 2, "an invalid VACUUM headroom is refused with rc 2");
+assert(headroomRefused.output.includes("TAWASSUL_VACUUM_MIN_FREE"), "the refusal names the invalid headroom variable");
+assert(sqlite(spDb, "SELECT count(*) FROM session_message;") === "1", "an invalid headroom refusal mutates nothing");
+
+const rcWork = mkdtempSync(join(tmpdir(), "tawassul-reclaim-"));
+const rcDb = join(rcWork, "opencode.db");
+const rcBackups = join(rcWork, "backups");
+mkdirSync(rcBackups, { recursive: true });
+sqlite(
+  rcDb,
+  `CREATE TABLE session_v2 (id TEXT PRIMARY KEY);
+   CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, type TEXT NOT NULL, seq INTEGER NOT NULL, time_created INTEGER NOT NULL, time_updated INTEGER NOT NULL, data TEXT NOT NULL);
+   CREATE TABLE filler (id TEXT PRIMARY KEY, payload BLOB);
+   INSERT INTO session_v2 VALUES ('rc1');
+   INSERT INTO session_message VALUES ('rcm', 'rc1', 'text', 0, ${now}, ${now}, 'x');
+   INSERT INTO filler VALUES ('big', zeroblob(2097152));
+   DELETE FROM filler WHERE id='big';`,
+);
+const rcFree = Number(sqlite(rcDb, "PRAGMA freelist_count;")) * Number(sqlite(rcDb, "PRAGMA page_size;"));
+assert(rcFree >= 1048576, "the fixture carries a freelist of at least 1 MiB");
+const rcBefore = statSync(rcDb).size;
+const rcIdle = run(["--db", rcDb, "--prune-days", "0", "--backup-dir", rcBackups, "--ignore-low-ram"]);
+assert(rcIdle.includes("nothing to do"), "a freelist below the reclaim floor is not worth a copy");
+assert(readdirSync(rcBackups).filter((name) => name.endsWith(".db")).length === 0, "the idle reclaim check writes no backup");
+const rcRun = run(["--db", rcDb, "--prune-days", "0", "--backup-dir", rcBackups, "--ignore-low-ram"], {
+  TAWASSUL_RECLAIM_MIN_FREE: "1048576",
+});
+assert(rcRun.includes("reclaim: freelist holds"), "a freelist above the reclaim floor is reported");
+assert(rcRun.includes("vacuum into-swap") || rcRun.includes("vacuum ("), "the reclaim run still vacuums");
+assert(!rcRun.includes("prune: deleted"), "the reclaim run deletes no message rows");
+assert(sqlite(rcDb, "PRAGMA freelist_count;") === "0", "the reclaim VACUUM returns every free page");
+assert(statSync(rcDb).size < rcBefore, "the reclaim VACUUM shrinks the file");
+assert(readdirSync(rcBackups).filter((name) => name.endsWith(".db")).length === 1, "the reclaim run writes one backup");
+
 rmSync(work, { recursive: true, force: true });
 rmSync(v2work, { recursive: true, force: true });
 rmSync(floorWork, { recursive: true, force: true });
 rmSync(spWork, { recursive: true, force: true });
+rmSync(rcWork, { recursive: true, force: true });
+rmSync(dryWork, { recursive: true, force: true });
+rmSync(inUseWork, { recursive: true, force: true });
+rmSync(toolWork, { recursive: true, force: true });
+rmSync(solverWork, { recursive: true, force: true });
 console.log("PROOF PASS: v2 DB retention, session anchor, protected tables, explicit target, cap and space gates");

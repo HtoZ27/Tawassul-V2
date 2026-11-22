@@ -420,7 +420,7 @@
           "status": "verified",
           "anchor": {
             "file": "scripts/opencode-db-maintenance.sh",
-            "line": 596,
+            "line": 776,
             "marker": "require_v2_generation"
           },
           "proofs": [
@@ -941,7 +941,7 @@
           "status": "verified",
           "anchor": {
             "file": "scripts/opencode-db-maintenance.sh",
-            "line": 91,
+            "line": 107,
             "marker": "EVENT_KEEP"
           },
           "proofs": [
@@ -964,7 +964,7 @@
           "status": "verified",
           "anchor": {
             "file": "scripts/opencode-db-maintenance.sh",
-            "line": 596,
+            "line": 776,
             "marker": "require_v2_generation"
           },
           "proofs": [
@@ -1256,7 +1256,7 @@
           "status": "verified",
           "anchor": {
             "file": "scripts/opencode-db-maintenance.sh",
-            "line": 91,
+            "line": 107,
             "marker": "EVENT_KEEP"
           },
           "proofs": [

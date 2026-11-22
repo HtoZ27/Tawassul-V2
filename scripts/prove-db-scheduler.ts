@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
@@ -56,11 +56,23 @@ function runScheduled(args: string[], env: NodeJS.ProcessEnv): { code: number; o
   return { code: result.status ?? -1, out: `${result.stdout ?? ""}${result.stderr ?? ""}` };
 }
 
+function makeV2Db(path: string): void {
+  const result = spawnSync(
+    "sqlite3",
+    [
+      path,
+      "CREATE TABLE session_v2 (id TEXT PRIMARY KEY); CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT, type TEXT, seq INTEGER, time_created INTEGER, time_updated INTEGER, data TEXT NOT NULL);",
+    ],
+    { encoding: "utf-8" },
+  );
+  if (result.status !== 0) fail(`cannot create a v2 fixture at ${path}: ${result.stderr}`);
+}
+
 function schedulerStamps(): void {
   mkdirSync(join(ROOT, "home"), { recursive: true });
   mkdirSync(DATA, { recursive: true });
   const smoke = join(ROOT, "smoke.db");
-  writeFileSync(smoke, "");
+  makeV2Db(smoke);
   const missing = join(ROOT, "missing.db");
   const okStamp = join(STAMP_DIR, "last-run.stamp");
   const failureStamp = join(STAMP_DIR, "last-failure.stamp");
@@ -71,6 +83,14 @@ function schedulerStamps(): void {
   assert(
     existsSync(laneLog) && readFileSync(laneLog, "utf-8").includes("nothing to do"),
     "the scheduled run reports nothing to do",
+  );
+  assert(
+    existsSync(laneLog) && readFileSync(laneLog, "utf-8").includes("retention rung: quiet"),
+    "a quiet lane runs the retention rung",
+  );
+  assert(
+    readdirSync(join(DATA, "tawassul-v2", "backups")).filter((name) => name.endsWith(".db")).length === 0,
+    "an idle retention rung writes no backup",
   );
   assert(existsSync(okStamp), "a successful run writes the last-run stamp");
   assert(readFileSync(okStamp, "utf-8").includes("rc=0"), "the last-run stamp records rc=0");
@@ -94,6 +114,71 @@ function schedulerStamps(): void {
   assert(check.code === 0, "check mode exits 0");
   assert(check.out.includes("ladder:"), "check mode prints the ladder decision");
   assert(!existsSync(okStamp) && !existsSync(failureStamp), "check mode writes no stamp");
+
+  const rungScript = stagedLane(0);
+  writeFileSync(join(dirname(rungScript), "opencode-db-maintenance.sh"), "#!/bin/sh\nexit 7\n");
+  chmodSync(join(dirname(rungScript), "opencode-db-maintenance.sh"), 0o755);
+  const rungDb = join(ROOT, "rung-failure.db");
+  writeFileSync(rungDb, "");
+  const rung = runStaged(rungScript, ["--run"], {
+    ...stampEnv(rungDb),
+    TAWASSUL_SOFT_BYTES: "0",
+  });
+  assert(rung.code === 7, "a failing maintenance rung fails the scheduled run with its exit code");
+  assert(
+    existsSync(failureStamp) && readFileSync(failureStamp, "utf-8").includes("rc=7"),
+    "a failing maintenance rung records the failure stamp",
+  );
+  assert(!existsSync(okStamp), "a failing maintenance rung leaves the last-run stamp absent");
+
+  const beforeBackoff = laneLogText().length;
+  const backoff = runStaged(rungScript, ["--run"], {
+    ...stampEnv(rungDb),
+    TAWASSUL_DB_GAP_SECONDS: "86400",
+    TAWASSUL_SOFT_BYTES: "0",
+  });
+  assert(backoff.code === 0, "a failed run inside the retry backoff exits cleanly");
+  assert(laneLogText().slice(beforeBackoff).includes("retry backoff"), "a failed run explains the retry backoff");
+  assert(readFileSync(failureStamp, "utf-8").includes("rc=7"), "the retry backoff preserves the failure stamp");
+  assert(!existsSync(okStamp), "the retry backoff writes no success stamp");
+
+  const heldScript = stagedLane(0);
+  const stubLog = join(ROOT, "held-stub.log");
+  writeFileSync(
+    join(dirname(heldScript), "opencode-db-maintenance.sh"),
+    `#!/bin/sh\nprintf '%s\\n' "$*" >> "$STUB_LOG"\nexit 0\n`,
+  );
+  chmodSync(join(dirname(heldScript), "opencode-db-maintenance.sh"), 0o755);
+  const heldDb = join(ROOT, "held.db");
+  writeFileSync(heldDb, "x");
+  const holder = spawn("bash", ["-c", `exec 3<"${heldDb}"; sleep 20`], { stdio: "ignore" });
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
+    const heldBefore = laneLogText().length;
+    const held = runStaged(heldScript, ["--run"], {
+      ...stampEnv(heldDb),
+      STUB_LOG: stubLog,
+      TAWASSUL_SOFT_BYTES: "0",
+    });
+    const heldSegment = laneLogText().slice(heldBefore);
+    assert(held.code === 0, "a held DB finishes the scheduled run through the in-use rung");
+    assert(heldSegment.includes("in-use rung"), "a held DB takes the in-use rung");
+    assert(!heldSegment.includes("retention rung"), "a held DB skips the quiet retention rung");
+    assert(
+      existsSync(stubLog) && readFileSync(stubLog, "utf-8").includes("--allow-in-use"),
+      "the in-use rung passes --allow-in-use",
+    );
+    assert(
+      existsSync(stubLog) && readFileSync(stubLog, "utf-8").includes("--tool-retention-days"),
+      "the in-use rung passes the retention window",
+    );
+    assert(
+      existsSync(stubLog) && !readFileSync(stubLog, "utf-8").includes("--target-bytes"),
+      "the in-use rung never asks for a solver prune",
+    );
+  } finally {
+    holder.kill();
+  }
 }
 
 function laneLogText(): string {
@@ -103,11 +188,12 @@ function laneLogText(): string {
 
 function gateCases(): void {
   const db = join(ROOT, "gate.db");
-  writeFileSync(db, "");
+  makeV2Db(db);
   const stamp = join(STAMP_DIR, "last-run.stamp");
   const env = stampEnv(db);
   delete env.TAWASSUL_DB_GAP_SECONDS;
   rmSync(stamp, { force: true });
+  rmSync(join(STAMP_DIR, "last-failure.stamp"), { force: true });
 
   const first = runScheduled(["--run"], env);
   assert(first.code === 0, "the default gap still allows the first scheduled run");
@@ -166,6 +252,8 @@ function stagedLane(gap: number | string): string {
   for (const name of ["opencode-db-scheduled.sh", "db-env.sh"]) {
     copyFileSync(join(REPO, "scripts", name), join(dir, name));
   }
+  writeFileSync(join(dir, "opencode-db-maintenance.sh"), "#!/bin/sh\nexit 0\n");
+  chmodSync(join(dir, "opencode-db-maintenance.sh"), 0o755);
   writeFileSync(join(dir, "MAINTENANCE"), `${JSON.stringify({ gapSeconds: gap })}\n`);
   return join(dir, "opencode-db-scheduled.sh");
 }
@@ -236,6 +324,89 @@ function shellGapCases(): void {
 
   rmSync(join(ROOT, "staged"), { recursive: true, force: true });
   rmSync(STAMP, { force: true });
+}
+
+function envCases(): void {
+  const script = stagedLane(0);
+  const stubLog = join(ROOT, "env-stub.log");
+  rmSync(stubLog, { force: true });
+  writeFileSync(
+    join(dirname(script), "opencode-db-maintenance.sh"),
+    `#!/bin/sh\nprintf '%s\\n' "$*" >> "$STUB_LOG"\nexit 0\n`,
+  );
+  chmodSync(join(dirname(script), "opencode-db-maintenance.sh"), 0o755);
+  const db = join(ROOT, "env.db");
+  writeFileSync(db, "x");
+  const base = { ...stampEnv(db), STUB_LOG: stubLog };
+  const runCase = (extra: NodeJS.ProcessEnv): { code: number; log: string } => {
+    rmSync(stubLog, { force: true });
+    const before = laneLogText().length;
+    const result = runStaged(script, ["--run"], { ...base, ...extra });
+    return { code: result.code, log: laneLogText().slice(before) };
+  };
+
+  const invalid = runCase({
+    TAWASSUL_SOFT_BYTES: "2G",
+    TAWASSUL_CAP_BYTES: "4G",
+    TAWASSUL_TARGET_BYTES: "1G",
+  });
+  assert(invalid.code === 0, "invalid byte settings fall back instead of aborting the lane");
+  assert(invalid.log.includes("invalid TAWASSUL_SOFT_BYTES"), "an invalid soft limit is named in the log");
+  assert(invalid.log.includes("invalid TAWASSUL_CAP_BYTES"), "an invalid cap is named in the log");
+  assert(invalid.log.includes("invalid TAWASSUL_TARGET_BYTES"), "an invalid target is named in the log");
+  assert(invalid.log.includes("retention rung: quiet"), "the lane still runs after invalid byte settings");
+
+  const zeroCap = runCase({ TAWASSUL_CAP_BYTES: "0", TAWASSUL_SOFT_BYTES: "1" });
+  assert(zeroCap.code === 0, "a zero cap falls back instead of pruning to zero");
+  assert(zeroCap.log.includes("invalid TAWASSUL_CAP_BYTES"), "a zero cap is named in the log");
+  assert(!zeroCap.log.includes("cap rung"), "a zero cap does not trigger the cap rung");
+
+  const clampTarget = runCase({ TAWASSUL_CAP_BYTES: "1", TAWASSUL_TARGET_BYTES: "1000000" });
+  assert(clampTarget.code === 0, "a target above the cap still completes");
+  assert(clampTarget.log.includes("target 1000000 above cap 1 — clamping to the cap"), "a target above the cap is clamped");
+  assert(
+    existsSync(stubLog) && readFileSync(stubLog, "utf-8").split("\n").some((line) => line.includes("--target-bytes 1")),
+    "the cap rung receives the clamped target",
+  );
+
+  const holder = spawn("bash", ["-c", `exec 3<"${db}"; sleep 20`], { stdio: "ignore" });
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
+    const clampSoft = runCase({ TAWASSUL_CAP_BYTES: "1", TAWASSUL_SOFT_BYTES: "1000000" });
+    assert(clampSoft.code === 0, "a soft limit above the cap still completes while held");
+    assert(clampSoft.log.includes("soft 1000000 above cap 1 — clamping to the cap"), "a soft limit above the cap is clamped");
+    assert(clampSoft.log.includes("in-use rung"), "the clamped soft limit keeps the in-use rung reachable");
+  } finally {
+    holder.kill();
+  }
+}
+
+function stickyFailureCase(): void {
+  const script = stagedLane(0);
+  const counter = join(ROOT, "sticky.counter");
+  const stubLog = join(ROOT, "sticky-stub.log");
+  rmSync(counter, { force: true });
+  rmSync(stubLog, { force: true });
+  writeFileSync(
+    join(dirname(script), "opencode-db-maintenance.sh"),
+    `#!/bin/sh\nn=0\n[ -f "$STICKY_COUNTER" ] && n="$(cat "$STICKY_COUNTER")"\nn=$((n + 1))\nprintf '%s\\n' "$n" > "$STICKY_COUNTER"\nprintf '%s\\n' "$*" >> "$STICKY_LOG"\n[ "$n" -eq 1 ] && exit 9\nexit 0\n`,
+  );
+  chmodSync(join(dirname(script), "opencode-db-maintenance.sh"), 0o755);
+  const db = join(ROOT, "sticky.db");
+  writeFileSync(db, "x");
+  const before = laneLogText().length;
+  const result = runStaged(script, ["--run"], {
+    ...stampEnv(db),
+    STICKY_COUNTER: counter,
+    STICKY_LOG: stubLog,
+    TAWASSUL_CAP_BYTES: "1",
+    TAWASSUL_TARGET_BYTES: "1",
+  });
+  const segment = laneLogText().slice(before);
+  assert(result.code === 9, "a quiet-rung failure is not cleared by a later successful rung");
+  assert(segment.includes("retention rung: maintenance exited non-zero (rc=9)"), "the quiet-rung failure is logged");
+  assert(segment.includes("cap rung") && segment.includes("scheduled run failed (rc=9)"), "the lane reports the failure after the cap rung");
+  assert(existsSync(counter) && readFileSync(counter, "utf-8").trim() === "2", "both the quiet and cap rungs ran");
 }
 
 async function triggerCases(): Promise<void> {
@@ -370,6 +541,8 @@ try {
   schedulerStamps();
   gateCases();
   shellGapCases();
+  envCases();
+  stickyFailureCase();
   await triggerCases();
   console.log(
     `PROOF PASS: the scheduled lane stamps only real runs and one gap source and lock protocol govern both actors (${passed} assertions)`,

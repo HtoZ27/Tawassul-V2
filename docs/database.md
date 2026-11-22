@@ -63,13 +63,21 @@ safely.
 | 1. Preflight | Checks free RAM and whether a process holds the database | Refuses a live database unless `--allow-in-use`; refuses under 1.5 GiB free RAM unless `--ignore-low-ram` |
 | 2. Backup | SQLite online backup to the backup directory | The backup must pass `quick_check` and a session-count probe, or the run aborts |
 | 3. Prune | Deletes messages older than the window; never deletes sessions | Messages touching a fresh session are kept |
-| 4. Vacuum | Rebuilds the file and reclaims pages | Only when no process holds the database; a live `VACUUM` is refused under every flag |
+| 3b. Read payloads | Replaces old `read` tool results inside surviving messages with a short placeholder | Runs also while the host holds the database (batched, 2500 ms timeout); only the VACUUM needs quiescence; message rows, text, and non-read tools stay |
+| 3c. Reasoning | Replaces old `reasoning` blocks with a short placeholder | Runs also while the host holds the database (batched, 2500 ms timeout); only the VACUUM needs quiescence; the answer text and tool results stay |
+| 4. Vacuum | Rebuilds the file and reclaims pages | Only when no process holds the database; a live `VACUUM` is refused under every flag; a quiet run reclaims a freelist of at least 64 MiB even when there is nothing to prune |
 | 5. Report | Prints before and after sizes | Non-zero exit on any safety refusal |
 
-Defaults: prune window 90 days, keep the last 5 backups, backup directory
-`~/.local/share/tawassul-v2/backups`. Pruning is a fixed wall-clock window; when
-`--target-bytes` is used instead, the script solves for the window that reaches
-the target, and the two options are mutually exclusive.
+Defaults: prune window 90 days, read-payload retention 1 day, reasoning
+retention 1 day, keep the last 2 backups, backup directory
+`~/.local/share/tawassul-v2/backups`. Pruning is a fixed wall-clock window; when `--target-bytes` is used instead, the script
+solves for the window that reaches the target, and the two options are mutually
+exclusive. Message pruning is skipped when the projected post-vacuum size
+already meets the target, so retention is never paid for with deleted
+conversation. The scheduled lane defaults the target to the cap (4 GiB), skips the
+backup when the database is already at or below it, and makes no copy when even
+the 3d floor has nothing to prune — unless the freelist holds at least 64 MiB
+(`TAWASSUL_RECLAIM_MIN_FREE`), where it vacuums the freed pages away.
 
 ```bash
 # Read-only: report sizes and what a run would delete
@@ -78,13 +86,39 @@ bash scripts/opencode-db-maintenance.sh --db "$OPENCODE_DB" --check
 # Backup, prune messages older than 90 days, then vacuum if quiescent
 bash scripts/opencode-db-maintenance.sh --db "$OPENCODE_DB"
 
-# Reach a 1.5 GiB target instead of a fixed window
-bash scripts/opencode-db-maintenance.sh --db "$OPENCODE_DB" --target-bytes 1610612736
+# Keep the last day of read results instead of the default
+bash scripts/opencode-db-maintenance.sh --db "$OPENCODE_DB" --tool-retention-days 7
+
+# Reach the 4 GiB cap instead of a fixed window
+bash scripts/opencode-db-maintenance.sh --db "$OPENCODE_DB" --target-bytes 4294967296
 ```
 
 Exit codes: `2` usage or refusal, `3` probe failure, `4` backup failure, `5`
 mutation failure, `6` vacuum failure, `7` disk space, `8` lock contention, `9`
-the cap remains or a protected table changed.
+the cap remains or a protected table changed. When the VACUUM is skipped because
+quiescence cannot be proven (the database is in use, or the probe is
+unavailable), the run exits 0 with a note instead of 9: the cap cannot be
+reclaimed until the file is quiet.
+
+### Read payload retention
+
+A `read` tool result embeds the file bytes inside the assistant message. On
+agent-heavy databases these snapshots dominate the file: one measured database
+held 3.2 GiB of read payloads in a 4.7 GiB file. The maintenance pass rewrites
+read results older than `--tool-retention-days` (default 1) into
+`[read output pruned: PATH]`, keeping the message, its text, and every other
+tool. The rewrite runs in quiescent and in-use passes alike (batched, 2500 ms busy
+timeout); only the VACUUM needs quiescence. `0` disables it.
+This is what brings such a database back to a few hundred megabytes without
+deleting conversations.
+
+### Reasoning retention
+
+Reasoning blocks are the model's internal trace. They are rewritten to
+`[reasoning pruned]` after `--reasoning-retention-days` (default 1), while the
+answer text and every tool result stay. `0` disables the rewrite. On the same
+measured database this removed a further 213 MB, taking the file from ~600 MB to
+~390 MB without a model call or a deleted message.
 
 ### Event retention
 
@@ -109,9 +143,10 @@ invocation decides one rung:
 | Condition | Rung |
 | --- | --- |
 | WAL above 64 MiB | `wal_checkpoint(TRUNCATE)`, falling back to `PASSIVE` when busy |
-| Database plus WAL at or above the soft limit (2 GiB) | Bounded backup and prune while the database is held |
-| Database plus WAL at or above the cap (4 GiB) and the database is quiet | Full maintenance: backup, prune, checkpoint, vacuum |
-| Below the soft limit and WAL within the trigger | Nothing |
+| No process holds the database | Read/reasoning retention, then vacuum when there is work (including a freelist of at least 64 MiB) |
+| Held and database plus WAL at or above the soft limit (2 GiB) | Bounded retention while the database is held (no vacuum) |
+| Quiet and database plus WAL at or above the cap (4 GiB) | Full maintenance: backup, solver prune, checkpoint, vacuum |
+| Quiet, below the soft limit, no retention work, WAL within the trigger | Nothing |
 
 ```bash
 bash scripts/opencode-db-scheduled.sh --check   # print the decision, change nothing
@@ -120,7 +155,9 @@ bash scripts/opencode-db-scheduled.sh --run     # apply the rung
 
 The soft limit, target, cap, backup directory, and database path are overridable
 with `TAWASSUL_SOFT_BYTES`, `TAWASSUL_TARGET_BYTES`, `TAWASSUL_CAP_BYTES`,
-`TAWASSUL_BACKUP_DIR`, and `OPENCODE_DB`.
+`TAWASSUL_BACKUP_DIR`, and `OPENCODE_DB`. Non-numeric values, and a zero cap
+or target, fall back to their defaults; a target or soft limit above the cap is
+clamped to the cap, so the cap always remains the hard ceiling.
 
 ## The standalone maintenance lane
 
