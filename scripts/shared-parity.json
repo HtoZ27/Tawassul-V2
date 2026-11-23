@@ -12,7 +12,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/index.ts",
-            "line": 9,
+            "line": 12,
             "marker": "setup: createV2Setup"
           },
           "proofs": [
@@ -81,7 +81,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/v2/setup.ts",
-            "line": 493,
+            "line": 495,
             "marker": "host missing required domains"
           },
           "proofs": [
@@ -191,7 +191,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/index.ts",
-            "line": 7,
+            "line": 10,
             "marker": "export const tawassul: Plugin.Plugin = {"
           },
           "proofs": [
@@ -1069,7 +1069,7 @@
           "status": "verified",
           "anchor": {
             "file": "src/v2/setup.ts",
-            "line": 53,
+            "line": 54,
             "marker": "SCHEMA_RETRY_ATTEMPTS"
           },
           "proofs": [

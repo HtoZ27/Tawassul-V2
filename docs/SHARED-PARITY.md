@@ -23,15 +23,15 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 
 | Entry | Requirement | v2 anchor | Proof | Status |
 | --- | --- | --- | --- | --- |
-| S-001 | The v2 entry is a module exporting a plugin object with id and setup. | `src/index.ts:9` `setup: createV2Setup` | `scripts/prove-host-entry.ts` | verified |
+| S-001 | The v2 entry is a module exporting a plugin object with id and setup. | `src/index.ts:12` `setup: createV2Setup` | `scripts/prove-host-entry.ts` | verified |
 | S-002 | The build resolves the host plugin package through the ESM exports condition instead of a static external list. | `build-v2.mjs:19` `import.meta.resolve` | `scripts/prove-host-entry.ts` | verified |
 | S-003 | Every tool execute result is converted from the v1 shape to the v2 shape. | `src/v2/adapters.ts:108` `toV2Result` | `scripts/prove-v2-compat.ts` | verified |
-| S-004 | Setup aborts before registration when the host lacks the session or tool domain. | `src/v2/setup.ts:493` `host missing required domains` | `scripts/prove-host-entry.ts` | verified |
+| S-004 | Setup aborts before registration when the host lacks the session or tool domain. | `src/v2/setup.ts:495` `host missing required domains` | `scripts/prove-host-entry.ts` | verified |
 | S-005 | The role to tool matrix is ported without an i18n or NLP dependency. | `src/role-matrix.ts:40` `TAWASSUL_TOOL_ROLES` | `scripts/prove-s005.ts`, `scripts/prove-s013.ts` | verified |
 | S-006 | Model display names are English-only with no bilingual shape or lang parameter. | `src/core/model-registry.ts:81` `MODEL_DISPLAY_NAMES` | `scripts/prove-feature-index-english.ts` | verified |
 | S-007 | A full-tree port must never overwrite hand-fixed files. | - | - | n-a |
 | S-008 | The translations loader is English-canonical, ships the Arabic table for runtime languages, and has no logger dependency. | `src/translations.ts:4` `LANGUAGES` | `scripts/prove-feature-index-english.ts` | verified |
-| S-009 | The entry carries no v1 server member; the v2 host initializes through setup. | `src/index.ts:7` `export const tawassul: Plugin.Plugin = {` | `scripts/prove-host-entry.ts` | verified |
+| S-009 | The entry carries no v1 server member; the v2 host initializes through setup. | `src/index.ts:10` `export const tawassul: Plugin.Plugin = {` | `scripts/prove-host-entry.ts` | verified |
 | S-010 | Conflict-marker debris must never reach v2 sources. | - | - | n-a |
 | S-011 | Status changes refresh the board index and carry session provenance. | `src/services/mission-board.ts:153` `scheduleIndexWrite` | `scripts/prove-board-invariants.ts` | verified |
 | S-012 | A completed board cannot be reopened; transitions are close-only. | `src/services/mission-board.ts:269` `isCompleted` | `scripts/prove-board-invariants.ts` | verified |
@@ -73,7 +73,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-042 | Local plugin entries must be deduplicated by the loader, not only by the plugin. | `src/core/install-scope.ts:56` `claimCoexistence` | - | host-bound |
 | S-043 | Legacy config keys no longer produce per-boot normalization warnings. | `src/utils/opencode-config.ts:408` `applyBootRepairs` | `scripts/prove-e02.ts` | verified |
 | S-044 | Select and multiselect elicitation fail closed through the ask bridge. | `src/services/ask-channel-parse.ts:33` `multiselect` | `scripts/prove-v2-ask-bridge.ts` | verified |
-| S-045 | Deferred tool schemas are refreshed after init with a bounded retry. | `src/v2/setup.ts:53` `SCHEMA_RETRY_ATTEMPTS` | `scripts/prove-b02.ts` | verified |
+| S-045 | Deferred tool schemas are refreshed after init with a bounded retry. | `src/v2/setup.ts:54` `SCHEMA_RETRY_ATTEMPTS` | `scripts/prove-b02.ts` | verified |
 | S-046 | Unknown permission actions need a host default policy or rule registration. | `src/v2/ask.ts:18` `evaluate` | - | host-bound |
 | S-047 | Tool output deltas and a compaction prompt contract are implemented. | `src/hooks/tool-output-stream.ts:90` `message.part.delta` | `scripts/prove-e15.ts` | verified |
 | S-048 | The input and output schema pairing needs host documentation. | `src/v2/result-bridge.ts:99` `writeBackV1Output` | - | host-bound |

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { TAWASSUL_TOOL_NAMES, STATELESS_TOOLS } from "../tool-names.ts";
 import { mark, measure, report, reset as perfReset, sample } from "../utils/perf.ts";
+import { beginGeneration, countRetireCeiling, cpuMs, genTag } from "../utils/boot-telemetry.ts";
 import type {
   TawassulHooks as Hooks,
   PluginInput,
@@ -483,7 +484,12 @@ export function getRosterReady(hooks: Hooks): RosterReadyProbe | undefined {
   return hooks[ROSTER_READY];
 }
 
-export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof TawassulContext }) {
+export const RETIRE_CEILING_MS = 8000;
+
+export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof TawassulContext; retireCeilingMs?: number }) {
+  const generation = beginGeneration();
+  const syncStartedAt = performance.now();
+  const syncCpu = process.cpuUsage();
   const floorProblem = hostFloorProblem(ctx.hostVersion);
   if (floorProblem) {
     logger.error(`[tawassul] refusing to initialize: ${floorProblem}`);
@@ -738,7 +744,23 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
 
   const initPromise = runWithContext(tawaCtx, async () => {
     try {
-      await Promise.race([previousRetire, new Promise<void>((resolve) => setTimeout(resolve, 8000))]);
+      if (previousDispose) {
+        const ceilingMs = deps?.retireCeilingMs ?? RETIRE_CEILING_MS;
+        const retireStartedAt = performance.now();
+        let ceilingTimer: ReturnType<typeof setTimeout> | undefined;
+        const ceiling = new Promise<"ceiling">((resolve) => {
+          ceilingTimer = setTimeout(() => resolve("ceiling"), ceilingMs);
+        });
+        const outcome = await Promise.race([previousRetire.then(() => "retired" as const), ceiling]);
+        if (ceilingTimer !== undefined) clearTimeout(ceilingTimer);
+        const waited = (performance.now() - retireStartedAt).toFixed(1);
+        if (outcome === "ceiling") {
+          const hits = countRetireCeiling();
+          logger.info(`[tawassul] v2 retire ${genTag(generation)} ms=${waited} ceiling=1 hits=${hits}`);
+        } else {
+          logger.info(`[tawassul] v2 retire ${genTag(generation)} ms=${waited}`);
+        }
+      }
       await tawaCtx.init();
       if (initAbortController.signal.aborted) return;
 
@@ -1082,6 +1104,9 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
 
   mark("initPlugin:return");
   measure("initPlugin:start", "initPlugin:return", "initPlugin() total");
+  logger.info(
+    `[tawassul] v2 init sync ${genTag(generation)} ms=${(performance.now() - syncStartedAt).toFixed(1)} cpuMs=${cpuMs(syncCpu)}`,
+  );
   const initTotal = sample("initPlugin() total");
   if (initTotal !== null) logger.info(`[tawassul:perf] initPlugin=${initTotal.toFixed(2)}ms`);
   const perfReport = report();

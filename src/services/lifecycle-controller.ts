@@ -15,11 +15,13 @@ import { resetImageRouter } from "./image-router/index.ts";
 import { flushAllPersists } from "./persist-utils.ts";
 import { isIsolationActiveSync, isForeignKeyTargetSync } from "./isolation.ts";
 import { logger } from "../utils/logger.ts";
+import { cpuMs, currentGeneration, genTag } from "../utils/boot-telemetry.ts";
 
 export class LifecycleController {
   private autoSaveManager: AutoSaveManager;
   private cleanupCallbacks: Array<() => void | Promise<void>> = [];
   private destroyed = false;
+  private readonly generation = currentGeneration();
 
   constructor(
     private ctx: TawaOrchestratorContext,
@@ -130,6 +132,9 @@ export class LifecycleController {
   async destroy(): Promise<void> {
     if (this.destroyed) return;
     this.destroyed = true;
+    const destroyStartedAt = performance.now();
+    const destroyCpu = process.cpuUsage();
+    const savesBeforeDestroy = this.persistence.getSaveCount();
     this.autoSaveManager.dispose();
     try {
       this.ctx.discussionManager.flushSave();
@@ -141,10 +146,20 @@ export class LifecycleController {
     } catch (e) {
       logger.debug("destroy: flushPrefsSave threw:", e);
     }
+    const handoffs = [...this.ctx.handoffs.values()];
+    let newlyDropped = 0;
     try {
-      this.ctx.ratingManager.detectDroppedHandoffs([...this.ctx.handoffs.values()]);
+      newlyDropped = this.ctx.ratingManager.detectDroppedHandoffs(handoffs);
     } catch (e) {
       logger.debug("destroy: detectDroppedHandoffs failed:", e);
+    }
+    const droppedHandoffs = this.ctx.ratingManager.droppedHandoffCount();
+    if (newlyDropped > 0) {
+      try {
+        this.persistence.markDirty();
+      } catch (e) {
+        logger.debug("destroy: markDirty failed:", e);
+      }
     }
     try {
       await this.persistence.flushSaves();
@@ -213,9 +228,8 @@ export class LifecycleController {
     }
     this.markDisposing();
     try {
-      const allHandoffs = [...this.ctx.handoffs.values()];
-      const pending = allHandoffs.filter((h) => h.status === "pending").length;
-      const active = allHandoffs.filter((h) => h.status === "accepted").length;
+      const pending = handoffs.filter((h) => h.status === "pending").length;
+      const active = handoffs.filter((h) => h.status === "accepted").length;
       if (pending > 0 || active > 0) {
         logger.warn(`dispose: ${pending} pending, ${active} active handoffs`);
       }
@@ -308,6 +322,9 @@ export class LifecycleController {
     } catch (e) {
       logger.debug("destroy: metricsCollector.save failed:", e);
     }
+    logger.info(
+      `[tawassul] v2 destroy ${genTag(this.generation)} dropped=${droppedHandoffs} handoffs=${handoffs.length} saves=${this.persistence.getSaveCount() - savesBeforeDestroy} ms=${(performance.now() - destroyStartedAt).toFixed(1)} cpuMs=${cpuMs(destroyCpu)}`,
+    );
     logger.debug(`Session ended: ${this.ctx.sessionManager.getSessionId()}`);
   }
 }

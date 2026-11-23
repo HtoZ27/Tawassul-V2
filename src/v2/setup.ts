@@ -7,6 +7,7 @@ import { detectInstallScope } from "../core/install-scope.ts";
 import { ToolBlockedError } from "../hooks/tool-execute.ts";
 import { isBlockedToolForTawa } from "../security-policy.ts";
 import { logger } from "../utils/logger.ts";
+import { cpuMs, currentGeneration, genTag } from "../utils/boot-telemetry.ts";
 import { collectToolSchemas, makeV2Tool, schemaFingerprint, measureSchemaPayload } from "./adapters.ts";
 import { toolNameSetHash } from "../services/tool-tripwire.ts";
 import { createAskBridge, registerAskPermission } from "./ask.ts";
@@ -386,6 +387,7 @@ async function runCompactionBridge(plugin: TawassulHooks, event: V2SessionEvent)
 
 export type V2SetupDeps = {
   init?: (input: PluginInput) => TawassulHooks;
+  collectSchemas?: typeof collectToolSchemas;
   refresh?: { attempts?: number; delayMs?: number; initialWaitMs?: number };
   rosterWaitMs?: number;
   optionalTimeoutMs?: number;
@@ -519,6 +521,10 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
 
     const input = buildPluginInput(ctx);
     const plugin = (deps.init ?? initPlugin)(input);
+    const generation = currentGeneration();
+    const setupStartedAt = performance.now();
+    const setupCpu = process.cpuUsage();
+    logger.info(`[tawassul] v2 setup ${genTag(generation)} start`);
     const rosterProbe = getRosterReady(plugin);
     if (rosterProbe) {
       try {
@@ -606,17 +612,24 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
         if (timer) clearTimeout(timer);
       }
     };
+    let cleanupSteps = 0;
+    let cleanupAbandoned = 0;
+    let cleanupFailed = 0;
+    let cleanupMaxMs = 0;
     const boundCleanupStep = async (label: string, run: () => Promise<unknown>): Promise<void> => {
-      const startedAt = Date.now();
+      const startedAt = performance.now();
+      cleanupSteps += 1;
       let work: Promise<unknown>;
       try {
         work = Promise.resolve(run());
       } catch (e) {
+        cleanupFailed += 1;
         logger.debug(`[tawassul] v2 cleanup step ${label} failed:`, e);
         return;
       }
       work.catch(() => undefined);
       let timer: ReturnType<typeof setTimeout> | null = null;
+      let workFailed = false;
       const parked = new Promise<typeof SETUP_STEP_PARKED>((resolve) => {
         timer = setTimeout(() => resolve(SETUP_STEP_PARKED), teardownTimeoutMs);
         timer.unref?.();
@@ -626,16 +639,25 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
           work.then(
             () => "done" as const,
             (e) => {
+              workFailed = true;
               logger.debug(`[tawassul] v2 cleanup step ${label} failed:`, e);
               return "done" as const;
             },
           ),
           parked,
         ]);
+        const elapsed = performance.now() - startedAt;
+        cleanupMaxMs = Math.max(cleanupMaxMs, elapsed);
         if (outcome === SETUP_STEP_PARKED) {
-          logger.warn(`[tawassul] v2 cleanup step ${label} abandoned after ${Date.now() - startedAt}ms`);
+          cleanupAbandoned += 1;
+          logger.warn(`[tawassul] v2 cleanup step ${label} abandoned after ${elapsed.toFixed(1)}ms`);
+        } else if (workFailed) {
+          cleanupFailed += 1;
+          logger.debug(`[tawassul] v2 cleanup step ${label} failed in ${elapsed.toFixed(1)}ms`);
+        } else if (elapsed > 100) {
+          logger.info(`[tawassul] v2 cleanup step ${label} ${genTag(generation)} ms=${elapsed.toFixed(1)}`);
         } else {
-          logger.debug(`[tawassul] v2 cleanup step ${label} done in ${Date.now() - startedAt}ms`);
+          logger.debug(`[tawassul] v2 cleanup step ${label} done in ${elapsed.toFixed(1)}ms`);
         }
       } finally {
         if (timer) clearTimeout(timer);
@@ -651,19 +673,6 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
         usageLedger.recordShadow(observation);
       },
     });
-    try {
-      await usageLedger.start();
-    } catch (e) {
-      logger.warn("[tawassul] usage ledger start skipped (fail-open):", e instanceof Error ? e.message : String(e));
-    }
-    try {
-      await warmWorkspace({
-        worktree: input.directory,
-        readMessages: async (sessionID) => sessionBridge.context({ sessionID }),
-      });
-    } catch (e) {
-      logger.warn("[tawassul] v2 context pack warm-up skipped:", e instanceof Error ? e.message : String(e));
-    }
     const processedMessages = new Set<string>();
     const callTools = new Map<string, string>();
     const rememberCallTool = (id: string, tool: string): void => {
@@ -687,14 +696,35 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
 
     let schemas: Map<string, Record<string, unknown>> = new Map();
     let registeredSchemaFingerprint = "";
-    const refreshSchemas = async (): Promise<boolean> => {
-      try {
-        schemas = await collectToolSchemas(wrapped);
-      } catch (e) {
-        logger.error("[tawassul] v2 schema collection failed:", e);
+    let registeredNameSetHash = "";
+    let initialSchemasCollected = false;
+    const refreshSchemas = async (reason: "initial" | "late-init" | "refresh"): Promise<boolean> => {
+      const startedAt = performance.now();
+      const nameSetHash = toolNameSetHash(Object.keys(wrapped));
+      if (
+        initialSchemasCollected &&
+        registeredNameSetHash !== "" &&
+        registeredSchemaFingerprint !== "" &&
+        nameSetHash === registeredNameSetHash
+      ) {
         return false;
       }
+      try {
+        schemas = await (deps.collectSchemas ?? collectToolSchemas)(wrapped);
+      } catch (e) {
+        logger.error("[tawassul] v2 schema collection failed:", e);
+        logger.info(
+          `[tawassul] v2 schema ${genTag(generation)} reason=${reason} outcome=failed ms=${(performance.now() - startedAt).toFixed(1)}`,
+        );
+        return false;
+      }
+      initialSchemasCollected = true;
+      registeredNameSetHash = nameSetHash;
+      const elapsed = (performance.now() - startedAt).toFixed(1);
       const changed = schemaFingerprint(schemas) !== registeredSchemaFingerprint;
+      logger.info(
+        `[tawassul] v2 schema ${genTag(generation)} reason=${reason} ms=${elapsed} tools=${schemas.size} changed=${changed}`,
+      );
       if (changed) {
         const { bytes, estimatedTokens } = measureSchemaPayload(schemas);
         logger.info(
@@ -713,7 +743,8 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
           if (timer.unref) timer.unref();
         }),
       ]);
-      if (initial.ready) await refreshSchemas();
+      if (initial.ready) await refreshSchemas("initial");
+      else logger.info(`[tawassul] v2 schema ${genTag(generation)} reason=skipped detail=init-not-ready tools=0`);
     }
 
     let addedToolCount = 0;
@@ -746,6 +777,30 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
       pendingSteps.delete("tool-registration");
     }
 
+    try {
+      const startedAt = performance.now();
+      await usageLedger.start();
+      const elapsed = performance.now() - startedAt;
+      if (elapsed > 20) {
+        logger.info(`[tawassul] v2 await usage-ledger ${genTag(generation)} ms=${elapsed.toFixed(1)}`);
+      }
+    } catch (e) {
+      logger.warn("[tawassul] usage ledger start skipped (fail-open):", e instanceof Error ? e.message : String(e));
+    }
+    try {
+      const startedAt = performance.now();
+      await warmWorkspace({
+        worktree: input.directory,
+        readMessages: async (sessionID) => sessionBridge.context({ sessionID }),
+      });
+      const elapsed = performance.now() - startedAt;
+      if (elapsed > 20) {
+        logger.info(`[tawassul] v2 await warm-workspace ${genTag(generation)} ms=${elapsed.toFixed(1)}`);
+      }
+    } catch (e) {
+      logger.warn("[tawassul] v2 context pack warm-up skipped:", e instanceof Error ? e.message : String(e));
+    }
+
     const healthLine = `[tawassul] v2 health: tools=${addedToolCount} schemas=${schemas.size} ask=${askEnabled} skills=${pilotRegistrations.length}`;
     if (registrationFailed || addedToolCount === 0) {
       const reason = registrationFailed ? "tool registration failed" : "no tools registered";
@@ -758,7 +813,7 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
     if (readyProbe) {
       const refresh = startSchemaRefresh({
         probe: readyProbe,
-        refresh: refreshSchemas,
+        refresh: () => refreshSchemas(initialSchemasCollected ? "refresh" : "late-init"),
         reload: async () => {
           await ctx.tool.reload();
           registeredSchemaFingerprint = schemaFingerprint(schemas);
@@ -767,7 +822,10 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
         attempts: deps.refresh?.attempts ?? SCHEMA_RETRY_ATTEMPTS,
         delayMs: deps.refresh?.delayMs ?? SCHEMA_RETRY_DELAY_MS,
       });
-      refreshStop = refresh.stop;
+      refreshStop = async () => {
+        refresh.stopProbe();
+        await refresh.stop();
+      };
     }
 
     if (plugin["tool.execute.before"]) {
@@ -995,6 +1053,9 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
 
     let cleanupCompletion: Promise<void> | null = null;
     const runCleanup = async (): Promise<void> => {
+      const cleanupStartedAt = performance.now();
+      const cleanupCpu = process.cpuUsage();
+      logger.info(`[tawassul] v2 cleanup ${genTag(generation)} start`);
       disposed = true;
       relayAbort.abort();
       await boundCleanupStep("refresh stop", async () => {
@@ -1019,8 +1080,14 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
       await boundCleanupStep("bridge clear", async () => clearSessionBridge(sessionBridge));
       await boundCleanupStep("shadow clear", async () => clearUsageShadow(usageShadow));
       await boundCleanupStep("ledger clear", async () => clearUsageLedger(usageLedger));
+      logger.info(
+        `[tawassul] v2 cleanup ${genTag(generation)} steps=${cleanupSteps} done=${cleanupSteps - cleanupAbandoned - cleanupFailed} abandoned=${cleanupAbandoned} failed=${cleanupFailed} maxMs=${cleanupMaxMs.toFixed(1)} ms=${(performance.now() - cleanupStartedAt).toFixed(1)} cpuMs=${cpuMs(cleanupCpu)}`,
+      );
     };
 
+    logger.info(
+      `[tawassul] v2 setup ${genTag(generation)} ready ms=${(performance.now() - setupStartedAt).toFixed(1)} cpuMs=${cpuMs(setupCpu)} tools=${addedToolCount}`,
+    );
     return () => {
       if (!cleanupCompletion) cleanupCompletion = runCleanup();
       return cleanupCompletion;

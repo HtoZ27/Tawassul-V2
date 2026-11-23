@@ -122,9 +122,11 @@ async function isolatedBoot(): Promise<number> {
       cleanupElapsed < 5000,
       `cleanup resolves while session.list is parked (measured ${cleanupElapsed} ms)`,
     );
+    await plugin.dispose?.();
     return elapsed;
   } finally {
     console.error = originalError;
+    await new Promise<void>((resolve) => setTimeout(resolve, 250));
     rmSync(work, { recursive: true, force: true });
   }
 }

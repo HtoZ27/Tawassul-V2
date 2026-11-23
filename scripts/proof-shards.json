@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "totalEstimateMs": 408941,
+  "totalEstimateMs": 421141,
   "shards": [
     {
       "name": "1",
-      "estimateMs": 105869,
+      "estimateMs": 108469,
       "steps": [
         "gen-lock",
         "web-ssrf",
@@ -12,6 +12,7 @@
         "e19",
         "e02",
         "b01",
+        "schema-reuse",
         "b02",
         "b03",
         "g003i6",
@@ -53,11 +54,12 @@
     },
     {
       "name": "2",
-      "estimateMs": 101133,
+      "estimateMs": 108733,
       "steps": [
         "gen-guard-wal",
         "first-boot",
         "disclosure",
+        "dropped-persist",
         "s005",
         "s013",
         "e21",
@@ -94,6 +96,7 @@
         "dispose-bounded",
         "skill-registration",
         "reload-live",
+        "retire-telemetry",
         "skill-load-rate",
         "snapshot-boundary",
         "goal-board-truth",
@@ -160,7 +163,7 @@
     },
     {
       "name": "4",
-      "estimateMs": 100637,
+      "estimateMs": 102637,
       "steps": [
         "gen-merge",
         "roster-boundary",
@@ -170,6 +173,7 @@
         "e23",
         "e37",
         "e38",
+        "cleanup-bound",
         "e18",
         "b05",
         "g002i2",

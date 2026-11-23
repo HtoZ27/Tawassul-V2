@@ -17,6 +17,7 @@ export type SchemaRefreshOptions = {
 export type SchemaRefreshHandle = {
   done: Promise<void>;
   stop: () => Promise<void>;
+  stopProbe: () => void;
 };
 
 export const DEFAULT_ATTEMPTS = 6;
@@ -35,14 +36,20 @@ export function startSchemaRefresh(options: SchemaRefreshOptions): SchemaRefresh
   const info = options.logInfo ?? ((message: string) => logger.info(message));
   const warn = options.logWarn ?? ((message: string, error?: unknown) => logger.warn(message, error));
   let stopped = false;
+  let released = false;
+  let releaseProbe!: () => void;
+  const probeReleased = new Promise<void>((resolve) => {
+    releaseProbe = resolve;
+  });
   const done = (async () => {
     try {
       for (let attempt = 0; attempt < attempts; attempt++) {
-        if (stopped) return;
-        const status = await options.probe();
+        if (stopped || released) return;
+        const status = await Promise.race([options.probe(), probeReleased.then(() => null)]);
+        if (stopped || released || status === null) return;
         if (status.ready) {
           const changed = (await options.refresh()) !== false;
-          if (stopped) return;
+          if (stopped || released) return;
           if (!changed) {
             info(
               `[tawassul] v2 tool schemas unchanged after init (${options.describe()}); reload skipped`,
@@ -75,5 +82,10 @@ export function startSchemaRefresh(options: SchemaRefreshOptions): SchemaRefresh
     stopped = true;
     await done;
   };
-  return { done, stop };
+  const stopProbe = (): void => {
+    if (released) return;
+    released = true;
+    releaseProbe();
+  };
+  return { done, stop, stopProbe };
 }

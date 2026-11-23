@@ -1,5 +1,6 @@
 import type { TawaOrchestratorContext, SaveHealth } from "../core/service-context.ts";
 import { logger } from "../utils/logger.ts";
+import { currentGeneration, genTag } from "../utils/boot-telemetry.ts";
 import { quietValue, QUIET_SAVE_DEBOUNCE_MS } from "../utils/quiet.ts";
 import { mkdir } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
@@ -629,6 +630,12 @@ export class StatePersistence {
   private static readonly MAX_CAS_ATTEMPTS = 3;
   
   private rebaseRollback: RebaseSnapshot | undefined = undefined;
+  private readonly generation = currentGeneration();
+  private saveCount = 0;
+
+  getSaveCount(): number {
+    return this.saveCount;
+  }
 
   constructor(
     private ctx: TawaOrchestratorContext,
@@ -670,7 +677,7 @@ export class StatePersistence {
     return this.dirtyGeneration;
   }
 
-  private markDirty(): void {
+  markDirty(): void {
     this.saveDirty = true;
     this.dirtyGeneration++;
   }
@@ -692,7 +699,7 @@ export class StatePersistence {
       }
       const before = this.dirtyGeneration;
       const persistedBefore = this.persistedGeneration;
-      await this.doSave("awaited");
+      await this.doSave("awaited", "awaited");
       if (this.persistedGeneration >= target) return;
       if (this.dirtyGeneration === before && this.persistedGeneration === persistedBefore) {
         logger.warn("saveState: the write was skipped (isolation or lock loss); the caller's data is memory-only");
@@ -744,6 +751,9 @@ export class StatePersistence {
           })
           .catch((e) => {
             this.saveFailureCount++;
+            logger.info(
+              `[tawassul] v2 save ${genTag(this.generation)} caller=auto outcome=failed failures=${this.saveFailureCount}`,
+            );
             this.nextRetryAt =
               Date.now() +
               this.jitterBackoff(
@@ -782,9 +792,12 @@ export class StatePersistence {
       })]);
     }
     try {
-      await this.doSave();
+      await this.doSave(undefined, "flush");
     } catch (e) {
       this.saveFailureCount++;
+      logger.info(
+        `[tawassul] v2 save ${genTag(this.generation)} caller=flush outcome=failed failures=${this.saveFailureCount}`,
+      );
       logger.error(
         `[tawassul] flushSaves: the final write failed after ${this.saveFailureCount} failure(s); this session's state is not on disk`,
         e,
@@ -795,7 +808,7 @@ export class StatePersistence {
     let flushAttempts = 0;
     while (this.saveDirty && Date.now() < deadline && flushAttempts < 5) {
       flushAttempts++;
-      await this.doSave();
+      await this.doSave(undefined, "retry");
       if (this.saveDirty) await new Promise((r) => setTimeout(r, 50));
     }
     if (this.saveDirty) {
@@ -804,12 +817,17 @@ export class StatePersistence {
   }
 
   
-  async doSave(type?: string): Promise<void> {
+  async doSave(type?: string, caller: "auto" | "flush" | "retry" | "awaited" = "auto"): Promise<void> {
+    const startedAt = performance.now();
+    const dirtyBefore = this.saveDirty;
     if (this.disposing) return;
     if (!this.ctx.persistDir) return;
     if (this.ctx.stateReadOnly) {
       this.saveDirty = false;
       this.persistedGeneration = this.dirtyGeneration;
+      logger.info(
+        `[tawassul] v2 save ${genTag(this.generation)} caller=${caller} dirty=${dirtyBefore} outcome=skipped reason=read-only`,
+      );
       return;
     }
     
@@ -838,6 +856,9 @@ export class StatePersistence {
         this._saveCompletionResolve = null;
         this._saveCompletionPromise = null;
       }
+      logger.info(
+        `[tawassul] v2 save ${genTag(this.generation)} caller=${caller} dirty=${dirtyBefore} ms=${(performance.now() - startedAt).toFixed(1)} outcome=skipped reason=isolated`,
+      );
       return;
     }
     
@@ -856,6 +877,7 @@ export class StatePersistence {
       return;
     }
     let savedCleanly = false;
+    this.saveCount += 1;
     try {
       this.saveInProgress = true;
       this._saveCompletionPromise = new Promise<void>((resolve) => {
@@ -883,6 +905,9 @@ export class StatePersistence {
         await new Promise((resolve) => setTimeout(resolve, 50 * (l + 1)));
       }
       if (!lockAcquired) {
+        logger.info(
+          `[tawassul] v2 save ${genTag(this.generation)} caller=${caller} dirty=${dirtyBefore} ms=${(performance.now() - startedAt).toFixed(1)} outcome=lock-lost attempts=${StatePersistence.LOCK_ATTEMPTS}`,
+        );
         logger.warn(`⚠️ State save dropped: could not acquire lock after ${StatePersistence.LOCK_ATTEMPTS} attempts`);
         this.ctx.eventHub.emit({ type: "STATE_LOCK_LOST", payload: { type: type ?? "" } });
         return;
@@ -981,6 +1006,9 @@ export class StatePersistence {
           this.persistedGeneration = Math.max(this.persistedGeneration, savedGeneration);
           this.saveDirty = this.dirtyGeneration > this.persistedGeneration;
           savedCleanly = true;
+          logger.info(
+            `[tawassul] v2 save ${genTag(this.generation)} caller=${caller} dirty=${dirtyBefore} ms=${(performance.now() - startedAt).toFixed(1)} outcome=saved`,
+          );
           this.ctx.eventHub.emit({ type: "STATE_SAVED", payload: { type } });
         } catch (e) {
           rollback();
@@ -990,6 +1018,9 @@ export class StatePersistence {
         await this.ctx.stateManager.releaseStateLock(sessionId);
       }
     } catch (error) {
+      logger.info(
+        `[tawassul] v2 save ${genTag(this.generation)} caller=${caller} dirty=${dirtyBefore} ms=${(performance.now() - startedAt).toFixed(1)} outcome=failed`,
+      );
       this.ctx.eventHub.emit({ type: "STATE_SAVE_FAILED", payload: { error, type } });
       throw error;
     } finally {

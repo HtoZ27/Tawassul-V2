@@ -368,6 +368,34 @@
       ]
     },
     {
+      "name": "schema-reuse",
+      "cmd": [
+        "bun",
+        "scripts/prove-schema-reuse.ts"
+      ]
+    },
+    {
+      "name": "dropped-persist",
+      "cmd": [
+        "bun",
+        "scripts/prove-dropped-persist.ts"
+      ]
+    },
+    {
+      "name": "cleanup-bound",
+      "cmd": [
+        "bun",
+        "scripts/prove-cleanup-bound.ts"
+      ]
+    },
+    {
+      "name": "retire-telemetry",
+      "cmd": [
+        "bun",
+        "scripts/prove-retire-telemetry.ts"
+      ]
+    },
+    {
       "name": "b02",
       "cmd": [
         "bun",

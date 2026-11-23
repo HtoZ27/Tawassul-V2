@@ -263,14 +263,21 @@ export class RatingManager {
 
   private _countedDroppedHandoffs: Set<string> = new Set();
 
-  detectDroppedHandoffs(handoffs: { to: string; status: string }[]): void {
+  droppedHandoffCount(): number {
+    return this._countedDroppedHandoffs.size;
+  }
+
+  detectDroppedHandoffs(handoffs: { to: string; status: string }[]): number {
+    let counted = 0;
     for (const h of handoffs) {
       const key = normalizeName(h.to);
       if (h.status === "accepted" && !this._countedDroppedHandoffs.has(key)) {
         this._countedDroppedHandoffs.add(key);
         this.recordHandoffDropped(key);
+        counted += 1;
       }
     }
+    return counted;
   }
 
   scoreBar(score: number, width: number): string {

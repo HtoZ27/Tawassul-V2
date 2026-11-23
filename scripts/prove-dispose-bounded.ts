@@ -274,13 +274,13 @@ try {
     })(context);
     const startedAt = Date.now();
     await deadline(cleanup(), 2000, "parked refresh cleanup");
-    assert(Date.now() - startedAt < 1000, "a parked refresh stop is abandoned inside the bound");
+    assert(Date.now() - startedAt < 1000, "a parked refresh stop is released inside the bound");
     assert(probeCalls >= 2, "the refresh stop was waiting on the parked probe");
     assert(
-      captured.records.some(
+      !captured.records.some(
         (record) => record.level === "warn" && record.message.includes("cleanup step refresh stop abandoned"),
       ),
-      "the abandoned refresh stop is logged",
+      "the released refresh stop is not logged as abandoned",
     );
     assert(toolDisposed === 1, "the tool disposer still runs after the refresh bound");
     assert(getSessionBridge() === null, "the clears still run after the refresh bound");
