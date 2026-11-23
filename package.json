@@ -170,13 +170,13 @@
     "check:release": "bun scripts/release/check-release.ts"
   },
   "devDependencies": {
-    "@opencode/plugin": "^2.3.0",
+    "@opencode/plugin": "^2.3.2",
     "@types/node": "^24.0.0",
-    "confbox": "^0.1.8",
+    "confbox": "^0.3.2",
     "tree-sitter-javascript": "^0.25.0",
     "tree-sitter-typescript": "^0.23.2",
     "typescript": "^5.6.0",
-    "web-tree-sitter": "^0.26.13",
+    "web-tree-sitter": "^0.27.2",
     "zod": "^4.6.7"
   },
   "engines": {
