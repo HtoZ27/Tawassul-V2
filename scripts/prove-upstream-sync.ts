@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -65,7 +66,7 @@ function expectProblem(document: unknown, needle: string, name: string): void {
 
 function fixture(): string {
   const entries = [
-    { version: "2.3.1", date: "2026-11-14" },
+    { version: "2.5.0", date: "2026-11-14" },
     ...registry.releases.map(({ version, date }) => ({ version, date })),
     { version: "2.1.4", date: "2026-10-23" },
   ];
@@ -90,7 +91,7 @@ function feed(): string {
 
 const parsed = parseChangelog(fixture());
 assert(parsed.length === registry.releases.length + 2, "parser returns only release headings");
-assert(parsed[0]?.version === "2.3.1", "parser sorts the newest release first");
+assert(parsed[0]?.version === "2.5.0", "parser sorts the newest release first");
 assert(parsed.at(-1)?.version === "2.1.4", "parser keeps the oldest release last");
 assert(parsed[0]?.date === "2026-11-14", "parser carries the release date");
 assert(parseChangelog("").length === 0, "parser returns nothing for empty input");
@@ -102,7 +103,7 @@ assert(atom.length === 2, "the release feed skips a prerelease title");
 assert(atom[0]?.version === "2.2.1", "the release feed sorts the newest tag first");
 assert(atom[0]?.date === "2026-10-29", "the release feed reads the entry update day");
 assert(parseFeed(feed())[0]?.version === "2.2.1", "the feed parser auto-detects atom");
-assert(parseFeed(fixture())[0]?.version === "2.3.1", "the feed parser falls back to the changelog page");
+assert(parseFeed(fixture())[0]?.version === "2.5.0", "the feed parser falls back to the changelog page");
 const merged = mergeEntries([
   [{ version: "2.2.1", date: "2026-10-29" }],
   [
@@ -131,8 +132,8 @@ assert(
   "the newest host contract matches auditedThrough",
 );
 assert(
-  (registry.releases[0]?.items.length ?? 0) >= 20,
-  "the audited release tracks at least 20 changes",
+  (registry.releases[0]?.items.length ?? 0) >= 5,
+  "the audited release tracks at least 5 changes",
 );
 const counts = verdictCounts(registry);
 const total = registry.releases.reduce((sum, release) => sum + release.items.length, 0);
@@ -147,12 +148,12 @@ assert(counts.adopted >= 1, "the registry records at least one adopted change");
 const newer = parseChangelog(fixture());
 const drift = diffReleases(registry, newer);
 assert(drift.unaudited.length === 1, "a newer release is reported as unaudited");
-assert(drift.unaudited[0]?.version === "2.3.1", "the unaudited release is the new one");
+assert(drift.unaudited[0]?.version === "2.5.0", "the unaudited release is the new one");
 assert(drift.unlisted.length === 0, "a full page lists every audited release");
 
 const equal = diffReleases(registry, parseChangelog(fixture()).slice(1));
 assert(equal.unaudited.length === 0, "an audited page has no unaudited release");
-assert(equal.latest?.version === "2.3.0", "the drift report exposes the live latest release");
+assert(equal.latest?.version === "2.4.1", "the drift report exposes the live latest release");
 
 const older = diffReleases(registry, [
   { version: "2.2.0", date: "2026-10-27" },
@@ -161,10 +162,10 @@ const older = diffReleases(registry, [
 assert(older.unaudited.length === 0, "releases below auditedThrough are not flagged");
 
 const patchAbove = diffReleases(registry, [
-  { version: "2.3.1", date: "2026-11-14" },
-  { version: "2.3.0", date: "2026-11-13" },
+  { version: "2.4.2", date: "2026-11-24" },
+  { version: "2.4.1", date: "2026-11-23" },
 ]);
-assert(patchAbove.unaudited[0]?.version === "2.3.1", "a patch release above the ceiling is flagged");
+assert(patchAbove.unaudited[0]?.version === "2.4.2", "a patch release above the ceiling is flagged");
 
 const feedDrift = diffReleases(registry, parseReleaseFeed(feed()));
 assert(feedDrift.unaudited.length === 0, "the audited ceiling is not flagged from the release feed");

@@ -208,7 +208,7 @@ launcher_host_bin() {
 
 # Pin the host binary version: a v1/mismatched CLI must not open a v2 DB.
 OPENCODE_VERSION_MIN="2.3.0"
-OPENCODE_VERSION_AUDITED="2.3.0"
+OPENCODE_VERSION_AUDITED="2.4.1"
 OPENCODE_VERSION_AUDITED_MAJOR="2"
 OPENCODE_VERSION_PIN="${TAWASSUL_OPENCODE_VERSION:-}"
 OPENCODE_BIN="$(launcher_host_bin)" || OPENCODE_BIN=""

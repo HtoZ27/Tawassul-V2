@@ -1,8 +1,110 @@
 {
   "source": "https://opencode.ai/changelog",
   "releasesUrl": "https://github.com/anomalyco/opencode/releases",
-  "auditedThrough": "2.3.0",
+  "auditedThrough": "2.4.1",
   "releases": [
+    {
+      "version": "2.4.1",
+      "date": "2026-11-23",
+      "auditedAt": "2026-11-24",
+      "hostContract": "2.4.1",
+      "notesUrl": "https://github.com/anomalyco/opencode/releases/tag/v2.4.1",
+      "status": "aligned",
+      "items": [
+        {
+          "pr": 65771,
+          "topic": "macos12-assistant-save",
+          "verdict": "aligned",
+          "note": "The macOS 12 SQLite save failure is fixed on the host; the audited lane is 2.4.1 and the supported floor stays 2.3.0."
+        },
+        {
+          "pr": 65747,
+          "topic": "host-automation-plugin-api",
+          "verdict": "candidate",
+          "note": "Effect and Promise plugins can manage host automations; the plugin creates none."
+        },
+        {
+          "pr": 65768,
+          "topic": "compaction-keep-tokens",
+          "verdict": "aligned",
+          "note": "Compaction now keeps at most keep.tokens; the plugin's transfer gate is unchanged."
+        },
+        {
+          "pr": 65788,
+          "topic": "compaction-cache-cost",
+          "verdict": "aligned",
+          "note": "Provider accounting after a compaction; no plugin surface."
+        },
+        {
+          "pr": 65819,
+          "topic": "opentui-0-8-floor",
+          "verdict": "ignored",
+          "note": "Plugin install floor for OpenTUI; the plugin ships no TUI renderer."
+        }
+      ]
+    },
+    {
+      "version": "2.4.0",
+      "date": "2026-11-23",
+      "auditedAt": "2026-11-24",
+      "hostContract": "2.4.1",
+      "notesUrl": "https://github.com/anomalyco/opencode/releases/tag/v2.4.0",
+      "status": "partial",
+      "items": [
+        {
+          "pr": 63002,
+          "topic": "desktop-browser-permission",
+          "verdict": "guarded",
+          "issue": "E-62",
+          "note": "The built-in browser adds a browser permission key; every base role, tawa, and addagent deny it."
+        },
+        {
+          "pr": 65039,
+          "topic": "assistant-part-rows",
+          "verdict": "guarded",
+          "issue": "E-63",
+          "note": "Assistant parts default to their own rows; the live config and both seeds pin experimental.part_rows to false."
+        },
+        {
+          "pr": 63666,
+          "topic": "background-video",
+          "verdict": "adopted",
+          "issue": "E-64",
+          "note": "Video jobs add a video idle kind; the snapshot sanitizer accepts codemode and video and task-control lists them."
+        },
+        {
+          "pr": 63814,
+          "topic": "background-plugin-load",
+          "verdict": "guarded",
+          "issue": "E-58",
+          "note": "Plugins load in the background again, so startup endpoints can be empty; boot measurements pair a zero-tool generation with registration."
+        },
+        {
+          "pr": 64764,
+          "topic": "plugin-auto-update",
+          "verdict": "ignored",
+          "note": "Version-following plugins update every 24 hours; this plugin is installed as a flat file."
+        },
+        {
+          "pr": 65296,
+          "topic": "host-automations",
+          "verdict": "ignored",
+          "note": "Host prompt, script, and shell automations; the coordinator schedules database maintenance only."
+        },
+        {
+          "pr": 65682,
+          "topic": "image-tool-rename",
+          "verdict": "ignored",
+          "note": "The image tool is renamed; the plugin's image transport is its own tool."
+        },
+        {
+          "pr": 65466,
+          "topic": "opencode-go",
+          "verdict": "ignored",
+          "note": "OpenCode Go connection flow; provider configuration only."
+        }
+      ]
+    },
     {
       "version": "2.3.0",
       "date": "2026-11-13",

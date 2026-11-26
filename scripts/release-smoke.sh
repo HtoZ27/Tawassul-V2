@@ -35,7 +35,7 @@ TOOL_FLOOR="${3:-}"
 [ -n "$TOOL_COUNT" ] && [ -n "$TOOL_HASH" ] && [ -n "$TOOL_FLOOR" ] || { echo "release-smoke: cannot read $TRIPWIRE_FILE." >&2; exit 3; }
 PIN="${TAWASSUL_OPENCODE_VERSION:-}"
 MIN_VERSION="2.3.0"
-AUDITED_VERSION="2.3.0"
+AUDITED_VERSION="2.4.1"
 AUDITED_MAJOR="2"
 
 version_at_least() {

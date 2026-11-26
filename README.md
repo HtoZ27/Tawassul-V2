@@ -314,10 +314,9 @@ More in [docs/skills.md](docs/skills.md).
 | Windows x64 | Supported (native receipt); bundle and wasm only, no database lane |
 | WSL2 | Experimental |
 
-The host floor is `2.3.0`, which is also the audited version. The installer
+The host floor is `2.3.0`; the audited host is `2.4.1`. The installer
 refuses an older host, and the plugin refuses one that reports an older version
-at init. Newer majors run in untested mode behind a capability probe. Full
-detail, including
+at init. Newer hosts run behind a capability probe. Full detail, including
 the evidence level of every row, is in
 [docs/compatibility.md](docs/compatibility.md).
 

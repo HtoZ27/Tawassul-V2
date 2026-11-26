@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -39,7 +40,7 @@ process.env.XDG_DATA_HOME = join(root, "data");
 
 try {
   assert(HOST_FLOOR === "2.3.0", "the shared floor is 2.3.0");
-  assert(HOST_AUDITED === "2.3.0", "the audited host is 2.3.0");
+  assert(HOST_AUDITED === "2.4.1", "the audited host is 2.4.1");
   assert(parseHostVersion("2.2.1")?.join(".") === "2.2.1", "a plain version parses");
   assert(parseHostVersion("v2.2.1")?.join(".") === "2.2.1", "a v-prefixed version parses");
   assert(parseHostVersion("2.2.1-experimental")?.join(".") === "2.2.1", "a prerelease suffix parses");

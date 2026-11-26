@@ -842,11 +842,11 @@ if [ -n "$resolved" ] && [ -x "$resolved" ]; then
   elif [ -n "$cli_version" ]; then
     if [ "$(printf '%s\n%s\n' "2.3.0" "$cli_version" | sort -V | head -n1)" != "2.3.0" ]; then
       warn "opencode on PATH is v$cli_version; supported hosts are v>=2.3.0 (v1 hosts must not run)"
-    elif [ "$cli_version" != "2.3.0" ]; then
+    elif [ "$cli_version" != "2.4.1" ]; then
       if [ "${cli_version%%.*}" -gt 2 ] 2>/dev/null; then
-        warn "opencode on PATH is v$cli_version, a newer major than the audited v2.3.0 — untested mode; the plugin probes capabilities at init"
+        warn "opencode on PATH is v$cli_version, a newer major than the audited v2.4.1 — untested mode; the plugin probes capabilities at init"
       else
-        warn "opencode on PATH is v$cli_version, newer than the audited v2.3.0; run npm run check:upstream"
+        warn "opencode on PATH is v$cli_version, newer than the audited v2.4.1; run npm run check:upstream"
       fi
     fi
   fi

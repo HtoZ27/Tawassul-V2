@@ -10,12 +10,14 @@ gate; a row marked pending has no receipt yet and is not a support claim.
 | --- | --- | --- |
 | `< 2.3.0` | Rejected | The installer refuses below the floor, and the plugin refuses a reported version below it at init |
 | `2.2.1 – 2.2.7` | Retired | Assessed before revision 19 of the dispatch plan; accepted only while the floor was 2.2.1, refused now |
-| `2.3.0` | Supported, audited | The floor, the audited ceiling and the built dependency; background-subagent terminals are fixed (`E-57`) |
-| `2.3.x` above the audited build | Supported, unaudited patch level | Capability probe at init; installer advises `check:upstream` |
+| `2.3.0` | Supported, floor | The minimum accepted host; background-subagent terminals are fixed (`E-57`) |
+| `2.3.x` above `2.3.0` | Supported, unaudited patch level | The 2.3.x line is floor-supported; only 2.4.0–2.4.1 is audited. The generated `browser` key was not exercised on 2.3.x |
+| `2.4.0 – 2.4.1` | Supported, audited | The audited ceiling and the built dependency; browser deny, `part_rows` opt-out, and codemode/video idle kinds are handled |
+| `2.4.x` above the audited build | Supported, unaudited patch level | Capability probe at init; installer advises `check:upstream` |
 | Newer major (`3.x` and above) | Untested | Accepted in untested mode with a warning; the plugin probes host capabilities at init and reports any missing domain |
 
-The plugin API dependency is `@opencode/plugin ^2.3.0`. The installer refuses a
-host below `2.3.0` and warns when the host is newer than the audited `2.3.0`.
+The plugin API dependency is `@opencode/plugin ^2.4.1`. The installer refuses a
+host below `2.3.0` and warns when the host is newer than the audited `2.4.1`.
 The plugin refuses a host that reports a version below `2.3.0` at init; when the
 host reports no version, that check is skipped and the capability probe still
 runs.

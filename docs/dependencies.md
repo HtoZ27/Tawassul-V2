@@ -9,7 +9,7 @@ provide, and how the dependency inventory is audited.
 
 | Requirement | Version | Why |
 | --- | --- | --- |
-| OpenCode | `>= 2.3.0`, audited at `2.3.0` | Host runtime and plugin API |
+| OpenCode | `>= 2.3.0`, audited at `2.4.1` | Host runtime and plugin API |
 | Node.js or Bun | Whatever the host itself runs on | The bundle is an ES module |
 | `sqlite3` CLI | Any recent build | Database maintenance and backups only |
 | POSIX shell and `bash` | - | Maintenance and installer scripts |
@@ -25,7 +25,7 @@ Versions match `package.json` and the lockfile at the release commit.
 
 | Component | Version | Licence | Role | In the bundle |
 | --- | --- | --- | --- | --- |
-| [`@opencode/plugin`](https://www.npmjs.com/package/@opencode/plugin) | `^2.3.0` | MIT | Plugin API types and hooks | External when resolvable |
+| [`@opencode/plugin`](https://www.npmjs.com/package/@opencode/plugin) | `^2.4.1` | MIT | Plugin API types and hooks | External when resolvable |
 | [`zod`](https://www.npmjs.com/package/zod) | `^4.1.8` | MIT | Configuration and tool schemas | Bundled |
 | [`confbox`](https://www.npmjs.com/package/confbox) | `^0.1.8` | MIT | JSONC parsing | Bundled |
 | [`web-tree-sitter`](https://www.npmjs.com/package/web-tree-sitter) | `^0.26.13` | MIT | AST queries | Bundled, wasm staged |

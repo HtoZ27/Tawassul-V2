@@ -1,6 +1,6 @@
 # Upstream Watch — OpenCode Compatibility
 
-Status: 2026-11-13 · audited through v2.3.0 · built host contract 2.3.0
+Status: 2026-11-24 · audited through v2.4.1 · built host contract 2.4.1
 
 Purpose: one standing section that answers, for every OpenCode release, four
 questions — what changed, does it touch Tawassul, what did we do about it, and
@@ -59,19 +59,19 @@ the legacy rate-limit path (`E-44`). The launcher, the global installer,
 an exact pin:
 
 - accepted: any host at or above `2.3.0`; the code has no upper gate;
-- a host newer than the audited `2.3.0` runs with a warning and the audited
+- a host newer than the audited `2.4.1` runs with a warning and the audited
   ceiling stays visible;
 - a host of a newer major runs in untested mode with a warning, because a
   major release can change the plugin API and the database contract; the
   entry still loads it;
 - a host below `2.3.0` is refused (owner decision, 2026-11-15: the 2.2.x line
-  is out of scope, so the floor and the audited ceiling are both `2.3.0`);
+  is out of scope; the floor stays `2.3.0`);
 - `TAWASSUL_OPENCODE_VERSION` is an optional exact pin for reproducible runs
   and wins over the floor.
 
 `auditedThrough` is the newest *assessed* release, not the installed one, so a
 patch release on a user machine never turns into a hard failure. The build
-dependency uses a caret range (`^2.3.0`), never an exact pin; the lockfile
+dependency uses a caret range (`^2.4.1`), never an exact pin; the lockfile
 supplies reproducibility and `check-sdk-pins` keeps the range, the lock, the
 installed package, and the audited ceiling in agreement.
 
@@ -97,6 +97,8 @@ still running), or `blocked` (a host defect prevents the work).
 
 | Release | Date | Audited | Host contract | Status | Summary |
 | --- | --- | --- | --- | --- | --- |
+| v2.4.1 | 2026-11-23 | 2026-11-24 | 2.4.1 | aligned | 5 recorded changes: three aligned, one candidate, one ignored |
+| v2.4.0 | 2026-11-23 | 2026-11-24 | 2.4.1 | partial | 8 recorded changes: three guarded (`E-62` browser deny, `E-63` storage path, `E-58` background load), one adoption (`E-64` background kinds), four ignored |
 | v2.3.0 | 2026-11-13 | 2026-11-13 | 2.3.0 | partial | 23 recorded changes: two adoptions (background subagents and the still-running idle, `E-57`), two aligned, nineteen ignored |
 | v2.2.7 | 2026-11-10 | 2026-11-13 | 2.2.1 | partial | 16 recorded changes: one guard (`E-58`, endpoints skip the plugin wait), one aligned, fourteen ignored |
 | v2.2.6 | 2026-11-06 | 2026-11-13 | 2.2.1 | partial | 15 recorded changes: one tracked (`E-59`, `opencode run` waits for background jobs), one candidate, two aligned, eleven ignored |
@@ -218,6 +220,39 @@ handoff plan cannot use them.
 | #59987 | Compaction through the Promise AI client | Requires `@opencode/ai`, which is not imported |
 | #59948 | Code Mode extension globals | The plugin declares none |
 
+## v2.4.0 – v2.4.1 — what changed for us
+
+Audited 2026-11-24 against the GitHub release feed. The 2.4.0 release adds a
+desktop browser, host automations, video generation, and a new part storage
+path; 2.4.1 is the macOS 12 save fix and a small set of host-side fixes.
+
+The build dependency moves from 2.3.0 to 2.4.1. The Promise type surface adds
+`SessionIdleBackground` kinds `codemode` and `video`; both are handled by the
+background snapshot sanitizer. Typecheck passes on 2.4.1.
+
+### v2.4.0
+
+| PR | Change | Verdict | Issue | Action |
+| --- | --- | --- | --- | --- |
+| #63002 | Built-in desktop browser with a `browser` permission key | guarded | `E-62` | Every base role, `tawa`, and `addagent` deny `browser`; the generator accepts the key |
+| #65039 | Assistant parts are stored as their own rows | guarded | `E-63` | The live config and both seeds pin `experimental.part_rows: false` to keep the whole-message path |
+| #63666 | Background video jobs and the `video` idle kind | adopted | `E-64` | Background snapshots sanitize `codemode` and `video`; `task-control` lists them and clips by kind |
+| #63814 | Plugins load in the background again; endpoints may start empty | guarded | `E-58` | The health line can report `applied=0`, or `tools=0` before registration, and the host-goal mirror degrades and recovers |
+| #64764 | Version-following plugins update every 24 hours | ignored | | The plugin is installed as a flat file, not a version-following package |
+| #65296 | Host automations | ignored | | The coordinator schedules database maintenance only |
+| #65682 | `experimental_image_generate` renamed to `generate_image` | ignored | | The plugin's image transport is its own tool |
+| #65466 | OpenCode Go through OpenCode | ignored | | Provider configuration only |
+
+### v2.4.1
+
+| PR | Change | Verdict | Issue | Action |
+| --- | --- | --- | --- | --- |
+| #65771 | macOS 12 assistant save fix | aligned | | Host SQLite fix; no plugin surface |
+| #65747 | Effect and Promise plugins can manage host automations | candidate | | The plugin does not create host automations |
+| #65768 | Compaction keeps at most `keep.tokens` | aligned | | The transfer gate is unchanged |
+| #65788 | Cache cost after compaction | aligned | | Host provider accounting only |
+| #65819 | OpenTUI 0.8 floor restored for plugins | ignored | | The plugin ships no TUI renderer |
+
 ## v2.2.2 – v2.3.0 — what changed for us
 
 Audited 2026-11-13 against the GitHub release feed. The per-pull-request
@@ -271,6 +306,18 @@ MCP server.
 | #60097 | Plugin model variants | candidate | | A dispatch carries provider and model only |
 
 ## Open follow-ups
+
+### From v2.4.0
+
+1. `E-62`: confirm on the live 2.4.1 host that a `browser` deny refuses every
+   agent browser call and that no role receives an ask prompt.
+2. `E-63`: confirm the live database keeps the whole-message assistant row
+   while `experimental.part_rows: false` is set, then remove the flag only
+   with a paired storage check.
+3. `E-64`: confirm a real `generate_video` job appears as one `video` item in
+   the idle snapshot and that `task-control status` lists it.
+4. `E-58`: confirm a one-shot client that starts before plugin load sees an
+   empty agent list and recovers on the matching update event.
 
 ### From v2.3.0
 

@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -80,7 +81,7 @@ const CLOSURES: Closure[] = [
     proof: "scripts/check-sdk-pins.ts",
     markers: [
       ["scripts/check-sdk-pins.ts", "the .opencode lockfile pins the declared SDK"],
-      ["docs/installation.md", "\"@opencode/plugin\":\"^2.3.0\""],
+      ["docs/installation.md", "\"@opencode/plugin\":\"^2.4.1\""],
     ],
   },
 ];

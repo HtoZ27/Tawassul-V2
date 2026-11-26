@@ -1,5 +1,5 @@
 export const HOST_FLOOR = "2.3.0";
-export const HOST_AUDITED = "2.3.0";
+export const HOST_AUDITED = "2.4.1";
 export const HOST_AUDITED_MAJOR = 2;
 
 export type HostVersionParts = [number, number, number];

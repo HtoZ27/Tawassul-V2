@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import {
@@ -198,7 +199,7 @@ try {
   assert(actual.length > 0, `host version readable (${actual || "unknown"})`);
   assert(
     versionAtLeast(actual, "2.3.0"),
-    `host ${actual} is inside the supported range (>=2.3.0; audited 2.3.0)`,
+    `host ${actual} is inside the supported range (>=2.3.0; audited 2.4.1)`,
   );
 
   const ROOT = mkdtempSync(join(tmpdir(), "tawassul-global-boot-"));
