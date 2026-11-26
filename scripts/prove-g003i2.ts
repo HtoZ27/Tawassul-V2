@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { evaluateFreeLimitBridge } from "../src/services/free-limit.ts";
 
 let passed = 0;

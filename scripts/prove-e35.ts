@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { z } from "zod";
 import { toV2Result } from "../src/v2/adapters.ts";
 import { applyV1AfterOutput } from "../src/v2/result-bridge.ts";

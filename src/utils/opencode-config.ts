@@ -524,7 +524,7 @@ export async function ensureMinimalProjectContract(
     await ensureBaseAgentFiles(resolve(projectDir, ".opencode", "agents"));
     const doc: Record<string, unknown> = {
       $schema: "https://opencode.ai/config.json",
-      experimental: { subagent_depth: 3 },
+      experimental: { subagent_depth: 3, part_rows: false },
       agent: {},
     };
     const configPath = resolve(projectDir, "opencode.json");

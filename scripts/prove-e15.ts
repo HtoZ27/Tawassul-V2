@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { mapV2EventToV1 } from "../src/v2/event-adapter.ts";
 import { createToolOutputStreamHook } from "../src/hooks/tool-output-stream.ts";
 

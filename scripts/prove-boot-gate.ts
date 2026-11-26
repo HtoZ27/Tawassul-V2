@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -326,7 +327,8 @@ try {
     assert(res.stdout.includes("N1 PASS") && res.stdout.includes("N4 PASS"), "INFO subscribe and command echoes do not fail N1/N4");
     assert(res.stdout.includes("N5 PASS"), "refresh pair passes N5");
     const slow = runScore(home, ["--since", iso(sinceMs), "--n2", "18"]);
-    assert(slow.status === 1 && slow.stdout.includes("N2 FAIL"), "slow first stream fails N2");
+    assert(slow.status === 0 && slow.stdout.includes("N2 INFO"), "a slow first stream is reported without failing N2");
+    assert(slow.stdout.includes("no target"), "the N2 line states that it carries no target");
   }
 
   {

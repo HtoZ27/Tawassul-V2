@@ -229,6 +229,7 @@ export const OFFICIAL_PERMISSION_KEYS: readonly string[] = [
   "todowrite",
   "webfetch",
   "websearch",
+  "browser",
   "lsp",
   "skill",
   "question",
@@ -297,6 +298,7 @@ export function buildPermission(fm: Record<string, unknown>): PermissionBlock {
     external_directory: mdPerm.external_directory as string | undefined,
     webfetch: mdPerm.webfetch as string | undefined,
     websearch: mdPerm.websearch as string | undefined,
+    browser: (mdPerm.browser as string | undefined) ?? "deny",
     task: mdPerm.task as string | Record<string, string> | undefined,
     handoff: (mdPerm.handoff as string | Record<string, string> | undefined) ?? {
       "*": "deny",
@@ -529,6 +531,7 @@ export function buildAgents(deleted?: readonly string[], opts?: GenOptions): Rec
       external_directory: "allow",
       webfetch: "allow",
       websearch: "allow",
+      browser: "deny",
       task: "deny",
       handoff: "deny",
       addagent: "allow",
@@ -625,6 +628,10 @@ export function buildMergedAgents(maybeRaw?: string, opts?: GenOptions): Record<
         existingCfg.model !== generatedCfg.model
       ) {
         agents[name] = cfg;
+        const replaced = agents[name] as { permission?: { browser?: unknown } } | undefined;
+        if (replaced?.permission && !("browser" in replaced.permission)) {
+          replaced.permission.browser = "deny";
+        }
       }
       const merged = agents[name] as { permission?: { bash?: unknown } } | undefined;
       if (
@@ -650,7 +657,7 @@ export function buildMergedAgents(maybeRaw?: string, opts?: GenOptions): Record<
       continue;
     }
     if (isGeneratedVariant(name, EXTEND_AGENTS)) continue;
-    const dyn = cfg as { permission?: { bash?: unknown } };
+    const dyn = cfg as { permission?: { bash?: unknown; browser?: unknown } };
     if (
       dyn &&
       dyn.permission &&
@@ -662,6 +669,14 @@ export function buildMergedAgents(maybeRaw?: string, opts?: GenOptions): Record<
       if (JSON.stringify(dyn.permission.bash) !== JSON.stringify(live)) {
         dyn.permission.bash = live;
       }
+    }
+    if (
+      dyn &&
+      dyn.permission &&
+      EXTEND_AGENTS.some((base) => name.startsWith(`${base}-`)) &&
+      !("browser" in dyn.permission)
+    ) {
+      dyn.permission.browser = "deny";
     }
     agents[name] = cfg;
   }

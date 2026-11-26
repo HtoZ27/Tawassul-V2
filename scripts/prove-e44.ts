@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import assert from "node:assert/strict";
 import { handleRateLimitError, isQuotaProbePending, matchesRateLimit } from "../src/bootstrap/plugin-init.ts";
 import {

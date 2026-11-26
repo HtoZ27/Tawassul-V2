@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { readFileSync } from "node:fs";
 import { deriveVariantSpec, parseAddInput } from "../src/tools/agent-add-helpers.ts";
 import { buildAgents } from "../src/scripts/gen-opencode-config.ts";

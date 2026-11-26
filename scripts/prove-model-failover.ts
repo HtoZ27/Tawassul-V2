@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import {
   DEFAULT_MAX_SWITCHES,
   FAILOVER_CLAIM_TTL_MS,
@@ -67,7 +68,11 @@ async function main(): Promise<void> {
     );
     assert(
       chain.filter((model) => model.startsWith("nvidia/")).every((model) => !model.startsWith("nvidia/nvidia-nim")),
-      `the ${role} chain uses the nvidia provider`,
+      `the ${role} chain avoids the nvidia-nim provider`,
+    );
+    assert(
+      !chain.includes("nvidia/deepseek-ai/deepseek-v4.1-flash"),
+      `the ${role} chain drops the end-of-life nvidia deepseek`,
     );
   }
   const roleChain = getFallbackChain("dev");

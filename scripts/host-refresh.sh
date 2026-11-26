@@ -85,7 +85,7 @@ resolve_cli() {
 
 last_init_line() {
   [ -f "$LOG" ] || return 1
-  grep -F "$MARKER" "$LOG" 2>/dev/null | tail -n 1
+  grep -aF "$MARKER" "$LOG" 2>/dev/null | tail -n 1
 }
 
 last_init_epoch() {
@@ -117,7 +117,13 @@ entry_sha() {
 
 live_fingerprint_line() {
   [ -f "$LOG" ] || return 1
-  grep -F "v2 bundle sha256=" "$LOG" 2>/dev/null | tail -n 1
+  grep -aF "v2 bundle sha256=" "$LOG" 2>/dev/null | grep -aF "entry=$ENTRY" | tail -n 1
+}
+
+line_epoch() {
+  local ts="${1%% *}"
+  [ -n "$ts" ] || return 1
+  date -d "$ts" +%s 2>/dev/null
 }
 
 live_sha() {
@@ -227,12 +233,21 @@ wait_for_init() {
   local start="$1"
   local deadline=0
   local epoch=""
+  local fp_line=""
+  local fp_epoch=""
   deadline=$(( $(date +%s) + TIMEOUT ))
   while :; do
-    epoch="$(last_init_epoch || true)"
-    if [ -n "$epoch" ] && [ "$epoch" -ge "$start" ]; then
-      printf '%s\n' "$epoch"
-      return 0
+    fp_line="$(live_fingerprint_line || true)"
+    fp_epoch=""
+    if [ -n "$fp_line" ]; then
+      fp_epoch="$(line_epoch "$fp_line" || true)"
+    fi
+    if [ -n "$fp_epoch" ] && [ "$fp_epoch" -ge "$start" ]; then
+      epoch="$(last_init_epoch || true)"
+      if [ -n "$epoch" ] && [ "$epoch" -ge "$fp_epoch" ]; then
+        printf '%s\n' "$epoch"
+        return 0
+      fi
     fi
     if [ "$(date +%s)" -ge "$deadline" ]; then
       return 1

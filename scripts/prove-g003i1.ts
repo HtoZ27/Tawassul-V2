@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import {
   parseFreeLimitSignal,
   isFreeDailyLimit,

@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { existsSync, mkdirSync, mkdtempSync, chmodSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { devNull, tmpdir } from "node:os";
 import { dirname, join } from "node:path";

@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { mkdtempSync, readFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

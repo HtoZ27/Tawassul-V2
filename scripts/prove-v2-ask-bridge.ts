@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { createAskBridge } from "../src/v2/ask.ts";
 import { buildPluginInput } from "../src/v2/client-shim.ts";
 import type { V2Context, V2ToolContext } from "../src/v2/types.ts";

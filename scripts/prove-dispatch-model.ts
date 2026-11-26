@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -60,18 +61,18 @@ assert(compareAgentModels(undefined, undefined) === "unknown", "both missing rea
 
 const dynamic = resolveAgentModelRef("dev", { dev: "dynamic" });
 assert(
-  dynamic.providerID === "nvidia" && dynamic.modelID === "deepseek-ai/deepseek-v4.1-flash",
+  dynamic.providerID === "opencode" && dynamic.modelID === "mimo-v2.6-flash-free",
   "the dynamic sentinel resolves to the role head",
 );
 const retired = resolveAgentModelRef("dev", { dev: "opencode/mimo-v2.5-free" });
-assert(retired.providerID === "nvidia", "a retired pin resolves to a live role head");
+assert(retired.providerID === "opencode", "a retired pin resolves to a live role head");
 const unmapped = resolveAgentModelRef("tester", {});
 assert(
   unmapped.providerID === "opencode" && unmapped.modelID === "mimo-v2.6-flash-free",
   "an unmapped agent resolves to its role head",
 );
 const ghost = resolveAgentModelRef("ghost", {});
-assert(ghost.providerID === "nvidia", "an unknown role falls back to the dev head");
+assert(ghost.providerID === "opencode", "an unknown role falls back to the dev head");
 
 const withRefs = createHandoffEntry({
   id: "H-001",

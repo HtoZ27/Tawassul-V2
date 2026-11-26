@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { createHash } from "node:crypto";
 import {
   appendFileSync,

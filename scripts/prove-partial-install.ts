@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { spawnSync } from "node:child_process";
 import {
   copyFileSync,

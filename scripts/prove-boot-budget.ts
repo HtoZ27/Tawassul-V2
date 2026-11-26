@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
@@ -48,7 +49,6 @@ async function isolatedBoot(): Promise<number> {
   process.env.TAWASSUL_STATE_DIR = join(work, "context");
   process.env.TAWASSUL_V2_STATE_DIR = join(work, "state");
   process.env.TAWASSUL_HMAC_KEY_DIR = keyDir;
-  process.env.TAWASSUL_LOG_FILE = join(work, "tawassul.log");
   process.env.TAWASSUL_ASK_CHANNEL = "1";
   process.env.TAWASSUL_ASK_TRANSCRIPT = "1";
   process.env.OPENCODE_DB = join(work, "opencode.db");

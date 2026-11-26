@@ -67,6 +67,7 @@ export function agentConfigFor(spec: string, fullModel: string): Record<string, 
     external_directory: template.permissions.external_directory ?? "deny",
     webfetch: template.permissions.webfetch ?? "allow",
     websearch: template.permissions.websearch ?? "allow",
+    browser: template.permissions.browser ?? "deny",
     task: template.permissions.task ?? { "*": "deny", explore: "allow", general: "allow" },
     handoff: { "*": "deny", explore: "allow", general: "allow" },
   };

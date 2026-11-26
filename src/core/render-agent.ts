@@ -78,6 +78,16 @@ export function generateAgentMd(template: AgentTemplate, model?: string): string
   if (template.permissions.websearch) {
     permissionLines.push(`websearch: ${quoteIfNeeded(template.permissions.websearch)}`);
   }
+  if (template.permissions.browser) {
+    if (typeof template.permissions.browser === "object" && template.permissions.browser !== null) {
+      const browserLines = Object.entries(template.permissions.browser)
+        .map(([k, v]) => `    ${JSON.stringify(k)}: ${v}`)
+        .join("\n");
+      permissionLines.push(`browser:\n${browserLines}`);
+    } else {
+      permissionLines.push(`browser: ${quoteIfNeeded(template.permissions.browser as string)}`);
+    }
+  }
   if (template.permissions.task) {
     if (typeof template.permissions.task === "object" && template.permissions.task !== null) {
       const taskLines = Object.entries(template.permissions.task)

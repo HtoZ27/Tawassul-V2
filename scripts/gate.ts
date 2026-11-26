@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import { setPriority, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -84,6 +84,8 @@ function fail(message: string): never {
 
 let stage = "fast";
 let activeBudget: StageBudget | null = null;
+let activeProofLogDir: string | null = null;
+let activeProofLogIndex = 0;
 let activeMaxRssKb = 0;
 let activeRssMeasured = false;
 let activeTimeWarned = false;
@@ -294,6 +296,11 @@ async function runStep(step: GateStep, stageRemainingMs: number | null): Promise
   const base = [command, ...step.cmd.slice(1)];
   const argv = useTime ? [timeBin, "-f", "%M", "-o", rssFile as string, ...base] : base;
   const env: NodeJS.ProcessEnv = { ...process.env, ...step.env };
+  if (activeProofLogDir !== null) {
+    activeProofLogIndex += 1;
+    const label = step.name.replace(/[^A-Za-z0-9._-]/g, "_");
+    env.TAWASSUL_LOG_FILE = join(activeProofLogDir, `${String(activeProofLogIndex).padStart(3, "0")}-${label}.log`);
+  }
   if (process.versions.bun) env.TAWASSUL_BUN = process.execPath;
   if (process.platform === "win32" && command !== step.cmd[0]) {
     const entries = [...shellBinPaths(command), ...(env.PATH ?? "").split(";")]
@@ -430,7 +437,7 @@ function seedProofState(): void {
   if (!existsSync(config)) {
     const body = {
       $schema: "https://opencode.ai/config.json",
-      experimental: { subagent_depth: 3 },
+      experimental: { subagent_depth: 3, part_rows: false },
       agent: buildAgents([], { projectRoot: repo }),
     };
     writeFileSync(config, `${JSON.stringify(body, null, 2)}\n`);
@@ -475,6 +482,8 @@ async function runStage(name: string): Promise<boolean> {
   const startedAt = new Date().toISOString();
   const results: StepResult[] = [];
   activeBudget = budget;
+  activeProofLogDir = name === "proofs" ? mkdtempSync(join(tmpdir(), "tawassul-gate-proofs-")) : null;
+  activeProofLogIndex = 0;
   activeMaxRssKb = 0;
   activeRssMeasured = false;
   const wallMs = budget?.wallMs ?? 0;
@@ -500,6 +509,10 @@ async function runStage(name: string): Promise<boolean> {
     }
   } finally {
     if (watchdog !== null) clearTimeout(watchdog);
+    if (activeProofLogDir !== null) {
+      rmSync(activeProofLogDir, { recursive: true, force: true });
+      activeProofLogDir = null;
+    }
   }
   const elapsed = Date.now() - started;
   activeBudget = null;

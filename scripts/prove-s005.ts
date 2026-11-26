@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";

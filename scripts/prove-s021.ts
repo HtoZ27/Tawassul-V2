@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { tawaFallbackPermission } from "../src/tools/agent-management.ts";
 import { generateAgentMd } from "../src/core/render-agent.ts";
 import { ALL_AGENTS } from "../src/core/agent-data.ts";

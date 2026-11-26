@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { z } from "zod";
 import { ConsentBlockedError } from "../src/hooks/guards/consent-gate-guard.ts";
 import { ToolBlockedError } from "../src/hooks/tool-execute.ts";

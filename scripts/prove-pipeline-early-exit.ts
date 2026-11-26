@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { runPipeline } from "../src/hooks/validation-pipeline.ts";
 import { combinedStage } from "../src/hooks/guards/shared/factories.ts";
 import { PipelineState } from "../src/hooks/PipelineState.ts";

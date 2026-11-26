@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {

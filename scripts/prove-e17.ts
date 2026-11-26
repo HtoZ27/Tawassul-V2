@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { z } from "zod";
 import { makeV2Tool } from "../src/v2/adapters.ts";
 import { buildToolJsonSchema } from "../src/lib/tool-schema-injection.ts";

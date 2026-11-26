@@ -6,28 +6,13 @@ export const FREE_FALLBACK_MODEL = "google/gemini-flash-lite-latest";
 
 export const FALLBACK_CHAINS: Record<string, string[]> = {
   tawa: ["opencode/big-pickle", FREE_FALLBACK_MODEL, "opencode/mimo-v2.6-flash-free"],
-  dev: [
-    "nvidia/deepseek-ai/deepseek-v4.1-flash",
-    FREE_FALLBACK_MODEL,
-    "opencode/mimo-v2.6-flash-free",
-    "opencode/big-pickle",
-  ],
-  analyst: [
-    FREE_FALLBACK_MODEL,
-    "nvidia/deepseek-ai/deepseek-v4.1-flash",
-    "opencode/mimo-v2.6-flash-free",
-    "opencode/big-pickle",
-  ],
-  tester: [
-    "opencode/mimo-v2.6-flash-free",
-    FREE_FALLBACK_MODEL,
-    "nvidia/deepseek-ai/deepseek-v4.1-flash",
-    "opencode/big-pickle",
-  ],
-  reviewer: ["opencode/big-pickle", FREE_FALLBACK_MODEL, "nvidia/deepseek-ai/deepseek-v4.1-flash"],
+  dev: ["opencode/mimo-v2.6-flash-free", FREE_FALLBACK_MODEL, "opencode/big-pickle"],
+  analyst: [FREE_FALLBACK_MODEL, "opencode/mimo-v2.6-flash-free", "opencode/big-pickle"],
+  tester: ["opencode/mimo-v2.6-flash-free", FREE_FALLBACK_MODEL, "opencode/big-pickle"],
+  reviewer: ["opencode/big-pickle", FREE_FALLBACK_MODEL, "opencode/mimo-v2.6-flash-free"],
   architect: ["opencode/big-pickle", FREE_FALLBACK_MODEL, "opencode/mimo-v2.6-flash-free"],
   designer: ["opencode/big-pickle", FREE_FALLBACK_MODEL, "opencode/mimo-v2.6-flash-free"],
-  doc: ["opencode/big-pickle", FREE_FALLBACK_MODEL, "nvidia/deepseek-ai/deepseek-v4.1-flash"],
+  doc: ["opencode/big-pickle", FREE_FALLBACK_MODEL, "opencode/mimo-v2.6-flash-free"],
 };
 
 export function getFallbackChain(role: string): string[] {

@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, existsSync, realpathSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";

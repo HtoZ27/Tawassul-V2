@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { normalizeToolName } from "../src/utils/name-utils.ts";
 import { toolNameToV1 } from "../src/v2/delegation.ts";
 import { requiresConsent } from "../src/hooks/guards/shared/limits.ts";

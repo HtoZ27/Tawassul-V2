@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { selectConversation } from "../src/services/context-pack/select.ts";
 import { byteLength } from "../src/services/context-pack/accounting.ts";
 import type { PackMessage } from "../src/services/context-pack/types.ts";

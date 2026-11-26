@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { createToolExecuteAfterHook } from "../src/hooks/tool-execute.ts";
 import { PipelineState } from "../src/hooks/PipelineState.ts";
 import type { ToolExecuteAfterContext } from "../src/hooks/tool-execute-types.ts";

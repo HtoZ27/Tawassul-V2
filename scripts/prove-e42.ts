@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import assert from "node:assert/strict";
 import { toV2Result } from "../src/v2/adapters.ts";
 import {

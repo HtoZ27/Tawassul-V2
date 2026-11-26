@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { checkSource } from "./check-v2-rules.mjs";
 
 let passed = 0;

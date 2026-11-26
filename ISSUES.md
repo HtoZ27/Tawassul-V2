@@ -3099,7 +3099,7 @@ ledger keeps at most 200 sessions.
 (29 assertions) cover the predicate, the terminal, the deferral, the buffer,
 the failure paths, and the caps.
 
-### E-58 2.2.7 endpoints no longer wait for plugins to load — guarded (2026-11-13)
+### E-58 2.2.7 and 2.4.0 endpoints can answer before plugins load — guarded (2026-11-13)
 
 OpenCode 2.2.7 removes the five-second plugin-load wait from `rpc.call` and
 `agent.list` (`#62796`). A call made during boot can now reach a host with no
@@ -3107,6 +3107,17 @@ plugin registration. The host-goal mirror already tolerates a missing or
 failed RPC (`src/v2/host-goal.ts` catches the call and returns no goal) and
 refreshes on the broadcast `changed` event, so the mirror degrades to
 "unavailable" and recovers on the next event. No code change is needed.
+
+2.4.0 restores background plugin loading (`#63814`), so the same empty
+endpoint window returns. This tree's 2.4.1 bundle logs
+`v2 health: tools=44 ... applied=0` at 2026-11-24T07:40:45.617Z and
+`v2 registered 44 tools` at 07:40:46.608Z, so a call made before registration
+completes can see empty endpoints. The `tools=0 ... reason=no tools
+registered` lines at 07:41:16Z and 09:54:37Z follow 2.83 MB bundles from other
+workspaces; because the host log interleaves workspaces, a `tools=0` line is
+attributable only with its preceding bundle line. The host-goal mirror's
+existing degrade-and-recover path still covers a startup call. No further
+code change.
 
 ### E-59 `opencode run` waits for background jobs the prompt started — tracked (2026-11-13)
 
@@ -3140,6 +3151,148 @@ decision: a host declaration at or above the 2k sanity floor is taken verbatim,
 the catalog fills only an absent declaration, and the fallback is 200k.
 `docs/UPSTREAM-EVAL-2.2.3-2.2.5.md` records the measurements and the proof
 update.
+
+### E-62 The 2.4.0 desktop browser adds a `browser` permission key — guarded (2026-11-24)
+
+OpenCode 2.4.0 ships a built-in desktop browser and a matching `browser`
+permission surface (`#63002`). A missing entry leaves agent browser calls on
+the host default. The generator's official-key list now accepts `browser`,
+every base role template emits `browser: deny`, and the generated `tawa` and
+`addagent` entries carry the same deny. The new key is additive; no existing
+permission changes.
+
+`addagent` now writes `browser: deny` for a new derived or custom variant, and
+the config merge fills a missing `browser` key on a role-prefixed variant or a
+model-overridden agent while preserving an explicit value. `prove-first-boot-seed`
+regenerates every base file from its template, so a dropped browser line fails
+the proof; `prove-gen-merge-guards` covers the dynamic and model-override paths.
+
+### E-63 The 2.4.0 part-row storage path changes assistant writes — guarded (2026-11-24)
+
+OpenCode 2.4.0 stores each streamed assistant part as its own `session_part`
+row by default (`#65039`). The whole-message path remains available through
+`experimental.part_rows: false`. The live config, the boot minimal-contract
+seed, and the gate seed now pin that flag, so the database lane keeps the
+shape the plugin's maintenance queries read. Removing the flag requires a
+paired storage check on the live host.
+
+`prove-first-boot-seed` asserts `experimental.part_rows` is exactly `false`.
+An existing config is not rewritten at boot, so an upgraded install keeps the
+host default until a boot repair backfills the flag; that repair needs a
+paired storage check.
+
+### E-64 2.4.0 adds `codemode` and `video` idle kinds — adopted (2026-11-24)
+
+The 2.4.0 `SessionIdleBackground` union adds codemode jobs and video jobs
+(`#63666`). The setup hook cast the host array straight to the old union, so a
+codemode item reached `task-control` without a `path` and crashed its clipper;
+a video item was rendered as an image with an undefined model.
+
+`src/services/background-tasks.ts` now validates every item and returns only
+known, complete kinds. `task-control` gives codemode its `jobID`, clips each
+field by kind, and lists video separately. `prove-task-control` covers
+codemode and video in the sanitizer and the rendered status.
+
+Live 2.4.1 evidence (2026-11-24): a fresh child run as the derived `dev-mimo`
+agent (session `ses_df4d98a4bffesMVSwgIymqpf64`) started `sleep 90` in the
+background, went idle, and its next `task_control status` listed
+`1 item(s), snapshot 55s old` with
+`- shell sh_20b2686dd001xj2Z9LoQSBkqxE | sleep 90`. An earlier fresh child
+ran as `general`; that run is discarded for the derived-agent claim. The main
+session predates the plugin reload, so its hook binding is stale and
+`task_control` reports `UNKNOWN`; only fresh sessions were proven to bind the
+2.4.1 hook. No live `video` or `codemode` item was captured, so those branches
+are type-verified only.
+
+### E-65 The fallback chains still targeted the end-of-life NVIDIA DeepSeek V4.1 Flash — fixed (2026-11-24)
+
+The provider retired `nvidia/deepseek-ai/deepseek-v4.1-flash` on
+2026-11-16. The curated fallback chains still named it, so a free-limit
+failover moved a session to a model the host refuses. The chains now use
+`opencode/mimo-v2.6-flash-free`, `google/gemini-flash-lite-latest`, and
+`opencode/big-pickle` only; `prove-model-failover` asserts the EOL id is
+absent from every role chain. The failure was found while resuming the 2.4.1
+review on the live host.
+
+### E-66 A plugin reload retains about 26 MB per workspace and dispose runs at the 5 s cap — tracked (2026-11-24)
+
+Measured on the live 2.4.1 host with seven workspaces loaded (this tree plus
+`athan new vrsion`, `uninstaller`, `vusual`, `lazys`, `gtttt`, `okttob`). On a
+fresh host (RSS 706 MB, `MemAvailable` 4957 MB), three consecutive
+`host:refresh` reloads raised RSS to 982, 1230 and 1432 MB: about 242 MB per
+reload, 35 MB per workspace. Plugin init stayed fast in the same window
+(208.4, 193.2, 181.6 and 172.0 ms), so the growth is retention, not boot work.
+
+A forced-GC probe separated retention from lazy collection. The probe ran
+`Bun.gc(true)` at module evaluation and logged `process.memoryUsage()` before
+and after it. Across two reloads the live heap after a full GC moved from
+956 MB to 1138 MB (+182 MB, about 26 MB per workspace per reload) while the GC
+freed only 111–148 MB each time. The retained bytes are reachable objects, not
+uncollected garbage and not allocator fragmentation alone.
+
+The host does call the plugin's dispose on reload. Each reload logs
+`v2 cleanup gen=N start`, and `disposeInstance` deletes the
+`activePluginInstances` entry before the heavy work. The `superseding` line
+therefore appears only when a new instance initializes before the host has
+disposed the previous one (12:21, 12:23, 12:27); its absence in the slope test
+means the host disposed first, not that dispose was skipped.
+
+The dispose itself is at the teardown limit. `plugin dispose` took 4975.1 ms in
+gen=2 and 4875.2 ms in gen=3 against `TEARDOWN_STEP_TIMEOUT_MS = 5000`; gen=1
+was abandoned at 5082.1 ms. During the earlier reload campaign the same step
+reached 5.0–9.6 s with one abandoned step in most generations. Cleanup CPU was
+2.9–6.8 s. An abandoned step keeps running after the cap, so its resources are
+released late or never.
+
+The retainer is now identified: the host keeps a tool definition added through
+`ctx.tool.transform` alive after its registration is disposed. A minimal probe
+registered one tool through the transform, with a 1 MB payload captured by the
+tool's `execute`, and returned a cleanup that awaited `registration.dispose()`.
+The host removed the tool from `ctx.tool.list()` (`probe=[]`), and disposal
+returned in 0.2 ms, but after the cleanup and a forced GC the `execute` closure,
+its payload and the instance object were still alive; only the registration
+handle was collected. A hook-only probe (`ctx.tool.hook("execute.before", ...)`)
+with the same 1 MB payload was released after dispose, and the no-registration
+probe released its payload and module sentinel. The retention is therefore
+specific to tool definitions added through the tool transform, not to every
+plugin instance, not to hooks or session hooks, and not to the module graph.
+
+The mechanism is state-proportional. Each `execute` closure built by
+`makeV2Tool` captures `ctx` and the setup scope; retaining one definition keeps
+the whole instance graph reachable. This tree adds the full tool surface (44
+tools) per setup in `createV2Setup`, so every reload's graph survives. The
+measured 26 MB per workspace per reload is that graph, not the module namespace:
+the probe's module sentinel was collected while the tool closure stayed alive.
+
+Cleanup itself is not missing: `runCleanup` disposes the transform registration
+before `plugin dispose`, `ctx.tool.list()` no longer contains the tool, and the
+disposal is fast. The host drops the registration handle but not the definition.
+This is host-side retention in the tool transform registry; the #54140 family
+covers it.
+
+Consequence: repeated reloads inflate the host until the 1500 MB guard or the
+`SelfHealEngine` high-memory warning fires. N3 samples taken while RSS is above
+about 2 GB are pressure measurements, not boot measurements, and batch
+campaigns must use `host:refresh -- --restart` instead of reload.
+
+Upstream matches (searched 2026-11-24): the same retention family is already
+tracked. #54140 reports plugin instances that accumulate across config reloads
+and are never torn down (open, assigned); #54631 reports that every `/reload`
+leaked a whole location graph, including its fff engine and inotify index,
+because Effect `RcMap` release in `4.0.0-rc.112` did nothing once a replacement
+existed under an equal key (v2.0.0–2.0.26); #60312 and #62438 report local
+plugins re-evaluated once per location with no process-wide coordination;
+#65630 (open PR, 2026-11-22) bounds an unbounded reload fan-out across open
+locations; #51003, #52965 and #61131 are the same accumulation shape for MCP
+servers and per-location plugin fleets. The host here is 2.4.1 and its catalog
+pins `effect` 4.1.0, so #54631's `RcMap` release bug is already fixed in this
+host; the remaining match is #54140's retained instance. The plugin docs
+(`/build/plugins/server`) require `setup`'s returned cleanup to run on unload
+and hook/transform registrations to be disposed; this tree disposes every
+registration in `runCleanup` before `plugin dispose`, and the transform
+registration disappears from `ctx.tool.list()` while its definition stays
+reachable, so the retention is in the host's tool transform registry, not a
+missing cleanup in this tree.
 
 ### Corrections to existing entries
 

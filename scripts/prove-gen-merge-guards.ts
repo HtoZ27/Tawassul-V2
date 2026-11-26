@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
@@ -303,6 +304,58 @@ function proveManualAndGeneratedDrift(): void {
   console.log("P2-6 generated-shape-catalog-complete ok");
 }
 
+function proveDynamicBrowserDeny(): void {
+  const raw = JSON.stringify({
+    $schema: "https://opencode.ai/config.json",
+    agent: {
+      "analyst-beam-free": {
+        description: "Analyst beam",
+        model: "opencode/beam-free",
+        mode: "subagent",
+        permission: { edit: "deny", bash: "deny" },
+      },
+      "analyst-hy4-flash-free": {
+        description: "Analyst hy4",
+        model: "opencode/hy4-flash-free",
+        mode: "subagent",
+        permission: { edit: "deny", bash: "deny", browser: "allow" },
+      },
+      dev: {
+        description: "Developer",
+        model: "cloudflare-workers-ai/@cf/moonshotai/kimi-k2.7-code",
+        mode: "subagent",
+        permission: { edit: "allow", bash: "allow" },
+      },
+      "analyst-minimax": {
+        description: "Analyst minimax",
+        model: "cloudflare-workers-ai/@cf/moonshotai/kimi-k2.7-code",
+        mode: "subagent",
+        permission: { edit: "deny", bash: "deny" },
+      },
+    },
+  });
+  const savedModels = process.env.TAWASSUL_MODELS_JSON;
+  process.env.TAWASSUL_MODELS_JSON = servedFixture;
+  const merged = buildMergedAgents(raw, { projectRoot: REPO });
+  process.env.TAWASSUL_MODELS_JSON = savedModels;
+  const added = (merged["analyst-beam-free"] as { permission?: { browser?: unknown } } | undefined)?.permission
+    ?.browser;
+  if (added !== "deny") fail(`a derived variant without browser must default to deny, got ${String(added)}`);
+  const kept = (merged["analyst-hy4-flash-free"] as { permission?: { browser?: unknown } } | undefined)
+    ?.permission?.browser;
+  if (kept !== "allow") fail(`an explicit browser permission must be preserved, got ${String(kept)}`);
+  for (const name of ["dev", "analyst-minimax"]) {
+    const entry = merged[name] as { model?: string; permission?: { browser?: unknown } } | undefined;
+    if (entry?.permission?.browser !== "deny") {
+      fail(`a model-overridden ${name} must keep browser deny, got ${String(entry?.permission?.browser)}`);
+    }
+    if (entry?.model !== "cloudflare-workers-ai/@cf/moonshotai/kimi-k2.7-code") {
+      fail(`a model-overridden ${name} must keep its pinned model, got ${String(entry?.model)}`);
+    }
+  }
+  console.log("dynamic-browser-deny ok");
+}
+
 try {
   await proveRetiredMigration();
   proveEmptyAndSubset();
@@ -312,6 +365,7 @@ try {
   proveServedRetired();
   proveUnknownRetired();
   proveManualAndGeneratedDrift();
+  proveDynamicBrowserDeny();
 } finally {
   if (savedModelsEnv === undefined) delete process.env.TAWASSUL_MODELS_JSON;
   else process.env.TAWASSUL_MODELS_JSON = savedModelsEnv;

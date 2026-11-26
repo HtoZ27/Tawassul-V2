@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { requiresConsent, isDangerousCommand } from "../src/hooks/guards/shared/limits.ts";
 import { isAcceptToken, isRejectToken } from "../src/services/ask-channel-parse.ts";
 import ar from "../src/i18n/ar.json" with { type: "json" };

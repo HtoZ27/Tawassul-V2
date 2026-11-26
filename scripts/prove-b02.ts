@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { z } from "zod";
 import { INIT_READY } from "../src/plugin-types.ts";
 import type { TawassulHooks } from "../src/plugin-types.ts";

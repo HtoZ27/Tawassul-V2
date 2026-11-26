@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { createHmac, randomBytes } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

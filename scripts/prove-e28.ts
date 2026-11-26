@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { BLOCKED_TOOLS, SecurityPolicy } from "../src/security-policy.ts";
 import { ensureTawaToolPermissions } from "../src/utils/agent-permission-repair.ts";
 import { validateAgents } from "../src/scripts/gen-opencode-config.ts";

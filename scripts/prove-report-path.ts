@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { PipelineState } from "../src/hooks/PipelineState.ts";
 import {
   EXPLICIT_DISPATCH_REGEX,

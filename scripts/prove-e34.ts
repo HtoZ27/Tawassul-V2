@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { runChatMessageBridge } from "../src/v2/setup.ts";
 import type { TawassulHooks } from "../src/plugin-types.ts";
 import type { V2SessionEvent } from "../src/v2/types.ts";

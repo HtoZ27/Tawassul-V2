@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { claimCoexistence, isCoexistenceOwner, releaseCoexistence } from "../src/core/install-scope.ts";
 
 const KEY = Symbol.for("tawassul.v2.setup");

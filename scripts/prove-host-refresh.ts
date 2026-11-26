@@ -1,7 +1,9 @@
+import "./proof-log-isolate.ts";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  appendFileSync,
   chmodSync,
   existsSync,
   mkdirSync,
@@ -206,6 +208,24 @@ try {
   check(missing.output.includes("plugin log not found"), "the missing log is named");
   check(!existsSync(MARKER_FILE), "the CLI is not invoked when the log is missing");
 
+  resetState(now - 7200, [now - 3600], "c".repeat(64));
+  appendFileSync(LOG, "binary tool output \u0000\n");
+  appendFileSync(LOG, fingerprintLine(now - 60, entrySha));
+  appendFileSync(LOG, initLine(now - 60));
+  const nulLog = run(["--verify-only"]);
+  check(nulLog.status === 0, "verify-only reads past a NUL byte in the plugin log");
+  check(nulLog.output.includes("live_bundle="), "the post-NUL fingerprint is the live bundle");
+
+  resetState(now - 7200, [now - 3600]);
+  appendFileSync(
+    LOG,
+    `${new Date((now - 30) * 1000).toISOString()} [tawassul] v2 bundle sha256=${"d".repeat(64)} bytes=1 entry=${join(ROOT, "other.js")}\n`,
+  );
+  appendFileSync(LOG, initLine(now - 30));
+  const otherWorkspace = run(["--verify-only"]);
+  check(otherWorkspace.status === 0, "verify-only ignores a newer fingerprint from another workspace");
+  check(otherWorkspace.output.includes("live_bundle="), "the current entry fingerprint is the live bundle");
+
   resetState(now - 7200, [now - 3600]);
   const verify = run(["--verify-only"]);
   check(verify.status === 0, "verify-only passes when the init is newer than the entry");
@@ -269,5 +289,5 @@ try {
   rmSync(ROOT, { recursive: true, force: true });
 }
 
-assert.equal(passed, 56);
+assert.equal(passed, 60);
 console.log(`PROOF PASS: the host refresh helper reloads and verifies truthfully (${passed} assertions)`);

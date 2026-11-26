@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { EventHub } from "../src/services/event-hub.ts";
 import { TrustScoreCalculator } from "../src/services/trust-score/calculator.ts";
 

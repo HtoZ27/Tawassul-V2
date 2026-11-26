@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { Buffer } from "node:buffer";
 import { collectToolSchemas, measureSchemaPayload } from "../src/v2/adapters.ts";
 import { z } from "zod";

@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { mkdtempSync, readFileSync, rmSync, existsSync, mkdirSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -29,6 +30,9 @@ async function proveMinimalContract(): Promise<void> {
     ) {
       fail("experimental.subagent_depth must be 3");
     }
+    if ((experimental as Record<string, unknown>)["part_rows"] !== false) {
+      fail("experimental.part_rows must be false to keep the stable storage path");
+    }
     const agentContainer = doc["agent"];
     if (!agentContainer || typeof agentContainer !== "object" || Array.isArray(agentContainer)) {
       fail("agent container must be an object");
@@ -40,13 +44,21 @@ async function proveMinimalContract(): Promise<void> {
       if (!(entry.name in agent)) fail(`first-run contract is missing base ${entry.name}`);
     }
     if (!("addagent" in agent)) fail("first-run contract is missing addagent");
+    const addagent = agent["addagent"] as { permission?: Record<string, unknown> } | undefined;
+    if (addagent?.permission?.browser !== "deny") {
+      fail("addagent must deny the browser permission");
+    }
     if (keys.filter((name) => name.endsWith("-pickle")).length !== 7) {
       fail("first-run contract must hold the 7 pickle variants");
     }
     for (const entry of ALL_AGENTS) {
       const mdPath = join(dir, ".opencode", "agents", `${entry.name}.md`);
       if (!existsSync(mdPath)) fail(`base agent file ${entry.name}.md missing`);
-      if (readFileSync(mdPath, "utf-8") !== generateAgentMd(entry)) {
+      const rendered = generateAgentMd(entry);
+      if (!rendered.includes("browser: deny")) {
+        fail(`base agent ${entry.name} must deny the browser permission`);
+      }
+      if (readFileSync(mdPath, "utf-8") !== rendered) {
         fail(`base agent file ${entry.name}.md drifted from the generated template`);
       }
     }

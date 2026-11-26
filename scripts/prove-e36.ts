@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { buildWebTool, __resetFirecrawlBreakerForTest } from "../src/tools/web.ts";
 import type { ToolContext, ToolResult } from "../src/tool.ts";
 

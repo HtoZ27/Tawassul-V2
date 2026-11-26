@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { z } from "zod";
 import { buildToolJsonSchema } from "../src/lib/tool-schema-injection.ts";
 import { runChatMessageBridge } from "../src/v2/setup.ts";

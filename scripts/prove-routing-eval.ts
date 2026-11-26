@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { analyzeMessage, type RoutingResult } from "../src/services/routing-algorithm.ts";
 
 function fail(message: string): never {

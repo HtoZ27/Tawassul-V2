@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { configSchema } from "../src/context/config-schema.ts";
 import { evaluateFreeLimitBridge } from "../src/services/free-limit.ts";
 import { setLanguage, t } from "../src/translations.ts";

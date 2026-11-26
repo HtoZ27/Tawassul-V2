@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";

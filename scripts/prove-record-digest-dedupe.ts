@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { existsSync, unlinkSync } from "node:fs";
 import { createSessionCompactedHook } from "../src/hooks/session.ts";
 import { INJECTION_BUDGETS } from "../src/services/injection-budget.ts";

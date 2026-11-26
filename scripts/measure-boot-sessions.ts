@@ -217,6 +217,7 @@ function numeric(value: string | undefined): number | null {
 async function tawassulTimings(path: string, sinceMs: number): Promise<{
   init: number[];
   initSync: number[];
+  initSyncByPid: Array<{ pid: number; ms: number }>;
   roster: number[];
   setup: Map<string, number[]>;
   cleanupDone: Map<string, number[]>;
@@ -231,6 +232,7 @@ async function tawassulTimings(path: string, sinceMs: number): Promise<{
 }> {
   const init: number[] = [];
   const initSync: number[] = [];
+  const initSyncByPid: Array<{ pid: number; ms: number }> = [];
   const roster: number[] = [];
   const setup = new Map<string, number[]>();
   const cleanupDone = new Map<string, number[]>();
@@ -272,8 +274,11 @@ async function tawassulTimings(path: string, sinceMs: number): Promise<{
       if (pid !== null) moduleEvals.set(pid, (moduleEvals.get(pid) ?? 0) + 1);
     }
     if (line.includes("v2 init sync gen=")) {
-      const ms = numeric(fields(line).ms);
+      const f = fields(line);
+      const ms = numeric(f.ms);
+      const pid = numeric(f.pid);
       if (ms !== null) initSync.push(ms);
+      if (ms !== null && pid !== null) initSyncByPid.push({ pid, ms });
     }
     if (line.includes("v2 setup gen=") && line.includes(" start")) generationStarts += 1;
     if (line.includes("v2 cleanup gen=") && line.includes("steps=")) {
@@ -336,6 +341,7 @@ async function tawassulTimings(path: string, sinceMs: number): Promise<{
   return {
     init,
     initSync,
+    initSyncByPid,
     roster,
     setup,
     cleanupDone,
@@ -487,6 +493,7 @@ async function main(): Promise<void> {
         "  --boots N            Desktop boot logs to include (default 10)",
         "  --sessions N         Live sessions to open and time (default 10)",
         "  --since DAYS         Log window in days; 0 disables the filter (default 30)",
+        "  --host-pids LIST     Comma-separated host pids for a host-only init-sync summary",
         "  --n2-window-ms N     First-text window after plugin start (default 120000)",
         "  --no-api             Skip the live sidecar session-open measurement",
         "  --json               Print one JSON document",
@@ -503,6 +510,12 @@ async function main(): Promise<void> {
   const sessionsLimit = numericArg("--sessions", 10);
   const sinceRaw = argValue("--since");
   const sinceDays = sinceRaw === undefined ? 30 : Number(sinceRaw);
+  const hostPids = new Set(
+    (argValue("--host-pids") ?? "")
+      .split(",")
+      .map((value) => Number(value.trim()))
+      .filter((value) => Number.isInteger(value) && value > 0),
+  );
   const n2WindowMs = numericArg("--n2-window-ms", 120000);
   const sinceMs = Number.isFinite(sinceDays) && sinceDays > 0 ? Date.now() - sinceDays * 24 * 60 * 60 * 1000 : 0;
   const desktopRoot =
@@ -540,6 +553,11 @@ async function main(): Promise<void> {
 
   const host = await hostTimings(hostLog, sinceMs);
   const tawassul = await tawassulTimings(tawassulLog, sinceMs);
+  const hostInitSync =
+    hostPids.size === 0
+      ? []
+      : tawassul.initSyncByPid.filter((row) => hostPids.has(row.pid)).map((row) => row.ms);
+  const hostPidList = [...hostPids].sort((a, b) => a - b);
   const n2 = n2FirstText(n2Log, sinceMs);
   const n2Window = n2.firstByProcess.filter((value) => value <= n2WindowMs);
 
@@ -595,6 +613,8 @@ async function main(): Promise<void> {
           pluginBoot: {
             initPlugin: stats(tawassul.init),
             initSync: stats(tawassul.initSync),
+            initSyncHostOnly: stats(hostInitSync),
+            hostPids: hostPidList,
             rosterPrewarm: stats(tawassul.roster),
             backgroundReady: tawassul.backgroundReady,
             generations: {
@@ -664,6 +684,9 @@ async function main(): Promise<void> {
   console.log("== Plugin boot (Tawassul + host logs) ==");
   printStats("initPlugin (legacy perf line)", tawassul.init);
   printStats("init sync (per generation)", tawassul.initSync);
+  if (hostPids.size > 0) {
+    printStats(`init sync host-only (pids=${hostPidList.join(",")})`, hostInitSync);
+  }
   printStats("roster prewarm", tawassul.roster);
   console.log(`host plugin loads: ${host.pluginLoads}`);
   printStats("location services booted", host.locationBoots);

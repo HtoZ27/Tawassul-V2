@@ -17,21 +17,24 @@
 # launcher line plus N1. A host that logs the signal but has no pair in-window
 # stays INCOMPLETE.
 #
-# Usage: boot-scorecard-v2.sh [--since ISO|@epoch_ms] [--hours N] [--n2 seconds|auto]
+# Usage: boot-scorecard-v2.sh [--since ISO|@epoch_ms] [--until ISO|@epoch_ms] [--hours N]
+#                             [--host-pids PID[,PID...]] [--n2 seconds|auto]
 #                             [--case N] [--append FILE] [--json]
 # Exit: 0 all measured pass · 1 any measured FAIL · 2 INCOMPLETE (N2 skipped or
 # any criterion lacking in-window evidence) · 64 usage · 69 python3 missing.
 set -u
 
 usage() {
-  echo "usage: boot-scorecard-v2.sh [--since ISO|@epoch_ms] [--hours N] [--n2 seconds|auto] [--case N] [--append FILE] [--json]" >&2
+  echo "usage: boot-scorecard-v2.sh [--since ISO|@epoch_ms] [--until ISO|@epoch_ms] [--hours N] [--host-pids PID[,PID...]] [--n2 seconds|auto] [--case N] [--append FILE] [--json]" >&2
 }
 
-SINCE=""; SINCE_EXPLICIT=0; HOURS=24; N2=""; CASE=""; APPEND=""; JSON=0
+SINCE=""; SINCE_EXPLICIT=0; UNTIL=""; HOURS=24; HOSTPIDS=""; N2=""; CASE=""; APPEND=""; JSON=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --since)  [ $# -ge 2 ] || { usage; exit 64; }; SINCE="$2"; SINCE_EXPLICIT=1; shift 2 ;;
+    --until)  [ $# -ge 2 ] || { usage; exit 64; }; UNTIL="$2"; shift 2 ;;
     --hours)  [ $# -ge 2 ] || { usage; exit 64; }; HOURS="$2"; shift 2 ;;
+    --host-pids) [ $# -ge 2 ] || { usage; exit 64; }; HOSTPIDS="$2"; shift 2 ;;
     --n2)     [ $# -ge 2 ] || { usage; exit 64; }; N2="$2"; shift 2 ;;
     --case)   [ $# -ge 2 ] || { usage; exit 64; }; CASE="$2"; shift 2 ;;
     --append) [ $# -ge 2 ] || { usage; exit 64; }; APPEND="$2"; shift 2 ;;
@@ -54,14 +57,14 @@ N2LOG="${TAWASSUL_N2_LOG:-$ROOT/n2-auto.jsonl}"
 
 command -v python3 >/dev/null 2>&1 || { echo "boot-scorecard-v2: python3 required." >&2; exit 69; }
 
-python3 - "$SINCE" "$HOURS" "$N2" "$APPEND" "$JSON" "$TLOG" "$OLOG" "$CASE" "$SINCE_EXPLICIT" "$N2LOG" <<'PY'
+python3 - "$SINCE" "$HOURS" "$N2" "$APPEND" "$JSON" "$TLOG" "$OLOG" "$CASE" "$SINCE_EXPLICIT" "$N2LOG" "$UNTIL" "$HOSTPIDS" <<'PY'
 import datetime
 import json as jsonlib
 import math
 import re
 import sys
 
-since_arg, hours_arg, n2_arg, append_path, json_raw, tlog, olog, case_arg, since_explicit, n2log = sys.argv[1:11]
+since_arg, hours_arg, n2_arg, append_path, json_raw, tlog, olog, case_arg, since_explicit, n2log, until_arg, hostpids_arg = sys.argv[1:13]
 json_out = json_raw == "1"
 
 
@@ -86,6 +89,30 @@ def resolve_since():
 
 
 SINCE = resolve_since()
+
+
+def resolve_until():
+    if not until_arg:
+        return None
+    s = until_arg
+    if s.startswith("@"):
+        try:
+            return float(s[1:]) / 1000.0
+        except ValueError:
+            s = s[1:]
+    try:
+        return datetime.datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        sys.stderr.write(f"boot-scorecard-v2: bad --until {until_arg!r}\n")
+        sys.exit(64)
+
+
+UNTIL = resolve_until()
+HOST_PIDS = set()
+for part in hostpids_arg.split(","):
+    part = part.strip()
+    if part.isdigit():
+        HOST_PIDS.add(int(part))
 
 
 def iso_to_epoch(t):
@@ -151,13 +178,15 @@ def is_state_failure(line):
     return body.startswith(STATE_FAILURE)
 
 
-init_main, init_alt, n4 = [], [], 0
+init_main, init_alt, init_sync, n4 = [], [], [], 0
 t_seen = 0
 blob = tail_text(tlog)
 if blob is not None:
     for line in blob.splitlines():
         ts = line_ts(line)
         if ts is None or ts < SINCE:
+            continue
+        if UNTIL is not None and ts > UNTIL:
             continue
         t_seen += 1
         mm = re.search(r"initPlugin=([\d.]+)ms", line)
@@ -166,9 +195,20 @@ if blob is not None:
         ma = re.search(r"initPromise\(\) total[=: ]+([\d.]+)ms", line)
         if ma:
             init_alt.append(float(ma.group(1)))
+        ms = re.search(r"v2 init sync gen=\d+ pid=(\d+) ms=([\d.]+)", line)
+        if ms:
+            init_sync.append((int(ms.group(1)), float(ms.group(2))))
         if is_state_failure(line):
             n4 += 1
-init = init_main or init_alt
+if HOST_PIDS:
+    init = [value for pid, value in init_sync if pid in HOST_PIDS]
+    population = "host-only pids=" + ",".join(str(pid) for pid in sorted(HOST_PIDS))
+elif init_main:
+    init = init_main
+    population = "all processes (legacy initPlugin lines)"
+else:
+    init = [value for _pid, value in init_sync] or init_alt
+    population = "all processes (v2 init sync lines)"
 
 sub_errors = 0
 starts = {}
@@ -184,6 +224,8 @@ if blob is not None:
             continue
         ts = iso_to_epoch(m.group(1))
         if ts is None or ts < SINCE:
+            continue
+        if UNTIL is not None and ts > UNTIL:
             continue
         o_seen += 1
         if re.match(r"^\s*timestamp=\S+\s+level=ERROR(?:\s|$)", line) and re.search(
@@ -273,18 +315,18 @@ add("N1", "INCOMPLETE" if o_seen == 0 else ("PASS" if sub_errors == 0 else "FAIL
 if n2 is None:
     add("N2", "INCOMPLETE", None, n2_note or "first LLM stream — record manually, then pass --n2 <seconds> (or --n2 auto with --since)")
 else:
-    add("N2", "PASS" if n2 <= 15 else "FAIL", n2, f"first stream: {n2:.1f}s (target <=15s)" + (f" — {n2_note}" if n2_note else ""))
+    add("N2", "INFO", n2, f"first stream: {n2:.1f}s (report only; model-dominated, no target)" + (f" — {n2_note}" if n2_note else ""))
 if t_seen == 0:
     add("N3", "INCOMPLETE", None, "no parseable tawassul.log lines in window (missing/stale file?)")
     add("N4", "INCOMPLETE", None, "same window blindness — zero failures cannot be asserted")
 elif not init:
-    add("N3", "INCOMPLETE", None, "no initPlugin samples in window (one info line per init expected)")
+    add("N3", "INCOMPLETE", None, f"no init samples for {population} in window (one info line per init expected)")
     add("N4", "PASS" if n4 == 0 else "FAIL", n4, f'"State validation failed": {n4} (target 0)')
 else:
     srt = sorted(init)
     p95 = srt[max(0, math.ceil(0.95 * len(srt)) - 1)]
     add("N3", "PASS" if p95 <= 2000 else "FAIL", round(p95, 1),
-        f"init p95: {p95:.0f}ms (n={len(init)}, max={max(init):.0f}ms; target <=2000ms)")
+        f"init p95: {p95:.0f}ms (n={len(init)}, max={max(init):.0f}ms; population={population}; target <=2000ms)")
     add("N4", "PASS" if n4 == 0 else "FAIL", n4, f'"State validation failed": {n4} (target 0)')
 if not durations:
     if o_seen > 0 and not host_has_refresh:

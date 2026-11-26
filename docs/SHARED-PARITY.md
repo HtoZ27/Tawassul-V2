@@ -40,7 +40,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-014 | A standalone health tool exists in the tawa namespace. | `src/tools/tawa/health.ts:65` `buildHealthTool` | `scripts/prove-e46.ts` | verified |
 | S-015 | The retired kanban-board name must not return. | - | - | n-a |
 | S-016 | Conflict-marker pollutants must not be propagated. | - | - | n-a |
-| S-017 | The three-day hardening batch is ported on merit: model retirements, generator hardening, governance, and runtime rows. | `src/services/proxy-fallback-chains.ts:73` `sweepRetiredModelPins` | `scripts/prove-s017.ts`, `scripts/prove-gen-lock-contention.ts`, `scripts/prove-gen-merge-guards.ts`, `scripts/prove-gen-guard-wal.ts`, `scripts/prove-roster-boundary.ts`, `scripts/prove-event-trust-p1.ts`, `scripts/prove-web-ssrf.ts`, `scripts/prove-s028.ts` | verified |
+| S-017 | The three-day hardening batch is ported on merit: model retirements, generator hardening, governance, and runtime rows. | `src/services/proxy-fallback-chains.ts:58` `sweepRetiredModelPins` | `scripts/prove-s017.ts`, `scripts/prove-gen-lock-contention.ts`, `scripts/prove-gen-merge-guards.ts`, `scripts/prove-gen-guard-wal.ts`, `scripts/prove-roster-boundary.ts`, `scripts/prove-event-trust-p1.ts`, `scripts/prove-web-ssrf.ts`, `scripts/prove-s028.ts` | verified |
 | S-018 | R-008, R-009, and R-011 are ported in a v2 shape with first-boot roster seeding. | `src/utils/opencode-config.ts:559` `ensureGlobalRosterSeed` | `scripts/prove-first-boot-seed.ts` | verified |
 | S-019 | The atomic-audit P0 closures are ported: containment, WAL probe, backup environment, and fail-closed gates. | `scripts/opencode-db-maintenance.sh:776` `require_v2_generation` | `scripts/prove-db-retention.ts` | verified |
 | S-020 | The nine-day batch is ported: tool surface, cache generation, guards, and wiring. | `src/context/model-utils.ts:24` `getPortCacheGen` | `scripts/prove-s020.ts` | verified |
@@ -53,17 +53,17 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-027 | The S-022 closure was re-verified bilaterally. | - | - | doc-only |
 | S-028 | The provider model cache is the source of truth for suffix governance. | `src/core/model-registry.ts:154` `getProviderModelTokens` | `scripts/prove-s028.ts` | verified |
 | S-029 | R7 variant pins, dispatch precedence, dotted suffixes, and the log default are ported. | `src/tools/agent-management.ts:223` `computePinEntries` | `scripts/prove-s029.ts` | verified |
-| S-030 | The live roster follows config-derived deletion plus additive generation. | `src/scripts/gen-opencode-config.ts:272` `export function derivedExpectedCount` | `scripts/prove-s029.ts`, `scripts/prove-gen-merge-guards.ts` | verified |
+| S-030 | The live roster follows config-derived deletion plus additive generation. | `src/scripts/gen-opencode-config.ts:273` `export function derivedExpectedCount` | `scripts/prove-s029.ts`, `scripts/prove-gen-merge-guards.ts` | verified |
 | S-031 | The documented install path materializes the plugin entry on every build. | `build-v2.mjs:133` `tawassul.js` | `scripts/release-smoke.sh` | verified |
 | S-032 | A stale project-scope copy must not win registration in a shared process. | `src/core/install-scope.ts:56` `claimCoexistence` | `scripts/prove-s038.ts` | verified |
 | S-033.1 | The plugin-side cold-boot wave is ported: quiet resolution, write-behind, save debounce, jitter, logger stamp, quarantine, and save guard. | `src/utils/quiet.ts:6` `forceQuietMode` | `scripts/prove-s033.ts` | verified |
 | S-033.2 | Launcher and installer duties stay in the host install script, not in the plugin. | `scripts/install-global.ts:203` `hostCandidates` | `scripts/prove-s033.ts` | verified |
 | S-033.3 | The cold-boot launch wave passes only after a recorded cold-boot run meets N1 to N5. | - | - | n-a |
 | S-034.1 | N2 records only announced assistant text parts. | `src/hooks/n2-auto.ts:43` `assistantMessages` | `scripts/prove-v2-compat.ts` | verified |
-| S-034.2 | A v2 boot scorecard implements N1 to N5 with an explicit since gate. | `scripts/boot-scorecard-v2.sh:30` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
+| S-034.2 | A v2 boot scorecard implements N1 to N5 with an explicit since gate. | `scripts/boot-scorecard-v2.sh:31` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
 | S-035.1 | The generation guard and the maintenance gate carry the v1 semantics. | `scripts/guard-db-generation.sh:254` `marker-v1-content` | `scripts/prove-db-retention.ts` | verified |
 | S-035.2 | D3, recovery, and salvage remain v1-host support tools. | - | - | n-a |
-| S-036 | Bare-base derivation, no-env hardening, kick bulk, and the roster updates are ported. | `src/tools/agent-add-helpers.ts:105` `deriveVariantSpec` | `scripts/prove-s028.ts`, `scripts/prove-s036.ts` | verified |
+| S-036 | Bare-base derivation, no-env hardening, kick bulk, and the roster updates are ported. | `src/tools/agent-add-helpers.ts:106` `deriveVariantSpec` | `scripts/prove-s028.ts`, `scripts/prove-s036.ts` | verified |
 | S-037 | The v1 test-suite triage and the notify gate have no v2 runtime surface. | - | - | n-a |
 | S-038 | The coexistence seat is per workspace, not process-global. | `src/core/install-scope.ts:56` `claimCoexistence` | `scripts/prove-s038.ts` | verified |
 | S-039 | N2 records a text part only after its message is announced as assistant. | `src/hooks/n2-auto.ts:43` `assistantMessages` | `scripts/prove-v2-compat.ts` | verified |
@@ -91,7 +91,7 @@ Hand edits are rejected by `bun scripts/check-shared-parity.ts --check`, which r
 | S-053.8 | User-level rate limiting is not a single-user local plugin surface. | - | - | n-a |
 | S-053.9 | Shared state is signed with HMAC-SHA256 before it is written and verified on read. | `src/utils/crypto.ts:21` `export const HMAC_PREFIX = "TAWASSUL_V2_HMAC_V1:";` | `scripts/prove-s017.ts` | verified |
 | S-053.10 | In global scope, deleted-agent names persist in roster.deleted and survive a seed; in project scope, absence from config.agent is the record. | `src/scripts/gen-opencode-config.ts:60` `deletedPath: resolve(root, ".opencode", "deleted-agents.json"),` | `scripts/prove-seed-agents.ts`, `scripts/prove-first-boot-seed.ts` | verified |
-| S-054 | The frozen boot-scorecard fixes are ported. | `scripts/boot-scorecard-v2.sh:30` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
+| S-054 | The frozen boot-scorecard fixes are ported. | `scripts/boot-scorecard-v2.sh:31` `SINCE_EXPLICIT` | `scripts/prove-boot-gate.ts` | verified |
 | S-055 | The v1 docs and atomic backlog is triaged before retirement. | - | - | doc-only |
 | S-056 | The legacy state directory and fallback reads are removed; HMAC key and signature compatibility remain. | `src/utils/state-paths.ts:41` `export function statePath(` | `scripts/prove-v2-independence.ts`, `scripts/prove-s017.ts` | verified |
 | S-057 | The addagent advisory consults the provider before warning about an unknown model. | `src/core/model-registry.ts:188` `shouldWarnUnverifiedModel` | `scripts/prove-s028.ts` | verified |
