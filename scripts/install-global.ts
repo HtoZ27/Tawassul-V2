@@ -61,6 +61,7 @@ type Marker = {
   db?: Record<string, AssetRecord>;
   preflight?: Record<string, string>;
   trigger?: string;
+  cron?: "none" | "owned";
   installedAt?: string;
 };
 type Host = { bin: string; version: string };
@@ -104,16 +105,6 @@ function readSourceSha(text: string): string | undefined {
 function readContentSha(text: string): string | undefined {
   const match = text.match(/TAWASSUL_CONTENT_SHA=([0-9a-f]{64})/);
   return match?.[1];
-}
-
-function readJson<T>(file: string): T | undefined {
-  if (!existsSync(file)) return undefined;
-  try {
-    const parsed = JSON.parse(readFileSync(file, "utf-8")) as T;
-    return parsed && typeof parsed === "object" ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function configBase(): string {
@@ -345,8 +336,13 @@ const OWNER_FILE = join(GLOBAL_DIR, "tawassul-install-owner");
 
 function readOwner(): string | undefined {
   if (!existsSync(OWNER_FILE)) return undefined;
-  const value = readFileSync(OWNER_FILE, "utf-8").trim();
-  return value.length > 0 ? value : undefined;
+  try {
+    const value = readFileSync(OWNER_FILE, "utf-8").trim();
+    return value.length > 0 ? value : undefined;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException)?.code === "ENOENT") return undefined;
+    throw e;
+  }
 }
 
 function claimOwnership(): void {
@@ -390,7 +386,23 @@ function releaseOwnership(): void {
 }
 
 function readMarker(): Marker | undefined {
-  const marker = readJson<Marker>(MARKER_FILE);
+  let text: string;
+  try {
+    text = readFileSync(MARKER_FILE, "utf-8");
+  } catch {
+    return undefined;
+  }
+  let marker: Marker;
+  try {
+    const parsed = JSON.parse(text) as Marker;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
+    marker = parsed;
+  } catch {
+    return undefined;
+  }
+  if ((text.match(/"cron"\s*:/g) ?? []).length !== 1) {
+    return { ...marker, cron: undefined };
+  }
   return marker;
 }
 
@@ -654,13 +666,20 @@ function unitShapeOurs(path: string): boolean {
   }
 }
 
+function taggedCronLine(line: string): boolean {
+  const normalized = line.replace(/\r+$/, "");
+  return new RegExp(`# ${TRIGGER_TAG}(?:[ \\t]+owner=[^ \\t]*)?[ \\t]*$`).test(normalized);
+}
+
 function cronOwner(line: string): string | undefined {
-  const match = line.match(new RegExp(`# ${TRIGGER_TAG} owner=([^ ]+)`));
-  return match?.[1];
+  if (!taggedCronLine(line)) return undefined;
+  const normalized = line.replace(/\r+$/, "");
+  const match = normalized.match(new RegExp(`# ${TRIGGER_TAG} owner=([^ \\t]*)`));
+  return match?.[1] || undefined;
 }
 
 function cronShapeOurs(line: string): boolean {
-  return line.includes(TRIGGER_TAG) && line.includes(scheduledPath()) && line.includes("--run");
+  return taggedCronLine(line) && line.includes(scheduledPath()) && line.includes("--run");
 }
 
 function markerProvesDb(marker: Marker | undefined): boolean {
@@ -768,7 +787,11 @@ type CronListing = { ok: boolean; lines: Array<string>; reason?: "absent" | "unr
 
 function readCrontab(): CronListing {
   const result = spawnSync("crontab", ["-l"], { encoding: "utf-8", timeout: 15_000 });
-  if ((result.status ?? -1) === 0) return { ok: true, lines: (result.stdout ?? "").split("\n") };
+  if ((result.status ?? -1) === 0) {
+    const lines = (result.stdout ?? "").split("\n");
+    if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+    return { ok: true, lines };
+  }
   if (result.error === undefined && /no crontab for/i.test(`${result.stderr ?? ""}`)) {
     return { ok: true, lines: [] };
   }
@@ -779,18 +802,52 @@ function readCrontab(): CronListing {
 }
 
 function writeCrontab(lines: Array<string>): boolean {
-  return runTriggerCommand("crontab", ["-"], lines.join("\n")) === 0;
+  const text = lines.length === 0 ? "" : `${lines.join("\n")}\n`;
+  return runTriggerCommand("crontab", ["-"], text) === 0;
+}
+
+let cronAttempted = false;
+
+function trustedCron(marker: Marker | undefined): "none" | "owned" | undefined {
+  if (marker?.package !== PLUGIN_ID) return undefined;
+  return marker.cron === "none" || marker.cron === "owned" ? marker.cron : undefined;
+}
+
+function crontabEvidence(): "none" | "owned" | undefined {
+  const listing = readCrontab();
+  if (!listing.ok) return undefined;
+  for (const line of listing.lines) {
+    if (!taggedCronLine(line)) continue;
+    const owner = cronOwner(line);
+    if (owner === TRIGGER_OWNER) return "owned";
+    if (owner === undefined) return "owned";
+  }
+  return "none";
+}
+
+function resolveCronState(
+  previous: Marker | undefined,
+  fresh: boolean,
+  attempted: boolean,
+): "none" | "owned" {
+  if (attempted) return "owned";
+  const evidence = crontabEvidence();
+  if (evidence !== undefined) return evidence;
+  if (trustedCron(previous) === "none") return "none";
+  if (fresh) return "none";
+  return "owned";
 }
 
 function tryCron(script: string, dbPath: string): string | undefined {
+  cronAttempted = true;
   if (!unitContentSafe(script)) return undefined;
   const listing = readCrontab();
   if (!listing.ok) return undefined;
-  const lines = listing.lines.filter((line) => line.trim() !== "");
+  const lines = listing.lines;
   const wanted = cronLine(script, dbPath);
-  const tagged = lines.filter((line) => line.includes(TRIGGER_TAG));
+  const tagged = lines.filter(taggedCronLine);
   if (tagged.length === 1 && tagged[0] === wanted) return "cron";
-  const kept = lines.filter((line) => !line.includes(TRIGGER_TAG));
+  const kept = lines.filter((line) => !taggedCronLine(line));
   if (!writeCrontab([...kept, wanted])) return undefined;
   return "cron";
 }
@@ -806,16 +863,18 @@ function removeUnits(): void {
 function removeOwnedCron(includeForeign: boolean): void {
   const listing = readCrontab();
   if (!listing.ok) {
-    if (listing.reason !== "absent") {
-      console.log("install-global: crontab could not be read; the previous cron entry was left in place");
-    }
+    console.log(
+      listing.reason === "absent"
+        ? "install-global: crontab is unavailable; a previous cron entry, if any, was left in place"
+        : "install-global: crontab could not be read; the previous cron entry was left in place",
+    );
     return;
   }
   const marker = readMarker();
   const proven = markerProvesDb(marker) && !maintenanceLane();
-  const lines = listing.lines.filter((line) => line.trim() !== "");
+  const lines = listing.lines;
   const drop = lines.filter((line) => {
-    if (!line.includes(TRIGGER_TAG)) return false;
+    if (!taggedCronLine(line)) return false;
     const owner = cronOwner(line);
     if (owner === TRIGGER_OWNER) return true;
     if (includeForeign) return true;
@@ -852,9 +911,13 @@ function removeOwnedSchedule(): boolean {
   } else if (ownsAll) {
     removeUnits();
   }
-  const lines = listing.lines.filter((line) => line.trim() !== "");
+  if (!listing.ok) {
+    console.log("install-global: crontab is unavailable; a previous cron line, if any, was left in place");
+    return false;
+  }
+  const lines = listing.lines;
   const drop = lines.filter((line) => {
-    if (!line.includes(TRIGGER_TAG)) return false;
+    if (!taggedCronLine(line)) return false;
     const owner = cronOwner(line);
     if (owner === TRIGGER_OWNER) return true;
     return owner === undefined && proven && cronShapeOurs(line);
@@ -885,7 +948,7 @@ function foreignTrigger(
     mechanisms.push("systemd");
   }
   for (const line of readCrontab().lines) {
-    if (!line.includes(TRIGGER_TAG)) continue;
+    if (!taggedCronLine(line)) continue;
     const token = cronOwner(line);
     if (token === TRIGGER_OWNER) continue;
     if (token === undefined && proven && cronShapeOurs(line)) continue;
@@ -974,16 +1037,25 @@ function registerTriggers(plan: TriggerPlan, dbPath: string): string {
   return "manual";
 }
 
-function uninstallTriggers(): void {
-  const listing = readCrontab();
-  if (!listing.ok && listing.reason === "unreadable") {
-    if (!flags.has("--dry-run")) {
+function uninstallTriggers(marker: Marker | undefined): boolean {
+  const maintenance = maintenanceLane();
+  const posix = usesPosixDatabaseLane(installLane(process.platform));
+  const cron = trustedCron(marker);
+  const listing = posix ? readCrontab() : { ok: true, lines: [] as Array<string> };
+  if (posix && cron === "none") {
+    if (!listing.ok) {
+      console.log(
+        "install-global: the marker proves this lane wrote no cron line; the crontab is unreadable, so no cron change is made",
+      );
+    }
+  } else if (posix && !listing.ok) {
+    if (flags.has("--dry-run")) {
+      console.log("install-global: dry run — crontab could not be read; a real uninstall would refuse");
+      return false;
+    } else {
       fail("install-global: crontab could not be read; the uninstall was not performed");
     }
-    console.log("install-global: dry run — crontab could not be read; the cron line would be left untouched");
   }
-  const marker = readMarker();
-  const maintenance = maintenanceLane();
   const proven = markerProvesDb(marker) && !maintenance;
   const unitPaths = [systemdUnitPath(TRIGGER_UNITS.service), systemdUnitPath(TRIGGER_UNITS.timer)];
   const units = unitPaths.filter((path) => existsSync(path));
@@ -1000,8 +1072,8 @@ function uninstallTriggers(): void {
   const unstampedUnits = units.some(
     (path, index) => stamps[index] === undefined && !(proven && unitShapeOurs(path)),
   );
-  const lines = listing.ok ? listing.lines.filter((line) => line.trim() !== "") : [];
-  const tagged = lines.filter((line) => line.includes(TRIGGER_TAG));
+  const lines = listing.ok ? listing.lines : [];
+  const tagged = lines.filter(taggedCronLine);
   const ownedCron = tagged.filter((line) => {
     const owner = cronOwner(line);
     if (owner === TRIGGER_OWNER) return true;
@@ -1039,7 +1111,17 @@ function uninstallTriggers(): void {
       console.log("install-global: dry run — a tagged cron line without an owner stamp would be left untouched");
     }
     reportForeign();
-    return;
+    return true;
+  }
+  if (unstampedCron) {
+    fail("install-global: a tagged cron line has no owner stamp; the uninstall was not performed");
+  }
+  if (ownedCron.length > 0) {
+    const kept = lines.filter((line) => !ownedCron.includes(line));
+    if (!writeCrontab(kept)) {
+      fail("install-global: the crontab could not be rewritten; the uninstall was not performed");
+    }
+    console.log(`install-global: removed ${ownedCron.length} tagged cron line(s)`);
   }
   if (foreignUnits.length > 0) {
     console.log(`install-global: the ${TRIGGER_TAG} unit pair is owned by ${foreignUnits.join(", ")} — left untouched`);
@@ -1050,13 +1132,8 @@ function uninstallTriggers(): void {
   } else if (unstampedUnits) {
     console.log(`install-global: ${TRIGGER_UNITS.service} exists without an owner stamp — left untouched`);
   }
-  if (ownedCron.length > 0) {
-    const kept = lines.filter((line) => !ownedCron.includes(line));
-    if (writeCrontab(kept)) console.log(`install-global: removed ${ownedCron.length} tagged cron line(s)`);
-    else console.log("install-global: could not rewrite the crontab — the tagged cron line remains");
-  }
-  if (unstampedCron) console.log("install-global: a tagged cron line without an owner stamp was left untouched");
   reportForeign();
+  return true;
 }
 
 function unstampedOwnedArtifact(marker: Marker | undefined): boolean {
@@ -1067,7 +1144,7 @@ function unstampedOwnedArtifact(marker: Marker | undefined): boolean {
     if (existsSync(path) && unitStamp(path) === undefined && unitShapeOurs(path)) return true;
   }
   return readCrontab().lines.some(
-    (line) => line.includes(TRIGGER_TAG) && cronOwner(line) === undefined && cronShapeOurs(line),
+    (line) => taggedCronLine(line) && cronOwner(line) === undefined && cronShapeOurs(line),
   );
 }
 
@@ -1079,6 +1156,7 @@ function writeMarker(
   contentSha: string | undefined,
   host: string,
   trigger: string,
+  cron: "none" | "owned",
 ): void {
   const bundleBytes = readFileSync(TARGET);
   const marker: Marker = {
@@ -1096,6 +1174,7 @@ function writeMarker(
     ...(Object.keys(db).length > 0 ? { db } : {}),
     preflight: usesPosixDatabaseLane(installLane(process.platform)) ? preflightMarks() : {},
     trigger,
+    cron,
     installedAt: new Date().toISOString(),
   };
   writeAtomic(MARKER_FILE, `${JSON.stringify(marker, null, 2)}\n`);
@@ -1198,6 +1277,7 @@ function install(): void {
   const assets = resolveAssets();
   const wasm = assetRecords(assets);
   const existing = readMarker();
+  const freshLane = maintenance ? !existsSync(MARKER_FILE) : !existsSync(MARKER_FILE) && !existsSync(DB_DIR);
   const db = posixDb && !maintenance ? dbRecords() : {};
   const staleWasm = staleWasmFiles(wasm);
   if (existsSync(TARGET) && !existing && !flags.has("--force")) {
@@ -1229,6 +1309,7 @@ function install(): void {
     return;
   }
   const triggerPlan = posixDb && !maintenance ? preflightTriggers(existing) : undefined;
+  const mayWriteCron = posixDb && !maintenance && (triggerPlan === "cron" || triggerPlan === "auto");
   const pruned = pruneStaleWasm(wasm);
   if (pruned > 0) {
     console.log(`install-global: removed ${pruned} stale wasm file(s) under ${WASM_DIR}`);
@@ -1272,12 +1353,30 @@ function install(): void {
   }
   preflightLaptop();
   if (posixDb) {
+    if (mayWriteCron) {
+      try {
+        writeMarker(
+          bundle.sha,
+          wasm,
+          db,
+          bundle.sourceSha,
+          bundle.contentSha,
+          host.version,
+          existing?.trigger ?? "manual",
+          "owned",
+        );
+      } catch (e) {
+        fail(`cannot write ${MARKER_FILE}: ${(e as Error)?.message ?? e}`);
+      }
+    }
+    cronAttempted = false;
     const trigger = maintenance ? "manual" : registerTriggers(triggerPlan ?? "manual", dbPath);
-    writeMarker(bundle.sha, wasm, db, bundle.sourceSha, bundle.contentSha, host.version, trigger);
+    const cron = resolveCronState(existing, freshLane, maintenance ? false : cronAttempted);
+    writeMarker(bundle.sha, wasm, db, bundle.sourceSha, bundle.contentSha, host.version, trigger, cron);
     if (!maintenance) dbSmoke(dbPath);
   } else {
     secureWindowsKeyDir();
-    writeMarker(bundle.sha, wasm, db, bundle.sourceSha, bundle.contentSha, host.version, "none");
+    writeMarker(bundle.sha, wasm, db, bundle.sourceSha, bundle.contentSha, host.version, "none", "none");
   }
   console.log(
     `install-global: installed ${TARGET} (v${REPO_PACKAGE.version ?? "0.0.0"}, ${bundle.sha.slice(0, 12)})`,
@@ -1320,12 +1419,28 @@ function countFiles(dir: string): number {
   return total;
 }
 
-function removeEmptyTree(dir: string): void {
-  if (!existsSync(dir)) return;
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isDirectory()) removeEmptyTree(join(dir, entry.name));
-  }
+function runtimeHasFiles(dir: string): boolean {
   try {
+    if (!existsSync(dir)) return false;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (runtimeHasFiles(join(dir, entry.name))) return true;
+      } else {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+function removeEmptyTree(dir: string): void {
+  try {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) removeEmptyTree(join(dir, entry.name));
+    }
     if (readdirSync(dir).length === 0) rmSync(dir, { recursive: true, force: true });
   } catch {
     return;
@@ -1432,16 +1547,15 @@ function archiveFile(path: string, archive: string): void {
 
 function uninstall(): void {
   if (flags.has("--purge")) requirePurgeConsent();
+  const marker = readMarker();
   const targetExists = existsSync(TARGET);
-  const runtimeExists = existsSync(RUNTIME);
-  if (!targetExists && !runtimeExists) {
+  if (!targetExists && !runtimeHasFiles(RUNTIME)) {
     console.log(`install-global: nothing installed at ${TARGET}`);
     releaseOwnership();
     if (flags.has("--purge")) purge();
     else console.log("install-global: no plugin files were present; state paths were left untouched");
     return;
   }
-  const marker = readMarker();
   if (!targetExists && (!marker || marker.package !== PLUGIN_ID) && maintenanceLane()) {
     console.log(
       `install-global: no plugin installed at ${TARGET}; the database maintenance lane is managed by ` +
@@ -1453,20 +1567,25 @@ function uninstall(): void {
     fail(`refusing to remove ${TARGET}: no Tawassul marker (use --force)`);
   }
   if (flags.has("--dry-run")) {
-    console.log(`install-global: dry run — would remove ${TARGET} and the files this install recorded under ${RUNTIME}`);
-    uninstallTriggers();
+    if (uninstallTriggers(marker)) {
+      console.log(`install-global: dry run — would remove ${TARGET} and the files this install recorded under ${RUNTIME}`);
+    }
     return;
   }
-  uninstallTriggers();
+  uninstallTriggers(marker);
   if (targetExists) removeFile(TARGET);
   const owned = marker?.package === PLUGIN_ID ? ownedRuntimeFiles(marker) : [];
-  const files = [...new Set([...owned, ...fallbackRuntimeFiles()])];
+  const files = [...new Set([...owned, ...fallbackRuntimeFiles()])].filter(
+    (file) => file !== MARKER_FILE,
+  );
   let removed = 0;
   for (const file of files) {
     if (!existsSync(file)) continue;
     removeFile(file);
     removed += 1;
   }
+  if (existsSync(MARKER_FILE)) removed += 1;
+  removeFile(MARKER_FILE);
   removeEmptyTree(RUNTIME);
   console.log(`install-global: removed ${TARGET}`);
   console.log(`install-global: removed ${removed} installed runtime file(s) under ${RUNTIME}`);

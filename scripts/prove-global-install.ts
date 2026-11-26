@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -93,7 +94,18 @@ type Marker = {
   db?: Record<string, { path?: string; sha256?: string; bytes?: number }>;
   preflight?: Record<string, string>;
   trigger?: string;
+  cron?: "none" | "owned";
 };
+
+const PROOF_BIN = join(ROOT, "proof-bin");
+const PROOF_CRON = join(ROOT, "proof-crontab.txt");
+mkdirSync(PROOF_BIN, { recursive: true });
+writeFileSync(PROOF_CRON, "");
+writeFileSync(
+  join(PROOF_BIN, "crontab"),
+  `#!/bin/sh\nif [ "\${PROOF_CRONTAB_FAIL:-0}" = "1" ]; then\n  printf '%s\\n' "proof crontab failure" >&2\n  exit 1\nfi\nif [ "$1" = "-l" ]; then cat "${PROOF_CRON}" 2>/dev/null; exit 0; fi\nprintf '%s\\n' "proof crontab is read-only" >&2\nexit 1\n`,
+);
+chmodSync(join(PROOF_BIN, "crontab"), 0o755);
 
 function proofEnv(): NodeJS.ProcessEnv {
   const next: NodeJS.ProcessEnv = {
@@ -103,7 +115,7 @@ function proofEnv(): NodeJS.ProcessEnv {
     XDG_DATA_HOME: join(HOME, ".local", "share"),
     XDG_STATE_HOME: join(HOME, ".local", "state"),
     XDG_CACHE_HOME: join(HOME, ".cache"),
-    PATH: "/usr/bin:/bin",
+    PATH: `${PROOF_BIN}:/usr/bin:/bin`,
     TAWASSUL_OPENCODE_VERSION: "2.3.0",
     TAWASSUL_REGISTER_TRIGGERS: "off",
     OPENCODE_DB: SMOKE_DB,
@@ -128,6 +140,29 @@ function runWith(args: string[], env: NodeJS.ProcessEnv, cwd?: string): { code: 
 
 function run(args: string[]): { code: number; out: string } {
   return runWith(args, proofEnv());
+}
+
+function proofIsolationCases(): void {
+  const which = spawnSync("sh", ["-c", "command -v crontab"], { env: proofEnv(), encoding: "utf-8" });
+  assert(
+    which.status === 0 && which.stdout.trim() === join(PROOF_BIN, "crontab"),
+    "proofEnv resolves crontab to the isolated proof shim",
+  );
+  const failing = spawnSync("crontab", ["-l"], {
+    env: { ...proofEnv(), PROOF_CRONTAB_FAIL: "1" },
+    encoding: "utf-8",
+  });
+  assert(
+    failing.status !== 0 && `${failing.stderr ?? ""}`.includes("proof crontab failure"),
+    "a failing proof shim runs instead of falling back to the real crontab",
+  );
+  const refused = spawnSync("crontab", ["-"], {
+    input: "0 1 * * * /usr/bin/true\n",
+    env: proofEnv(),
+    encoding: "utf-8",
+  });
+  assert(refused.status !== 0, "the proofEnv crontab shim refuses writes");
+  assert(readFileSync(PROOF_CRON, "utf-8") === "", "the refused proof-cron write leaves the isolated table empty");
 }
 
 function sha256(path: string): string {
@@ -234,13 +269,21 @@ function releaseInstallerCases(): void {
   const env = proofEnv();
   delete env.OPENCODE_DB;
   env.TAWASSUL_REGISTER_TRIGGERS = "manual";
-  const run = (args: string[]): { code: number; out: string } => {
+  const runInstaller = (args: string[], childEnv: NodeJS.ProcessEnv): { code: number; out: string } => {
     const result = spawnSync("sh", [join(REPO, "install.sh"), ...args, "--from", release, "--release", "0.0.0"], {
-      env,
+      env: childEnv,
       encoding: "utf8",
     });
     return { code: result.status ?? -1, out: `${result.stdout ?? ""}${result.stderr ?? ""}` };
   };
+  const run = (args: string[]): { code: number; out: string } => runInstaller(args, env);
+  const shimDir = join(dir, "cron-shim");
+  mkdirSync(shimDir, { recursive: true });
+  const shim = join(shimDir, "crontab");
+  writeFileSync(shim, "#!/bin/sh\nprintf '%s\\n' \"crontabs/proof/: fopen: Permission denied\" >&2\nexit 1\n");
+  chmodSync(shim, 0o755);
+  const runUnreadableCron = (args: string[]): { code: number; out: string } =>
+    runInstaller(args, { ...env, PATH: `${shimDir}:/usr/bin:/bin` });
 
   const installedProject = run(["--project", project]);
   assert(installedProject.code === 0, "the release installer still installs a project scope");
@@ -263,13 +306,84 @@ function releaseInstallerCases(): void {
   const marker = readFileSync(join(dbDir, "MAINTENANCE"), "utf8");
   assert(marker.includes('"lane": "install.sh --db-maintenance"'), "the maintenance lane uses a dedicated marker");
   assert(marker.includes(sidecarDir), "the marker records the resolved sidecar DB");
+  assert(marker.includes('"cron": "none"'), "a fresh manual lane records cron none");
   assert(!existsSync(join(dbDir, "VERSION")), "the maintenance lane never writes the shared VERSION marker");
 
-  const removedDb = run(["--db-maintenance", "--prefix", hostHome, "--uninstall"]);
-  assert(removedDb.code === 0, "the maintenance lane uninstalls cleanly");
-  assert(!existsSync(dbDir), "uninstall removes the database scripts");
+  const removedDb = runUnreadableCron(["--db-maintenance", "--prefix", hostHome, "--uninstall"]);
+  assert(removedDb.code === 0, `the manual lane uninstalls with an unreadable crontab (${removedDb.code}: ${removedDb.out})`);
+  assert(!existsSync(dbDir), "uninstall removes the database scripts without reading crontab");
   assert(existsSync(globalBundle), "uninstall keeps a live plugin bundle");
   assert(existsSync(join(globalRuntime, "VERSION")), "uninstall keeps the shared VERSION marker");
+
+  const reinstalledDb = run(["--db-maintenance", "--prefix", hostHome]);
+  assert(reinstalledDb.code === 0, "the maintenance lane reinstalls for the guarded case");
+  const markerPath = join(dbDir, "MAINTENANCE");
+  const readMaintenance = (): Record<string, unknown> =>
+    JSON.parse(readFileSync(markerPath, "utf8")) as Record<string, unknown>;
+  const writeMaintenance = (record: Record<string, unknown>): void => {
+    writeFileSync(markerPath, `${JSON.stringify(record, null, 2)}\n`);
+  };
+  assert(readMaintenance().cron === "none", "the reinstalled manual lane records cron none");
+  const ownedMarker = readMaintenance();
+  ownedMarker.cron = "owned";
+  writeMaintenance(ownedMarker);
+  const blocked = runUnreadableCron(["--db-maintenance", "--prefix", hostHome, "--uninstall"]);
+  assert(blocked.code !== 0, "an owned marker refuses an unreadable crontab");
+  assert(existsSync(dbDir), "the refused owned uninstall keeps the database scripts");
+  assert(existsSync(markerPath), "the refused owned uninstall keeps the marker");
+  const blockedDry = runUnreadableCron(["--db-maintenance", "--prefix", hostHome, "--uninstall", "--dry-run"]);
+  assert(
+    blockedDry.code === 0 &&
+      blockedDry.out.includes("a real uninstall would refuse") &&
+      !blockedDry.out.includes("would remove the database scripts"),
+    "the owned unreadable dry run reports the refusal without claiming removal",
+  );
+  assert(existsSync(dbDir) && existsSync(markerPath), "the owned unreadable dry run keeps the scripts and marker");
+  const noneMarker = readMaintenance();
+  noneMarker.cron = "none";
+  writeMaintenance(noneMarker);
+  const removedAgain = run(["--db-maintenance", "--prefix", hostHome, "--uninstall"]);
+  assert(removedAgain.code === 0, "the restored none lane uninstalls with a readable crontab");
+  assert(!existsSync(dbDir), "the restored none uninstall removes the database scripts");
+
+  const foreignDb = run(["--db-maintenance", "--prefix", hostHome]);
+  assert(foreignDb.code === 0, "the maintenance lane reinstalls for the foreign-marker case");
+  const foreignMarker = readMaintenance();
+  foreignMarker.package = "another-plugin";
+  foreignMarker.cron = "none";
+  writeMaintenance(foreignMarker);
+  const foreignRefused = runUnreadableCron(["--db-maintenance", "--prefix", hostHome, "--uninstall", "--force"]);
+  assert(foreignRefused.code !== 0, "a foreign marker cron none does not bypass the unreadable gate under --force");
+  assert(existsSync(dbDir), "the refused foreign-marker uninstall keeps the database scripts");
+  const foreignRemoved = run(["--db-maintenance", "--prefix", hostHome, "--uninstall", "--force"]);
+  assert(foreignRemoved.code === 0, "the foreign marker uninstalls once the crontab is readable");
+
+  const unprovenHome = join(dir, "host-home-unproven");
+  const unprovenDb = join(unprovenHome, ".local", "share", "opencode", "tawassul-v2");
+  mkdirSync(unprovenDb, { recursive: true });
+  writeFileSync(join(unprovenDb, "opencode.db"), "");
+  const unprovenShim = triggerShim("release-unproven");
+  writeFileSync(
+    unprovenShim.cron,
+    "17 4 * * * /usr/bin/env bash '/tmp/other/opencode-db-scheduled.sh' --run # tawassul-db-maintenance\n",
+  );
+  const unprovenInstall = runInstaller(["--db-maintenance", "--prefix", unprovenHome], {
+    ...env,
+    PATH: `${unprovenShim.dir}:/usr/bin:/bin`,
+  });
+  assert(unprovenInstall.code === 0, "the unproven-line lane installs");
+  const unprovenMarkerPath = join(unprovenHome, ".config", "opencode", "tawassul-runtime", "db", "MAINTENANCE");
+  const unprovenMarker = JSON.parse(readFileSync(unprovenMarkerPath, "utf8")) as Marker;
+  assert(unprovenMarker.cron === "owned", "an unproven tagged cron line forces cron owned");
+  const unprovenRefused = runInstaller(["--db-maintenance", "--prefix", unprovenHome, "--uninstall"], {
+    ...env,
+    PATH: `${shimDir}:/usr/bin:/bin`,
+  });
+  assert(unprovenRefused.code !== 0, "the unproven-line lane refuses an unreadable crontab");
+  assert(
+    existsSync(join(unprovenHome, ".config", "opencode", "tawassul-runtime", "db")),
+    "the refused unproven lane keeps its scripts",
+  );
 }
 
 function doctorMaintenanceCases(): void {
@@ -764,6 +878,10 @@ function installShLaneCases(): void {
     readFileSync(shim.cron, "utf-8").includes(`'${join(spaced.runtime, "db", "opencode-db-scheduled.sh")}' --run`),
     "the cron line quotes a script path that contains a space",
   );
+  const spacedMarker = JSON.parse(
+    readFileSync(join(spaced.runtime, "db", "MAINTENANCE"), "utf-8"),
+  ) as Marker;
+  assert(spacedMarker.cron === "owned", "a successful cron install records cron owned");
 
   const linkHome = lane("symlink");
   const linkPath = join(linkHome.home, ".local", "share", "opencode", "tawassul-v2", "linked.db");
@@ -1609,6 +1727,245 @@ function installGlobalLaneCases(): void {
     "the opt-out removes the owned cron line once the crontab is readable",
   );
 
+  const manualUnreadable = globalTriggerEnv("manual-unreadable");
+  assert(
+    runWith([], { ...manualUnreadable.env, TAWASSUL_REGISTER_TRIGGERS: "manual" }).code === 0,
+    "a fresh manual global lane installs",
+  );
+  const manualUnreadableMarker = JSON.parse(
+    readFileSync(join(manualUnreadable.global, "tawassul-runtime", "VERSION"), "utf-8"),
+  ) as Marker;
+  assert(manualUnreadableMarker.cron === "none", "a fresh manual global lane records cron none");
+  const manualUnreadableUser = join(manualUnreadable.global, "notes.txt");
+  const manualUnreadableRuntime = join(manualUnreadable.global, "tawassul-runtime");
+  writeFileSync(manualUnreadableUser, "keep me\n");
+  const manualUnreadableRun = runWith(["--uninstall"], { ...manualUnreadable.env, ...unreadableGlobalEnv });
+  assert(
+    manualUnreadableRun.code === 0 &&
+      manualUnreadableRun.out.includes("the marker proves this lane wrote no cron line"),
+    "a fresh manual global lane uninstalls with an unreadable crontab",
+  );
+  assert(
+    !existsSync(join(manualUnreadable.global, "plugins", "tawassul.js")),
+    "the fresh manual uninstall removes the global bundle",
+  );
+  assert(!existsSync(join(manualUnreadableRuntime, "VERSION")), "the fresh manual uninstall removes the marker");
+  assert(!existsSync(join(manualUnreadableRuntime, "db")), "the fresh manual uninstall removes the db scripts");
+  assert(existsSync(manualUnreadableUser), "the fresh manual uninstall keeps a user file");
+
+  const unknownForce = globalTriggerEnv("unknown-force");
+  assert(
+    runWith([], { ...unknownForce.env, TAWASSUL_REGISTER_TRIGGERS: "manual" }).code === 0,
+    "the unknown-force case installs a fresh manual lane",
+  );
+  const unknownForceMarkerPath = join(unknownForce.global, "tawassul-runtime", "VERSION");
+  const unknownForceMarker = JSON.parse(readFileSync(unknownForceMarkerPath, "utf-8")) as Marker;
+  delete unknownForceMarker.cron;
+  writeFileSync(unknownForceMarkerPath, `${JSON.stringify(unknownForceMarker, null, 2)}\n`);
+  const unknownForceRefused = runWith(["--uninstall", "--force"], {
+    ...unknownForce.env,
+    ...unreadableGlobalEnv,
+  });
+  assert(
+    unknownForceRefused.code !== 0 && unknownForceRefused.out.includes("the uninstall was not performed"),
+    "an unknown cron marker refuses an unreadable uninstall under --force",
+  );
+  assert(
+    existsSync(join(unknownForce.global, "plugins", "tawassul.js")),
+    "the refused unknown-marker uninstall keeps the bundle",
+  );
+  const unknownDry = runWith(["--uninstall", "--dry-run"], {
+    ...unknownForce.env,
+    ...unreadableGlobalEnv,
+  });
+  assert(
+    unknownDry.code === 0 &&
+      unknownDry.out.includes("a real uninstall would refuse") &&
+      !unknownDry.out.includes("would remove"),
+    "an unreadable dry-run reports the refusal without changing state",
+  );
+  assert(
+    existsSync(join(unknownForce.global, "plugins", "tawassul.js")) && existsSync(unknownForceMarkerPath),
+    "the unreadable dry-run keeps the bundle and marker",
+  );
+  assert(
+    runWith(["--uninstall", "--force"], unknownForce.env).code === 0,
+    "the unknown-marker uninstall completes once the crontab is readable",
+  );
+
+  const staleNone = globalTriggerEnv("stale-none");
+  assert(
+    runWith([], { ...staleNone.env, TAWASSUL_REGISTER_TRIGGERS: "cron" }).code === 0,
+    "the stale-none case installs an owned cron line",
+  );
+  const staleNoneMarkerPath = join(staleNone.global, "tawassul-runtime", "VERSION");
+  const staleNoneMarker = JSON.parse(readFileSync(staleNoneMarkerPath, "utf-8")) as Marker;
+  staleNoneMarker.cron = "none";
+  writeFileSync(staleNoneMarkerPath, `${JSON.stringify(staleNoneMarker, null, 2)}\n`);
+  assert(runWith(["--uninstall"], staleNone.env).code === 0, "a cron none marker does not block a readable uninstall");
+  assert(
+    readFileSync(staleNone.cron, "utf-8").trim() === "",
+    "a cron none marker still removes a readable owned cron line",
+  );
+
+  const writeFailInstall = globalTriggerEnv("write-fail-install");
+  const writeFailInstallShim = join(ROOT, "shim-write-fail-install");
+  mkdirSync(writeFailInstallShim, { recursive: true });
+  writeFileSync(
+    join(writeFailInstallShim, "crontab"),
+    "#!/bin/sh\nif [ \"$1\" = \"-l\" ]; then exit 0; fi\nprintf 'write refused\\n' >&2\nexit 1\n",
+  );
+  chmodSync(join(writeFailInstallShim, "crontab"), 0o755);
+  const writeFailInstallRun = runWith([], {
+    ...writeFailInstall.env,
+    TAWASSUL_REGISTER_TRIGGERS: "cron",
+    PATH: `${writeFailInstallShim}:/usr/bin:/bin`,
+  });
+  assert(writeFailInstallRun.code === 0, "a cron write failure during install falls back to manual");
+  const writeFailInstallMarker = JSON.parse(
+    readFileSync(join(writeFailInstall.global, "tawassul-runtime", "VERSION"), "utf-8"),
+  ) as Marker;
+  assert(
+    writeFailInstallMarker.cron === "owned",
+    "a failed cron write keeps the marker at cron owned",
+  );
+  assert(readFileSync(writeFailInstall.cron, "utf-8").trim() === "", "the failed cron install writes no line");
+  const writeFailInstallRefused = runWith(["--uninstall"], {
+    ...writeFailInstall.env,
+    ...unreadableGlobalEnv,
+  });
+  assert(
+    writeFailInstallRefused.code !== 0 &&
+      existsSync(join(writeFailInstall.global, "plugins", "tawassul.js")),
+    "the write-ahead owned marker refuses an unreadable uninstall",
+  );
+  const writeFailInstallRecovered = runWith(["--uninstall"], writeFailInstall.env);
+  assert(
+    writeFailInstallRecovered.code === 0 &&
+      !existsSync(join(writeFailInstall.global, "plugins", "tawassul.js")),
+    "the write-failure install lane removes cleanly once readable",
+  );
+
+  const writeFail = globalTriggerEnv("write-fail");
+  assert(
+    runWith([], { ...writeFail.env, TAWASSUL_REGISTER_TRIGGERS: "cron" }).code === 0,
+    "the write-fail case installs an owned cron line",
+  );
+  const writeFailCron = readFileSync(writeFail.cron, "utf-8");
+  const failWriteDir = join(ROOT, "shim-write-fail-only");
+  mkdirSync(failWriteDir, { recursive: true });
+  writeFileSync(
+    join(failWriteDir, "crontab"),
+    `#!/bin/sh\nif [ "$1" = "-l" ]; then cat "${writeFail.cron}" 2>/dev/null; exit 0; fi\nprintf 'write refused\\n' >&2\nexit 1\n`,
+  );
+  chmodSync(join(failWriteDir, "crontab"), 0o755);
+  const writeFailRun = runWith(["--uninstall"], { ...writeFail.env, PATH: `${failWriteDir}:/usr/bin:/bin` });
+  assert(
+    writeFailRun.code !== 0 && writeFailRun.out.includes("the crontab could not be rewritten"),
+    "a cron write failure refuses the uninstall",
+  );
+  assert(
+    existsSync(join(writeFail.global, "plugins", "tawassul.js")),
+    "the refused write-failure uninstall keeps the bundle",
+  );
+  assert(readFileSync(writeFail.cron, "utf-8") === writeFailCron, "the refused write-failure uninstall keeps the cron line");
+  const writeFailRecovered = runWith(["--uninstall"], writeFail.env);
+  assert(
+    writeFailRecovered.code === 0 && !existsSync(join(writeFail.global, "plugins", "tawassul.js")),
+    `the write-failure uninstall completes once the crontab is writable (${writeFailRecovered.code}: ${writeFailRecovered.out})`,
+  );
+
+  const unprovenGlobal = globalTriggerEnv("unproven-cron");
+  assert(
+    runWith([], { ...unprovenGlobal.env, TAWASSUL_REGISTER_TRIGGERS: "manual" }).code === 0,
+    "the unproven global case installs a fresh manual lane",
+  );
+  writeFileSync(unprovenGlobal.cron, "17 4 * * * /usr/bin/true # tawassul-db-maintenance\n");
+  const unprovenGlobalRun = runWith(["--uninstall"], unprovenGlobal.env);
+  assert(
+    unprovenGlobalRun.code !== 0 && unprovenGlobalRun.out.includes("has no owner stamp"),
+    "a tagged cron line without an owner refuses the global uninstall",
+  );
+  assert(
+    existsSync(join(unprovenGlobal.global, "plugins", "tawassul.js")),
+    "the refused unproven global uninstall keeps the bundle",
+  );
+  assert(
+    readFileSync(unprovenGlobal.cron, "utf-8").includes("/usr/bin/true"),
+    "the refused unproven global uninstall keeps the line",
+  );
+
+  const noneWriteFail = globalTriggerEnv("none-write-fail");
+  assert(
+    runWith([], { ...noneWriteFail.env, TAWASSUL_REGISTER_TRIGGERS: "manual" }).code === 0,
+    "the none-write-fail case installs a fresh manual lane",
+  );
+  const noneOwnedLine = `17 4 * * * /usr/bin/env bash '${join(
+    noneWriteFail.global,
+    "tawassul-runtime",
+    "db",
+    "opencode-db-scheduled.sh",
+  )}' --run # tawassul-db-maintenance owner=install-global\n`;
+  writeFileSync(noneWriteFail.cron, noneOwnedLine);
+  const noneFailDir = join(ROOT, "shim-none-write-fail");
+  mkdirSync(noneFailDir, { recursive: true });
+  writeFileSync(
+    join(noneFailDir, "crontab"),
+    `#!/bin/sh\nif [ "$1" = "-l" ]; then cat "${noneWriteFail.cron}" 2>/dev/null; exit 0; fi\nprintf 'write refused\\n' >&2\nexit 1\n`,
+  );
+  chmodSync(join(noneFailDir, "crontab"), 0o755);
+  const noneFailRun = runWith(["--uninstall"], { ...noneWriteFail.env, PATH: `${noneFailDir}:/usr/bin:/bin` });
+  assert(
+    noneFailRun.code !== 0 && noneFailRun.out.includes("the crontab could not be rewritten"),
+    "a marker-none uninstall stops when the owned line cannot be rewritten",
+  );
+  assert(
+    existsSync(join(noneWriteFail.global, "plugins", "tawassul.js")),
+    "the failed marker-none rewrite keeps the bundle",
+  );
+  assert(readFileSync(noneWriteFail.cron, "utf-8") === noneOwnedLine, "the failed marker-none rewrite keeps the line");
+  const noneWriteFailRecovered = runWith(["--uninstall"], noneWriteFail.env);
+  assert(
+    noneWriteFailRecovered.code === 0 &&
+      !existsSync(join(noneWriteFail.global, "plugins", "tawassul.js")) &&
+      readFileSync(noneWriteFail.cron, "utf-8").trim() === "",
+    `the marker-none uninstall removes the line once the crontab is writable (${noneWriteFailRecovered.code}: ${noneWriteFailRecovered.out})`,
+  );
+
+  const trapGlobal = globalTriggerEnv("trap-manual");
+  assert(
+    runWith([], { ...trapGlobal.env, TAWASSUL_REGISTER_TRIGGERS: "cron" }).code === 0,
+    "the trap case installs an owned cron line",
+  );
+  const trapBundle = join(trapGlobal.global, "plugins", "tawassul.js");
+  appendFileSync(trapBundle, Buffer.from("\n"));
+  const trapInstall = runWith([], {
+    ...trapGlobal.env,
+    ...unreadableGlobalEnv,
+    TAWASSUL_REGISTER_TRIGGERS: "manual",
+  });
+  assert(trapInstall.code === 0, `a manual reinstall over an unreadable crontab completes (${trapInstall.code}: ${trapInstall.out})`);
+  const trapMarkerPath = join(trapGlobal.global, "tawassul-runtime", "VERSION");
+  const trapMarker = JSON.parse(readFileSync(trapMarkerPath, "utf-8")) as Marker;
+  assert(
+    trapMarker.trigger === "manual" && trapMarker.cron === "owned",
+    "a manual reinstall over an owned cron line keeps cron owned",
+  );
+  assert(
+    readFileSync(trapGlobal.cron, "utf-8").includes("owner=install-global"),
+    "the manual reinstall leaves the owned line",
+  );
+  const trapRefused = runWith(["--uninstall"], { ...trapGlobal.env, ...unreadableGlobalEnv });
+  assert(trapRefused.code !== 0, "the manual trap refuses an unreadable uninstall");
+  assert(existsSync(trapBundle), "the refused trap uninstall keeps the bundle");
+  const trapRemoved = runWith(["--uninstall"], trapGlobal.env);
+  assert(
+    trapRemoved.code === 0 &&
+      !existsSync(trapBundle) &&
+      readFileSync(trapGlobal.cron, "utf-8").trim() === "",
+    "the readable trap uninstall removes the line and the bundle",
+  );
+
   const un = globalTriggerEnv("uninstall-foreign");
   assert(runWith([], { ...un.env, TAWASSUL_REGISTER_TRIGGERS: "systemd" }).code === 0, "the uninstall case installs systemd");
   const unUnits = {
@@ -1760,6 +2117,7 @@ function maintenanceMarkerUninstallCases(): void {
 }
 
 try {
+  proofIsolationCases();
   releaseInstallerCases();
   fiveFileSetCases();
   installShLaneCases();
@@ -1996,6 +2354,7 @@ try {
     assert(existsSync(join(GLOBAL, entry?.path ?? "")), `marker db path resolves for ${id}`);
   }
   assert(record.trigger === "manual", "marker records the manual trigger under the off mode");
+  assert(record.cron === "none", "marker records cron none under the off mode");
   assert(installed.out.includes("trigger registration skipped"), "install prints the registration-skip notice");
   assert(runInstalledMaintenance(["--db", SMOKE_DB, "--check", "--ignore-low-ram"]).code === 0, "installed maintenance --check exits 0 against the synthetic v2 DB");
 
@@ -2293,6 +2652,8 @@ try {
   const cronInstall = runWith([], cronEnv);
   assert(cronInstall.code === 0, "install registers through a fresh crontab account");
   assert(cronInstall.out.includes("registered cron line"), "the installer reports cron registration");
+  const cronMarker = JSON.parse(readFileSync(MARKER, "utf-8")) as Marker;
+  assert(cronMarker.cron === "owned", "a successful cron install records cron owned");
   const cronText = readFileSync(cronState, "utf-8");
   assert(cronText.includes(`OPENCODE_DB='${SMOKE_DB}'`), "the cron line pins the resolved OPENCODE_DB");
   assert(

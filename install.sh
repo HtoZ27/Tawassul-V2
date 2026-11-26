@@ -224,6 +224,43 @@ own_marker() {
     && grep -q '"lane"[[:space:]]*:[[:space:]]*"install.sh --db-maintenance"' "$MARKER"
 }
 
+marker_trigger_value() {
+  [ -f "$MARKER" ] || return 0
+  sed -n 's/.*"trigger"[[:space:]]*:[[:space:]]*"\([a-z]*\)".*/\1/p' "$MARKER" | head -n 1
+}
+
+marker_cron() {
+  own_marker || return 0
+  [ "$(grep -Eo '"cron"[[:space:]]*:' "$MARKER" | wc -l)" -eq 1 ] || return 0
+  sed -n 's/.*"cron"[[:space:]]*:[[:space:]]*"\(none\|owned\)".*/\1/p' "$MARKER" | head -n 1
+}
+
+write_marker_file() {
+  write_marker_trigger="$1"
+  write_marker_cron="$2"
+  STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  if ! {
+    printf '{\n'
+    printf '  "package": "tawassul-v2",\n'
+    printf '  "lane": "install.sh --db-maintenance",\n'
+    printf '  "version": "%s",\n' "$RELEASE"
+    printf '  "db": "%s",\n' "$DB_PATH"
+    printf '  "trigger": "%s",\n' "$write_marker_trigger"
+    printf '  "cron": "%s",\n' "$write_marker_cron"
+    printf '  "gapSeconds": %s,\n' "$GAP_SECONDS"
+    printf '  "installedAt": "%s"\n' "$STAMP"
+    printf '}\n'
+  } > "$MARKER.tmp.$$"; then
+    rm -f "$MARKER.tmp.$$"
+    return 1
+  fi
+  if ! mv "$MARKER.tmp.$$" "$MARKER"; then
+    rm -f "$MARKER.tmp.$$"
+    return 1
+  fi
+  return 0
+}
+
 canon_path() {
   [ -n "$1" ] || return 0
   canon_tail=""
@@ -260,12 +297,16 @@ unit_shape_ours() {
   esac
 }
 
+cron_tagged() {
+  printf '%s\n' "$1" | tr -d '\r' | grep -Eq "^.*# $TRIGGER_TAG([[:space:]]+owner=[^[:space:]]*)?[[:space:]]*$"
+}
+
 cron_owner() {
-  printf '%s\n' "$1" | sed -n "s/.*# $TRIGGER_TAG owner=\([^ ]*\).*/\1/p"
+  printf '%s\n' "$1" | tr -d '\r' | sed -n "s/.*# $TRIGGER_TAG owner=\([^[:space:]]*\).*/\1/p"
 }
 
 cron_shape_ours() {
-  printf '%s\n' "$1" | grep -Fq "$TRIGGER_TAG" || return 1
+  cron_tagged "$1" || return 1
   printf '%s\n' "$1" | grep -Fq "$DB_DIR/opencode-db-scheduled.sh" || return 1
   printf '%s\n' "$1" | grep -Fq -- '--run'
 }
@@ -284,13 +325,42 @@ cron_ours() {
 }
 
 cron_read() {
-  cron_read_out="$(LC_ALL=C crontab -l 2>&1)" || {
-    case "$cron_read_out" in
-      *"no crontab for"*) printf ''; return 0 ;;
-      *) return 1 ;;
-    esac
+  cron_read_out="$(LC_ALL=C crontab -l 2>/dev/null)" && {
+    printf '%s' "$cron_read_out"
+    return 0
   }
-  printf '%s' "$cron_read_out"
+  cron_read_err="$(LC_ALL=C crontab -l 2>&1 >/dev/null)" || true
+  if printf '%s%s' "$cron_read_out" "$cron_read_err" | grep -qi 'no crontab for'; then
+    printf ''
+    return 0
+  fi
+  return 1
+}
+
+resolve_cron_state() {
+  resolve_prev="$1"
+  resolve_fresh="$2"
+  resolve_attempted="$3"
+  if resolve_scan="$(cron_read)"; then
+    resolve_field="none"
+    while IFS= read -r resolve_line; do
+      [ -n "$resolve_line" ] || continue
+      if cron_tagged "$resolve_line"; then
+        resolve_owner="$(cron_owner "$resolve_line")"
+        if [ -z "$resolve_owner" ] || cron_ours "$resolve_line"; then
+          resolve_field="owned"
+        fi
+      fi
+    done <<EOF
+$resolve_scan
+EOF
+    printf '%s\n' "$resolve_field"
+    return 0
+  fi
+  if [ "$resolve_attempted" = "1" ]; then printf 'owned\n'; return 0; fi
+  if [ "$resolve_prev" = "none" ]; then printf 'none\n'; return 0; fi
+  if [ "$resolve_fresh" = "1" ]; then printf 'none\n'; return 0; fi
+  printf 'owned\n'
 }
 
 print_cleanup() {
@@ -314,13 +384,12 @@ scan_foreign_schedule() {
     CRON_NOW="$(crontab -l 2>/dev/null || true)"
     if [ -n "$CRON_NOW" ]; then
       while IFS= read -r line; do
-        case "$line" in
-          *"# $TRIGGER_TAG"*)
-            token="$(cron_owner "$line")"
-            if [ -n "$token" ]; then
-              case " $found_tokens " in *" $token "*) : ;; *) found_tokens="$found_tokens $token" ;; esac
-            fi ;;
-        esac
+        if cron_tagged "$line"; then
+          token="$(cron_owner "$line")"
+          if [ -n "$token" ]; then
+            case " $found_tokens " in *" $token "*) : ;; *) found_tokens="$found_tokens $token" ;; esac
+          fi
+        fi
       done <<EOF
 $CRON_NOW
 EOF
@@ -351,14 +420,64 @@ uninstall_maintenance() {
     scan_foreign_schedule
     exit 0
   fi
+  CRON_FIELD="$(marker_cron)"
   if [ "$DRY_RUN" = "1" ]; then
+    if [ "$CRON_FIELD" != "none" ]; then
+      if ! command -v crontab >/dev/null 2>&1 || ! cron_read >/dev/null 2>&1; then
+        say "dry run - a real uninstall would refuse: crontab could not be read"
+        exit 0
+      fi
+    fi
     say "dry run - would remove the database scripts, marker and this lane's own schedule under $DB_DIR"
     exit 0
   fi
   CRON_OLD=""
+  CRON_READ_OK=0
   if command -v crontab >/dev/null 2>&1; then
-    if ! CRON_OLD="$(cron_read)"; then
+    if CRON_OLD="$(cron_read)"; then
+      CRON_READ_OK=1
+    fi
+  fi
+  if [ "$CRON_FIELD" = "none" ]; then
+    if [ "$CRON_READ_OK" != "1" ]; then
+      say "crontab is not readable; the marker records that this lane wrote no cron entry, so the staged files are removed"
+      CRON_OLD=""
+    fi
+  else
+    if [ "$CRON_READ_OK" != "1" ]; then
       fail "crontab could not be read; the maintenance lane was not removed"
+    fi
+  fi
+  left_cron_owner=""
+  left_cron_unproven=0
+  CRON_NEW=""
+  cron_dropped=0
+  if [ "$CRON_READ_OK" = "1" ] && [ -n "$CRON_OLD" ]; then
+    while IFS= read -r cron_line; do
+      if cron_tagged "$cron_line"; then
+        if cron_ours "$cron_line"; then
+          cron_dropped=1
+          continue
+        fi
+        cron_token="$(cron_owner "$cron_line")"
+        if [ -n "$cron_token" ]; then
+          if [ -z "$left_cron_owner" ]; then left_cron_owner="$cron_token"; fi
+        else
+          left_cron_unproven=1
+        fi
+      fi
+      CRON_NEW="$CRON_NEW$cron_line
+"
+    done <<EOF
+$CRON_OLD
+EOF
+  fi
+  if [ "$left_cron_unproven" = 1 ]; then
+    fail "a tagged cron entry has no owner stamp; the maintenance lane was not removed"
+  fi
+  if [ "$cron_dropped" = 1 ]; then
+    if ! printf '%s' "$CRON_NEW" | crontab - 2>/dev/null; then
+      fail "crontab could not remove the maintenance entry; the lane was not removed"
     fi
   fi
   UNIT_DIR="$CONFIG_BASE/systemd/user"
@@ -384,36 +503,6 @@ uninstall_maintenance() {
   elif [ -f "$SERVICE_FILE" ] || [ -f "$TIMER_FILE" ]; then
     left_unit_owner="$(unit_stamp "$SERVICE_FILE")"
     [ -n "$left_unit_owner" ] || left_unit_owner="$(unit_stamp "$TIMER_FILE")"
-  fi
-  left_cron_owner=""
-  if command -v crontab >/dev/null 2>&1; then
-    CRON_NEW=""
-    cron_dropped=0
-    if [ -n "$CRON_OLD" ]; then
-      while IFS= read -r cron_line; do
-        [ -n "$cron_line" ] || continue
-        case "$cron_line" in
-          *"# $TRIGGER_TAG"*)
-            if cron_ours "$cron_line"; then
-              cron_dropped=1
-              continue
-            fi
-            cron_token="$(cron_owner "$cron_line")"
-            if [ -n "$cron_token" ] && [ -z "$left_cron_owner" ]; then
-              left_cron_owner="$cron_token"
-            fi ;;
-        esac
-        CRON_NEW="$CRON_NEW$cron_line
-"
-      done <<EOF
-$CRON_OLD
-EOF
-    fi
-    if [ "$cron_dropped" = 1 ]; then
-      if ! printf '%s' "$CRON_NEW" | sed '/^$/d' | crontab - 2>/dev/null; then
-        fail "crontab could not remove the maintenance entry; the lane was not removed"
-      fi
-    fi
   fi
   for file in $MAINT_FILES; do
     rm -f "$DB_DIR/$file"
@@ -470,14 +559,12 @@ remove_owned_schedule() {
     cron_dropped=0
     if [ -n "$CRON_OLD" ]; then
       while IFS= read -r cron_line; do
-        [ -n "$cron_line" ] || continue
-        case "$cron_line" in
-          *"# $TRIGGER_TAG"*)
-            if cron_ours "$cron_line"; then
-              cron_dropped=1
-              continue
-            fi ;;
-        esac
+        if cron_tagged "$cron_line"; then
+          if cron_ours "$cron_line"; then
+            cron_dropped=1
+            continue
+          fi
+        fi
         CRON_NEW="$CRON_NEW$cron_line
 "
       done <<EOF
@@ -485,7 +572,7 @@ $CRON_OLD
 EOF
     fi
     if [ "$cron_dropped" = 1 ]; then
-      if ! printf '%s' "$CRON_NEW" | sed '/^$/d' | crontab - 2>/dev/null; then
+      if ! printf '%s' "$CRON_NEW" | crontab - 2>/dev/null; then
         printf '%s\n' "install: crontab could not remove the maintenance entry" >&2
         return 4
       fi
@@ -569,21 +656,20 @@ register_db_timer() {
   cron_legacy=0
   if [ -n "$CRON_OLD" ]; then
     while IFS= read -r cron_line; do
-      case "$cron_line" in
-        *"# $TRIGGER_TAG"*)
-          cron_token="$(cron_owner "$cron_line")"
-          if [ -n "$cron_token" ]; then
-            if [ "$cron_token" != "$OWNER_SELF" ]; then
-              foreign=1
-              [ -n "$foreign_owner" ] || foreign_owner="$cron_token"
-            fi
-          elif cron_shape_ours "$cron_line"; then
-            cron_legacy=$(( cron_legacy + 1 ))
-          else
+      if cron_tagged "$cron_line"; then
+        cron_token="$(cron_owner "$cron_line")"
+        if [ -n "$cron_token" ]; then
+          if [ "$cron_token" != "$OWNER_SELF" ]; then
             foreign=1
-            [ -n "$foreign_owner" ] || foreign_owner="an unstamped cron line"
-          fi ;;
-      esac
+            [ -n "$foreign_owner" ] || foreign_owner="$cron_token"
+          fi
+        elif cron_shape_ours "$cron_line"; then
+          cron_legacy=$(( cron_legacy + 1 ))
+        else
+          foreign=1
+          [ -n "$foreign_owner" ] || foreign_owner="an unstamped cron line"
+        fi
+      fi
     done <<EOF
 $CRON_OLD
 EOF
@@ -642,21 +728,19 @@ EOF
             CRON_LEFT=""
             cron_dropped=0
             while IFS= read -r cron_line; do
-              [ -n "$cron_line" ] || continue
-              case "$cron_line" in
-                *"# $TRIGGER_TAG"*)
-                  if [ "$FORCE" = "1" ] || cron_ours "$cron_line"; then
-                    cron_dropped=1
-                    continue
-                  fi ;;
-              esac
+              if cron_tagged "$cron_line"; then
+                if [ "$FORCE" = "1" ] || cron_ours "$cron_line"; then
+                  cron_dropped=1
+                  continue
+                fi
+              fi
               CRON_LEFT="$CRON_LEFT$cron_line
 "
             done <<EOF
 $CRON_NOW
 EOF
             if [ "$cron_dropped" = 1 ]; then
-              if ! printf '%s' "$CRON_LEFT" | sed '/^$/d' | crontab - 2>/dev/null; then
+              if ! printf '%s' "$CRON_LEFT" | crontab - 2>/dev/null; then
                 systemctl --user disable --now "$TIMER_UNIT" >/dev/null 2>&1 || true
                 rm -f "$SERVICE_FILE" "$TIMER_FILE"
                 printf '%s\n' "install: crontab could not remove the previous maintenance entry" >&2
@@ -698,12 +782,23 @@ EOF
         CRON_ENV="XDG_DATA_HOME='$DATA_CAPTURE' $CRON_ENV"
       fi
       CRON_LINE="17 4 * * * $CRON_ENV /usr/bin/env bash '$DB_DIR/opencode-db-scheduled.sh' --run # $TRIGGER_TAG owner=$OWNER_SELF"
+      CRON_WRITE_ATTEMPTED=1
       if printf '%s\n' "$CRON_OLD" | grep -Fxq "$CRON_LINE"; then
         printf 'cron\n'
         return 0
       fi
-      CRON_KEPT="$(printf '%s\n' "$CRON_OLD" | grep -vF "# $TRIGGER_TAG" | sed '/^$/d' || true)"
-      if printf '%s\n' "$CRON_KEPT" "$CRON_LINE" | sed '/^$/d' | crontab - 2>/dev/null; then
+      CRON_KEPT=""
+      if [ -n "$CRON_OLD" ]; then
+        while IFS= read -r cron_line; do
+          if cron_tagged "$cron_line"; then continue; fi
+          CRON_KEPT="$CRON_KEPT$cron_line
+"
+        done <<EOF
+$CRON_OLD
+EOF
+      fi
+      if printf '%s' "$CRON_KEPT$CRON_LINE
+" | crontab - 2>/dev/null; then
         printf 'cron\n'
         return 0
       fi
@@ -824,6 +919,25 @@ install_maintenance() {
   case "$GAP_SECONDS" in
     ''|*[!0-9]*) fail "TAWASSUL_DB_GAP_SECONDS must be a non-negative integer" ;;
   esac
+  FRESH_LANE=0
+  if [ ! -f "$MARKER" ] && [ ! -d "$DB_DIR" ]; then FRESH_LANE=1; fi
+  PREV_CRON=""
+  PREV_TRIGGER="manual"
+  if own_marker; then
+    PREV_CRON="$(marker_cron)"
+    PREV_TRIGGER="$(marker_trigger_value)"
+    [ -n "$PREV_TRIGGER" ] || PREV_TRIGGER="manual"
+  fi
+  NORM_OPT_OUT="$(printf '%s' "${TAWASSUL_DB_MAINTENANCE:-}" | tr '[:upper:]' '[:lower:]')"
+  NORM_TRIGGER_MODE="$(printf '%s' "${TAWASSUL_REGISTER_TRIGGERS:-auto}" | tr '[:upper:]' '[:lower:]')"
+  MAY_WRITE_CRON=0
+  case "$NORM_OPT_OUT" in
+    off|0|false|disabled) : ;;
+    *)
+      case "$NORM_TRIGGER_MODE" in
+        cron|auto) MAY_WRITE_CRON=1 ;;
+      esac ;;
+  esac
   snapshot_maintenance
   mkdir -p "$DB_DIR"
   if ! tar -xzf "$ARCHIVE" -C "$TMP"; then
@@ -839,28 +953,20 @@ install_maintenance() {
       fail "cannot stage $file; the previous lane was restored"
     fi
   done
-  if ! TRIGGER_MODE="$(register_db_timer)"; then
+  if [ "$MAY_WRITE_CRON" = "1" ]; then
+    if ! write_marker_file "$PREV_TRIGGER" owned; then
+      rollback_maintenance
+      fail "cannot write $MARKER; the previous lane was restored"
+    fi
+  fi
+  CRON_WRITE_ATTEMPTED=0
+  if ! register_db_timer > "$TMP/trigger.mode"; then
     rollback_maintenance
     fail "database maintenance registration failed; the previous lane was restored"
   fi
-  STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  if ! {
-    printf '{\n'
-    printf '  "package": "tawassul-v2",\n'
-    printf '  "lane": "install.sh --db-maintenance",\n'
-    printf '  "version": "%s",\n' "$RELEASE"
-    printf '  "db": "%s",\n' "$DB_PATH"
-    printf '  "trigger": "%s",\n' "$TRIGGER_MODE"
-    printf '  "gapSeconds": %s,\n' "$GAP_SECONDS"
-    printf '  "installedAt": "%s"\n' "$STAMP"
-    printf '}\n'
-  } > "$MARKER.tmp.$$"; then
-    rm -f "$MARKER.tmp.$$"
-    rollback_maintenance
-    fail "cannot write $MARKER; the previous lane was restored"
-  fi
-  if ! mv "$MARKER.tmp.$$" "$MARKER"; then
-    rm -f "$MARKER.tmp.$$"
+  TRIGGER_MODE="$(cat "$TMP/trigger.mode")"
+  CRON_STATE="$(resolve_cron_state "$PREV_CRON" "$FRESH_LANE" "$CRON_WRITE_ATTEMPTED")"
+  if ! write_marker_file "$TRIGGER_MODE" "$CRON_STATE"; then
     rollback_maintenance
     fail "cannot write $MARKER; the previous lane was restored"
   fi

@@ -223,7 +223,7 @@
     },
     {
       "id": "S-011",
-      "title": "Status-change index sync + session provenance (loop guard) — IMPLEMENTED on v2",
+      "title": "Status-change index sync + session provenance (loop guard) \u2014 IMPLEMENTED on v2",
       "sharedLine": 138,
       "requirements": [
         {
@@ -246,7 +246,7 @@
     },
     {
       "id": "S-012",
-      "title": "Completion invariant — close-only + droppable closed goals + true CAS (loop guard, proven CAS shape) — IMPLEMENTED on v2",
+      "title": "Completion invariant \u2014 close-only + droppable closed goals + true CAS (loop guard, proven CAS shape) \u2014 IMPLEMENTED on v2",
       "sharedLine": 149,
       "requirements": [
         {
@@ -269,7 +269,7 @@
     },
     {
       "id": "S-013",
-      "title": "Role-scoped permissions + record/eval read-back + MCP boundary (security hardening) — IMPLEMENTED on v2",
+      "title": "Role-scoped permissions + record/eval read-back + MCP boundary (security hardening) \u2014 IMPLEMENTED on v2",
       "sharedLine": 160,
       "requirements": [
         {
@@ -302,7 +302,7 @@
     },
     {
       "id": "S-014",
-      "title": "Standalone health tool — IMPLEMENTED on v2",
+      "title": "Standalone health tool \u2014 IMPLEMENTED on v2",
       "sharedLine": 171,
       "requirements": [
         {
@@ -325,7 +325,7 @@
     },
     {
       "id": "S-015",
-      "title": "Old `kanban-board` naming removed from v1 — DONE on v1 (baseline, do NOT re-implement in v2)",
+      "title": "Old `kanban-board` naming removed from v1 \u2014 DONE on v1 (baseline, do NOT re-implement in v2)",
       "sharedLine": 182,
       "requirements": [
         {
@@ -342,7 +342,7 @@
     },
     {
       "id": "S-016",
-      "title": "Conflict-marker pollutants resolved on v1 — DONE on v1 (baseline, do NOT propagate in v2)",
+      "title": "Conflict-marker pollutants resolved on v1 \u2014 DONE on v1 (baseline, do NOT propagate in v2)",
       "sharedLine": 193,
       "requirements": [
         {
@@ -359,7 +359,7 @@
     },
     {
       "id": "S-017",
-      "title": "Three-day v1 hardening batch (2026-09-20 → 23) — IMPLEMENTED on v2",
+      "title": "Three-day v1 hardening batch (2026-09-20 \u2192 23) \u2014 IMPLEMENTED on v2",
       "sharedLine": 204,
       "requirements": [
         {
@@ -389,7 +389,7 @@
     },
     {
       "id": "S-018",
-      "title": "v1 commit 3af1b224 (R-008/R-009/R-011) — ported on merit, v2-shaped — IMPLEMENTED on v2",
+      "title": "v1 commit 3af1b224 (R-008/R-009/R-011) \u2014 ported on merit, v2-shaped \u2014 IMPLEMENTED on v2",
       "sharedLine": 310,
       "requirements": [
         {
@@ -412,7 +412,7 @@
     },
     {
       "id": "S-019",
-      "title": "v1 commit 29a4f809 atomic-audit P0 closures (WAL verify, containment, backup env, fail-closed gates) — IMPLEMENTED on v2",
+      "title": "v1 commit 29a4f809 atomic-audit P0 closures (WAL verify, containment, backup env, fail-closed gates) \u2014 IMPLEMENTED on v2",
       "sharedLine": 323,
       "requirements": [
         {
@@ -435,7 +435,7 @@
     },
     {
       "id": "S-020",
-      "title": "v1 nine-day batch 2026-09-26 → 2026-10-05 (tool-surface, cache, guards, wiring, burn discipline) — IMPLEMENTED on v2",
+      "title": "v1 nine-day batch 2026-09-26 \u2192 2026-10-05 (tool-surface, cache, guards, wiring, burn discipline) \u2014 IMPLEMENTED on v2",
       "sharedLine": 341,
       "requirements": [
         {
@@ -458,7 +458,7 @@
     },
     {
       "id": "S-022",
-      "title": "v1 37-commit backlog ad40a084..HEAD — triage for V2 (v1 side provides, V2 implements)",
+      "title": "v1 37-commit backlog ad40a084..HEAD \u2014 triage for V2 (v1 side provides, V2 implements)",
       "sharedLine": 363,
       "requirements": [
         {
@@ -481,7 +481,7 @@
     },
     {
       "id": "S-021",
-      "title": "v1 perf doctrine, local-server honesty, tawa/addagent invocation (37-commit sweep remainders) — IMPLEMENTED on v2",
+      "title": "v1 perf doctrine, local-server honesty, tawa/addagent invocation (37-commit sweep remainders) \u2014 IMPLEMENTED on v2",
       "sharedLine": 390,
       "requirements": [
         {
@@ -504,7 +504,7 @@
     },
     {
       "id": "S-023",
-      "title": "exhaustive 37-commit reconciliation remainders — IMPLEMENTED on v2",
+      "title": "exhaustive 37-commit reconciliation remainders \u2014 IMPLEMENTED on v2",
       "sharedLine": 409,
       "requirements": [
         {
@@ -527,7 +527,7 @@
     },
     {
       "id": "S-024",
-      "title": "atomic-audit findings — IMPLEMENTED on v2",
+      "title": "atomic-audit findings \u2014 IMPLEMENTED on v2",
       "sharedLine": 431,
       "requirements": [
         {
@@ -550,7 +550,7 @@
     },
     {
       "id": "S-025",
-      "title": "audit-round-2 findings — IMPLEMENTED on v2",
+      "title": "audit-round-2 findings \u2014 IMPLEMENTED on v2",
       "sharedLine": 457,
       "requirements": [
         {
@@ -573,7 +573,7 @@
     },
     {
       "id": "S-026",
-      "title": "review-round-3 findings — IMPLEMENTED on v2",
+      "title": "review-round-3 findings \u2014 IMPLEMENTED on v2",
       "sharedLine": 471,
       "requirements": [
         {
@@ -596,7 +596,7 @@
     },
     {
       "id": "S-027",
-      "title": "S-022 closure re-verification (bilateral) — CLOSED, docs only",
+      "title": "S-022 closure re-verification (bilateral) \u2014 CLOSED, docs only",
       "sharedLine": 488,
       "requirements": [
         {
@@ -613,7 +613,7 @@
     },
     {
       "id": "S-028",
-      "title": "v1 commit ba3d7d8d provider-is-truth suffix gate — IMPLEMENTED on v2",
+      "title": "v1 commit ba3d7d8d provider-is-truth suffix gate \u2014 IMPLEMENTED on v2",
       "sharedLine": 501,
       "requirements": [
         {
@@ -636,7 +636,7 @@
     },
     {
       "id": "S-029",
-      "title": "v1 commit 015dc8e9 R7 variant pins, dispatch precedence, log default — IMPLEMENTED on v2",
+      "title": "v1 commit 015dc8e9 R7 variant pins, dispatch precedence, log default \u2014 IMPLEMENTED on v2",
       "sharedLine": 518,
       "requirements": [
         {
@@ -659,7 +659,7 @@
     },
     {
       "id": "S-030",
-      "title": "local roster adoption plus generation-layer retire — IMPLEMENTED on v2",
+      "title": "local roster adoption plus generation-layer retire \u2014 IMPLEMENTED on v2",
       "sharedLine": 538,
       "requirements": [
         {
@@ -683,7 +683,7 @@
     },
     {
       "id": "S-031",
-      "title": "documented install method (plugin entry) — IMPLEMENTED on v2",
+      "title": "documented install method (plugin entry) \u2014 IMPLEMENTED on v2",
       "sharedLine": 553,
       "requirements": [
         {
@@ -706,7 +706,7 @@
     },
     {
       "id": "S-032",
-      "title": "stale project-scope plugin copy wins D4 registration and supersedes every later build — IMPLEMENTED on v2",
+      "title": "stale project-scope plugin copy wins D4 registration and supersedes every later build \u2014 IMPLEMENTED on v2",
       "sharedLine": 565,
       "requirements": [
         {
@@ -729,7 +729,7 @@
     },
     {
       "id": "S-033",
-      "title": "cold-boot launch wave (M0–M2) — v1 `591d7418` + working tree — PARTIALLY IMPLEMENTED on v2 (plugin-side); launcher/installer/self-bootstrap skipped",
+      "title": "cold-boot launch wave (M0\u2013M2) \u2014 v1 `591d7418` + working tree \u2014 PARTIALLY IMPLEMENTED on v2 (plugin-side); launcher/installer/self-bootstrap skipped",
       "sharedLine": 588,
       "requirements": [
         {
@@ -752,7 +752,7 @@
           "status": "verified",
           "anchor": {
             "file": "scripts/install-global.ts",
-            "line": 212,
+            "line": 203,
             "marker": "hostCandidates"
           },
           "proofs": [
@@ -776,7 +776,7 @@
     },
     {
       "id": "S-034",
-      "title": "boot measurement stack (M3.1) — v1 `591d7418` + working tree — PARTIALLY IMPLEMENTED on v2 (hook); scorecard/runner skipped",
+      "title": "boot measurement stack (M3.1) \u2014 v1 `591d7418` + working tree \u2014 PARTIALLY IMPLEMENTED on v2 (hook); scorecard/runner skipped",
       "sharedLine": 615,
       "requirements": [
         {
@@ -814,7 +814,7 @@
     },
     {
       "id": "S-035",
-      "title": "DB-safety toolchain (guard, maintenance, D3, recovery, salvage) — v1 working tree — PARTIALLY IMPLEMENTED on v2 (guard + maintenance gate); D3/recovery/salvage skipped (v1-host)",
+      "title": "DB-safety toolchain (guard, maintenance, D3, recovery, salvage) \u2014 v1 working tree \u2014 PARTIALLY IMPLEMENTED on v2 (guard + maintenance gate); D3/recovery/salvage skipped (v1-host)",
       "sharedLine": 632,
       "requirements": [
         {
@@ -846,7 +846,7 @@
     },
     {
       "id": "S-036",
-      "title": "agent-management week (`64cc1169`, `a38be0b3`, `37796211`, `353fe375`) — IMPLEMENTED on v2",
+      "title": "agent-management week (`64cc1169`, `a38be0b3`, `37796211`, `353fe375`) \u2014 IMPLEMENTED on v2",
       "sharedLine": 647,
       "requirements": [
         {
@@ -870,7 +870,7 @@
     },
     {
       "id": "S-037",
-      "title": "test-suite triage + notify gate — v1 working tree — N/A on v2 (v1 test-host only)",
+      "title": "test-suite triage + notify gate \u2014 v1 working tree \u2014 N/A on v2 (v1 test-host only)",
       "sharedLine": 669,
       "requirements": [
         {
@@ -887,7 +887,7 @@
     },
     {
       "id": "S-038",
-      "title": "coexistence seat must be per workspace (Desktop multi-workspace starvation) — v1 working tree — IMPLEMENTED on v2",
+      "title": "coexistence seat must be per workspace (Desktop multi-workspace starvation) \u2014 v1 working tree \u2014 IMPLEMENTED on v2",
       "sharedLine": 682,
       "requirements": [
         {
@@ -910,7 +910,7 @@
     },
     {
       "id": "S-039",
-      "title": "N2 auto must gate on assistant messages (user text parts were recorded) — v1 working tree — v2 REQUIRED",
+      "title": "N2 auto must gate on assistant messages (user text parts were recorded) \u2014 v1 working tree \u2014 v2 REQUIRED",
       "sharedLine": 700,
       "requirements": [
         {
@@ -933,7 +933,7 @@
     },
     {
       "id": "S-040",
-      "title": "Desktop session-load freeze is the host `event` table (2.94GB, no retention) — v1 FIXED (shrink 2026-10-23 + cap-gated prune; maintenance quick_check open) — v2 REQUIRED",
+      "title": "Desktop session-load freeze is the host `event` table (2.94GB, no retention) \u2014 v1 FIXED (shrink 2026-10-23 + cap-gated prune; maintenance quick_check open) \u2014 v2 REQUIRED",
       "sharedLine": 713,
       "requirements": [
         {
@@ -956,7 +956,7 @@
     },
     {
       "id": "S-041",
-      "title": "pre-cutover coexistence — v1 guard shipped; v2 must complete this before cutover — v2 ACTION REQUIRED",
+      "title": "pre-cutover coexistence \u2014 v1 guard shipped; v2 must complete this before cutover \u2014 v2 ACTION REQUIRED",
       "sharedLine": 741,
       "requirements": [
         {
@@ -994,7 +994,7 @@
     },
     {
       "id": "S-042",
-      "title": "v2 loads both plugin discovery paths (one workspace, two setup calls) — v1 guard shipped — v2 ACTION REQUIRED",
+      "title": "v2 loads both plugin discovery paths (one workspace, two setup calls) \u2014 v1 guard shipped \u2014 v2 ACTION REQUIRED",
       "sharedLine": 780,
       "requirements": [
         {
@@ -1015,7 +1015,7 @@
     },
     {
       "id": "S-043",
-      "title": "v2 normalizes away v1 keys with warnings (`subagent_depth`, `compaction.prune`) — v1 retained for v1 host — v2 ACTION REQUIRED",
+      "title": "v2 normalizes away v1 keys with warnings (`subagent_depth`, `compaction.prune`) \u2014 v1 retained for v1 host \u2014 v2 ACTION REQUIRED",
       "sharedLine": 796,
       "requirements": [
         {
@@ -1038,7 +1038,7 @@
     },
     {
       "id": "S-044",
-      "title": "v2 `ask` is confirm-only (no select/multiselect elicitation) — v1 fail-closed — v2 REQUIRED",
+      "title": "v2 `ask` is confirm-only (no select/multiselect elicitation) \u2014 v1 fail-closed \u2014 v2 REQUIRED",
       "sharedLine": 812,
       "requirements": [
         {
@@ -1061,7 +1061,7 @@
     },
     {
       "id": "S-045",
-      "title": "v2 tool schemas are deferred (empty `args` until init) — v1 readiness handshake shipped — v2 ACTION REQUIRED",
+      "title": "v2 tool schemas are deferred (empty `args` until init) \u2014 v1 readiness handshake shipped \u2014 v2 ACTION REQUIRED",
       "sharedLine": 825,
       "requirements": [
         {
@@ -1084,7 +1084,7 @@
     },
     {
       "id": "S-046",
-      "title": "v2 `permission.assert` auto-allows unmatched actions — bridge forces `tawassul.ask` — v2 REQUIRED",
+      "title": "v2 `permission.assert` auto-allows unmatched actions \u2014 bridge forces `tawassul.ask` \u2014 v2 REQUIRED",
       "sharedLine": 839,
       "requirements": [
         {
@@ -1105,7 +1105,7 @@
     },
     {
       "id": "S-047",
-      "title": "v2 lacks tool-output streaming and a native compaction prompt template — v1 approximates — v2 REQUIRED",
+      "title": "v2 lacks tool-output streaming and a native compaction prompt template \u2014 v1 approximates \u2014 v2 REQUIRED",
       "sharedLine": 851,
       "requirements": [
         {
@@ -1128,7 +1128,7 @@
     },
     {
       "id": "S-048",
-      "title": "v2 rejects a tool result carrying `output` unless the tool declares an output schema — v1 bridge fixed — v2 NOTE",
+      "title": "v2 rejects a tool result carrying `output` unless the tool declares an output schema \u2014 v1 bridge fixed \u2014 v2 NOTE",
       "sharedLine": 865,
       "requirements": [
         {
@@ -1149,7 +1149,7 @@
     },
     {
       "id": "S-049",
-      "title": "v2 `execute.after` discarded every v1 output mutation — bridge now writes them back — v1 FIXED",
+      "title": "v2 `execute.after` discarded every v1 output mutation \u2014 bridge now writes them back \u2014 v1 FIXED",
       "sharedLine": 881,
       "requirements": [
         {
@@ -1172,7 +1172,7 @@
     },
     {
       "id": "S-050",
-      "title": "v1 budget exhaustion was mislabeled as a verification failure — fixed — v1 FIXED",
+      "title": "v1 budget exhaustion was mislabeled as a verification failure \u2014 fixed \u2014 v1 FIXED",
       "sharedLine": 898,
       "requirements": [
         {
@@ -1189,7 +1189,7 @@
     },
     {
       "id": "S-051",
-      "title": "Host evidence validates the bridge's `permission.evaluate` mutation and `tool.reload()` re-run — v2 NOTE",
+      "title": "Host evidence validates the bridge's `permission.evaluate` mutation and `tool.reload()` re-run \u2014 v2 NOTE",
       "sharedLine": 909,
       "requirements": [
         {
@@ -1210,7 +1210,7 @@
     },
     {
       "id": "S-052",
-      "title": "v1 goal auto-capture has seven correctness gaps — v2 must port the corrected shape, not the code — v2 ACTION REQUIRED",
+      "title": "v1 goal auto-capture has seven correctness gaps \u2014 v2 must port the corrected shape, not the code \u2014 v2 ACTION REQUIRED",
       "sharedLine": 925,
       "requirements": [
         {
@@ -1233,7 +1233,7 @@
     },
     {
       "id": "S-053",
-      "title": "v1 retirement transfer — watcher, boot, DB retention, and the unfinished-task census — v2 ACTION REQUIRED before cutover",
+      "title": "v1 retirement transfer \u2014 watcher, boot, DB retention, and the unfinished-task census \u2014 v2 ACTION REQUIRED before cutover",
       "sharedLine": 987,
       "requirements": [
         {
@@ -1381,7 +1381,7 @@
     },
     {
       "id": "S-054",
-      "title": "M3.1 frozen boot-scorecard was split out of v1 commit `0af80851` — DECISION MADE",
+      "title": "M3.1 frozen boot-scorecard was split out of v1 commit `0af80851` \u2014 DECISION MADE",
       "sharedLine": 1047,
       "requirements": [
         {
@@ -1404,7 +1404,7 @@
     },
     {
       "id": "S-055",
-      "title": "v1 `docs/` + `atomic/` remaining fix backlog — transferred before retirement — v2 TRIAGE REQUIRED (needs re-proof)",
+      "title": "v1 `docs/` + `atomic/` remaining fix backlog \u2014 transferred before retirement \u2014 v2 TRIAGE REQUIRED (needs re-proof)",
       "sharedLine": 1064,
       "requirements": [
         {
@@ -1421,7 +1421,7 @@
     },
     {
       "id": "S-056",
-      "title": "v2 shared v1 state, HMAC, lock, seat, and N2 surfaces — namespaced in one change — v2 IMPLEMENTED (v1 untouched)",
+      "title": "v2 shared v1 state, HMAC, lock, seat, and N2 surfaces \u2014 namespaced in one change \u2014 v2 IMPLEMENTED (v1 untouched)",
       "sharedLine": 1201,
       "requirements": [
         {
