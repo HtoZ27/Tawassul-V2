@@ -142,30 +142,89 @@ function formatIssues(error: z.ZodError): string {
     .join("; ");
 }
 
+export type ToolSlot = {
+  live: boolean;
+  name: string;
+  ctx?: V2Context;
+  def?: ToolDefinition;
+  validator?: z.ZodType<Record<string, unknown>> | null;
+  askFactory?: AskFactory;
+};
+
+export type ToolSlotState = {
+  closed: boolean;
+  slots: ToolSlot[];
+};
+
+export class ToolDisposedError extends Error {
+  readonly code = "TOOL_DISPOSED";
+  constructor(name: string) {
+    super(`Tool "${name}" is no longer available: plugin instance disposed`);
+    this.name = "ToolDisposedError";
+  }
+}
+
+export async function executeV2Tool(
+  slot: ToolSlot,
+  args: Record<string, unknown>,
+  context: V2ToolContext,
+): Promise<unknown> {
+  const ctx = slot.ctx;
+  const def = slot.def;
+  const validator = slot.validator;
+  const askFactory = slot.askFactory;
+  const name = slot.name;
+  if (!slot.live || !ctx || !def) throw new ToolDisposedError(name);
+  const v1Context = buildV1ToolContext(ctx, context, askFactory);
+  if (validator) {
+    const parsed = validator.safeParse(args ?? {});
+    if (!parsed.success) {
+      throw new Error(`Invalid input for tool "${name}": ${formatIssues(parsed.error)}`);
+    }
+    return toV2Result(await def.execute(parsed.data, v1Context));
+  }
+  return toV2Result(await def.execute(args, v1Context));
+}
+
+export function closeToolSlots(state: ToolSlotState): void {
+  state.closed = true;
+  for (const slot of state.slots) {
+    slot.live = false;
+    slot.ctx = undefined;
+    slot.def = undefined;
+    slot.validator = undefined;
+    slot.askFactory = undefined;
+  }
+  state.slots.length = 0;
+}
+
 export function makeV2Tool(
   ctx: V2Context,
   name: string,
   def: ToolDefinition,
   schema: Record<string, unknown> | undefined,
   askFactory?: AskFactory,
+  slotState?: ToolSlotState,
 ): V2ToolDefinition {
   const shape = (def.args ?? {}) as Zod.ZodRawShape;
   const validator = Object.keys(shape).length > 0 ? z.object(shape) : null;
+  const input = schema && Object.keys(schema).length > 0 ? schema : EMPTY_INPUT_SCHEMA;
+  if (slotState?.closed) {
+    return {
+      name,
+      description: def.description,
+      input,
+      options: { codemode: false },
+      execute: executeV2Tool.bind(undefined, { live: false, name }),
+    };
+  }
+  const slot: ToolSlot = { live: true, name, ctx, def, validator, askFactory };
+  slotState?.slots.push(slot);
   return {
     name,
     description: def.description,
-    input: schema && Object.keys(schema).length > 0 ? schema : EMPTY_INPUT_SCHEMA,
+    input,
     options: { codemode: false },
-    execute: async (args: Record<string, unknown>, context: V2ToolContext): Promise<unknown> => {
-      const v1Context = buildV1ToolContext(ctx, context, askFactory);
-      if (validator) {
-        const parsed = validator.safeParse(args ?? {});
-        if (!parsed.success) {
-          throw new Error(`Invalid input for tool "${name}": ${formatIssues(parsed.error)}`);
-        }
-        return toV2Result(await def.execute(parsed.data as Record<string, unknown>, v1Context));
-      }
-      return toV2Result(await def.execute(args, v1Context));
-    },
+    execute: executeV2Tool.bind(undefined, slot),
   };
 }

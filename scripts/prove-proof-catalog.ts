@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -240,6 +241,7 @@ const PINNED_PROOF_FILES = [
   "prove-skill-registration.ts",
   "prove-skills-manifest.ts",
   "prove-snapshot-boundary.ts",
+  "prove-state-manager-release.ts",
   "prove-state-paths.ts",
   "prove-state-root-rollback.ts",
   "prove-state-root-survival.ts",
@@ -260,10 +262,11 @@ const PINNED_PROOF_FILES = [
   "prove-v2-ask-bridge.ts",
   "prove-v2-compat.ts",
   "prove-v2-independence.ts",
+  "prove-v2-tool-retention.ts",
   "prove-web-ssrf.ts",
 ];
 
-const PINNED_PROOF_STEPS = 190;
+const PINNED_PROOF_STEPS = 192;
 const SMOKE_PROOFS = new Set(["prove-global-boot.ts", "prove-independence-boot.ts"]);
 
 const proofFiles = readdirSync(join(repo, "scripts"))

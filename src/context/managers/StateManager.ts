@@ -100,10 +100,29 @@ export class StateManager {
   
   private _readOnly = false;
 
+  private released = false;
+
   constructor(stateDir: string, statePathFn: () => string) {
     this.stateDir = stateDir;
     this.statePathFn = statePathFn;
     StateManager._instances.add(this);
+  }
+
+  detach(): void {
+    if (this.released) return;
+    try {
+      const path = this.statePathFn();
+      this.statePathFn = () => path;
+    } catch (e) {
+      logger.debug("[tawassul] StateManager detach: path capture failed:", e);
+    } finally {
+      this.released = true;
+      StateManager._instances.delete(this);
+    }
+  }
+
+  async releaseLock(): Promise<void> {
+    await this.resetLock();
   }
 
   isReadOnly(): boolean {

@@ -17,6 +17,7 @@ function clip(value: string): string {
 function itemID(item: BackgroundItem): string {
   if (item.kind === "subagent") return item.childSessionID;
   if (item.kind === "shell") return item.shellID;
+  if (item.kind === "codemode") return item.jobID;
   return item.path;
 }
 
@@ -27,7 +28,13 @@ function describeItem(item: BackgroundItem): string {
   if (item.kind === "shell") {
     return `- shell ${item.shellID} | ${clip(item.command)}`;
   }
-  return `- image ${clip(item.path)} | model=${item.model}`;
+  if (item.kind === "codemode") {
+    return `- codemode ${clip(item.jobID)}`;
+  }
+  if (item.kind === "image") {
+    return `- image ${clip(item.path)} | model=${item.model}`;
+  }
+  return `- video ${clip(item.path)}`;
 }
 
 function ttlMinutes(): number {
@@ -69,7 +76,7 @@ function renderStatus(
   }
   if (snapshot.items.length === 0) {
     return {
-      output: `Background status for session ${sessionID}: EMPTY. The latest snapshot (${ageSeconds}s ago) lists no running shell, subagent, or image work.`,
+      output: `Background status for session ${sessionID}: EMPTY. The latest snapshot (${ageSeconds}s ago) lists no running codemode, shell, subagent, image, or video work.`,
       metadata: {
         action: "status",
         sessionID,
@@ -129,16 +136,16 @@ function resolveSubagent(
 export function buildTaskControlTool() {
   return tool({
     description: [
-      "Control the background work the host reports through its idle snapshot.",
+      "Control background work reported in the host idle snapshot.",
       "",
       "ACTIONS",
-      "  status: list the running shell, subagent, and image work for a session.",
+      "  status: list the running codemode, shell, subagent, image, and video work for a session.",
       "  cancel: interrupt one subagent child listed in the latest snapshot.",
       "  revive: resume one subagent child listed in the latest snapshot with new instructions.",
       "",
-      "UNKNOWN, EMPTY, and STALE snapshots are reported as such. Shell and image work is",
-      "listed but never touched. An id missing from the snapshot is refused: this tool",
-      "never guesses a session id, and it fails closed when no control channel exists.",
+      "UNKNOWN, EMPTY, and STALE snapshots are reported as such. Codemode, shell, image, and",
+      "video work is listed but never touched. Unknown ids are refused; this tool",
+      "never guesses a session id and fails closed when no control channel exists.",
     ].join("\n"),
     args: {
       action: tool.schema

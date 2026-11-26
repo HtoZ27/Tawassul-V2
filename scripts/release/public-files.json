@@ -115,6 +115,8 @@
     "docs/SHARED-PARITY.md",
     "docs/phase0-dispatch-capture-2026-11-13.jsonl",
     "docs/plan-token-burn-control.md",
+    "docs/plans/tawassul-memory-retention-fix-plan.md",
+    "docs/plans/tawassul-multi-project-boot-plan.md",
     "docs/portable-context-handoff.md"
   ]
 }

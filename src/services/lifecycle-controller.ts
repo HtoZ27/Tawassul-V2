@@ -132,6 +132,15 @@ export class LifecycleController {
   async destroy(): Promise<void> {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.ctx.stateManager.detach();
+    try {
+      await this.destroyBody();
+    } finally {
+      await this.ctx.stateManager.releaseLock();
+    }
+  }
+
+  private async destroyBody(): Promise<void> {
     const destroyStartedAt = performance.now();
     const destroyCpu = process.cpuUsage();
     const savesBeforeDestroy = this.persistence.getSaveCount();

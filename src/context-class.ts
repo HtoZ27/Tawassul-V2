@@ -450,13 +450,18 @@ export class TawassulContext implements TawaOrchestratorContext {
     this._agentManager = new AgentManager(this.stateDir, this.timerManager, this.scope);
     this._modelManager = new ModelManager(this.stateDir, (n, f) => this.safeConfigPath(n, f), this.timerManager);
     this._stateManager = new StateManager(this.persistDir, () => this.statePath());
-    this._lifecycleManager = new LifecycleManager(this);
-    this._commandRouter = new CommandRouter(this);
-    this.registerEventHubListener("CRITICAL_ERROR", (d) => logger.error("[Tawassul] Critical:", d));
-    const modeEnv = process?.env?.OPENCODE_MODE;
-    if (modeEnv === "plan" || modeEnv === "build") this.detectedMode = modeEnv;
-    mark("context:ctor:end");
-    measure("context:ctor:start", "context:ctor:end", "constructor total");
+    try {
+      this._lifecycleManager = new LifecycleManager(this);
+      this._commandRouter = new CommandRouter(this);
+      this.registerEventHubListener("CRITICAL_ERROR", (d) => logger.error("[Tawassul] Critical:", d));
+      const modeEnv = process?.env?.OPENCODE_MODE;
+      if (modeEnv === "plan" || modeEnv === "build") this.detectedMode = modeEnv;
+      mark("context:ctor:end");
+      measure("context:ctor:start", "context:ctor:end", "constructor total");
+    } catch (e) {
+      this._stateManager.detach();
+      throw e;
+    }
   }
 
   

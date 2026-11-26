@@ -615,6 +615,8 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   
   if (tawaCtx.isConfigDisabled()) {
     logger.warn("Plugin disabled via config.disabled");
+    tawaCtx.stateManager.detach();
+    void tawaCtx.stateManager.releaseLock();
     return {};
   }
   if (_homeProjectCountPending && _homeProjectCountDirectory !== ctx.directory) {
@@ -1115,9 +1117,14 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
 
   
   
+  let disposedHookLogged = false;
   const gateHook =
     <A extends unknown[], R>(fn: (...args: A) => R) =>
     (...args: A): R => {
+      if (disposed && !disposedHookLogged) {
+        disposedHookLogged = true;
+        logger.info(`[tawassul] gate hook reached after dispose ${genTag(generation)}`);
+      }
       if (!isActiveOwner()) {
         logger.debug(`[tawassul] hook skipped: superseded by another ${coexistenceScope}-scope copy`);
         return undefined as R;
@@ -1140,6 +1147,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
   const disposeInstance = async (options?: { releaseClaim?: boolean }): Promise<void> => {
     if (disposed) return;
     disposed = true;
+    tawaCtx.stateManager.detach();
     resetContinuity();
     if (activePluginInstances.get(ctx.directory) === disposeInstance) activePluginInstances.delete(ctx.directory);
     disposeGlobalErrorHandlers();
@@ -1173,6 +1181,7 @@ export function initPlugin(ctx: PluginInput, deps?: { TawassulContext?: typeof T
     if (!status.ready) {
       logger.warn("dispose: init not ready, forcing cleanup:", status.error?.message ?? "pending");
     }
+    if (!hooks) void tawaCtx.stateManager.releaseLock();
     return runWithContext(tawaCtx, async () => {
       if (hooks) return hooks.disposeHook();
     });

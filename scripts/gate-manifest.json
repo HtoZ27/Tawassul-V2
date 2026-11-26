@@ -1451,6 +1451,20 @@
         "bun",
         "scripts/prove-report-path.ts"
       ]
+    },
+    {
+      "name": "state-manager-release",
+      "cmd": [
+        "bun",
+        "scripts/prove-state-manager-release.ts"
+      ]
+    },
+    {
+      "name": "v2-tool-retention",
+      "cmd": [
+        "bun",
+        "scripts/prove-v2-tool-retention.ts"
+      ]
     }
   ],
   "smoke": [

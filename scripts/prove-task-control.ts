@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +10,7 @@ import {
   readBackgroundSnapshot,
   recordBackgroundSnapshot,
   resetBackgroundState,
+  sanitizeBackgroundItems,
   uninstallBackgroundControl,
 } from "../src/services/background-tasks.ts";
 import { buildTaskControlTool } from "../src/tools/task-control.ts";
@@ -148,16 +150,41 @@ const image = {
   path: "/tmp/render.png",
   model: "image-model",
 };
+const codemode = {
+  kind: "codemode" as const,
+  sessionID: "s-full",
+  jobID: "job_1",
+};
+const video = {
+  kind: "video" as const,
+  sessionID: "s-full",
+  path: "/tmp/clip.mp4",
+};
+
+const sanitized = sanitizeBackgroundItems([
+  codemode,
+  video,
+  { kind: "future-kind", sessionID: "s-full" },
+  { kind: "codemode", sessionID: "s-full" },
+  { kind: "video", sessionID: "s-full" },
+  null,
+  "not-an-item",
+]);
+assert(sanitized.length === 2, "the sanitizer keeps only complete codemode and video items");
+assert(sanitized[0]?.kind === "codemode" && sanitized[0].jobID === "job_1", "a codemode item keeps its job id");
+assert(sanitized[1]?.kind === "video" && sanitized[1].path === "/tmp/clip.mp4", "a video item keeps its path");
 
 const fullNow = Date.now();
-recordBackgroundSnapshot("s-full", [subagent, shell, image], fullNow);
+recordBackgroundSnapshot("s-full", [subagent, shell, image, codemode, video], fullNow);
 const fullStatus = await tool.execute({ action: "status" }, context("s-full"));
 const fullOutput = outputOf(fullStatus);
-assert(fullOutput.includes("3 item(s)"), "the full snapshot counts every background item");
+assert(fullOutput.includes("5 item(s)"), "the full snapshot counts every background item");
 assert(fullOutput.includes("child-1"), "the full snapshot names the subagent child");
 assert(fullOutput.includes("agent=dev"), "the full snapshot names the subagent agent");
 assert(fullOutput.includes("sh_1"), "the full snapshot names the shell");
 assert(fullOutput.includes("/tmp/render.png"), "the full snapshot names the image");
+assert(fullOutput.includes("job_1"), "the full snapshot names the codemode job");
+assert(fullOutput.includes("/tmp/clip.mp4"), "the full snapshot names the video");
 assert(fullOutput.includes("..."), "a long shell command is clipped for the status line");
 assert(!fullOutput.includes("tail"), "the clipped shell command drops its tail");
 
@@ -201,7 +228,7 @@ installBackgroundControl({
 });
 assert(backgroundControl() !== undefined, "a control channel can be installed");
 
-recordBackgroundSnapshot("s-full", [subagent, shell, image], Date.now());
+recordBackgroundSnapshot("s-full", [subagent, shell, image, codemode, video], Date.now());
 
 const cancelled = await tool.execute(
   { action: "cancel", childSessionID: "child-1" },
@@ -224,6 +251,11 @@ await rejects(
   () => tool.execute({ action: "cancel", childSessionID: "sh_1" }, context("s-full")),
   "shell work, not a subagent",
   "cancel refuses shell work",
+);
+await rejects(
+  () => tool.execute({ action: "cancel", childSessionID: "job_1" }, context("s-full")),
+  "codemode work, not a subagent",
+  "cancel refuses codemode work",
 );
 recordBackgroundSnapshot("s-stale", [subagent], Date.now() - BACKGROUND_SNAPSHOT_TTL_MS - 1_000);
 await rejects(
@@ -312,6 +344,10 @@ assert(
 assert(
   setup.includes("recordBackgroundSnapshot(snapshot.sessionID"),
   "the idle hook records the host background list",
+);
+assert(
+  setup.includes("sanitizeBackgroundItems(snapshot.background)"),
+  "the idle hook validates every host background item before storing it",
 );
 assert(setup.includes("installBackgroundControl({"), "setup installs the background control");
 assert(setup.includes("uninstallBackgroundControl()"), "cleanup removes the background control");

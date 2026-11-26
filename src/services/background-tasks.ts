@@ -1,4 +1,5 @@
 export type BackgroundItem =
+  | { kind: "codemode"; sessionID: string; jobID: string }
   | { kind: "shell"; sessionID: string; shellID: string; command: string }
   | {
       kind: "subagent";
@@ -7,7 +8,59 @@ export type BackgroundItem =
       agent: string;
       description: string;
     }
-  | { kind: "image"; sessionID: string; path: string; model: string };
+  | { kind: "image"; sessionID: string; path: string; model: string }
+  | { kind: "video"; sessionID: string; path: string };
+
+function stringField(record: Record<string, unknown>, key: string): string | undefined {
+  const value = record[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+export function sanitizeBackgroundItems(items: readonly unknown[]): BackgroundItem[] {
+  const out: BackgroundItem[] = [];
+  for (const raw of items) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+    const record = raw as Record<string, unknown>;
+    const sessionID = stringField(record, "sessionID");
+    if (!sessionID) continue;
+    switch (record.kind) {
+      case "codemode": {
+        const jobID = stringField(record, "jobID");
+        if (jobID) out.push({ kind: "codemode", sessionID, jobID });
+        break;
+      }
+      case "shell": {
+        const shellID = stringField(record, "shellID");
+        const command = stringField(record, "command");
+        if (shellID && command) out.push({ kind: "shell", sessionID, shellID, command });
+        break;
+      }
+      case "subagent": {
+        const childSessionID = stringField(record, "childSessionID");
+        const agent = stringField(record, "agent");
+        const description = stringField(record, "description");
+        if (childSessionID && agent && description) {
+          out.push({ kind: "subagent", sessionID, childSessionID, agent, description });
+        }
+        break;
+      }
+      case "image": {
+        const path = stringField(record, "path");
+        const model = stringField(record, "model");
+        if (path && model) out.push({ kind: "image", sessionID, path, model });
+        break;
+      }
+      case "video": {
+        const path = stringField(record, "path");
+        if (path) out.push({ kind: "video", sessionID, path });
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  return out;
+}
 
 export type BackgroundSnapshot = {
   found: boolean;
@@ -51,8 +104,12 @@ export function recordBackgroundSnapshot(
         shellID: item.shellID,
         command: item.command,
       });
-    } else {
+    } else if (item.kind === "codemode") {
+      copy.push({ kind: "codemode", sessionID: item.sessionID, jobID: item.jobID });
+    } else if (item.kind === "image") {
       copy.push({ kind: "image", sessionID: item.sessionID, path: item.path, model: item.model });
+    } else {
+      copy.push({ kind: "video", sessionID: item.sessionID, path: item.path });
     }
   }
   _snapshots.delete(sessionID);

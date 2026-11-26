@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -110,8 +111,9 @@ process.env.OPENCODE_DB = join(work, "opencode.db");
 delete process.env.TAWASSUL_ISOLATED;
 delete process.env.TAWASSUL_CONTEXT_HANDOFF;
 
+let hooks: Awaited<ReturnType<typeof initPlugin>> | undefined;
 try {
-  const hooks = await initPlugin({ client: {}, directory: work, worktree: work } as never);
+  hooks = await initPlugin({ client: {}, directory: work, worktree: work } as never);
   const probe = getInitReady(hooks as never);
   assert(probe !== undefined, "the isolated boot exposes the init readiness probe");
   const status = await probe!();
@@ -297,6 +299,13 @@ try {
   );
   console.log(`PROOF PASS: the description diet meets the frozen target, the schema payload matches its golden, and hot-tool retries do not increase (${passed} assertions)`);
 } finally {
+  if (hooks) {
+    try {
+      await (hooks as unknown as { dispose: () => Promise<void> }).dispose();
+    } catch {
+    }
+  }
+  await new Promise<void>((resolve) => setTimeout(resolve, 1000));
   rmSync(work, { recursive: true, force: true });
 }
 process.exit(process.exitCode ?? 0);

@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { randomBytes } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -6,7 +7,7 @@ import { getInitReady, initPlugin } from "../src/bootstrap/plugin-init.ts";
 import { TOOL_COUNT, TOOL_NAME_SET_HASH } from "../src/generated/tool-tripwire.ts";
 import { toolNameSetHash } from "../src/services/tool-tripwire.ts";
 import type { ToolDefinition } from "../src/tool.ts";
-import { collectToolSchemas, schemaFingerprint } from "../src/v2/adapters.ts";
+import { collectToolSchemas, schemaFingerprint, ToolDisposedError } from "../src/v2/adapters.ts";
 import { createV2Setup } from "../src/v2/setup.ts";
 import type { V2Context, V2ToolContext, V2ToolDefinition } from "../src/v2/types.ts";
 
@@ -28,6 +29,17 @@ function resultText(result: unknown): string {
   const rec = result as { content?: Array<{ text?: string }> };
   if (Array.isArray(rec?.content)) return rec.content.map((part) => part.text ?? "").join("");
   return typeof result === "string" ? result : JSON.stringify(result);
+}
+
+async function expectDisposed(run: () => Promise<unknown>, name: string): Promise<void> {
+  try {
+    await run();
+  } catch (e) {
+    assert(e instanceof ToolDisposedError, `${name} throws ToolDisposedError`);
+    assert((e as ToolDisposedError).code === "TOOL_DISPOSED", `${name} carries the TOOL_DISPOSED code`);
+    return;
+  }
+  fail(`${name} did not throw`);
 }
 
 type Editor = { add: (tool: V2ToolDefinition) => void };
@@ -207,11 +219,29 @@ try {
     assert([...registry.keys()].sort().join(",") === namesBefore.join(","), "disposing the new tool restores the name set");
     assert(duplicates.length === 0, "the final registry has no duplicate tool");
 
-    await cleanup();
+    const retained = registry.get("help");
+    assert(retained !== undefined, "the host retains a live tool definition before cleanup");
+    let settled = false;
+    const cleanupPromise = cleanup().then(() => {
+      settled = true;
+    });
+    assert(settled === false, "cleanup is still pending when the host-retained tool is called");
+    const staleRun = retained
+      ? retained.execute({}, {
+          sessionID: "ses-reload",
+          messageID: "msg-reload",
+          agent: "",
+          id: "call-stale",
+          signal: new AbortController().signal,
+          progress: async () => undefined,
+        } as unknown as V2ToolContext)
+      : Promise.resolve();
+    await expectDisposed(() => staleRun, "a host-retained tool after synchronous close");
+    await cleanupPromise;
     assert(transforms.length === 0, "cleanup disposes every registration");
     assert(registry.size === 0, "cleanup empties the rebuilt registry");
     console.log(
-      `PROOF PASS: the live reload keeps ${before} tools, adds one callable tool, and duplicates nothing (${passed} assertions)`,
+      `PROOF PASS: the live reload keeps ${before} tools, adds one callable tool, fails stale calls closed, and duplicates nothing (${passed} assertions)`,
     );
   } finally {
     await cleanup();

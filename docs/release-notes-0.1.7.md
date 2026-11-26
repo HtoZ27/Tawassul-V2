@@ -126,9 +126,9 @@ database maintenance and no scheduled trigger. The full matrix is in
 | Check | Result at this release |
 | --- | --- |
 | Fast gate | 16 steps |
-| Proofs | 190 steps, one child process each |
+| Proofs | 192 steps, one child process each |
 | Smoke | 6 steps, including the release artifacts, global boot, and independence boot |
-| Proof files | 193, all catalogued across the stages |
+| Proof files | 195, all catalogued across the stages |
 | Public docs | 52 files, 44 tools, 8 agents, 16 skills |
 | Native Windows | Native receipts for the bundle and wasm lane; database lane unavailable |
 

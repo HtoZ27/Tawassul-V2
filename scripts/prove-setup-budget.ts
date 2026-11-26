@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -226,6 +227,16 @@ try {
     );
     assert(health?.level === "info", "a healthy registration logs the health line at info");
     assert(
+      captured.records.some(
+        (record) =>
+          record.level === "info" &&
+          record.message.includes("v2 setup ") &&
+          record.message.includes(" ready ") &&
+          /tools=2(?:\s|$)/.test(record.message),
+      ),
+      "the setup-ready line reports the registered tool surface",
+    );
+    assert(
       order.filter((entry) => entry === "ask" || entry === "skills" || entry === "command").join(",") ===
         "ask,skills,command",
       "the optional steps keep the ask to skills to command order",
@@ -339,7 +350,10 @@ try {
     );
     const health = healthRecords().at(-1);
     assert(health?.level === "error", "a rejected tool.transform logs the health line at error");
-    assert(health?.message.includes("tools=0"), "a rejected tool.transform reports zero tools");
+    assert(
+      health?.message.includes("tools=2") && health?.message.includes("applied=0"),
+      "a rejected tool.transform reports the surface and zero applied tools",
+    );
     assert(
       health?.message.includes("reason=tool registration failed"),
       "a rejected tool.transform names the failure reason",

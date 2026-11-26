@@ -1,3 +1,4 @@
+import "./proof-log-isolate.ts";
 import { randomBytes } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -69,6 +70,8 @@ function acceptedHandoff() {
 async function controllerMarker(): Promise<void> {
   const ratingManager = new RatingManager();
   let markDirtyCalls = 0;
+  let detachCalls = 0;
+  let releaseCalls = 0;
   const persistence = {
     saveTimeout: null,
     markDirty() {
@@ -85,6 +88,14 @@ async function controllerMarker(): Promise<void> {
     ratingManager,
     sessionManager: { getSessionId: () => "s1", cleanup: async () => undefined },
     timerManager: { dispose: () => undefined, clear: () => undefined },
+    stateManager: {
+      detach() {
+        detachCalls += 1;
+      },
+      async releaseLock() {
+        releaseCalls += 1;
+      },
+    },
   } as unknown as TawaOrchestratorContext;
   const controller = new LifecycleController(ctx, persistence);
   await controller.destroy();
@@ -93,8 +104,12 @@ async function controllerMarker(): Promise<void> {
     ratingManager.agentRatings.dev?.handoffsDropped === 1,
     "destroy records the dropped handoff on the rating",
   );
+  assert(detachCalls === 1, "destroy detaches the state manager so the static set drops it");
+  assert(releaseCalls === 1, "destroy releases the state lock after the teardown body");
   await controller.destroy();
   assert(markDirtyCalls === 1, "a second destroy does not mark the state dirty again");
+  assert(detachCalls === 1, "a second destroy does not detach the state manager again");
+  assert(releaseCalls === 1, "a second destroy does not release the state lock again");
 }
 
 async function detectReturn(): Promise<void> {

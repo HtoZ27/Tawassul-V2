@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "totalEstimateMs": 421141,
+  "totalEstimateMs": 429141,
   "shards": [
     {
       "name": "1",
@@ -109,7 +109,7 @@
     },
     {
       "name": "3",
-      "estimateMs": 101302,
+      "estimateMs": 105302,
       "steps": [
         "event-trust",
         "s017",
@@ -158,12 +158,13 @@
         "project-index-corrupt",
         "read-cache-bypass",
         "task-context-budget",
-        "continuity-resume"
+        "continuity-resume",
+        "state-manager-release"
       ]
     },
     {
       "name": "4",
-      "estimateMs": 102637,
+      "estimateMs": 106637,
       "steps": [
         "gen-merge",
         "roster-boundary",
@@ -213,7 +214,8 @@
         "record-search",
         "handoff-context-parity",
         "guard-routing",
-        "report-path"
+        "report-path",
+        "v2-tool-retention"
       ]
     }
   ]

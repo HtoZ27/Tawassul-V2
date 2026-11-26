@@ -8,7 +8,7 @@ import { ToolBlockedError } from "../hooks/tool-execute.ts";
 import { isBlockedToolForTawa } from "../security-policy.ts";
 import { logger } from "../utils/logger.ts";
 import { cpuMs, currentGeneration, genTag } from "../utils/boot-telemetry.ts";
-import { collectToolSchemas, makeV2Tool, schemaFingerprint, measureSchemaPayload } from "./adapters.ts";
+import { collectToolSchemas, closeToolSlots, makeV2Tool, schemaFingerprint, measureSchemaPayload, type ToolSlotState } from "./adapters.ts";
 import { toolNameSetHash } from "../services/tool-tripwire.ts";
 import { createAskBridge, registerAskPermission } from "./ask.ts";
 import { registerPilotCommand, registerPilotSkills } from "../skills/pilot.ts";
@@ -42,8 +42,8 @@ import {
 import {
   installBackgroundControl,
   recordBackgroundSnapshot,
+  sanitizeBackgroundItems,
   uninstallBackgroundControl,
-  type BackgroundItem,
 } from "../services/background-tasks.ts";
 import { finalizeDispatchOnIdle, noteDispatchLifecycleEvent } from "../services/dispatch-ledger.ts";
 import type { V2Context, V2SessionEvent, V2ToolContext, V2ToolHookInput } from "./types.ts";
@@ -61,7 +61,7 @@ const SETUP_STEP_PARKED: unique symbol = Symbol("setup-step-parked");
 export function noteExperimentalIdle(snapshot: { sessionID?: unknown; background?: unknown }): void {
   if (typeof snapshot.sessionID !== "string") return;
   if (Array.isArray(snapshot.background)) {
-    recordBackgroundSnapshot(snapshot.sessionID, snapshot.background as BackgroundItem[]);
+    recordBackgroundSnapshot(snapshot.sessionID, sanitizeBackgroundItems(snapshot.background));
   }
   void noteIdle();
   try {
@@ -748,7 +748,10 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
     }
 
     let addedToolCount = 0;
+    const toolSurfaceCount = Object.keys(wrapped).length;
     let registrationFailed = false;
+    const toolSlotState: ToolSlotState = { closed: false, slots: [] };
+    let toolRegistration: { dispose: () => unknown } | undefined;
     pendingSteps.add("tool-registration");
     const registrationWatchdog = setTimeout(() => {
       logger.warn(
@@ -758,339 +761,354 @@ export function createV2Setup(deps: V2SetupDeps = {}) {
     registrationWatchdog.unref?.();
     try {
       const nameSetHash = toolNameSetHash(Object.keys(wrapped));
-      const toolRegistration = await ctx.tool.transform((editor) => {
+      const registration = await ctx.tool.transform((editor) => {
+        if (toolSlotState.closed) return;
         let count = 0;
         for (const [name, def] of Object.entries(wrapped)) {
-          editor.add(makeV2Tool(ctx, name, def, schemas.get(name), askFactory));
+          editor.add(makeV2Tool(ctx, name, def, schemas.get(name), askFactory, toolSlotState));
           count += 1;
         }
         addedToolCount = count;
         logger.info(`[tawassul] v2 registered ${count} tools name-set ${nameSetHash}`);
       });
-      registered.push({ label: "tool registration", run: async () => toolRegistration.dispose() });
+      toolRegistration = registration;
+      registered.push({ label: "tool registration", run: async () => registration.dispose() });
       registeredSchemaFingerprint = schemaFingerprint(schemas);
     } catch (e) {
       registrationFailed = true;
+      closeToolSlots(toolSlotState);
       logger.error("[tawassul] v2 tool registration failed:", e);
     } finally {
       clearTimeout(registrationWatchdog);
       pendingSteps.delete("tool-registration");
     }
 
-    try {
-      const startedAt = performance.now();
-      await usageLedger.start();
-      const elapsed = performance.now() - startedAt;
-      if (elapsed > 20) {
-        logger.info(`[tawassul] v2 await usage-ledger ${genTag(generation)} ms=${elapsed.toFixed(1)}`);
-      }
-    } catch (e) {
-      logger.warn("[tawassul] usage ledger start skipped (fail-open):", e instanceof Error ? e.message : String(e));
-    }
-    try {
-      const startedAt = performance.now();
-      await warmWorkspace({
-        worktree: input.directory,
-        readMessages: async (sessionID) => sessionBridge.context({ sessionID }),
-      });
-      const elapsed = performance.now() - startedAt;
-      if (elapsed > 20) {
-        logger.info(`[tawassul] v2 await warm-workspace ${genTag(generation)} ms=${elapsed.toFixed(1)}`);
-      }
-    } catch (e) {
-      logger.warn("[tawassul] v2 context pack warm-up skipped:", e instanceof Error ? e.message : String(e));
-    }
-
-    const healthLine = `[tawassul] v2 health: tools=${addedToolCount} schemas=${schemas.size} ask=${askEnabled} skills=${pilotRegistrations.length}`;
-    if (registrationFailed || addedToolCount === 0) {
-      const reason = registrationFailed ? "tool registration failed" : "no tools registered";
-      logger.error(`${healthLine} reason=${reason}`);
-    } else {
-      logger.info(healthLine);
-    }
-
-    let refreshStop: (() => Promise<void>) | null = null;
-    if (readyProbe) {
-      const refresh = startSchemaRefresh({
-        probe: readyProbe,
-        refresh: () => refreshSchemas(initialSchemasCollected ? "refresh" : "late-init"),
-        reload: async () => {
-          await ctx.tool.reload();
-          registeredSchemaFingerprint = schemaFingerprint(schemas);
-        },
-        describe: () => `${schemas.size} schemas`,
-        attempts: deps.refresh?.attempts ?? SCHEMA_RETRY_ATTEMPTS,
-        delayMs: deps.refresh?.delayMs ?? SCHEMA_RETRY_DELAY_MS,
-      });
-      refreshStop = async () => {
-        refresh.stopProbe();
-        await refresh.stop();
-      };
-    }
-
-    if (plugin["tool.execute.before"]) {
+    const finishSetup = async (): Promise<() => Promise<void>> => {
       try {
-        const beforeRegistration = await ctx.tool.hook("execute.before", (rawInput) => {
-          const spec = rawInput as {
-            tool: string;
-            sessionID: string;
-            agent: string;
-            id: string;
-            input: unknown;
-          };
-          rememberCallTool(spec.id, spec.tool);
-          const v1Input = {
-            tool: toolNameToV1(spec.tool),
-            agent: spec.agent,
-            sessionID: spec.sessionID,
-            callID: spec.id,
-          };
-          const v1Output: { args: Record<string, unknown>; error?: string } = {
-            args: isTaskTool(spec.tool) ? subagentArgsToV1(spec.input) : cloneArgs(spec.input),
-          };
-          const bridge = plugin["tool.execute.before"];
-          if (!bridge) return;
-          return (async () => {
-            if (isBlockedForAgent(spec.agent, spec.tool)) {
-              throw new ToolBlockedError(
-                `[tawassul] ${spec.tool} is denied for agent ${spec.agent}`,
-              );
-            }
-            try {
-              await bridge(v1Input, v1Output);
-            } catch (e) {
-              if (isBlockError(e)) throw e;
-              reportSafetyHookFailure("execute.before", spec.tool, e);
-            }
-            const blocked = typeof v1Output.error === "string" ? v1Output.error.trim() : "";
-            if (blocked) throw new ToolBlockedError(blocked);
-            if (v1Output.args && typeof v1Output.args === "object") {
-              spec.input = isTaskTool(spec.tool) ? v1ArgsToSubagent(v1Output.args) : cloneArgs(v1Output.args);
-            }
-          })();
-        });
-        registered.push({ label: "execute.before", run: async () => beforeRegistration.dispose() });
-      } catch (e) {
-        logger.error("[tawassul] v2 execute.before registration failed:", e);
-      }
-    }
-
-    if (plugin["tool.execute.after"]) {
-      try {
-        const afterRegistration = await ctx.tool.hook("execute.after", (rawInput) => {
-          const spec = rawInput as unknown as V2ToolHookInput;
-          const v1Input = {
-            tool: toolNameToV1(spec.tool),
-            agent: spec.agent,
-            sessionID: spec.sessionID,
-            callID: spec.id,
-            args: cloneArgs(spec.input),
-          };
-          const bridge = plugin["tool.execute.after"];
-          if (!bridge) return;
-          const completed = spec.status === "completed" ? spec.result : undefined;
-          const originalText = resultText(completed);
-          const originalMetadata = spec.status === "completed" ? completed?.metadata : spec.error?.metadata;
-          const hasStatus = Object.prototype.hasOwnProperty.call(originalMetadata ?? {}, "status");
-          const syntheticStatus = !hasStatus;
-          const rawChildSessionID = originalMetadata?.sessionID;
-          const childSessionID = typeof rawChildSessionID === "string" ? rawChildSessionID : undefined;
-          const preserveTaskStatus = v1Input.tool === "task" && (hasStatus || childSessionID !== undefined);
-          const v1Output =
-            spec.status === "error"
-              ? {
-                  title: titleFromMetadata(originalMetadata),
-                  output: spec.error?.message ?? "tool failed",
-                  metadata: {
-                    ...(originalMetadata ?? {}),
-                    status: "error",
-                    error: spec.error?.message ?? "tool failed",
-                  } as Record<string, unknown>,
-                }
-              : {
-                  title: titleFromMetadata(originalMetadata),
-                  output: originalText,
-                  metadata: preserveTaskStatus
-                    ? ({ ...(originalMetadata ?? {}) } as Record<string, unknown>)
-                    : ({ ...(originalMetadata ?? {}), status: "completed" } as Record<string, unknown>),
-                };
-          return bridge(v1Input, v1Output)
-            .then(() => {
-              if (spec.status === "error") {
-                if (!spec.error) return;
-                const nextMetadata = jsonSafeMetadata(withTitleMetadata(spec.error.metadata, v1Output.title));
-                if (metadataChanged(spec.error.metadata, nextMetadata)) spec.error.metadata = nextMetadata;
-                return;
-              }
-              if (!spec.result) return;
-              try {
-                applyV1AfterOutput(spec.result, originalText, originalMetadata, v1Output, syntheticStatus);
-              } catch (e) {
-                logger.warn(`[tawassul] v2 execute.after write-back (${spec.tool}) failed:`, e);
-              }
-            })
-            .catch((e) => {
-              logger.warn(`[tawassul] v2 execute.after (${spec.tool}) failed:`, e);
-            });
-        });
-        registered.push({ label: "execute.after", run: async () => afterRegistration.dispose() });
-      } catch (e) {
-        logger.error("[tawassul] v2 execute.after registration failed:", e);
-      }
-    }
-
-    try {
-      const contextRegistration = await ctx.session.hook("context", async (event) => {
-        const sessionEvent = event as unknown as V2SessionEvent;
-        if (plugin["chat.message"]) {
-          await runChatMessageBridge(plugin, sessionEvent, processedMessages);
+        const startedAt = performance.now();
+        await usageLedger.start();
+        const elapsed = performance.now() - startedAt;
+        if (elapsed > 20) {
+          logger.info(`[tawassul] v2 await usage-ledger ${genTag(generation)} ms=${elapsed.toFixed(1)}`);
         }
-        handleContextEvent(sessionEvent);
-      });
-      registered.push({ label: "session context", run: async () => contextRegistration.dispose() });
-    } catch (e) {
-      logger.error("[tawassul] v2 session.context registration failed:", e);
-    }
-
-    try {
-      const idleRegistration = await ctx.session.hook("experimental.idle", (event) => {
-        noteExperimentalIdle(event as unknown as { sessionID?: unknown; background?: unknown });
-      });
-      registered.push({ label: "session idle", run: async () => idleRegistration.dispose() });
-    } catch (e) {
-      logger.error("[tawassul] v2 session.experimental.idle registration failed:", e);
-    }
-
-    installBackgroundControl({
-      cancelSubagent: async (childSessionID) => {
-        await ctx.session.interrupt({ sessionID: childSessionID });
-      },
-      reviveSubagent: async (childSessionID, text) => {
-        await ctx.session.prompt({ sessionID: childSessionID, text, resume: true });
-      },
-    });
-    registered.push({ label: "background control", run: async () => uninstallBackgroundControl() });
-
-    try {
-      const retryRegistration = await ctx.session.hook("retry", async (event) => {
-        await runRetryFailover(event as RetryFailoverPayload, {
-          switchModel: ctx.session.switchModel,
-          fallback: readActiveConfig(input.directory)?.fallback,
-        });
-      });
-      registered.push({ label: "session retry", run: async () => retryRegistration.dispose() });
-    } catch (e) {
-      logger.error("[tawassul] v2 session.retry registration failed:", e);
-    }
-
-    if (plugin["experimental.session.compacting"]) {
-      try {
-        const compactionRegistration = await ctx.session.hook("compaction", async (event) => {
-          await runCompactionBridge(plugin, event as unknown as V2SessionEvent);
-        });
-        registered.push({ label: "session compaction", run: async () => compactionRegistration.dispose() });
       } catch (e) {
-        logger.error("[tawassul] v2 session.compaction registration failed:", e);
+        logger.warn("[tawassul] usage ledger start skipped (fail-open):", e instanceof Error ? e.message : String(e));
       }
-    }
-
-    let relayTask: Promise<void> | null = null;
-    let relayIterator: AsyncIterator<unknown> | null = null;
-    if (typeof ctx.event?.subscribe === "function") {
-      let stream: AsyncIterable<unknown>;
       try {
-        stream = ctx.event.subscribe({ signal: relayAbort.signal }) as AsyncIterable<unknown>;
+        const startedAt = performance.now();
+        await warmWorkspace({
+          worktree: input.directory,
+          readMessages: async (sessionID) => sessionBridge.context({ sessionID }),
+        });
+        const elapsed = performance.now() - startedAt;
+        if (elapsed > 20) {
+          logger.info(`[tawassul] v2 await warm-workspace ${genTag(generation)} ms=${elapsed.toFixed(1)}`);
+        }
       } catch (e) {
-        logger.debug("[tawassul] v2 event subscribe rejected the stop signal; retrying without options:", e);
-        stream = ctx.event.subscribe() as AsyncIterable<unknown>;
+        logger.warn("[tawassul] v2 context pack warm-up skipped:", e instanceof Error ? e.message : String(e));
       }
-      relayTask = (async () => {
+
+      const appliedSuffix = addedToolCount === toolSurfaceCount ? "" : ` applied=${addedToolCount}`;
+      const healthLine = `[tawassul] v2 health: tools=${toolSurfaceCount} schemas=${schemas.size} ask=${askEnabled} skills=${pilotRegistrations.length}${appliedSuffix}`;
+      if (registrationFailed || toolSurfaceCount === 0) {
+        const reason = registrationFailed ? "tool registration failed" : "no tools registered";
+        logger.error(`${healthLine} reason=${reason}`);
+      } else {
+        logger.info(healthLine);
+      }
+
+      let refreshStop: (() => Promise<void>) | null = null;
+      if (readyProbe) {
+        const refresh = startSchemaRefresh({
+          probe: readyProbe,
+          refresh: () => refreshSchemas(initialSchemasCollected ? "refresh" : "late-init"),
+          reload: async () => {
+            await ctx.tool.reload();
+            registeredSchemaFingerprint = schemaFingerprint(schemas);
+          },
+          describe: () => `${schemas.size} schemas`,
+          attempts: deps.refresh?.attempts ?? SCHEMA_RETRY_ATTEMPTS,
+          delayMs: deps.refresh?.delayMs ?? SCHEMA_RETRY_DELAY_MS,
+        });
+        refreshStop = async () => {
+          refresh.stopProbe();
+          await refresh.stop();
+        };
+      }
+
+      if (plugin["tool.execute.before"]) {
         try {
-          const iterator = stream[Symbol.asyncIterator]();
-          relayIterator = iterator;
-          for (;;) {
-            const next = await iterator.next();
-            if (disposed) return;
-            if (next.done) return;
-            const raw = next.value;
-            try {
-              noteDispatchLifecycleEvent(raw);
-            } catch (e) {
-              logger.debug("[tawassul] v2 dispatch lifecycle skipped:", e);
-            }
-            try {
-              await handlePackEvent(raw, input.directory, sessionBridge);
-            } catch (e) {
-              logger.debug("[tawassul] v2 context pack event failed:", e);
-            }
-            try {
-              await usageLedger.handleEvent(raw);
-              usageShadow.handleEvent(raw);
-            } catch (e) {
-              logger.debug("[tawassul] usage ledger event skipped:", e);
-            }
-            if (!plugin.event) continue;
-            const mapped = mapV2EventToV1(raw, { toolOf: (id) => callTools.get(id) });
-            for (const ev of mapped) {
+          const beforeRegistration = await ctx.tool.hook("execute.before", (rawInput) => {
+            const spec = rawInput as {
+              tool: string;
+              sessionID: string;
+              agent: string;
+              id: string;
+              input: unknown;
+            };
+            rememberCallTool(spec.id, spec.tool);
+            const v1Input = {
+              tool: toolNameToV1(spec.tool),
+              agent: spec.agent,
+              sessionID: spec.sessionID,
+              callID: spec.id,
+            };
+            const v1Output: { args: Record<string, unknown>; error?: string } = {
+              args: isTaskTool(spec.tool) ? subagentArgsToV1(spec.input) : cloneArgs(spec.input),
+            };
+            const bridge = plugin["tool.execute.before"];
+            if (!bridge) return;
+            return (async () => {
+              if (isBlockedForAgent(spec.agent, spec.tool)) {
+                throw new ToolBlockedError(
+                  `[tawassul] ${spec.tool} is denied for agent ${spec.agent}`,
+                );
+              }
               try {
-                if (plugin.event) await plugin.event({ event: ev });
+                await bridge(v1Input, v1Output);
               } catch (e) {
-                logger.debug("[tawassul] v2 event bridge failed:", e);
+                if (isBlockError(e)) throw e;
+                reportSafetyHookFailure("execute.before", spec.tool, e);
+              }
+              const blocked = typeof v1Output.error === "string" ? v1Output.error.trim() : "";
+              if (blocked) throw new ToolBlockedError(blocked);
+              if (v1Output.args && typeof v1Output.args === "object") {
+                spec.input = isTaskTool(spec.tool) ? v1ArgsToSubagent(v1Output.args) : cloneArgs(v1Output.args);
+              }
+            })();
+          });
+          registered.push({ label: "execute.before", run: async () => beforeRegistration.dispose() });
+        } catch (e) {
+          logger.error("[tawassul] v2 execute.before registration failed:", e);
+        }
+      }
+
+      if (plugin["tool.execute.after"]) {
+        try {
+          const afterRegistration = await ctx.tool.hook("execute.after", (rawInput) => {
+            const spec = rawInput as unknown as V2ToolHookInput;
+            const v1Input = {
+              tool: toolNameToV1(spec.tool),
+              agent: spec.agent,
+              sessionID: spec.sessionID,
+              callID: spec.id,
+              args: cloneArgs(spec.input),
+            };
+            const bridge = plugin["tool.execute.after"];
+            if (!bridge) return;
+            const completed = spec.status === "completed" ? spec.result : undefined;
+            const originalText = resultText(completed);
+            const originalMetadata = spec.status === "completed" ? completed?.metadata : spec.error?.metadata;
+            const hasStatus = Object.prototype.hasOwnProperty.call(originalMetadata ?? {}, "status");
+            const syntheticStatus = !hasStatus;
+            const rawChildSessionID = originalMetadata?.sessionID;
+            const childSessionID = typeof rawChildSessionID === "string" ? rawChildSessionID : undefined;
+            const preserveTaskStatus = v1Input.tool === "task" && (hasStatus || childSessionID !== undefined);
+            const v1Output =
+              spec.status === "error"
+                ? {
+                    title: titleFromMetadata(originalMetadata),
+                    output: spec.error?.message ?? "tool failed",
+                    metadata: {
+                      ...(originalMetadata ?? {}),
+                      status: "error",
+                      error: spec.error?.message ?? "tool failed",
+                    } as Record<string, unknown>,
+                  }
+                : {
+                    title: titleFromMetadata(originalMetadata),
+                    output: originalText,
+                    metadata: preserveTaskStatus
+                      ? ({ ...(originalMetadata ?? {}) } as Record<string, unknown>)
+                      : ({ ...(originalMetadata ?? {}), status: "completed" } as Record<string, unknown>),
+                  };
+            return bridge(v1Input, v1Output)
+              .then(() => {
+                if (spec.status === "error") {
+                  if (!spec.error) return;
+                  const nextMetadata = jsonSafeMetadata(withTitleMetadata(spec.error.metadata, v1Output.title));
+                  if (metadataChanged(spec.error.metadata, nextMetadata)) spec.error.metadata = nextMetadata;
+                  return;
+                }
+                if (!spec.result) return;
+                try {
+                  applyV1AfterOutput(spec.result, originalText, originalMetadata, v1Output, syntheticStatus);
+                } catch (e) {
+                  logger.warn(`[tawassul] v2 execute.after write-back (${spec.tool}) failed:`, e);
+                }
+              })
+              .catch((e) => {
+                logger.warn(`[tawassul] v2 execute.after (${spec.tool}) failed:`, e);
+              });
+          });
+          registered.push({ label: "execute.after", run: async () => afterRegistration.dispose() });
+        } catch (e) {
+          logger.error("[tawassul] v2 execute.after registration failed:", e);
+        }
+      }
+
+      try {
+        const contextRegistration = await ctx.session.hook("context", async (event) => {
+          const sessionEvent = event as unknown as V2SessionEvent;
+          if (plugin["chat.message"]) {
+            await runChatMessageBridge(plugin, sessionEvent, processedMessages);
+          }
+          handleContextEvent(sessionEvent);
+        });
+        registered.push({ label: "session context", run: async () => contextRegistration.dispose() });
+      } catch (e) {
+        logger.error("[tawassul] v2 session.context registration failed:", e);
+      }
+
+      try {
+        const idleRegistration = await ctx.session.hook("experimental.idle", (event) => {
+          noteExperimentalIdle(event as unknown as { sessionID?: unknown; background?: unknown });
+        });
+        registered.push({ label: "session idle", run: async () => idleRegistration.dispose() });
+      } catch (e) {
+        logger.error("[tawassul] v2 session.experimental.idle registration failed:", e);
+      }
+
+      installBackgroundControl({
+        cancelSubagent: async (childSessionID) => {
+          await ctx.session.interrupt({ sessionID: childSessionID });
+        },
+        reviveSubagent: async (childSessionID, text) => {
+          await ctx.session.prompt({ sessionID: childSessionID, text, resume: true });
+        },
+      });
+      registered.push({ label: "background control", run: async () => uninstallBackgroundControl() });
+
+      try {
+        const retryRegistration = await ctx.session.hook("retry", async (event) => {
+          await runRetryFailover(event as RetryFailoverPayload, {
+            switchModel: ctx.session.switchModel,
+            fallback: readActiveConfig(input.directory)?.fallback,
+          });
+        });
+        registered.push({ label: "session retry", run: async () => retryRegistration.dispose() });
+      } catch (e) {
+        logger.error("[tawassul] v2 session.retry registration failed:", e);
+      }
+
+      if (plugin["experimental.session.compacting"]) {
+        try {
+          const compactionRegistration = await ctx.session.hook("compaction", async (event) => {
+            await runCompactionBridge(plugin, event as unknown as V2SessionEvent);
+          });
+          registered.push({ label: "session compaction", run: async () => compactionRegistration.dispose() });
+        } catch (e) {
+          logger.error("[tawassul] v2 session.compaction registration failed:", e);
+        }
+      }
+
+      let relayTask: Promise<void> | null = null;
+      let relayIterator: AsyncIterator<unknown> | null = null;
+      if (typeof ctx.event?.subscribe === "function") {
+        let stream: AsyncIterable<unknown>;
+        try {
+          stream = ctx.event.subscribe({ signal: relayAbort.signal }) as AsyncIterable<unknown>;
+        } catch (e) {
+          logger.debug("[tawassul] v2 event subscribe rejected the stop signal; retrying without options:", e);
+          stream = ctx.event.subscribe() as AsyncIterable<unknown>;
+        }
+        relayTask = (async () => {
+          try {
+            const iterator = stream[Symbol.asyncIterator]();
+            relayIterator = iterator;
+            for (;;) {
+              const next = await iterator.next();
+              if (disposed) return;
+              if (next.done) return;
+              const raw = next.value;
+              try {
+                noteDispatchLifecycleEvent(raw);
+              } catch (e) {
+                logger.debug("[tawassul] v2 dispatch lifecycle skipped:", e);
+              }
+              try {
+                await handlePackEvent(raw, input.directory, sessionBridge);
+              } catch (e) {
+                logger.debug("[tawassul] v2 context pack event failed:", e);
+              }
+              try {
+                await usageLedger.handleEvent(raw);
+                usageShadow.handleEvent(raw);
+              } catch (e) {
+                logger.debug("[tawassul] usage ledger event skipped:", e);
+              }
+              if (!plugin.event) continue;
+              const mapped = mapV2EventToV1(raw, { toolOf: (id) => callTools.get(id) });
+              for (const ev of mapped) {
+                try {
+                  if (plugin.event) await plugin.event({ event: ev });
+                } catch (e) {
+                  logger.debug("[tawassul] v2 event bridge failed:", e);
+                }
               }
             }
-          }
-        } catch (e) {
-          if (!disposed) logger.error("[tawassul] v2 event stream failed:", e);
-        }
-      })();
-    }
-
-    if (plugin.config) {
-      logger.info(
-        "[tawassul] v2: config hook has no host channel; models are baked at config generation and the tawa deny list is enforced in execute.before",
-      );
-    }
-
-    let cleanupCompletion: Promise<void> | null = null;
-    const runCleanup = async (): Promise<void> => {
-      const cleanupStartedAt = performance.now();
-      const cleanupCpu = process.cpuUsage();
-      logger.info(`[tawassul] v2 cleanup ${genTag(generation)} start`);
-      disposed = true;
-      relayAbort.abort();
-      await boundCleanupStep("refresh stop", async () => {
-        if (refreshStop) await refreshStop();
-      });
-      await boundCleanupStep("event relay", async () => {
-        if (relayIterator?.return) {
-          try {
-            await relayIterator.return();
           } catch (e) {
-            logger.debug("[tawassul] v2 event relay return failed:", e);
+            if (!disposed) logger.error("[tawassul] v2 event stream failed:", e);
           }
-        }
-        if (relayTask) await relayTask;
-      });
-      for (const entry of registered) {
-        await boundCleanupStep(entry.label, entry.run);
+        })();
       }
-      await boundCleanupStep("plugin dispose", async () => {
-        if (plugin.dispose) await plugin.dispose();
-      });
-      await boundCleanupStep("bridge clear", async () => clearSessionBridge(sessionBridge));
-      await boundCleanupStep("shadow clear", async () => clearUsageShadow(usageShadow));
-      await boundCleanupStep("ledger clear", async () => clearUsageLedger(usageLedger));
+
+      if (plugin.config) {
+        logger.info(
+          "[tawassul] v2: config hook has no host channel; models are baked at config generation and the tawa deny list is enforced in execute.before",
+        );
+      }
+
+      let cleanupCompletion: Promise<void> | null = null;
+      const runCleanup = async (): Promise<void> => {
+        const cleanupStartedAt = performance.now();
+        const cleanupCpu = process.cpuUsage();
+        logger.info(`[tawassul] v2 cleanup ${genTag(generation)} start`);
+        disposed = true;
+        closeToolSlots(toolSlotState);
+        relayAbort.abort();
+        await boundCleanupStep("refresh stop", async () => {
+          if (refreshStop) await refreshStop();
+        });
+        await boundCleanupStep("event relay", async () => {
+          if (relayIterator?.return) {
+            try {
+              await relayIterator.return();
+            } catch (e) {
+              logger.debug("[tawassul] v2 event relay return failed:", e);
+            }
+          }
+          if (relayTask) await relayTask;
+        });
+        for (const entry of registered) {
+          await boundCleanupStep(entry.label, entry.run);
+        }
+        await boundCleanupStep("plugin dispose", async () => {
+          if (plugin.dispose) await plugin.dispose();
+        });
+        await boundCleanupStep("bridge clear", async () => clearSessionBridge(sessionBridge));
+        await boundCleanupStep("shadow clear", async () => clearUsageShadow(usageShadow));
+        await boundCleanupStep("ledger clear", async () => clearUsageLedger(usageLedger));
+        logger.info(
+          `[tawassul] v2 cleanup ${genTag(generation)} steps=${cleanupSteps} done=${cleanupSteps - cleanupAbandoned - cleanupFailed} abandoned=${cleanupAbandoned} failed=${cleanupFailed} maxMs=${cleanupMaxMs.toFixed(1)} ms=${(performance.now() - cleanupStartedAt).toFixed(1)} cpuMs=${cpuMs(cleanupCpu)}`,
+        );
+      };
+
       logger.info(
-        `[tawassul] v2 cleanup ${genTag(generation)} steps=${cleanupSteps} done=${cleanupSteps - cleanupAbandoned - cleanupFailed} abandoned=${cleanupAbandoned} failed=${cleanupFailed} maxMs=${cleanupMaxMs.toFixed(1)} ms=${(performance.now() - cleanupStartedAt).toFixed(1)} cpuMs=${cpuMs(cleanupCpu)}`,
+        `[tawassul] v2 setup ${genTag(generation)} ready ms=${(performance.now() - setupStartedAt).toFixed(1)} cpuMs=${cpuMs(setupCpu)} tools=${toolSurfaceCount}`,
       );
+      return () => {
+        if (!cleanupCompletion) cleanupCompletion = runCleanup();
+        return cleanupCompletion;
+      };
     };
 
-    logger.info(
-      `[tawassul] v2 setup ${genTag(generation)} ready ms=${(performance.now() - setupStartedAt).toFixed(1)} cpuMs=${cpuMs(setupCpu)} tools=${addedToolCount}`,
-    );
-    return () => {
-      if (!cleanupCompletion) cleanupCompletion = runCleanup();
-      return cleanupCompletion;
-    };
+    try {
+      return await finishSetup();
+    } catch (e) {
+      closeToolSlots(toolSlotState);
+      await toolRegistration?.dispose();
+      throw e;
+    }
   };
 }
