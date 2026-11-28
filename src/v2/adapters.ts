@@ -12,7 +12,7 @@ const EMPTY_INPUT_SCHEMA = { type: "object", properties: {}, additionalPropertie
 export async function collectToolSchemas(
   tools: Record<string, ToolDefinition>,
 ): Promise<Map<string, Record<string, unknown>>> {
-  const schemas = new Map<string, Record<string, unknown>>();
+  const schemas = cachedSchemas(tools) ?? new Map<string, Record<string, unknown>>(); if (schemas.size > 0 && schemaCache.has(schemaCacheKey(tools))) return schemas;
   await Promise.all(
     Object.entries(tools).map(async ([name, def]) => {
       try {
@@ -24,7 +24,7 @@ export async function collectToolSchemas(
       }
     }),
   );
-  return schemas;
+  cacheSchemas(tools, schemas); return schemas;
 }
 
 function stableSchemaJson(value: unknown): string {
@@ -227,4 +227,27 @@ export function makeV2Tool(
     options: { codemode: false },
     execute: executeV2Tool.bind(undefined, slot),
   };
+}
+const SCHEMA_CACHE_SYMBOL = Symbol.for("tawassul.v2.schemaCache");
+type SchemaCache = Map<string, Map<string, Record<string, unknown>>>;
+const schemaCache: SchemaCache = ((globalThis as Record<symbol, SchemaCache | undefined>)[SCHEMA_CACHE_SYMBOL] ??= new Map());
+function schemaCacheKey(tools: Record<string, ToolDefinition>): string {
+  const surface = Object.entries(tools).map(([name, def]) => `${name}:${def.description ?? ""}:${Object.keys((def.args ?? {}) as Zod.ZodRawShape).join(",")}`).sort().join("|");
+  return `${import.meta.url}\u0000${surface}`;
+}
+function cachedSchemas(tools: Record<string, ToolDefinition>): Map<string, Record<string, unknown>> | undefined {
+  const key = schemaCacheKey(tools);
+  const hit = schemaCache.get(key);
+  if (hit === undefined) return undefined;
+  schemaCache.delete(key);
+  schemaCache.set(key, hit);
+  return new Map(hit);
+}
+function cacheSchemas(tools: Record<string, ToolDefinition>, schemas: Map<string, Record<string, unknown>>): void {
+  const key = schemaCacheKey(tools);
+  if (schemaCache.size >= 64) {
+    const oldest = schemaCache.keys().next().value;
+    if (oldest !== undefined) schemaCache.delete(oldest);
+  }
+  schemaCache.set(key, new Map(schemas));
 }

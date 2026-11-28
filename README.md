@@ -19,7 +19,7 @@
   <a href="GUIDE.md">Guide</a> ·
   <a href="WORKFLOW.md">Workflow</a> ·
   <a href="docs/README.md">Documentation</a> ·
-  <a href="docs/release-notes-0.1.7.md">Release notes</a>
+  <a href="docs/release-notes-0.1.8.md">Release notes</a>
 </p>
 
 </div>
@@ -29,7 +29,7 @@ mission boards, checkpoints, memory records, and a disciplined tool surface to a
 single workspace or to every workspace of a user. It is local-first: state lives
 on your disk, in your configuration directory, and nowhere else.
 
-**Status:** `0.1.7-experimental`. The Linux lane carries the full feature set.
+**Status:** `0.1.8-experimental`. The Linux lane carries the full feature set.
 Native Windows x64 is supported for the bundle and wasm lane (native receipt
 2026-11-02, re-run on 2026-11-03); database maintenance and scheduled triggers
 need the Linux lane. Emulator evidence is published and clearly labelled.
@@ -324,7 +324,7 @@ the evidence level of every row, is in
 
 | Document | Content |
 | --- | --- |
-| [docs/release-notes-0.1.7.md](docs/release-notes-0.1.7.md) | What this release contains and what it does not claim |
+| [docs/release-notes-0.1.8.md](docs/release-notes-0.1.8.md) | What this release contains and what it does not claim |
 | [docs/features.md](docs/features.md) | Capability catalogue and the status of each claim |
 | [docs/installation.md](docs/installation.md) | Project and global install, upgrade, uninstall |
 | [docs/agents.md](docs/agents.md) | Who does what, and how routing works |

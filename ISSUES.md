@@ -3275,6 +3275,26 @@ Consequence: repeated reloads inflate the host until the 1500 MB guard or the
 about 2 GB are pressure measurements, not boot measurements, and batch
 campaigns must use `host:refresh -- --restart` instead of reload.
 
+**Correction (2026-11-27).** The retainer claim above no longer holds for the
+setup context. Commit `b6c0fe7` clears the tool slots on dispose, and
+`scripts/prove-v2-tool-retention.ts` (15 assertions) shows that a host-held
+tool `execute` no longer keeps `ctx`, the definition, or the captured payload
+alive; the transform registry may still retain the definition object, but its
+reachable graph no longer includes the instance. The second
+(callback-indirection) fix was applied on top of HEAD in an isolated in-repo
+experiment: every targeted proof (`prove-v2-tool-retention`, `prove-e17`,
+`prove-e38`, `prove-cleanup-bound`, `prove-disclosure`, `prove-reload-live`,
+`prove-skill-registration`, `prove-v2-compat`, `prove-v2-ask-bridge`,
+`prove-setup-budget`) and `gate:fast` passed, so it broke nothing. It was then
+reverted because the same in-repo proof with a strict GC canary and an 8 MiB
+tool payload measured 0.00 MiB pinned after cleanup on unmodified HEAD, and its
+WeakRef retention case passed 5/5 on unmodified HEAD. No host-retained callback
+retention was demonstrated, so the fix is not justified and nothing unproven is
+live. The earlier live probe (428.5 -> 489.8 -> 558.8 MB heap, +61.3 and +69.0
+MB) had no canary, no clean restart baseline, and sampled process-wide heap, so
+it is not admissible as acceptance evidence. E-66 remains open; no further code
+change is made without in-repo proof.
+
 Upstream matches (searched 2026-11-24): the same retention family is already
 tracked. #54140 reports plugin instances that accumulate across config reloads
 and are never torn down (open, assigned); #54631 reports that every `/reload`

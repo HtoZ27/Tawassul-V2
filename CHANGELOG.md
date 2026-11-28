@@ -5,6 +5,18 @@ All notable changes to Tawassul are recorded here. The format follows
 semantic versioning with an explicit experimental suffix while the project is
 pre-stable.
 
+## [0.1.8-experimental]
+
+### Changed
+
+- Tool schemas are cached per plugin copy, keyed by the install URL and tool
+  surface with a 64-entry cap, so repeated reloads do less schema work.
+- Memory-retention records were corrected after heap snapshots and an A/B
+  slope measurement. No leak fix was proven in this tree and no cleanup-timeout
+  change is included.
+
+[0.1.8-experimental]: docs/release-notes-0.1.8.md
+
 ## [0.1.7-experimental]
 
 ### Added
